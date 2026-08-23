@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saudi Architects | بوابة إدارة المشاريع</title>
+    <!-- مكتبة Bootstrap لتصميم احترافي وسريع -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background-color: #1a2b4c; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn-primary { background-color: #d4a373; border: none; }
+        .btn-primary:hover { background-color: #bc8f63; }
+    </style>
+</head>
+<body>
+
+    <!-- البانر العلوي (Header) -->
+    <nav class="navbar navbar-dark mb-4 p-3">
+        <div class="container d-flex justify-content-between">
+            <h4 class="text-white mb-0">Saudi Architects</h4>
+            <span class="text-white-50">نظام تحديث الموقف التنفيذي</span>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 800px;">
+        <div class="card p-4 mb-5">
+            <h5 class="mb-4 text-center" style="color: #1a2b4c;">تسجيل التحديث الأسبوعي</h5>
+            
+            <!-- نموذج إدخال البيانات -->
+            <form id="portfolioForm" action="/submit" method="post" enctype="multipart/form-data">
+                
+                <!-- قسم تسجيل الدخول والصلاحيات -->
+                <div class="row mb-4 pb-3 border-bottom">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">اسم المستخدم (المدير)</label>
+                        <input type="text" class="form-control" name="username" required placeholder="مثال: m.hussein">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">كلمة المرور</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                </div>
+
+                <!-- قسم بيانات المشروع المتنوعة -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">اختر المشروع</label>
+                        <select class="form-select" name="project_name" required>
+                            <option value="" disabled selected>-- اختر من القائمة --</option>
+                            <option value="Le Meridien">Le Meridien</option>
+                            <option value="Commercial Complex">المجمع التجاري</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">تاريخ نهاية المشروع المتوقع</label>
+                        <input type="date" class="form-control" name="end_date" required>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">نسبة الإنجاز الفعلية (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control" name="progress" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">الحالة العامة</label>
+                        <select class="form-select" name="status" required>
+                            <option value="On Track">على المسار (On Track)</option>
+                            <option value="Delayed">متأخر (Delayed)</option>
+                            <option value="At Risk">في خطر (At Risk)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">أهم التحديات / الملاحظات</label>
+                    <textarea class="form-control" name="notes" rows="3" placeholder="أدخل ملخص الموقف التنفيذي..."></textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">إرفاق صور أو مستندات (اختياري)</label>
+                    <input class="form-control" type="file" name="attachment" accept="image/*,.pdf">
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2 fs-5">حفظ وتأكيد البيانات</button>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>
