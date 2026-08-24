@@ -10,7 +10,7 @@
         .navbar { background-color: #1a2b4c; border-bottom: 4px solid #d4a373; }
         .section-card { border: none; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; padding: 20px; background: white; }
         .section-title { color: #1a2b4c; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .btn-submit { background-color: #1a2b4c; color: white; border: none; font-size: 1.2rem; }
+        .btn-submit { background-color: #1a2b4c; color: white; border: none; font-size: 1.1rem; font-weight: bold; }
         .btn-submit:disabled { background-color: #ccc; cursor: not-allowed; }
     </style>
 </head>
@@ -30,7 +30,6 @@
             <div class="section-card">
                 <div class="section-title">
                     <span>بيانات الدخول والمعلومات الأساسية</span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveSection('section-1')">حفظ هذا القسم</button>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3"><label>User Name</label><input type="text" class="form-control" name="username" required></div>
@@ -47,7 +46,6 @@
             <div class="section-card">
                 <div class="section-title">
                     <span>البيانات التعاقدية والفواتير</span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveSection('section-2')">حفظ هذا القسم</button>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3"><label>قيمة عقد الاستشاري</label><input type="text" class="form-control money-input" name="consultant_val" required></div>
@@ -67,7 +65,6 @@
             <div class="section-card">
                 <div class="section-title">
                     <span>تعديلات عقد الاستشاري (أوامر التغيير والتمديد)</span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveSection('section-3')">حفظ هذا القسم</button>
                 </div>
                 <div class="row">
                     <div class="col-md-4 mb-3"><label>عدد أوامر التغيير</label><input type="number" class="form-control" name="consultant_mods_count" required></div>
@@ -80,7 +77,6 @@
             <div class="section-card">
                 <div class="section-title">
                     <span>تعديلات عقد المقاول (أوامر التغيير والتمديد)</span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveSection('section-4')">حفظ هذا القسم</button>
                 </div>
                 <div class="row">
                     <div class="col-md-4 mb-3"><label>عدد أوامر التغيير</label><input type="number" class="form-control" name="contractor_mods_count" required></div>
@@ -93,7 +89,6 @@
             <div class="section-card">
                 <div class="section-title">
                     <span>التواريخ ونسب الإنجاز الفنية</span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveSection('section-5')">حفظ هذا القسم</button>
                 </div>
                 <div class="row">
                     <div class="col-md-3 mb-3"><label>البداية التعاقدية</label><input type="date" class="form-control" name="start_contractual" required></div>
@@ -136,7 +131,6 @@
             <div class="section-card">
                 <div class="section-title">
                     <span>الموقف التنفيذي والمعوقات</span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveSection('section-6')">حفظ هذا القسم</button>
                 </div>
                 <div class="mb-3"><label>الأعمال المنتهية الأسبوع السابق</label><textarea class="form-control" name="works_completed" required></textarea></div>
                 <div class="mb-3"><label>الأعمال الجارية الأسبوع الحالي</label><textarea class="form-control" name="works_ongoing" required></textarea></div>
@@ -162,7 +156,6 @@
             <div class="section-card">
                 <div class="section-title">
                     <span>التقييم والمستندات الفنية</span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveSection('section-7')">حفظ هذا القسم</button>
                 </div>
                 <div class="row">
                     <div class="col-md-3 mb-3"><label>توفر العمالة (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_labor" required></div>
@@ -185,41 +178,95 @@
                 </div>
             </div>
 
-            <!-- 8. المرفقات وزر الإرسال النهائي -->
+            <!-- 8. المرفقات -->
             <div class="section-card">
                 <h5 class="section-title"><span>رفع صور الإنجاز الأسبوعية (اختياري)</span></h5>
                 <input class="form-control" type="file" id="fileUpload" name="attachment" accept="image/*,.pdf,.xls,.xlsx">
                 <small class="text-danger">الحد الأقصى للملف: 5 ميجابايت.</small>
             </div>
 
-            <button type="submit" id="submitBtn" class="btn btn-submit w-100 py-3 mb-5">حفظ وتأكيد التحديث الأسبوعي النهائي</button>
+            <!-- أزرار التحكم والإرسال الجديدة -->
+            <div class="row mb-5">
+                <div class="col-md-3 mb-2">
+                    <button type="button" class="btn btn-outline-primary w-100 py-3 fw-bold" onclick="restoreDraft()">⬇️ استرجاع آخر مسودة</button>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <button type="button" class="btn btn-outline-success w-100 py-3 fw-bold" onclick="saveDraft()">💾 حفظ البيانات بجهازي</button>
+                </div>
+                <div class="col-md-6 mb-2">
+                    <button type="submit" id="submitBtn" class="btn btn-submit w-100 py-3" disabled>إرسال التحديث الأسبوعي النهائي</button>
+                </div>
+            </div>
+
         </form>
     </div>
 
     <script>
-        function saveSection(sectionId) {
-            const projectName = document.getElementById('project_name_field').value;
-            if (!projectName) {
-                alert("يرجى كتابة اسم المشروع أولاً في القسم الأول لتتمكن من حفظ القسم.");
-                return;
-            }
+        // --- دالة حفظ البيانات كمسودة في جهاز المستخدم (التخزين المحلي) ---
+        function saveDraft() {
+            const formData = new FormData(document.getElementById('portfolioForm'));
+            const dataObj = {};
             
-            fetch('/save-section', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `project_name=${encodeURIComponent(projectName)}`
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.message) {
-                    alert(data.message);
-                } else {
-                    alert("حدث خطأ أثناء الحفظ.");
+            // جمع جميع الحقول النصية والرقمية
+            formData.forEach((value, key) => {
+                if(key !== 'attachment' && !key.includes('[]')) {
+                    dataObj[key] = value;
                 }
-            })
-            .catch(err => alert("تعذر الاتصال بالسيرفر."));
+            });
+            
+            // جمع العوائق بشكل منفصل
+            const rows = document.querySelectorAll('.obstacle-row');
+            let obstacles = [];
+            rows.forEach(row => {
+                const desc = row.querySelector('input[type="text"]').value;
+                const isClosed = row.querySelector('input[type="checkbox"]').checked;
+                if (desc) obstacles.push({ description: desc, closed: isClosed });
+            });
+            dataObj['obstacles'] = obstacles;
+            
+            // الحفظ في ذاكرة المتصفح
+            localStorage.setItem('saudi_architects_draft', JSON.stringify(dataObj));
+            alert("تم حفظ البيانات بنجاح كمسودة على هذا الجهاز! يمكنك استرجاعها في أي وقت.");
         }
 
+        // --- دالة استرجاع المسودة المحفوظة ---
+        function restoreDraft() {
+            const saved = localStorage.getItem('saudi_architects_draft');
+            if(!saved) {
+                alert("لا توجد بيانات محفوظة مسبقاً على هذا الجهاز.");
+                return;
+            }
+            const dataObj = JSON.parse(saved);
+            
+            // تعبئة الحقول العادية
+            for (const key in dataObj) {
+                if(key === 'obstacles') continue;
+                const field = document.querySelector(`[name="${key}"]`);
+                if(field) field.value = dataObj[key];
+            }
+            
+            // إعادة رسم العوائق
+            if(dataObj.obstacles && dataObj.obstacles.length > 0) {
+                const container = document.getElementById('obstacles-container');
+                container.innerHTML = ''; // تفريغ الخانة الافتراضية
+                dataObj.obstacles.forEach(obs => {
+                    const row = document.createElement('div');
+                    row.className = 'input-group mb-2 obstacle-row';
+                    row.innerHTML = `
+                        <input type="text" class="form-control" name="obstacle_desc[]" value="${obs.description}" required>
+                        <div class="input-group-text">
+                            <input class="form-check-input mt-0 me-2" type="checkbox" name="obstacle_closed[]" value="true" ${obs.closed ? 'checked' : ''}> تم الحل؟
+                        </div>
+                        <button class="btn btn-danger" type="button" onclick="this.parentElement.remove(); validateForm();">حذف</button>
+                    `;
+                    container.appendChild(row);
+                });
+            }
+            validateForm(); // إعادة فحص جاهزية الفورم بعد الاسترجاع
+            alert("تم استرجاع آخر بيانات محفوظة بنجاح!");
+        }
+
+        // --- باقي دوال النظام ---
         function addObstacle() {
             const container = document.getElementById('obstacles-container');
             const row = document.createElement('div');
@@ -236,12 +283,11 @@
 
         const form = document.getElementById('portfolioForm');
 
-        // تفعيل الإطار الأحمر عند محاولة الإرسال إذا كان هناك حقول ناقصة
         form.addEventListener('submit', function(e) {
             if (!form.checkValidity()) {
                 e.preventDefault();
                 e.stopPropagation();
-                form.classList.add('was-validated'); // هذا هو السحر الذي يظهر الإطارات الحمراء
+                form.classList.add('was-validated'); 
                 alert("يرجى إكمال جميع الحقول الإلزامية المحددة باللون الأحمر قبل إرسال التحديث.");
             } else {
                 const rows = document.querySelectorAll('.obstacle-row');
@@ -278,6 +324,20 @@
                 this.value = parts.join('.');
             });
         });
+        
+        // التحقق من تفعيل الزر النهائي عند الإدخال
+        const submitBtn = document.getElementById('submitBtn');
+        function validateForm() {
+            if(form.checkValidity()) {
+                submitBtn.disabled = false;
+                submitBtn.classList.add('bg-success');
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.classList.remove('bg-success');
+            }
+        }
+        form.addEventListener('input', validateForm);
+
     </script>
 </body>
 </html>
