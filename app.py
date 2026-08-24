@@ -41,7 +41,7 @@ def upload_to_cloudinary(file: UploadFile):
 # ==========================================
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None):
-    return templates.TemplateResponse("login.html", {"request": request, "error": error})
+    return templates.TemplateResponse(request, "login.html", {"error": error})
 
 @app.post("/login")
 async def do_login(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -52,13 +52,11 @@ async def do_login(request: Request, username: str = Form(...), password: str = 
     conn.close()
 
     if user:
-        # إذا كانت البيانات صحيحة، ننشئ جلسة تحويل للصفحة الرئيسية
         response = RedirectResponse(url="/", status_code=303)
-        response.set_cookie(key="auth_user", value=username, max_age=86400) # الجلسة صالحة ليوم كامل
+        response.set_cookie(key="auth_user", value=username, max_age=86400)
         return response
     else:
-        # إذا كانت خاطئة نعيده لصفحة الدخول مع رسالة خطأ
-        return templates.TemplateResponse("login.html", {"request": request, "error": "اسم المستخدم أو كلمة المرور غير صحيحة"})
+        return templates.TemplateResponse(request, "login.html", {"error": "اسم المستخدم أو كلمة المرور غير صحيحة"})
 
 @app.get("/logout")
 async def logout():
@@ -75,7 +73,6 @@ async def home_page(request: Request):
     if not auth_user:
         return RedirectResponse(url="/login")
 
-    # جلب بيانات المدير والمشروع للملء التلقائي
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT manager_name, project_name FROM users WHERE username=%s", (auth_user,))
@@ -88,8 +85,7 @@ async def home_page(request: Request):
         return response
 
     manager_name, project_name = user
-    return templates.TemplateResponse("index.html", {
-        "request": request, 
+    return templates.TemplateResponse(request, "index.html", {
         "username": auth_user, 
         "manager_name": manager_name, 
         "project_name": project_name
@@ -170,7 +166,6 @@ async def submit_data(request: Request):
 
 @app.post("/save-section")
 async def save_section(request: Request):
-    form_data = await request.form()
     return {"message": "تم حفظ بيانات القسم بنجاح!"}
 
 @app.get("/api/powerbi")
