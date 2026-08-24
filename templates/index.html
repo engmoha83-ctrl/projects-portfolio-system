@@ -1,16 +1,19 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" id="html-tag">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>المعماريون السعوديون | بوابة التحديث الأسبوعي</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <title data-i18n="page_title">المعماريون السعوديون | بوابة التحديث الأسبوعي</title>
+    <!-- سيتم تغيير ملف البوتستراب برمجياً بناءً على اتجاه اللغة (RTL / LTR) -->
+    <link id="bs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <style>
         body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .navbar { background-color: #1a2b4c; border-bottom: 4px solid #d4a373; }
         .section-card { border: none; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; padding: 20px; background: white; }
         .section-title { color: #1a2b4c; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .btn-submit { background-color: #1a2b4c; color: white; border: none; font-size: 1.1rem; font-weight: bold; }
+        .lang-selector { background: transparent; color: white; border: 1px solid #d4a373; border-radius: 5px; padding: 2px 5px; outline: none; }
+        .lang-selector option { color: black; }
     </style>
 </head>
 <body>
@@ -18,105 +21,114 @@
     <nav class="navbar navbar-dark mb-4 p-3">
         <div class="container d-flex justify-content-between align-items-center">
             <div>
-                <h4 class="text-white mb-0">المعماريون السعوديون</h4>
-                <span class="text-white-50">بوابة إدارة المشاريع - التحديث الأسبوعي</span>
+                <h4 class="text-white mb-0" data-i18n="nav_title">المعماريون السعوديون</h4>
+                <span class="text-white-50" data-i18n="nav_subtitle">بوابة إدارة المشاريع - التحديث الأسبوعي</span>
             </div>
-            <a href="/logout" class="btn btn-danger btn-sm">تسجيل خروج</a>
+            <div>
+                <!-- قائمة اختيار اللغة -->
+                <span class="text-white me-2">🌐</span>
+                <select id="langSwitch" class="lang-selector me-3" onchange="changeLanguage(this.value)">
+                    <option value="ar">العربية</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                </select>
+                <a href="/logout" class="btn btn-danger btn-sm" data-i18n="btn_logout">تسجيل خروج</a>
+            </div>
         </div>
     </nav>
 
     <div class="container" style="max-width: 900px;">
-        <!-- رسالة ترحيبية بالمدير -->
         <div class="alert alert-info text-center mb-4">
-            أهلاً بك، <strong>{{ manager_name }}</strong>. جاري العمل على <strong>{{ project_name }}</strong>.
+            <span data-i18n="welcome_msg">أهلاً بك،</span> <strong>{{ manager_name }}</strong>. 
+            <span data-i18n="working_on">جاري العمل على</span> <strong>{{ project_name }}</strong>.
         </div>
 
         <form id="portfolioForm" action="/submit" method="post" enctype="multipart/form-data" novalidate>
             
-            <!-- 1. بيانات المشروع الأساسية -->
+            <!-- 1. بيانات المشروع -->
             <div class="section-card">
-                <h5 class="section-title">المعلومات الأساسية للمشروع</h5>
+                <h5 class="section-title" data-i18n="sec1_title">المعلومات الأساسية للمشروع</h5>
                 <div class="row">
-                    <!-- حقول مغلقة تُملأ تلقائياً من قاعدة البيانات -->
-                    <div class="col-md-4 mb-3"><label>اسم المستخدم</label><input type="text" class="form-control bg-light" name="username" value="{{ username }}" readonly required></div>
-                    <div class="col-md-4 mb-3"><label>اسم مدير المشروع</label><input type="text" class="form-control bg-light" name="manager_name" value="{{ manager_name }}" readonly required></div>
-                    <div class="col-md-4 mb-3"><label>اسم المشروع</label><input type="text" class="form-control bg-light" id="project_name_field" name="project_name" value="{{ project_name }}" readonly required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_username">اسم المستخدم</label><input type="text" class="form-control bg-light" name="username" value="{{ username }}" readonly required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_manager">اسم مدير المشروع</label><input type="text" class="form-control bg-light" name="manager_name" value="{{ manager_name }}" readonly required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_project">اسم المشروع</label><input type="text" class="form-control bg-light" id="project_name_field" name="project_name" value="{{ project_name }}" readonly required></div>
                     
-                    <div class="col-md-12 mb-3"><label>وصف المشروع (مم يتكون)</label><textarea class="form-control" name="project_desc" required></textarea></div>
-                    <div class="col-md-6 mb-3"><label>نوع المشروع</label><input type="text" class="form-control" name="project_type" required></div>
-                    <div class="col-md-6 mb-3"><label>تاريخ البيانات الحالي</label><input type="date" class="form-control" name="current_data_date" required></div>
+                    <div class="col-md-12 mb-3"><label data-i18n="f_desc">وصف المشروع (مم يتكون)</label><textarea class="form-control" name="project_desc" required></textarea></div>
+                    <div class="col-md-6 mb-3"><label data-i18n="f_type">نوع المشروع</label><input type="text" class="form-control" name="project_type" required></div>
+                    <div class="col-md-6 mb-3"><label data-i18n="f_date">تاريخ البيانات الحالي</label><input type="date" class="form-control" name="current_data_date" required></div>
                 </div>
             </div>
 
-            <!-- 2. البيانات التعاقدية الأساسية والفواتير -->
+            <!-- 2. العقود والفواتير -->
             <div class="section-card">
-                <h5 class="section-title">البيانات التعاقدية والفواتير</h5>
+                <h5 class="section-title" data-i18n="sec2_title">البيانات التعاقدية والفواتير</h5>
                 <div class="row">
-                    <div class="col-md-6 mb-3"><label>قيمة عقد الاستشاري</label><input type="text" class="form-control money-input" name="consultant_val" required></div>
-                    <div class="col-md-6 mb-3"><label>قيمة عقد المقاول (إن وجدت)</label><input type="text" class="form-control money-input" name="contractor_val" required></div>
+                    <div class="col-md-6 mb-3"><label data-i18n="f_cons_val">قيمة عقد الاستشاري</label><input type="text" class="form-control money-input" name="consultant_val" required></div>
+                    <div class="col-md-6 mb-3"><label data-i18n="f_cont_val">قيمة عقد المقاول (إن وجدت)</label><input type="text" class="form-control money-input" name="contractor_val" required></div>
                     
-                    <div class="col-md-4 mb-3"><label>عدد فواتير الاستشاري</label><input type="number" class="form-control" name="cons_inv_count" required></div>
-                    <div class="col-md-4 mb-3"><label>قيمة فواتير الاستشاري</label><input type="text" class="form-control money-input" name="cons_inv_val" required></div>
-                    <div class="col-md-4 mb-3"><label>تاريخ آخر فاتورة للاستشاري</label><input type="date" class="form-control" name="cons_inv_date" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_cons_inv_c">عدد فواتير الاستشاري</label><input type="number" class="form-control" name="cons_inv_count" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_cons_inv_v">قيمة فواتير الاستشاري</label><input type="text" class="form-control money-input" name="cons_inv_val" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_cons_inv_d">تاريخ آخر فاتورة للاستشاري</label><input type="date" class="form-control" name="cons_inv_date" required></div>
                     
-                    <div class="col-md-4 mb-3"><label>عدد فواتير المقاول</label><input type="number" class="form-control" name="cont_inv_count" required></div>
-                    <div class="col-md-4 mb-3"><label>قيمة فواتير المقاول</label><input type="text" class="form-control money-input" name="cont_inv_val" required></div>
-                    <div class="col-md-4 mb-3"><label>تاريخ آخر فاتورة للمقاول</label><input type="date" class="form-control" name="cont_inv_date" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_cont_inv_c">عدد فواتير المقاول</label><input type="number" class="form-control" name="cont_inv_count" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_cont_inv_v">قيمة فواتير المقاول</label><input type="text" class="form-control money-input" name="cont_inv_val" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_cont_inv_d">تاريخ آخر فاتورة للمقاول</label><input type="date" class="form-control" name="cont_inv_date" required></div>
                 </div>
             </div>
 
             <!-- 3. تعديلات عقد الاستشاري -->
             <div class="section-card">
-                <h5 class="section-title">تعديلات عقد الاستشاري (أوامر التغيير والتمديد)</h5>
+                <h5 class="section-title" data-i18n="sec3_title">تعديلات عقد الاستشاري (أوامر التغيير والتمديد)</h5>
                 <div class="row">
-                    <div class="col-md-4 mb-3"><label>عدد أوامر التغيير</label><input type="number" class="form-control" name="consultant_mods_count" required></div>
-                    <div class="col-md-4 mb-3"><label>قيمة أوامر التغيير</label><input type="text" class="form-control money-input" name="consultant_mods_val" required></div>
-                    <div class="col-md-4 mb-3"><label>تمديد مدة العقد إن وجدت</label><input type="text" class="form-control" name="consultant_mods_time" placeholder="مثال: 30 يوم" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_chg_count">عدد أوامر التغيير</label><input type="number" class="form-control" name="consultant_mods_count" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_chg_val">قيمة أوامر التغيير</label><input type="text" class="form-control money-input" name="consultant_mods_val" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_chg_time">تمديد مدة العقد إن وجدت</label><input type="text" class="form-control" name="consultant_mods_time" data-i18n-ph="ph_days" placeholder="مثال: 30 يوم" required></div>
                 </div>
             </div>
 
             <!-- 4. تعديلات عقد المقاول -->
             <div class="section-card">
-                <h5 class="section-title">تعديلات عقد المقاول (أوامر التغيير والتمديد)</h5>
+                <h5 class="section-title" data-i18n="sec4_title">تعديلات عقد المقاول (أوامر التغيير والتمديد)</h5>
                 <div class="row">
-                    <div class="col-md-4 mb-3"><label>عدد أوامر التغيير</label><input type="number" class="form-control" name="contractor_mods_count" required></div>
-                    <div class="col-md-4 mb-3"><label>قيمة أوامر التغيير</label><input type="text" class="form-control money-input" name="contractor_mods_val" required></div>
-                    <div class="col-md-4 mb-3"><label>تمديد مدة العقد إن وجدت</label><input type="text" class="form-control" name="contractor_mods_time" placeholder="مثال: 60 يوم" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_chg_count">عدد أوامر التغيير</label><input type="number" class="form-control" name="contractor_mods_count" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_chg_val">قيمة أوامر التغيير</label><input type="text" class="form-control money-input" name="contractor_mods_val" required></div>
+                    <div class="col-md-4 mb-3"><label data-i18n="f_chg_time">تمديد مدة العقد إن وجدت</label><input type="text" class="form-control" name="contractor_mods_time" data-i18n-ph="ph_days" placeholder="مثال: 30 يوم" required></div>
                 </div>
             </div>
 
             <!-- 5. التواريخ ونسب الإنجاز -->
             <div class="section-card">
-                <h5 class="section-title">التواريخ ونسب الإنجاز الفنية</h5>
+                <h5 class="section-title" data-i18n="sec5_title">التواريخ ونسب الإنجاز الفنية</h5>
                 <div class="row">
-                    <div class="col-md-3 mb-3"><label>البداية التعاقدية</label><input type="date" class="form-control" name="start_contractual" required></div>
-                    <div class="col-md-3 mb-3"><label>النهاية التعاقدية</label><input type="date" class="form-control" name="end_contractual" required></div>
-                    <div class="col-md-3 mb-3"><label>البداية الفعلية</label><input type="date" class="form-control" name="start_actual" required></div>
-                    <div class="col-md-3 mb-3"><label>النهاية المتوقعة</label><input type="date" class="form-control" name="end_expected" required></div>
+                    <div class="col-md-3 mb-3"><label data-i18n="f_start_c">البداية التعاقدية</label><input type="date" class="form-control" name="start_contractual" required></div>
+                    <div class="col-md-3 mb-3"><label data-i18n="f_end_c">النهاية التعاقدية</label><input type="date" class="form-control" name="end_contractual" required></div>
+                    <div class="col-md-3 mb-3"><label data-i18n="f_start_a">البداية الفعلية</label><input type="date" class="form-control" name="start_actual" required></div>
+                    <div class="col-md-3 mb-3"><label data-i18n="f_end_e">النهاية المتوقعة</label><input type="date" class="form-control" name="end_expected" required></div>
                     
                     <div class="col-md-3 mb-3">
-                        <label>إنجاز فعلي (حالي)</label>
+                        <label data-i18n="f_prog_ac">إنجاز فعلي (حالي)</label>
                         <div class="input-group">
                             <input type="number" step="any" class="form-control" name="act_prog_cur" placeholder="0" required>
                             <span class="input-group-text">%</span>
                         </div>
                     </div>
                     <div class="col-md-3 mb-3">
-                        <label>إنجاز فعلي (سابق)</label>
+                        <label data-i18n="f_prog_ap">إنجاز فعلي (سابق)</label>
                         <div class="input-group">
                             <input type="number" step="any" class="form-control" name="act_prog_prev" placeholder="0" required>
                             <span class="input-group-text">%</span>
                         </div>
                     </div>
                     <div class="col-md-3 mb-3">
-                        <label>إنجاز مخطط (حالي)</label>
+                        <label data-i18n="f_prog_pc">إنجاز مخطط (حالي)</label>
                         <div class="input-group">
                             <input type="number" step="any" class="form-control" name="plan_prog_cur" placeholder="0" required>
                             <span class="input-group-text">%</span>
                         </div>
                     </div>
                     <div class="col-md-3 mb-3">
-                        <label>إنجاز مخطط (سابق)</label>
+                        <label data-i18n="f_prog_pp">إنجاز مخطط (سابق)</label>
                         <div class="input-group">
                             <input type="number" step="any" class="form-control" name="plan_prog_prev" placeholder="0" required>
                             <span class="input-group-text">%</span>
@@ -127,23 +139,23 @@
 
             <!-- 6. الموقف التنفيذي والمعوقات -->
             <div class="section-card">
-                <h5 class="section-title">الموقف التنفيذي والمعوقات</h5>
-                <div class="mb-3"><label>الأعمال المنتهية الأسبوع السابق</label><textarea class="form-control" name="works_completed" required></textarea></div>
-                <div class="mb-3"><label>الأعمال الجارية الأسبوع الحالي</label><textarea class="form-control" name="works_ongoing" required></textarea></div>
-                <div class="mb-3"><label>الأعمال المتوقعة الأسبوع القادم</label><textarea class="form-control" name="works_planned" required></textarea></div>
+                <h5 class="section-title" data-i18n="sec6_title">الموقف التنفيذي والمعوقات</h5>
+                <div class="mb-3"><label data-i18n="f_works_c">الأعمال المنتهية الأسبوع السابق</label><textarea class="form-control" name="works_completed" required></textarea></div>
+                <div class="mb-3"><label data-i18n="f_works_o">الأعمال الجارية الأسبوع الحالي</label><textarea class="form-control" name="works_ongoing" required></textarea></div>
+                <div class="mb-3"><label data-i18n="f_works_p">الأعمال المتوقعة الأسبوع القادم</label><textarea class="form-control" name="works_planned" required></textarea></div>
                 
                 <hr>
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <label class="fw-bold">وصف المعوقات الحالية للمشروع</label>
-                    <button type="button" class="btn btn-sm btn-success" onclick="addObstacle()">+ إضافة مشكلة جديدة</button>
+                    <label class="fw-bold" data-i18n="f_obs_title">وصف المعوقات الحالية للمشروع</label>
+                    <button type="button" class="btn btn-sm btn-success" onclick="addObstacle()" data-i18n="btn_add_obs">+ إضافة مشكلة جديدة</button>
                 </div>
                 <div id="obstacles-container">
                     <div class="input-group mb-2 obstacle-row">
-                        <input type="text" class="form-control" name="obstacle_desc[]" placeholder="وصف العائق (يمكنك حذفه إذا لا يوجد)" required>
+                        <input type="text" class="form-control" name="obstacle_desc[]" data-i18n-ph="ph_obs" placeholder="وصف العائق (يمكنك حذفه إذا لا يوجد)" required>
                         <div class="input-group-text">
-                            <input class="form-check-input mt-0 me-2" type="checkbox" name="obstacle_closed[]" value="true"> تم الحل؟
+                            <input class="form-check-input mt-0 mx-2" type="checkbox" name="obstacle_closed[]" value="true"> <span data-i18n="f_obs_closed">تم الحل؟</span>
                         </div>
-                        <button class="btn btn-danger" type="button" onclick="this.parentElement.remove();">حذف</button>
+                        <button class="btn btn-danger" type="button" onclick="this.parentElement.remove();" data-i18n="btn_delete">حذف</button>
                     </div>
                 </div>
                 <input type="hidden" name="obstacles_json" id="obstacles_json">
@@ -151,47 +163,33 @@
 
             <!-- 7. التقييم والمستندات الفنية -->
             <div class="section-card">
-                <h5 class="section-title">التقييم والمستندات الفنية</h5>
+                <h5 class="section-title" data-i18n="sec7_title">التقييم والمستندات الفنية</h5>
                 <div class="row">
-                    <div class="col-md-3 mb-3"><label>توفر العمالة (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_labor" required></div>
-                    <div class="col-md-3 mb-3"><label>توفر المعدات (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_equip" required></div>
-                    <div class="col-md-3 mb-3"><label>القدرة المالية (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_financial" required></div>
-                    <div class="col-md-3 mb-3"><label>الالتزام بالسلامة (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_hse" required></div>
-                </div>
-                <hr>
-                <div class="row">
-                    <div class="col-md-4 mb-3"><label>مخططات مقدمة</label><input type="number" class="form-control" name="drawings_sub" required></div>
-                    <div class="col-md-4 mb-3"><label>مخططات معتمدة</label><input type="number" class="form-control" name="drawings_app" required></div>
-                    <div class="col-md-4 mb-3"><label>مخططات تحت الدراسة</label><input type="number" class="form-control" name="drawings_rev" required></div>
-                    
-                    <div class="col-md-4 mb-3"><label>طلبات استلام مقدمة</label><input type="number" class="form-control" name="ir_sub" required></div>
-                    <div class="col-md-4 mb-3"><label>طلبات استلام معتمدة</label><input type="number" class="form-control" name="ir_app" required></div>
-                    <div class="col-md-4 mb-3"><label>طلبات استلام تحت الدراسة</label><input type="number" class="form-control" name="ir_rev" required></div>
-                    
-                    <div class="col-md-6 mb-3"><label>تقارير عدم المطابقة المفتوحة</label><input type="number" class="form-control" name="ncr_open" required></div>
-                    <div class="col-md-6 mb-3"><label>تقارير عدم المطابقة المغلقة</label><input type="number" class="form-control" name="ncr_closed" required></div>
+                    <div class="col-md-3 mb-3"><label data-i18n="f_eval_1">توفر العمالة (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_labor" required></div>
+                    <div class="col-md-3 mb-3"><label data-i18n="f_eval_2">توفر المعدات (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_equip" required></div>
+                    <div class="col-md-3 mb-3"><label data-i18n="f_eval_3">القدرة المالية (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_financial" required></div>
+                    <div class="col-md-3 mb-3"><label data-i18n="f_eval_4">الالتزام بالسلامة (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_hse" required></div>
                 </div>
             </div>
 
-            <!-- 8. المرفقات -->
+            <!-- 8. المرفقات والأزرار -->
             <div class="section-card">
-                <h5 class="section-title"><span>رفع صور الإنجاز الأسبوعية (اختياري)</span></h5>
+                <h5 class="section-title"><span data-i18n="sec8_title">رفع صور الإنجاز الأسبوعية (اختياري)</span></h5>
                 <input class="form-control" type="file" id="fileUpload" name="attachment" accept="image/*,.pdf,.xls,.xlsx">
-                <small class="text-danger">الحد الأقصى للملف: 5 ميجابايت.</small>
+                <small class="text-danger" data-i18n="f_max_size">الحد الأقصى للملف: 5 ميجابايت.</small>
             </div>
 
             <input type="file" id="draftFileInput" accept=".json" style="display: none;" onchange="loadFromFile(event)">
 
-            <!-- أزرار التحكم والإرسال النهائية -->
             <div class="row mb-5">
                 <div class="col-md-3 mb-2">
-                    <button type="button" class="btn btn-outline-primary w-100 py-3 fw-bold" onclick="document.getElementById('draftFileInput').click()">⬇️ استرجاع من ملف مسودة</button>
+                    <button type="button" class="btn btn-outline-primary w-100 py-3 fw-bold" onclick="document.getElementById('draftFileInput').click()" data-i18n="btn_restore">⬇️ استرجاع من ملف مسودة</button>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <button type="button" class="btn btn-outline-success w-100 py-3 fw-bold" onclick="saveToFile()">💾 حفظ كملف مسودة بجهازي</button>
+                    <button type="button" class="btn btn-outline-success w-100 py-3 fw-bold" onclick="saveToFile()" data-i18n="btn_save">💾 حفظ كملف مسودة بجهازي</button>
                 </div>
                 <div class="col-md-6 mb-2">
-                    <button type="submit" id="submitBtn" class="btn btn-submit w-100 py-3 bg-success">إرسال التحديث الأسبوعي النهائي</button>
+                    <button type="submit" id="submitBtn" class="btn btn-submit w-100 py-3 bg-success" data-i18n="btn_submit">إرسال التحديث الأسبوعي النهائي</button>
                 </div>
             </div>
 
@@ -199,6 +197,102 @@
     </div>
 
     <script>
+        // ==========================================
+        // 1. قاموس اللغات (Dictionary)
+        // ==========================================
+        const i18n = {
+            ar: {
+                page_title: "المعماريون السعوديون | بوابة التحديث", nav_title: "المعماريون السعوديون", nav_subtitle: "بوابة إدارة المشاريع - التحديث الأسبوعي", btn_logout: "تسجيل خروج", welcome_msg: "أهلاً بك،", working_on: "جاري العمل على",
+                sec1_title: "المعلومات الأساسية للمشروع", f_username: "اسم المستخدم", f_manager: "اسم مدير المشروع", f_project: "اسم المشروع", f_desc: "وصف المشروع (مم يتكون)", f_type: "نوع المشروع", f_date: "تاريخ البيانات الحالي",
+                sec2_title: "البيانات التعاقدية والفواتير", f_cons_val: "قيمة عقد الاستشاري", f_cont_val: "قيمة عقد المقاول", f_cons_inv_c: "عدد فواتير الاستشاري", f_cons_inv_v: "قيمة فواتير الاستشاري", f_cons_inv_d: "تاريخ آخر فاتورة للاستشاري", f_cont_inv_c: "عدد فواتير المقاول", f_cont_inv_v: "قيمة فواتير المقاول", f_cont_inv_d: "تاريخ آخر فاتورة للمقاول",
+                sec3_title: "تعديلات عقد الاستشاري", sec4_title: "تعديلات عقد المقاول", f_chg_count: "عدد أوامر التغيير", f_chg_val: "قيمة أوامر التغيير", f_chg_time: "تمديد مدة العقد إن وجدت", ph_days: "مثال: 30 يوم",
+                sec5_title: "التواريخ ونسب الإنجاز الفنية", f_start_c: "البداية التعاقدية", f_end_c: "النهاية التعاقدية", f_start_a: "البداية الفعلية", f_end_e: "النهاية المتوقعة", f_prog_ac: "إنجاز فعلي (حالي)", f_prog_ap: "إنجاز فعلي (سابق)", f_prog_pc: "إنجاز مخطط (حالي)", f_prog_pp: "إنجاز مخطط (سابق)",
+                sec6_title: "الموقف التنفيذي والمعوقات", f_works_c: "الأعمال المنتهية الأسبوع السابق", f_works_o: "الأعمال الجارية الأسبوع الحالي", f_works_p: "الأعمال المتوقعة الأسبوع القادم", f_obs_title: "وصف المعوقات الحالية", btn_add_obs: "+ إضافة مشكلة جديدة", ph_obs: "وصف العائق (يمكنك حذفه)", f_obs_closed: "تم الحل؟", btn_delete: "حذف",
+                sec7_title: "التقييم الفني", f_eval_1: "توفر العمالة (1-10)", f_eval_2: "توفر المعدات (1-10)", f_eval_3: "القدرة المالية (1-10)", f_eval_4: "الالتزام بالسلامة (1-10)",
+                sec8_title: "رفع صور الإنجاز (اختياري)", f_max_size: "الحد الأقصى للملف: 5 ميجابايت.",
+                btn_restore: "⬇️ استرجاع مسودة", btn_save: "💾 حفظ مسودة", btn_submit: "إرسال التحديث النهائي"
+            },
+            en: {
+                page_title: "Saudi Architects | Portal", nav_title: "Saudi Architects", nav_subtitle: "Projects Management - Weekly Update", btn_logout: "Logout", welcome_msg: "Welcome,", working_on: "Working on",
+                sec1_title: "Basic Project Information", f_username: "Username", f_manager: "Project Manager", f_project: "Project Name", f_desc: "Project Description", f_type: "Project Type", f_date: "Current Data Date",
+                sec2_title: "Contractual Data & Invoices", f_cons_val: "Consultant Contract Value", f_cont_val: "Contractor Contract Value", f_cons_inv_c: "Consultant Invoices Count", f_cons_inv_v: "Consultant Invoices Value", f_cons_inv_d: "Last Cons. Invoice Date", f_cont_inv_c: "Contractor Invoices Count", f_cont_inv_v: "Contractor Invoices Value", f_cont_inv_d: "Last Cont. Invoice Date",
+                sec3_title: "Consultant Contract Modifications", sec4_title: "Contractor Contract Modifications", f_chg_count: "Change Orders Count", f_chg_val: "Change Orders Value", f_chg_time: "Time Extension (If any)", ph_days: "e.g., 30 Days",
+                sec5_title: "Dates & Progress", f_start_c: "Contractual Start", f_end_c: "Contractual End", f_start_a: "Actual Start", f_end_e: "Expected End", f_prog_ac: "Actual Progress (Current)", f_prog_ap: "Actual Progress (Prev)", f_prog_pc: "Planned Progress (Current)", f_prog_pp: "Planned Progress (Prev)",
+                sec6_title: "Executive Status & Obstacles", f_works_c: "Completed Works (Last Week)", f_works_o: "Ongoing Works (This Week)", f_works_p: "Planned Works (Next Week)", f_obs_title: "Current Project Obstacles", btn_add_obs: "+ Add New Issue", ph_obs: "Obstacle description", f_obs_closed: "Solved?", btn_delete: "Delete",
+                sec7_title: "Technical Evaluation", f_eval_1: "Labor Availability (1-10)", f_eval_2: "Equipment Availability (1-10)", f_eval_3: "Financial Capability (1-10)", f_eval_4: "HSE Commitment (1-10)",
+                sec8_title: "Upload Progress Photos (Optional)", f_max_size: "Max file size: 5 MB.",
+                btn_restore: "⬇️ Load Draft", btn_save: "💾 Save Draft", btn_submit: "Submit Weekly Update"
+            },
+            fr: {
+                page_title: "Architectes Saoudiens | Portail", nav_title: "Architectes Saoudiens", nav_subtitle: "Gestion de Projets - Mise à jour", btn_logout: "Déconnexion", welcome_msg: "Bienvenue,", working_on: "Projet actuel:",
+                sec1_title: "Informations de base du projet", f_username: "Nom d'utilisateur", f_manager: "Chef de projet", f_project: "Nom du projet", f_desc: "Description du projet", f_type: "Type de projet", f_date: "Date des données",
+                sec2_title: "Données contractuelles et factures", f_cons_val: "Valeur du contrat consultant", f_cont_val: "Valeur du contrat entrepreneur", f_cons_inv_c: "Nbr factures consultant", f_cons_inv_v: "Valeur factures consultant", f_cons_inv_d: "Date dernière facture cons.", f_cont_inv_c: "Nbr factures entrepreneur", f_cont_inv_v: "Valeur factures entrepreneur", f_cont_inv_d: "Date dernière facture entr.",
+                sec3_title: "Modifications Contrat Consultant", sec4_title: "Modifications Contrat Entrepreneur", f_chg_count: "Nombre d'ordres de modif", f_chg_val: "Valeur des modif", f_chg_time: "Extension de délai", ph_days: "ex: 30 Jours",
+                sec5_title: "Dates et Avancement", f_start_c: "Début contractuel", f_end_c: "Fin contractuelle", f_start_a: "Début réel", f_end_e: "Fin prévue", f_prog_ac: "Avancement réel (Actuel)", f_prog_ap: "Avancement réel (Précédent)", f_prog_pc: "Avancement prévu (Actuel)", f_prog_pp: "Avancement prévu (Précédent)",
+                sec6_title: "Statut exécutif et obstacles", f_works_c: "Travaux terminés", f_works_o: "Travaux en cours", f_works_p: "Travaux prévus", f_obs_title: "Obstacles actuels", btn_add_obs: "+ Ajouter un problème", ph_obs: "Description de l'obstacle", f_obs_closed: "Résolu?", btn_delete: "Supprimer",
+                sec7_title: "Évaluation technique", f_eval_1: "Main-d'œuvre (1-10)", f_eval_2: "Équipement (1-10)", f_eval_3: "Capacité financière (1-10)", f_eval_4: "Sécurité (1-10)",
+                sec8_title: "Photos d'avancement (Optionnel)", f_max_size: "Taille max: 5 Mo.",
+                btn_restore: "⬇️ Charger brouillon", btn_save: "💾 Sauvegarder", btn_submit: "Soumettre la mise à jour"
+            },
+            es: {
+                page_title: "Arquitectos Saudíes | Portal", nav_title: "Arquitectos Saudíes", nav_subtitle: "Gestión de Proyectos - Actualización", btn_logout: "Cerrar sesión", welcome_msg: "Bienvenido,", working_on: "Trabajando en",
+                sec1_title: "Información Básica del Proyecto", f_username: "Usuario", f_manager: "Gerente del Proyecto", f_project: "Nombre del Proyecto", f_desc: "Descripción del Proyecto", f_type: "Tipo de Proyecto", f_date: "Fecha de Datos",
+                sec2_title: "Datos Contractuales y Facturas", f_cons_val: "Valor Contrato Consultor", f_cont_val: "Valor Contrato Contratista", f_cons_inv_c: "Cant. Facturas Consultor", f_cons_inv_v: "Valor Facturas Consultor", f_cons_inv_d: "Fecha Última Factura Cons.", f_cont_inv_c: "Cant. Facturas Contratista", f_cont_inv_v: "Valor Facturas Contratista", f_cont_inv_d: "Fecha Última Factura Cont.",
+                sec3_title: "Modificaciones Contrato Consultor", sec4_title: "Modificaciones Contrato Contratista", f_chg_count: "Cantidad de Órdenes de Cambio", f_chg_val: "Valor de Cambios", f_chg_time: "Extensión de Tiempo", ph_days: "ej: 30 Días",
+                sec5_title: "Fechas y Progreso", f_start_c: "Inicio Contractual", f_end_c: "Fin Contractual", f_start_a: "Inicio Real", f_end_e: "Fin Esperado", f_prog_ac: "Progreso Real (Actual)", f_prog_ap: "Progreso Real (Anterior)", f_prog_pc: "Progreso Planeado (Actual)", f_prog_pp: "Progreso Planeado (Anterior)",
+                sec6_title: "Estado Ejecutivo y Obstáculos", f_works_c: "Trabajos Completados", f_works_o: "Trabajos en Curso", f_works_p: "Trabajos Planeados", f_obs_title: "Obstáculos Actuales", btn_add_obs: "+ Añadir Problema", ph_obs: "Descripción del obstáculo", f_obs_closed: "¿Resuelto?", btn_delete: "Eliminar",
+                sec7_title: "Evaluación Técnica", f_eval_1: "Mano de obra (1-10)", f_eval_2: "Equipos (1-10)", f_eval_3: "Capacidad Financiera (1-10)", f_eval_4: "Seguridad (1-10)",
+                sec8_title: "Subir Fotos (Opcional)", f_max_size: "Tamaño máximo: 5 MB.",
+                btn_restore: "⬇️ Cargar Borrador", btn_save: "💾 Guardar Borrador", btn_submit: "Enviar Actualización"
+            }
+        };
+
+        // ==========================================
+        // 2. دالة تغيير اللغة والاتجاه
+        // ==========================================
+        function changeLanguage(lang) {
+            // حفظ التفضيل في جهاز المستخدم
+            localStorage.setItem('saudi_arch_lang', lang);
+            
+            // تغيير اتجاه الصفحة وملف البوتستراب
+            const htmlTag = document.getElementById('html-tag');
+            const bsCss = document.getElementById('bs-css');
+            
+            if (lang === 'ar') {
+                htmlTag.setAttribute('dir', 'rtl');
+                htmlTag.setAttribute('lang', 'ar');
+                bsCss.href = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css";
+            } else {
+                htmlTag.setAttribute('dir', 'ltr');
+                htmlTag.setAttribute('lang', lang);
+                bsCss.href = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css";
+            }
+
+            // تبديل النصوص بناءً على القاموس
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if(i18n[lang][key]) el.innerHTML = i18n[lang][key];
+            });
+
+            // تبديل النصوص الإرشادية (Placeholders)
+            document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+                const key = el.getAttribute('data-i18n-ph');
+                if(i18n[lang][key]) el.placeholder = i18n[lang][key];
+            });
+            
+            // تحديث قيمة قائمة الاختيار لتطابق اللغة الحالية
+            document.getElementById('langSwitch').value = lang;
+        }
+
+        // استعادة لغة المستخدم عند فتح الصفحة
+        window.onload = () => {
+            const savedLang = localStorage.getItem('saudi_arch_lang') || 'ar';
+            changeLanguage(savedLang);
+        };
+
+        // ==========================================
+        // 3. باقي دوال النظام (الحفظ والاسترجاع والإرسال)
+        // ==========================================
         function saveToFile() {
             const formData = new FormData(document.getElementById('portfolioForm'));
             const dataObj = {};
@@ -219,14 +313,12 @@
             const dataStr = JSON.stringify(dataObj, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-            
-            const projName = dataObj['project_name'] || 'مشروع';
+            const projName = dataObj['project_name'] || 'Project';
             const dateStr = new Date().toISOString().split('T')[0];
-            const fileName = `مسودة_${projName}_${dateStr}.json`;
-
+            
             const a = document.createElement('a');
             a.href = url;
-            a.download = fileName;
+            a.download = `Draft_${projName}_${dateStr}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -236,7 +328,6 @@
         function loadFromFile(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
@@ -256,22 +347,23 @@
                     if(dataObj.obstacles) {
                         const container = document.getElementById('obstacles-container');
                         container.innerHTML = ''; 
+                        const lang = document.getElementById('langSwitch').value;
                         dataObj.obstacles.forEach(obs => {
                             const row = document.createElement('div');
                             row.className = 'input-group mb-2 obstacle-row';
                             row.innerHTML = `
                                 <input type="text" class="form-control" name="obstacle_desc[]" value="${obs.description}" required>
                                 <div class="input-group-text">
-                                    <input class="form-check-input mt-0 me-2" type="checkbox" name="obstacle_closed[]" value="true" ${obs.closed ? 'checked' : ''}> تم الحل؟
+                                    <input class="form-check-input mt-0 mx-2" type="checkbox" name="obstacle_closed[]" value="true" ${obs.closed ? 'checked' : ''}> <span data-i18n="f_obs_closed">${i18n[lang]['f_obs_closed']}</span>
                                 </div>
-                                <button class="btn btn-danger" type="button" onclick="this.parentElement.remove();">حذف</button>
+                                <button class="btn btn-danger" type="button" onclick="this.parentElement.remove();" data-i18n="btn_delete">${i18n[lang]['btn_delete']}</button>
                             `;
                             container.appendChild(row);
                         });
                     }
-                    alert("تم استرجاع البيانات بنجاح!");
+                    alert("✅ Data loaded successfully!");
                 } catch (err) {
-                    alert("عذراً، حدث خطأ أثناء قراءة الملف.");
+                    alert("❌ Error reading the file.");
                 }
                 event.target.value = '';
             };
@@ -280,26 +372,26 @@
 
         function addObstacle() {
             const container = document.getElementById('obstacles-container');
+            const lang = document.getElementById('langSwitch').value;
             const row = document.createElement('div');
             row.className = 'input-group mb-2 obstacle-row';
             row.innerHTML = `
-                <input type="text" class="form-control" name="obstacle_desc[]" placeholder="وصف العائق" required>
+                <input type="text" class="form-control" name="obstacle_desc[]" placeholder="${i18n[lang]['ph_obs']}" data-i18n-ph="ph_obs" required>
                 <div class="input-group-text">
-                    <input class="form-check-input mt-0 me-2" type="checkbox" name="obstacle_closed[]" value="true"> تم الحل؟
+                    <input class="form-check-input mt-0 mx-2" type="checkbox" name="obstacle_closed[]" value="true"> <span data-i18n="f_obs_closed">${i18n[lang]['f_obs_closed']}</span>
                 </div>
-                <button class="btn btn-danger" type="button" onclick="this.parentElement.remove();">حذف</button>
+                <button class="btn btn-danger" type="button" onclick="this.parentElement.remove();" data-i18n="btn_delete">${i18n[lang]['btn_delete']}</button>
             `;
             container.appendChild(row);
         }
 
         const form = document.getElementById('portfolioForm');
-
         form.addEventListener('submit', function(e) {
             if (!form.checkValidity()) {
                 e.preventDefault();
                 e.stopPropagation();
                 form.classList.add('was-validated'); 
-                alert("يرجى إكمال جميع الحقول الإلزامية المحددة باللون الأحمر.");
+                alert("⚠️ Please fill all required fields! / يرجى إكمال الحقول الإلزامية");
             } else {
                 const rows = document.querySelectorAll('.obstacle-row');
                 let obstacles = [];
@@ -316,15 +408,6 @@
             }
         });
 
-        document.getElementById('fileUpload').addEventListener('change', function() {
-            const max_size_mb = 5;
-            const file = this.files[0];
-            if (file && file.size > max_size_mb * 1024 * 1024) {
-                alert("عفواً، حجم الملف يتجاوز الحد المسموح (5 ميجابايت).");
-                this.value = ""; 
-            }
-        });
-
         const moneyInputs = document.querySelectorAll('.money-input');
         moneyInputs.forEach(input => {
             input.addEventListener('input', function(e) {
@@ -335,7 +418,6 @@
                 this.value = parts.join('.');
             });
         });
-
     </script>
 </body>
 </html>
