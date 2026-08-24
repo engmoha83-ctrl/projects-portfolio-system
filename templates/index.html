@@ -45,17 +45,18 @@
             <div class="section-card">
                 <h5 class="section-title">البيانات التعاقدية (الاستشاري والمقاول)</h5>
                 <div class="row">
-                    <div class="col-md-6 mb-3"><label>قيمة عقد الاستشاري</label><input type="number" class="form-control" name="consultant_val" required></div>
-                    <div class="col-md-6 mb-3"><label>قيمة عقد المقاول (إن وجدت)</label><input type="number" class="form-control" name="contractor_val" required></div>
-                    <div class="col-md-6 mb-3"><label>تعديلات عقد الاستشاري (العدد، القيمة، المدة)</label><textarea class="form-control" name="consultant_mods" required></textarea></div>
-                    <div class="col-md-6 mb-3"><label>تعديلات عقد المقاول (العدد، القيمة، المدة)</label><textarea class="form-control" name="contractor_mods" required></textarea></div>
+                    <div class="col-md-6 mb-3"><label>قيمة عقد الاستشاري</label><input type="text" class="form-control money-input" name="consultant_val" required></div>
+                    <div class="col-md-6 mb-3"><label>قيمة عقد المقاول (إن وجدت)</label><input type="text" class="form-control money-input" name="contractor_val" required></div>
+                    <div class="col-md-4 mb-3"><label>قيمة فواتير الاستشاري</label><input type="text" class="form-control money-input" name="cons_inv_val" required></div>
+                    <div class="col-md-4 mb-3"><label>قيمة فواتير المقاول</label><input type="text" class="form-control money-input" name="cont_inv_val" required></div>
+                    
+                    <div class="col-md-4 mb-3"><label>تعديلات عقد الاستشاري</label><textarea class="form-control" name="consultant_mods" required></textarea></div>
+                    <div class="col-md-4 mb-3"><label>تعديلات عقد المقاول</label><textarea class="form-control" name="contractor_mods" required></textarea></div>
                     
                     <div class="col-md-4 mb-3"><label>عدد فواتير الاستشاري</label><input type="number" class="form-control" name="cons_inv_count" required></div>
-                    <div class="col-md-4 mb-3"><label>قيمة فواتير الاستشاري</label><input type="number" class="form-control" name="cons_inv_val" required></div>
                     <div class="col-md-4 mb-3"><label>تاريخ آخر فاتورة للاستشاري</label><input type="date" class="form-control" name="cons_inv_date" required></div>
                     
                     <div class="col-md-4 mb-3"><label>عدد فواتير المقاول</label><input type="number" class="form-control" name="cont_inv_count" required></div>
-                    <div class="col-md-4 mb-3"><label>قيمة فواتير المقاول</label><input type="number" class="form-control" name="cont_inv_val" required></div>
                     <div class="col-md-4 mb-3"><label>تاريخ آخر فاتورة للمقاول</label><input type="date" class="form-control" name="cont_inv_date" required></div>
                 </div>
             </div>
@@ -69,12 +70,36 @@
                     <div class="col-md-3 mb-3"><label>البداية الفعلية</label><input type="date" class="form-control" name="start_actual" required></div>
                     <div class="col-md-3 mb-3"><label>النهاية المتوقعة</label><input type="date" class="form-control" name="end_expected" required></div>
                     
-                    <div class="col-md-3 mb-3"><label>إنجاز فعلي (حالي)</label><input type="number" step="0.01" class="form-control" name="act_prog_cur" required></div>
-                    <div class="col-md-3 mb-3"><label>إنجاز فعلي (سابق)</label><input type="number" step="0.01" class="form-control" name="act_prog_prev" required></div>
-                    <div class="col-md-3 mb-3"><label>إنجاز مخطط (حالي)</label><input type="number" step="0.01" class="form-control" name="plan_prog_cur" required></div>
-                    <div class="col-md-3 mb-3"><label>إنجاز مخطط (سابق)</label><input type="number" step="0.01" class="form-control" name="plan_prog_prev" required></div>
-                </div>
-            </div>
+                    <div class="col-md-3 mb-3">
+                        <label>إنجاز فعلي (حالي)</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" name="act_prog_cur" placeholder="0" required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label>إنجاز فعلي (سابق)</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" name="act_prog_prev" placeholder="0" required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label>إنجاز مخطط (حالي)</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" name="plan_prog_cur" placeholder="0" required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label>إنجاز مخطط (سابق)</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" name="plan_prog_prev" placeholder="0" required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                </div> <!-- تم إضافة إغلاق row هنا -->
+            </div> <!-- تم إضافة إغلاق section-card هنا -->
 
             <!-- 4. الموقف التنفيذي والمعوقات (الديناميكية) -->
             <div class="section-card">
@@ -137,7 +162,6 @@
     </div>
 
     <script>
-        // دالة إضافة مشكلة جديدة
         function addObstacle() {
             const container = document.getElementById('obstacles-container');
             const row = document.createElement('div');
@@ -150,10 +174,9 @@
                 <button class="btn btn-danger" type="button" onclick="this.parentElement.remove(); validateForm();">حذف</button>
             `;
             container.appendChild(row);
-            validateForm(); // إعادة الفحص لأننا أضفنا حقلاً إلزامياً جديداً
+            validateForm(); 
         }
 
-        // دالة فحص اكتمال جميع الحقول الإلزامية لتفعيل زر الإرسال
         const form = document.getElementById('portfolioForm');
         const submitBtn = document.getElementById('submitBtn');
         
@@ -169,20 +192,17 @@
             }
         }
         
-        // مراقبة أي تغيير في الفورم
         form.addEventListener('input', validateForm);
 
-        // دالة فحص حجم الملف قبل الرفع (تطبيق شرط الـ 5 ميجا)
         document.getElementById('fileUpload').addEventListener('change', function() {
             const max_size_mb = 5;
             const file = this.files[0];
             if (file && file.size > max_size_mb * 1024 * 1024) {
                 alert("عفواً، حجم الملف يتجاوز الحد المسموح (5 ميجابايت). يرجى اختيار ملف أصغر.");
-                this.value = ""; // مسح الملف المخالف
+                this.value = ""; 
             }
         });
 
-        // تجميع المعوقات في JSON قبل الإرسال لتسهيل معالجتها في البايثون
         form.addEventListener('submit', function(e) {
             const rows = document.querySelectorAll('.obstacle-row');
             let obstacles = [];
@@ -192,6 +212,31 @@
                 obstacles.push({ description: desc, closed: isClosed });
             });
             document.getElementById('obstacles_json').value = JSON.stringify(obstacles);
+        });
+
+        const moneyInputs = document.querySelectorAll('.money-input');
+        moneyInputs.forEach(input => {
+            input.addEventListener('input', function(e) {
+                let value = this.value.replace(/[^\d.]/g, '');
+                let parts = value.split('.');
+                
+                if (parts.length > 2) {
+                    parts = [parts[0], parts[1]];
+                }
+                
+                if (parts[0]) {
+                    parts[0] = Number(parts[0]).toLocaleString('en-US');
+                }
+                
+                this.value = parts.join('.');
+                validateForm(); 
+            });
+        });
+
+        form.addEventListener('submit', function(e) {
+            moneyInputs.forEach(input => {
+                input.value = input.value.replace(/,/g, '');
+            });
         });
     </script>
 </body>
