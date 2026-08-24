@@ -13,6 +13,18 @@
         .btn-submit { background-color: #1a2b4c; color: white; border: none; font-size: 1.1rem; font-weight: bold; }
         .lang-selector { background: transparent; color: white; border: 1px solid #d4a373; border-radius: 5px; padding: 2px 5px; outline: none; }
         .lang-selector option { color: black; }
+
+        /* ==========================================
+           تنسيقات الطباعة (تعمل فقط عند حفظ PDF أو الطباعة)
+        ========================================== */
+        @media print {
+            body { background-color: white !important; font-size: 12px; }
+            .navbar, .lang-container, .alert, .btn, input[type="file"], small.text-danger { display: none !important; }
+            .section-card { box-shadow: none !important; border: 1px solid #ddd !important; margin-bottom: 15px !important; padding: 15px !important; page-break-inside: avoid; }
+            .container { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            input, select, textarea { border: 1px solid #999 !important; background-color: transparent !important; color: black !important; }
+            ::-webkit-input-placeholder { color: transparent !important; }
+        }
     </style>
 </head>
 <body>
@@ -225,15 +237,19 @@
 
             <input type="file" id="draftFileInput" accept=".json" style="display: none;" onchange="loadFromFile(event)">
 
+            <!-- تعديل صف الأزرار لإضافة زر الطباعة -->
             <div class="row mb-5">
                 <div class="col-md-3 mb-2">
-                    <button type="button" class="btn btn-outline-primary w-100 py-3 fw-bold" onclick="document.getElementById('draftFileInput').click()" data-i18n="btn_restore">⬇️ استرجاع من ملف مسودة</button>
+                    <button type="button" class="btn btn-outline-primary w-100 py-3 fw-bold" onclick="document.getElementById('draftFileInput').click()" data-i18n="btn_restore">⬇️ استرجاع مسودة</button>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <button type="button" class="btn btn-outline-success w-100 py-3 fw-bold" onclick="saveToFile()" data-i18n="btn_save">💾 حفظ كملف مسودة بجهازي</button>
+                    <button type="button" class="btn btn-outline-success w-100 py-3 fw-bold" onclick="saveToFile()" data-i18n="btn_save">💾 حفظ مسودة</button>
                 </div>
-                <div class="col-md-6 mb-2">
-                    <button type="submit" id="submitBtn" class="btn btn-submit w-100 py-3 bg-success" data-i18n="btn_submit">إرسال التحديث الأسبوعي النهائي</button>
+                <div class="col-md-3 mb-2">
+                    <button type="button" class="btn btn-outline-secondary w-100 py-3 fw-bold" onclick="window.print()" data-i18n="btn_print">🖨️ طباعة / PDF</button>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <button type="submit" id="submitBtn" class="btn btn-submit w-100 py-3 bg-success" data-i18n="btn_submit">إرسال التحديث</button>
                 </div>
             </div>
 
@@ -254,7 +270,7 @@
                 sec6_title: "الموقف التنفيذي والمعوقات", f_works_c: "الأعمال المنتهية الأسبوع السابق", f_works_o: "الأعمال الجارية الأسبوع الحالي", f_works_p: "الأعمال المتوقعة الأسبوع القادم", f_obs_title: "وصف المعوقات الحالية", btn_add_obs: "+ إضافة مشكلة جديدة", ph_obs: "وصف العائق (يمكنك حذفه)", f_obs_closed: "تم الحل؟", btn_delete: "حذف", imp_h: "تأثير كبير", imp_m: "تأثير متوسط", imp_l: "تأثير منخفض", imp_n: "غير مؤثر",
                 sec7_title: "التقييم والمستندات الفنية", f_eval_1: "توفر العمالة (0-10)", f_eval_2: "توفر المعدات (0-10)", f_eval_3: "القدرة المالية (0-10)", f_eval_4: "الالتزام بالسلامة (0-10)", f_dr_sub: "مخططات مقدمة", f_dr_app: "مخططات معتمدة", f_dr_rev: "مخططات تحت الدراسة", f_ir_sub: "طلبات استلام مقدمة", f_ir_app: "طلبات استلام معتمدة", f_ir_rev: "طلبات استلام تحت الدراسة", f_ncr_o: "NCR مفتوحة", f_ncr_c: "NCR مغلقة",
                 sec8_title: "المرفقات الإضافية (اختياري)", sec8_photos: "رفع صور الإنجاز الأسبوعية", sec8_master: "صورة مخطط عام للمشروع (Master Plan)", sec8_iso: "صور استعراضية للمشروع (Isometric)", f_max_size: "الحد الأقصى لكل ملف: 5 ميجابايت.",
-                btn_restore: "⬇️ استرجاع مسودة", btn_save: "💾 حفظ مسودة", btn_submit: "إرسال التحديث النهائي"
+                btn_restore: "⬇️ استرجاع مسودة", btn_save: "💾 حفظ مسودة", btn_print: "🖨️ طباعة / PDF", btn_submit: "إرسال التحديث"
             },
             en: {
                 page_title: "Saudi Architects | Portal", nav_title: "Saudi Architects", nav_subtitle: "Projects Management - Weekly Update", btn_logout: "Logout", welcome_msg: "Welcome,", working_on: "Working on",
@@ -265,7 +281,7 @@
                 sec6_title: "Status & Obstacles", f_works_c: "Completed Works", f_works_o: "Ongoing Works", f_works_p: "Planned Works", f_obs_title: "Current Obstacles", btn_add_obs: "+ Add New Issue", ph_obs: "Obstacle description", f_obs_closed: "Solved?", btn_delete: "Delete", imp_h: "High Impact", imp_m: "Medium Impact", imp_l: "Low Impact", imp_n: "No Impact",
                 sec7_title: "Evaluation & Documents", f_eval_1: "Labor (0-10)", f_eval_2: "Equipment (0-10)", f_eval_3: "Financial (0-10)", f_eval_4: "HSE (0-10)", f_dr_sub: "Submitted Drawings", f_dr_app: "Approved Drawings", f_dr_rev: "Under Review Drawings", f_ir_sub: "Submitted IR", f_ir_app: "Approved IR", f_ir_rev: "Under Review IR", f_ncr_o: "Open NCRs", f_ncr_c: "Closed NCRs",
                 sec8_title: "Attachments (Optional)", sec8_photos: "Progress Photos", sec8_master: "Master Plan Image", sec8_iso: "Isometric Views", f_max_size: "Max file size: 5 MB.",
-                btn_restore: "⬇️ Load Draft", btn_save: "💾 Save Draft", btn_submit: "Submit Update"
+                btn_restore: "⬇️ Load Draft", btn_save: "💾 Save Draft", btn_print: "🖨️ Print / PDF", btn_submit: "Submit Update"
             },
             fr: {
                 page_title: "Architectes Saoudiens | Portail", nav_title: "Architectes Saoudiens", nav_subtitle: "Gestion de Projets - Mise à jour", btn_logout: "Déconnexion", welcome_msg: "Bienvenue,", working_on: "Projet actuel:",
@@ -276,7 +292,7 @@
                 sec6_title: "Statut exécutif et obstacles", f_works_c: "Travaux terminés", f_works_o: "Travaux en cours", f_works_p: "Travaux prévus", f_obs_title: "Obstacles actuels", btn_add_obs: "+ Ajouter un problème", ph_obs: "Description de l'obstacle", f_obs_closed: "Résolu?", btn_delete: "Supprimer", imp_h: "Impact Élevé", imp_m: "Impact Moyen", imp_l: "Impact Faible", imp_n: "Sans Impact",
                 sec7_title: "Évaluation et Documents", f_eval_1: "Main-d'œuvre (0-10)", f_eval_2: "Équipement (0-10)", f_eval_3: "Capacité financière (0-10)", f_eval_4: "Sécurité (0-10)", f_dr_sub: "Plans soumis", f_dr_app: "Plans approuvés", f_dr_rev: "Plans en révision", f_ir_sub: "IR soumis", f_ir_app: "IR approuvés", f_ir_rev: "IR en révision", f_ncr_o: "NCR ouverts", f_ncr_c: "NCR fermés",
                 sec8_title: "Pièces jointes (Optionnel)", sec8_photos: "Photos d'avancement", sec8_master: "Plan directeur (Master Plan)", sec8_iso: "Vues isométriques", f_max_size: "Taille max: 5 Mo.",
-                btn_restore: "⬇️ Charger brouillon", btn_save: "💾 Sauvegarder", btn_submit: "Soumettre la mise à jour"
+                btn_restore: "⬇️ Charger brouillon", btn_save: "💾 Sauvegarder", btn_print: "🖨️ Imprimer / PDF", btn_submit: "Soumettre la mise à jour"
             },
             es: {
                 page_title: "Arquitectos Saudíes | Portal", nav_title: "Arquitectos Saudíes", nav_subtitle: "Gestión de Proyectos - Actualización", btn_logout: "Cerrar sesión", welcome_msg: "Bienvenido,", working_on: "Trabajando en",
@@ -287,7 +303,7 @@
                 sec6_title: "Estado Ejecutivo y Obstáculos", f_works_c: "Trabajos Completados", f_works_o: "Trabajos en Curso", f_works_p: "Trabajos Planeados", f_obs_title: "Obstáculos Actuales", btn_add_obs: "+ Añadir Problema", ph_obs: "Descripción del obstáculo", f_obs_closed: "¿Resuelto?", btn_delete: "Eliminar", imp_h: "Alto Impacto", imp_m: "Impacto Medio", imp_l: "Bajo Impacto", imp_n: "Sin Impacto",
                 sec7_title: "Evaluación y Documentos", f_eval_1: "Mano de obra (0-10)", f_eval_2: "Equipos (0-10)", f_eval_3: "Capacidad Financiera (0-10)", f_eval_4: "Seguridad (0-10)", f_dr_sub: "Planos Enviados", f_dr_app: "Planos Aprobados", f_dr_rev: "Planos en Revisión", f_ir_sub: "IR Enviados", f_ir_app: "IR Aprobados", f_ir_rev: "IR en Revisión", f_ncr_o: "NCR Abiertos", f_ncr_c: "NCR Cerrados",
                 sec8_title: "Adjuntos (Opcional)", sec8_photos: "Fotos de Progreso", sec8_master: "Plano Maestro (Master Plan)", sec8_iso: "Vistas Isométricas", f_max_size: "Tamaño máximo: 5 MB.",
-                btn_restore: "⬇️ Cargar Borrador", btn_save: "💾 Guardar Borrador", btn_submit: "Enviar Actualización"
+                btn_restore: "⬇️ Cargar Borrador", btn_save: "💾 Guardar Borrador", btn_print: "🖨️ Imprimir / PDF", btn_submit: "Enviar Actualización"
             }
         };
         
@@ -349,7 +365,7 @@
         document.getElementById('cont_time').addEventListener('input', checkRequiredDates);
 
         // ==========================================
-        // 4. الحفظ والاسترجاع والإرسال (التحديث هنا)
+        // 4. الحفظ والاسترجاع والإرسال 
         // ==========================================
         function saveToFile() {
             const formData = new FormData(document.getElementById('portfolioForm'));
@@ -395,7 +411,6 @@
                         const field = document.querySelector(`[name="${key}"]`);
                         
                         if(field && !field.readOnly) {
-                            // تنظيف الأرقام المالية من الفواصل قبل إعادة عرضها لتجنب خطأ NaN
                             if (field.classList.contains('money-input')) {
                                 let rawValue = String(dataObj[key]).replace(/[^\d.]/g, '');
                                 let parts = rawValue.split('.');
