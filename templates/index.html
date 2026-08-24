@@ -325,19 +325,24 @@
         };
 
         // ==========================================
-        // 3. المنطق الديناميكي لتواريخ النهاية المعدلة
+        // 3. المنطق الديناميكي لتواريخ النهاية المعدلة (تم التحديث هنا)
         // ==========================================
         function checkRequiredDates() {
             const consTime = document.getElementById('cons_time');
             const consEndDate = document.getElementById('cons_end_date');
             if (consTime && consEndDate) {
-                consEndDate.required = (consTime.value.trim() !== '');
+                const val = consTime.value.trim();
+                const num = parseFloat(val);
+                // إجباري فقط لو الحقل مش فاضي والرقم أكبر من صفر
+                consEndDate.required = (val !== '' && !isNaN(num) && num > 0);
             }
 
             const contTime = document.getElementById('cont_time');
             const contEndDate = document.getElementById('cont_end_date');
             if (contTime && contEndDate) {
-                contEndDate.required = (contTime.value.trim() !== '');
+                const val = contTime.value.trim();
+                const num = parseFloat(val);
+                contEndDate.required = (val !== '' && !isNaN(num) && num > 0);
             }
         }
         
@@ -459,7 +464,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 form.classList.add('was-validated'); 
-                alert("⚠️ يرجى إكمال جميع الحقول الإلزامية المحددة باللون الأحمر (بما فيها تواريخ النهاية المعدلة إذا وجد تمديد).");
+                alert("⚠️ يرجى إكمال جميع الحقول الإلزامية المحددة باللون الأحمر (بما فيها تواريخ النهاية المعدلة إذا وجد تمديد أكبر من صفر).");
             } else {
                 let obstacles = [];
                 document.querySelectorAll('.obstacle-row').forEach(row => {
