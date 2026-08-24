@@ -14,7 +14,7 @@ templates = Jinja2Templates(directory="templates")
 # ==========================================
 # 1. إعدادات قاعدة البيانات 
 # ==========================================
-DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+DB_URL = "رابط_قاعدة_بيانات_Supabase_هنا"
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
@@ -99,32 +99,38 @@ async def submit_data(request: Request):
 
     form_data = await request.form()
     
-    attachment = form_data.get("attachment")
+    # معالجة الصور الأربعة للإنجاز
+    attachments = [
+        form_data.get("attachment_1"),
+        form_data.get("attachment_2"),
+        form_data.get("attachment_3"),
+        form_data.get("attachment_4")
+    ]
+    links = ["لا يوجد مرفق"] * 4
+    
+    for i in range(4):
+        if attachments[i] and getattr(attachments[i], "filename", None):
+            url = upload_to_cloudinary(attachments[i])
+            if url: links[i] = url
+
+    # معالجة المخططات الإضافية
     master_plan = form_data.get("master_plan")
     isometric = form_data.get("isometric")
-    
-    file_link = "لا يوجد مرفق"
     master_plan_link = "لا يوجد مرفق"
     isometric_link = "لا يوجد مرفق"
     
-    if attachment and attachment.filename:
-        uploaded_url = upload_to_cloudinary(attachment)
-        if uploaded_url: file_link = uploaded_url
-        
     if master_plan and master_plan.filename:
-        uploaded_url = upload_to_cloudinary(master_plan)
-        if uploaded_url: master_plan_link = uploaded_url
+        url = upload_to_cloudinary(master_plan)
+        if url: master_plan_link = url
         
     if isometric and isometric.filename:
-        uploaded_url = upload_to_cloudinary(isometric)
-        if uploaded_url: isometric_link = uploaded_url
+        url = upload_to_cloudinary(isometric)
+        if url: isometric_link = url
 
-    # --- معالجة نسب الإنجاز (تحويل الرقم لنسبة عشرية لتتوافق مع Power BI) ---
+    # معالجة نسب الإنجاز للباور بي آي
     def process_percentage(val):
         try:
-            if val:
-                return float(val) / 100.0
-            return 0.0
+            return float(val) / 100.0 if val else 0.0
         except ValueError:
             return 0.0
             
@@ -153,7 +159,7 @@ async def submit_data(request: Request):
                 drawings_sub, drawings_app, drawings_rev,
                 ir_sub, ir_app, ir_rev,
                 ncr_open, ncr_closed,
-                file_link, master_plan_link, isometric_link, submission_date
+                file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link, submission_date
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
                 %s, %s, %s,
@@ -169,7 +175,7 @@ async def submit_data(request: Request):
                 %s, %s, %s,
                 %s, %s, %s,
                 %s, %s,
-                %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s
             )
         ''', (
             form_data.get("username"), form_data.get("manager_name"), form_data.get("project_name"), form_data.get("project_desc"), form_data.get("project_type"), form_data.get("current_data_date"),
@@ -180,23 +186,19 @@ async def submit_data(request: Request):
             form_data.get("cons_inv_count") or 0, form_data.get("cons_inv_val") or 0, form_data.get("cons_inv_date"),
             form_data.get("cont_inv_count") or 0, form_data.get("cont_inv_val") or 0, form_data.get("cont_inv_date"),
             form_data.get("start_contractual"), form_data.get("end_contractual"), form_data.get("start_actual"), form_data.get("end_expected"),
-            act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev,  # تم إدراج النسب المعالجة هنا
+            act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev,
             form_data.get("works_completed"), form_data.get("works_ongoing"), form_data.get("works_planned"), form_data.get("obstacles_json"),
             form_data.get("eval_labor") or 0, form_data.get("eval_equip") or 0, form_data.get("eval_financial") or 0, form_data.get("eval_hse") or 0,
             form_data.get("drawings_sub") or 0, form_data.get("drawings_app") or 0, form_data.get("drawings_rev") or 0,
             form_data.get("ir_sub") or 0, form_data.get("ir_app") or 0, form_data.get("ir_rev") or 0,
             form_data.get("ncr_open") or 0, form_data.get("ncr_closed") or 0,
-            file_link, master_plan_link, isometric_link, date.today().isoformat()
+            links[0], links[1], links[2], links[3], master_plan_link, isometric_link, date.today().isoformat()
         ))
         conn.commit()
         conn.close()
         return {"message": "تم حفظ التحديث ورفع الملفات بنجاح!"}
     except Exception as e:
         return {"error": f"حدث خطأ أثناء حفظ البيانات: {e}"}
-
-@app.post("/save-section")
-async def save_section(request: Request):
-    return {"message": "تم حفظ بيانات القسم بنجاح!"}
 
 @app.get("/api/powerbi")
 async def powerbi_feed():
