@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الدخول | المعماريون السعوديون</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        .login-title { color: #1a2b4c; font-weight: bold; margin-bottom: 30px; }
+        .btn-login { background-color: #1a2b4c; color: white; border: none; font-size: 1.1rem; padding: 10px; width: 100%; margin-top: 20px; }
+        .btn-login:hover { background-color: #111d33; color: white; }
+        .error-msg { color: red; font-size: 0.9rem; margin-bottom: 15px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <h3 class="login-title">المعماريون السعوديون<br><small class="text-muted" style="font-size: 1rem;">بوابة تحديث المشاريع</small></h3>
+        
+        <form action="/login" method="post">
+            <div class="mb-3 text-start">
+                <label class="form-label fw-bold">اسم المستخدم</label>
+                <input type="text" class="form-control" name="username" required autocomplete="off">
+            </div>
+            <div class="mb-3 text-start">
+                <label class="form-label fw-bold">كلمة المرور</label>
+                <input type="password" class="form-control" name="password" required>
+            </div>
+            
+            <!-- سيتم إظهار هذا الخطأ من خلال البايثون إذا كانت البيانات خاطئة -->
+            {% if error %}
+            <div class="error-msg" style="display: block;">{{ error }}</div>
+            {% endif %}
+            
+            <button type="submit" class="btn btn-login">تسجيل الدخول</button>
+        </form>
+    </div>
+
+</body>
+</html>
