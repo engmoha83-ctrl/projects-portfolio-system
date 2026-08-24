@@ -99,7 +99,6 @@ async def submit_data(request: Request):
 
     form_data = await request.form()
     
-    # معالجة الملفات الثلاثة
     attachment = form_data.get("attachment")
     master_plan = form_data.get("master_plan")
     isometric = form_data.get("isometric")
@@ -119,6 +118,20 @@ async def submit_data(request: Request):
     if isometric and isometric.filename:
         uploaded_url = upload_to_cloudinary(isometric)
         if uploaded_url: isometric_link = uploaded_url
+
+    # --- معالجة نسب الإنجاز (تحويل الرقم لنسبة عشرية لتتوافق مع Power BI) ---
+    def process_percentage(val):
+        try:
+            if val:
+                return float(val) / 100.0
+            return 0.0
+        except ValueError:
+            return 0.0
+            
+    act_prog_cur = process_percentage(form_data.get("act_prog_cur"))
+    act_prog_prev = process_percentage(form_data.get("act_prog_prev"))
+    plan_prog_cur = process_percentage(form_data.get("plan_prog_cur"))
+    plan_prog_prev = process_percentage(form_data.get("plan_prog_prev"))
 
     try:
         conn = get_db_connection()
@@ -167,7 +180,7 @@ async def submit_data(request: Request):
             form_data.get("cons_inv_count") or 0, form_data.get("cons_inv_val") or 0, form_data.get("cons_inv_date"),
             form_data.get("cont_inv_count") or 0, form_data.get("cont_inv_val") or 0, form_data.get("cont_inv_date"),
             form_data.get("start_contractual"), form_data.get("end_contractual"), form_data.get("start_actual"), form_data.get("end_expected"),
-            form_data.get("act_prog_cur") or 0, form_data.get("act_prog_prev") or 0, form_data.get("plan_prog_cur") or 0, form_data.get("plan_prog_prev") or 0,
+            act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev,  # تم إدراج النسب المعالجة هنا
             form_data.get("works_completed"), form_data.get("works_ongoing"), form_data.get("works_planned"), form_data.get("obstacles_json"),
             form_data.get("eval_labor") or 0, form_data.get("eval_equip") or 0, form_data.get("eval_financial") or 0, form_data.get("eval_hse") or 0,
             form_data.get("drawings_sub") or 0, form_data.get("drawings_app") or 0, form_data.get("drawings_rev") or 0,
