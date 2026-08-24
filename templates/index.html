@@ -3,91 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saudi Architects | بوابة إدارة المشاريع</title>
-    <!-- مكتبة Bootstrap لتصميم احترافي وسريع -->
+    <title>المعماريون السعوديون | بوابة التحديث الأسبوعي</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <style>
         body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .navbar { background-color: #1a2b4c; }
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .btn-primary { background-color: #d4a373; border: none; }
-        .btn-primary:hover { background-color: #bc8f63; }
+        .navbar { background-color: #1a2b4c; border-bottom: 4px solid #d4a373; }
+        .section-card { border: none; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; padding: 20px; background: white; }
+        .section-title { color: #1a2b4c; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .btn-submit { background-color: #1a2b4c; color: white; border: none; font-size: 1.2rem; }
+        .btn-submit:disabled { background-color: #ccc; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-    <!-- البانر العلوي (Header) -->
     <nav class="navbar navbar-dark mb-4 p-3">
         <div class="container d-flex justify-content-between">
-            <h4 class="text-white mb-0">Saudi Architects</h4>
-            <span class="text-white-50">نظام تحديث الموقف التنفيذي</span>
+            <h4 class="text-white mb-0">المعماريون السعوديون</h4>
+            <span class="text-white-50">بوابة إدارة المشاريع - التحديث الأسبوعي</span>
         </div>
     </nav>
 
-    <div class="container" style="max-width: 800px;">
-        <div class="card p-4 mb-5">
-            <h5 class="mb-4 text-center" style="color: #1a2b4c;">تسجيل التحديث الأسبوعي</h5>
+    <div class="container" style="max-width: 900px;">
+        <!-- الفورم الرئيسي -->
+        <form id="portfolioForm" action="/submit" method="post" enctype="multipart/form-data">
             
-            <!-- نموذج إدخال البيانات -->
-            <form id="portfolioForm" action="/submit" method="post" enctype="multipart/form-data">
+            <!-- 1. بيانات الدخول والمشروع الأساسية -->
+            <div class="section-card">
+                <h5 class="section-title">بيانات الدخول والمعلومات الأساسية</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label>User Name</label><input type="text" class="form-control" name="username" required></div>
+                    <div class="col-md-6 mb-3"><label>Password</label><input type="password" class="form-control" name="password" required></div>
+                    <div class="col-md-6 mb-3"><label>اسم مدير المشروع</label><input type="text" class="form-control" name="manager_name" required></div>
+                    <div class="col-md-6 mb-3"><label>اسم المشروع</label><input type="text" class="form-control" name="project_name" required></div>
+                    <div class="col-md-12 mb-3"><label>وصف المشروع (مم يتكون)</label><textarea class="form-control" name="project_desc" required></textarea></div>
+                    <div class="col-md-6 mb-3"><label>نوع المشروع</label><input type="text" class="form-control" name="project_type" required></div>
+                    <div class="col-md-6 mb-3"><label>تاريخ البيانات الحالي</label><input type="date" class="form-control" name="current_data_date" required></div>
+                </div>
+            </div>
+
+            <!-- 2. البيانات التعاقدية والمالية -->
+            <div class="section-card">
+                <h5 class="section-title">البيانات التعاقدية (الاستشاري والمقاول)</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label>قيمة عقد الاستشاري</label><input type="number" class="form-control" name="consultant_val" required></div>
+                    <div class="col-md-6 mb-3"><label>قيمة عقد المقاول (إن وجدت)</label><input type="number" class="form-control" name="contractor_val" required></div>
+                    <div class="col-md-6 mb-3"><label>تعديلات عقد الاستشاري (العدد، القيمة، المدة)</label><textarea class="form-control" name="consultant_mods" required></textarea></div>
+                    <div class="col-md-6 mb-3"><label>تعديلات عقد المقاول (العدد، القيمة، المدة)</label><textarea class="form-control" name="contractor_mods" required></textarea></div>
+                    
+                    <div class="col-md-4 mb-3"><label>عدد فواتير الاستشاري</label><input type="number" class="form-control" name="cons_inv_count" required></div>
+                    <div class="col-md-4 mb-3"><label>قيمة فواتير الاستشاري</label><input type="number" class="form-control" name="cons_inv_val" required></div>
+                    <div class="col-md-4 mb-3"><label>تاريخ آخر فاتورة للاستشاري</label><input type="date" class="form-control" name="cons_inv_date" required></div>
+                    
+                    <div class="col-md-4 mb-3"><label>عدد فواتير المقاول</label><input type="number" class="form-control" name="cont_inv_count" required></div>
+                    <div class="col-md-4 mb-3"><label>قيمة فواتير المقاول</label><input type="number" class="form-control" name="cont_inv_val" required></div>
+                    <div class="col-md-4 mb-3"><label>تاريخ آخر فاتورة للمقاول</label><input type="date" class="form-control" name="cont_inv_date" required></div>
+                </div>
+            </div>
+
+            <!-- 3. التواريخ ونسب الإنجاز -->
+            <div class="section-card">
+                <h5 class="section-title">التواريخ ونسب الإنجاز الفنية</h5>
+                <div class="row">
+                    <div class="col-md-3 mb-3"><label>البداية التعاقدية</label><input type="date" class="form-control" name="start_contractual" required></div>
+                    <div class="col-md-3 mb-3"><label>النهاية التعاقدية</label><input type="date" class="form-control" name="end_contractual" required></div>
+                    <div class="col-md-3 mb-3"><label>البداية الفعلية</label><input type="date" class="form-control" name="start_actual" required></div>
+                    <div class="col-md-3 mb-3"><label>النهاية المتوقعة</label><input type="date" class="form-control" name="end_expected" required></div>
+                    
+                    <div class="col-md-3 mb-3"><label>إنجاز فعلي (حالي)</label><input type="number" step="0.01" class="form-control" name="act_prog_cur" required></div>
+                    <div class="col-md-3 mb-3"><label>إنجاز فعلي (سابق)</label><input type="number" step="0.01" class="form-control" name="act_prog_prev" required></div>
+                    <div class="col-md-3 mb-3"><label>إنجاز مخطط (حالي)</label><input type="number" step="0.01" class="form-control" name="plan_prog_cur" required></div>
+                    <div class="col-md-3 mb-3"><label>إنجاز مخطط (سابق)</label><input type="number" step="0.01" class="form-control" name="plan_prog_prev" required></div>
+                </div>
+            </div>
+
+            <!-- 4. الموقف التنفيذي والمعوقات (الديناميكية) -->
+            <div class="section-card">
+                <h5 class="section-title">الموقف التنفيذي والمعوقات</h5>
+                <div class="mb-3"><label>الأعمال المنتهية الأسبوع السابق</label><textarea class="form-control" name="works_completed" required></textarea></div>
+                <div class="mb-3"><label>الأعمال الجارية الأسبوع الحالي</label><textarea class="form-control" name="works_ongoing" required></textarea></div>
+                <div class="mb-3"><label>الأعمال المتوقعة الأسبوع القادم</label><textarea class="form-control" name="works_planned" required></textarea></div>
                 
-                <!-- قسم تسجيل الدخول والصلاحيات -->
-                <div class="row mb-4 pb-3 border-bottom">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">اسم المستخدم (المدير)</label>
-                        <input type="text" class="form-control" name="username" required placeholder="مثال: m.hussein">
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">كلمة المرور</label>
-                        <input type="password" class="form-control" name="password" required>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="fw-bold">وصف المعوقات الحالية للمشروع</label>
+                    <button type="button" class="btn btn-sm btn-success" onclick="addObstacle()">+ إضافة مشكلة جديدة</button>
+                </div>
+                <!-- حاوية المعوقات -->
+                <div id="obstacles-container">
+                    <div class="input-group mb-2 obstacle-row">
+                        <input type="text" class="form-control" name="obstacle_desc[]" placeholder="وصف العائق" required>
+                        <div class="input-group-text">
+                            <input class="form-check-input mt-0 me-2" type="checkbox" name="obstacle_closed[]" value="true"> تم الحل؟
+                        </div>
                     </div>
                 </div>
+                <input type="hidden" name="obstacles_json" id="obstacles_json">
+            </div>
 
-                <!-- قسم بيانات المشروع المتنوعة -->
+            <!-- 5. تقييم المقاول والمستندات الفنية -->
+            <div class="section-card">
+                <h5 class="section-title">التقييم والمستندات الفنية</h5>
                 <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">اختر المشروع</label>
-                        <select class="form-select" name="project_name" required>
-                            <option value="" disabled selected>-- اختر من القائمة --</option>
-                            <option value="Le Meridien">Le Meridien</option>
-                            <option value="Commercial Complex">المجمع التجاري</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">تاريخ نهاية المشروع المتوقع</label>
-                        <input type="date" class="form-control" name="end_date" required>
-                    </div>
+                    <div class="col-md-3 mb-3"><label>توفر العمالة (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_labor" required></div>
+                    <div class="col-md-3 mb-3"><label>توفر المعدات (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_equip" required></div>
+                    <div class="col-md-3 mb-3"><label>القدرة المالية (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_financial" required></div>
+                    <div class="col-md-3 mb-3"><label>الالتزام بالسلامة (1-10)</label><input type="number" min="1" max="10" class="form-control" name="eval_hse" required></div>
                 </div>
-
+                <hr>
                 <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">نسبة الإنجاز الفعلية (%)</label>
-                        <input type="number" step="0.01" min="0" max="100" class="form-control" name="progress" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">الحالة العامة</label>
-                        <select class="form-select" name="status" required>
-                            <option value="On Track">على المسار (On Track)</option>
-                            <option value="Delayed">متأخر (Delayed)</option>
-                            <option value="At Risk">في خطر (At Risk)</option>
-                        </select>
-                    </div>
+                    <div class="col-md-4 mb-3"><label>مخططات مقدمة</label><input type="number" class="form-control" name="drawings_sub" required></div>
+                    <div class="col-md-4 mb-3"><label>مخططات معتمدة</label><input type="number" class="form-control" name="drawings_app" required></div>
+                    <div class="col-md-4 mb-3"><label>مخططات تحت الدراسة</label><input type="number" class="form-control" name="drawings_rev" required></div>
+                    
+                    <div class="col-md-4 mb-3"><label>طلبات استلام مقدمة</label><input type="number" class="form-control" name="ir_sub" required></div>
+                    <div class="col-md-4 mb-3"><label>طلبات استلام معتمدة</label><input type="number" class="form-control" name="ir_app" required></div>
+                    <div class="col-md-4 mb-3"><label>طلبات استلام تحت الدراسة</label><input type="number" class="form-control" name="ir_rev" required></div>
+                    
+                    <div class="col-md-6 mb-3"><label>تقارير عدم المطابقة المفتوحة</label><input type="number" class="form-control" name="ncr_open" required></div>
+                    <div class="col-md-6 mb-3"><label>تقارير عدم المطابقة المغلقة</label><input type="number" class="form-control" name="ncr_closed" required></div>
                 </div>
+            </div>
 
-                <div class="mb-3">
-                    <label class="form-label">أهم التحديات / الملاحظات</label>
-                    <textarea class="form-control" name="notes" rows="3" placeholder="أدخل ملخص الموقف التنفيذي..."></textarea>
-                </div>
+            <!-- 6. المرفقات (اختياري) -->
+            <div class="section-card">
+                <h5 class="section-title">رفع صور الإنجاز الأسبوعية (اختياري)</h5>
+                <input class="form-control" type="file" id="fileUpload" name="attachment" accept="image/*,.pdf,.xls,.xlsx">
+                <small class="text-danger">الحد الأقصى للملف: 5 ميجابايت.</small>
+            </div>
 
-                <div class="mb-4">
-                    <label class="form-label">إرفاق صور أو مستندات (اختياري)</label>
-                    <input class="form-control" type="file" name="attachment" accept="image/*,.pdf">
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100 py-2 fs-5">حفظ وتأكيد البيانات</button>
-            </form>
-        </div>
+            <!-- زر الإرسال -->
+            <button type="submit" id="submitBtn" class="btn btn-submit w-100 py-3 mb-5" disabled>يرجى إكمال جميع الحقول الإلزامية لتفعيل الإرسال</button>
+        </form>
     </div>
 
+    <script>
+        // دالة إضافة مشكلة جديدة
+        function addObstacle() {
+            const container = document.getElementById('obstacles-container');
+            const row = document.createElement('div');
+            row.className = 'input-group mb-2 obstacle-row';
+            row.innerHTML = `
+                <input type="text" class="form-control" name="obstacle_desc[]" placeholder="وصف العائق" required>
+                <div class="input-group-text">
+                    <input class="form-check-input mt-0 me-2" type="checkbox" name="obstacle_closed[]" value="true"> تم الحل؟
+                </div>
+                <button class="btn btn-danger" type="button" onclick="this.parentElement.remove(); validateForm();">حذف</button>
+            `;
+            container.appendChild(row);
+            validateForm(); // إعادة الفحص لأننا أضفنا حقلاً إلزامياً جديداً
+        }
+
+        // دالة فحص اكتمال جميع الحقول الإلزامية لتفعيل زر الإرسال
+        const form = document.getElementById('portfolioForm');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        function validateForm() {
+            if(form.checkValidity()) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "حفظ وتأكيد التحديث الأسبوعي";
+                submitBtn.classList.add('bg-success');
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "يرجى إكمال جميع الحقول الإلزامية لتفعيل الإرسال";
+                submitBtn.classList.remove('bg-success');
+            }
+        }
+        
+        // مراقبة أي تغيير في الفورم
+        form.addEventListener('input', validateForm);
+
+        // دالة فحص حجم الملف قبل الرفع (تطبيق شرط الـ 5 ميجا)
+        document.getElementById('fileUpload').addEventListener('change', function() {
+            const max_size_mb = 5;
+            const file = this.files[0];
+            if (file && file.size > max_size_mb * 1024 * 1024) {
+                alert("عفواً، حجم الملف يتجاوز الحد المسموح (5 ميجابايت). يرجى اختيار ملف أصغر.");
+                this.value = ""; // مسح الملف المخالف
+            }
+        });
+
+        // تجميع المعوقات في JSON قبل الإرسال لتسهيل معالجتها في البايثون
+        form.addEventListener('submit', function(e) {
+            const rows = document.querySelectorAll('.obstacle-row');
+            let obstacles = [];
+            rows.forEach(row => {
+                const desc = row.querySelector('input[type="text"]').value;
+                const isClosed = row.querySelector('input[type="checkbox"]').checked;
+                obstacles.push({ description: desc, closed: isClosed });
+            });
+            document.getElementById('obstacles_json').value = JSON.stringify(obstacles);
+        });
+    </script>
 </body>
 </html>
