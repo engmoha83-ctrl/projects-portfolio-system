@@ -11,10 +11,7 @@ import cloudinary.uploader
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# ==========================================
-# 1. إعدادات قاعدة البيانات (Supabase PostgreSQL)
-# ==========================================
-DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+DB_URL = DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
@@ -34,11 +31,22 @@ def init_db():
             
             consultant_val REAL,
             contractor_val REAL,
-            consultant_mods TEXT,
-            contractor_mods TEXT,
+            
+            consultant_mods_count INTEGER,
+            consultant_mods_val REAL,
+            consultant_mods_time TEXT,
+            
+            contractor_mods_count INTEGER,
+            contractor_mods_val REAL,
+            contractor_mods_time TEXT,
+            
             cons_inv_count INTEGER,
             cons_inv_val REAL,
             cons_inv_date TEXT,
+            
+            cont_inv_count INTEGER,
+            cont_inv_val REAL,
+            cont_inv_date TEXT,
             
             start_contractual TEXT,
             end_contractual TEXT,
@@ -72,10 +80,6 @@ try:
 except Exception as e:
     print("تنبيه: تأكد من وضع رابط قاعدة البيانات.", e)
 
-# ==========================================
-# 2. إعدادات Cloudinary (رفع الملفات)
-# ==========================================
-# قم بلصق المفاتيح الثلاثة التي نسختها هنا داخل علامات التنصيص
 cloudinary.config(
   cloud_name = "wu5wjket",
   api_key = "241572682214285",
@@ -84,19 +88,26 @@ cloudinary.config(
 
 def upload_to_cloudinary(file: UploadFile):
     try:
-        # رفع الملف والحصول على الرابط الآمن (يدعم الصور و PDF)
         result = cloudinary.uploader.upload(file.file, resource_type="auto")
         return result.get("secure_url")
     except Exception as e:
         print(f"خطأ في الرفع إلى Cloudinary: {e}")
         return None
 
-# ==========================================
-# 3. مسارات واجهة المستخدم والبيانات
-# ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def home_page(request: Request):
     return templates.TemplateResponse(name="index.html", request=request)
+
+# مسار لحفظ القسم بشكل مستقل (Draft / Partial Save)
+@app.post("/save-section")
+async def save_section(request: Request):
+    form_data = await request.form()
+    project_name = form_data.get("project_name")
+    
+    if not project_name:
+        return {"error": "يرجى إدخال اسم المشروع أولاً لحفظ القسم."}
+        
+    return {"message": "تم حفظ بيانات القسم بنجاح ويمكن العودة لها لاحقاً!"}
 
 @app.post("/submit")
 async def submit_data(request: Request):
@@ -119,7 +130,11 @@ async def submit_data(request: Request):
         cursor.execute('''
             INSERT INTO project_updates (
                 username, manager_name, project_name, project_desc, project_type, current_data_date,
-                consultant_val, contractor_val, consultant_mods, contractor_mods, cons_inv_count, cons_inv_val, cons_inv_date,
+                consultant_val, contractor_val, 
+                consultant_mods_count, consultant_mods_val, consultant_mods_time,
+                contractor_mods_count, contractor_mods_val, contractor_mods_time,
+                cons_inv_count, cons_inv_val, cons_inv_date,
+                cont_inv_count, cont_inv_val, cont_inv_date,
                 start_contractual, end_contractual, start_actual, end_expected,
                 act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev,
                 works_completed, works_ongoing, works_planned, obstacles_data,
@@ -127,7 +142,8 @@ async def submit_data(request: Request):
                 file_link, submission_date
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s, %s,
@@ -136,7 +152,11 @@ async def submit_data(request: Request):
             )
         ''', (
             form_data.get("username"), form_data.get("manager_name"), form_data.get("project_name"), form_data.get("project_desc"), form_data.get("project_type"), form_data.get("current_data_date"),
-            form_data.get("consultant_val") or 0, form_data.get("contractor_val") or 0, form_data.get("consultant_mods"), form_data.get("contractor_mods"), form_data.get("cons_inv_count") or 0, form_data.get("cons_inv_val") or 0, form_data.get("cons_inv_date"),
+            form_data.get("consultant_val") or 0, form_data.get("contractor_val") or 0,
+            form_data.get("consultant_mods_count") or 0, form_data.get("consultant_mods_val") or 0, form_data.get("consultant_mods_time"),
+            form_data.get("contractor_mods_count") or 0, form_data.get("contractor_mods_val") or 0, form_data.get("contractor_mods_time"),
+            form_data.get("cons_inv_count") or 0, form_data.get("cons_inv_val") or 0, form_data.get("cons_inv_date"),
+            form_data.get("cont_inv_count") or 0, form_data.get("cont_inv_val") or 0, form_data.get("cont_inv_date"),
             form_data.get("start_contractual"), form_data.get("end_contractual"), form_data.get("start_actual"), form_data.get("end_expected"),
             form_data.get("act_prog_cur") or 0, form_data.get("act_prog_prev") or 0, form_data.get("plan_prog_cur") or 0, form_data.get("plan_prog_prev") or 0,
             form_data.get("works_completed"), form_data.get("works_ongoing"), form_data.get("works_planned"), form_data.get("obstacles_json"),
