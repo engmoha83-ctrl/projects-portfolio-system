@@ -9,30 +9,39 @@
         body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .navbar { background-color: #1a2b4c; border-bottom: 4px solid #d4a373; }
         .section-card { border: none; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; padding: 20px; background: white; }
-        .section-title { color: #1a2b4c; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .section-title { color: #1a2b4c; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .btn-submit { background-color: #1a2b4c; color: white; border: none; font-size: 1.1rem; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <nav class="navbar navbar-dark mb-4 p-3">
-        <div class="container d-flex justify-content-between">
-            <h4 class="text-white mb-0">المعماريون السعوديون</h4>
-            <span class="text-white-50">بوابة إدارة المشاريع - التحديث الأسبوعي</span>
+        <div class="container d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="text-white mb-0">المعماريون السعوديون</h4>
+                <span class="text-white-50">بوابة إدارة المشاريع - التحديث الأسبوعي</span>
+            </div>
+            <a href="/logout" class="btn btn-danger btn-sm">تسجيل خروج</a>
         </div>
     </nav>
 
     <div class="container" style="max-width: 900px;">
+        <!-- رسالة ترحيبية بالمدير -->
+        <div class="alert alert-info text-center mb-4">
+            أهلاً بك، <strong>{{ manager_name }}</strong>. جاري العمل على <strong>{{ project_name }}</strong>.
+        </div>
+
         <form id="portfolioForm" action="/submit" method="post" enctype="multipart/form-data" novalidate>
             
-            <!-- 1. بيانات الدخول والمشروع الأساسية -->
+            <!-- 1. بيانات المشروع الأساسية -->
             <div class="section-card">
-                <h5 class="section-title">بيانات الدخول والمعلومات الأساسية</h5>
+                <h5 class="section-title">المعلومات الأساسية للمشروع</h5>
                 <div class="row">
-                    <div class="col-md-6 mb-3"><label>User Name</label><input type="text" class="form-control" name="username" required></div>
-                    <div class="col-md-6 mb-3"><label>Password</label><input type="password" class="form-control" name="password" required></div>
-                    <div class="col-md-6 mb-3"><label>اسم مدير المشروع</label><input type="text" class="form-control" name="manager_name" required></div>
-                    <div class="col-md-6 mb-3"><label>اسم المشروع</label><input type="text" class="form-control" id="project_name_field" name="project_name" required></div>
+                    <!-- حقول مغلقة تُملأ تلقائياً من قاعدة البيانات -->
+                    <div class="col-md-4 mb-3"><label>اسم المستخدم</label><input type="text" class="form-control bg-light" name="username" value="{{ username }}" readonly required></div>
+                    <div class="col-md-4 mb-3"><label>اسم مدير المشروع</label><input type="text" class="form-control bg-light" name="manager_name" value="{{ manager_name }}" readonly required></div>
+                    <div class="col-md-4 mb-3"><label>اسم المشروع</label><input type="text" class="form-control bg-light" id="project_name_field" name="project_name" value="{{ project_name }}" readonly required></div>
+                    
                     <div class="col-md-12 mb-3"><label>وصف المشروع (مم يتكون)</label><textarea class="form-control" name="project_desc" required></textarea></div>
                     <div class="col-md-6 mb-3"><label>نوع المشروع</label><input type="text" class="form-control" name="project_type" required></div>
                     <div class="col-md-6 mb-3"><label>تاريخ البيانات الحالي</label><input type="date" class="form-control" name="current_data_date" required></div>
@@ -56,7 +65,7 @@
                 </div>
             </div>
 
-            <!-- 3. تعديلات عقد الاستشاري (Card مستقل) -->
+            <!-- 3. تعديلات عقد الاستشاري -->
             <div class="section-card">
                 <h5 class="section-title">تعديلات عقد الاستشاري (أوامر التغيير والتمديد)</h5>
                 <div class="row">
@@ -66,7 +75,7 @@
                 </div>
             </div>
 
-            <!-- 4. تعديلات عقد المقاول (Card مستقل) -->
+            <!-- 4. تعديلات عقد المقاول -->
             <div class="section-card">
                 <h5 class="section-title">تعديلات عقد المقاول (أوامر التغيير والتمديد)</h5>
                 <div class="row">
@@ -129,7 +138,6 @@
                     <button type="button" class="btn btn-sm btn-success" onclick="addObstacle()">+ إضافة مشكلة جديدة</button>
                 </div>
                 <div id="obstacles-container">
-                    <!-- حقل عائق واحد كبداية -->
                     <div class="input-group mb-2 obstacle-row">
                         <input type="text" class="form-control" name="obstacle_desc[]" placeholder="وصف العائق (يمكنك حذفه إذا لا يوجد)" required>
                         <div class="input-group-text">
@@ -172,7 +180,6 @@
                 <small class="text-danger">الحد الأقصى للملف: 5 ميجابايت.</small>
             </div>
 
-            <!-- زر مخفي لاستدعاء نافذة اختيار ملف المسودة -->
             <input type="file" id="draftFileInput" accept=".json" style="display: none;" onchange="loadFromFile(event)">
 
             <!-- أزرار التحكم والإرسال النهائية -->
@@ -192,19 +199,14 @@
     </div>
 
     <script>
-        // --- دالة حفظ البيانات كملف (Download File) ---
         function saveToFile() {
             const formData = new FormData(document.getElementById('portfolioForm'));
             const dataObj = {};
-            
-            // جمع جميع الحقول النصية والرقمية
             formData.forEach((value, key) => {
                 if(key !== 'attachment' && !key.includes('[]')) {
                     dataObj[key] = value;
                 }
             });
-            
-            // جمع العوائق بشكل منفصل
             const rows = document.querySelectorAll('.obstacle-row');
             let obstacles = [];
             rows.forEach(row => {
@@ -214,13 +216,11 @@
             });
             dataObj['obstacles'] = obstacles;
             
-            // تحويل البيانات لملف JSON وتنزيله
             const dataStr = JSON.stringify(dataObj, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             
-            // تسمية الملف بناءً على اسم المشروع والتاريخ
-            const projName = dataObj['project_name'] || 'مشروع_بدون_اسم';
+            const projName = dataObj['project_name'] || 'مشروع';
             const dateStr = new Date().toISOString().split('T')[0];
             const fileName = `مسودة_${projName}_${dateStr}.json`;
 
@@ -233,7 +233,6 @@
             URL.revokeObjectURL(url);
         }
 
-        // --- دالة استرجاع البيانات من ملف (Upload File) ---
         function loadFromFile(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -242,14 +241,11 @@
             reader.onload = function(e) {
                 try {
                     const dataObj = JSON.parse(e.target.result);
-                    
-                    // تعبئة الحقول العادية
                     for (const key in dataObj) {
                         if(key === 'obstacles') continue;
                         const field = document.querySelector(`[name="${key}"]`);
-                        if(field) {
+                        if(field && !field.readOnly) {
                             field.value = dataObj[key];
-                            // إعادة وضع الفواصل الألفية للحقول المالية
                             if (field.classList.contains('money-input')) {
                                 let parts = field.value.split('.');
                                 if (parts[0]) parts[0] = Number(parts[0]).toLocaleString('en-US');
@@ -257,11 +253,9 @@
                             }
                         }
                     }
-                    
-                    // إعادة رسم العوائق
                     if(dataObj.obstacles) {
                         const container = document.getElementById('obstacles-container');
-                        container.innerHTML = ''; // تفريغ الخانة الافتراضية
+                        container.innerHTML = ''; 
                         dataObj.obstacles.forEach(obs => {
                             const row = document.createElement('div');
                             row.className = 'input-group mb-2 obstacle-row';
@@ -275,18 +269,15 @@
                             container.appendChild(row);
                         });
                     }
-                    alert("تم استرجاع البيانات من الملف بنجاح!");
+                    alert("تم استرجاع البيانات بنجاح!");
                 } catch (err) {
-                    alert("عذراً، حدث خطأ أثناء قراءة الملف. تأكد من أنك اخترت ملف المسودة الصحيح بصيغة .json");
+                    alert("عذراً، حدث خطأ أثناء قراءة الملف.");
                 }
-                
-                // إعادة ضبط زر الرفع لكي تتمكن من رفع نفس الملف مرة أخرى إذا أردت
                 event.target.value = '';
             };
             reader.readAsText(file);
         }
 
-        // --- باقي دوال النظام ---
         function addObstacle() {
             const container = document.getElementById('obstacles-container');
             const row = document.createElement('div');
@@ -304,14 +295,12 @@
         const form = document.getElementById('portfolioForm');
 
         form.addEventListener('submit', function(e) {
-            // تفعيل الإطار الأحمر للحقول الناقصة فقط عند محاولة الإرسال
             if (!form.checkValidity()) {
                 e.preventDefault();
                 e.stopPropagation();
                 form.classList.add('was-validated'); 
-                alert("يرجى إكمال جميع الحقول الإلزامية المحددة باللون الأحمر قبل إرسال التحديث.");
+                alert("يرجى إكمال جميع الحقول الإلزامية المحددة باللون الأحمر.");
             } else {
-                // تجميع بيانات العوائق قبل الإرسال النهائي
                 const rows = document.querySelectorAll('.obstacle-row');
                 let obstacles = [];
                 rows.forEach(row => {
@@ -321,7 +310,6 @@
                 });
                 document.getElementById('obstacles_json').value = JSON.stringify(obstacles);
                 
-                // إزالة الفواصل الألفية قبل الحفظ في قاعدة البيانات
                 document.querySelectorAll('.money-input').forEach(input => {
                     input.value = input.value.replace(/,/g, '');
                 });
@@ -332,7 +320,7 @@
             const max_size_mb = 5;
             const file = this.files[0];
             if (file && file.size > max_size_mb * 1024 * 1024) {
-                alert("عفواً، حجم الملف يتجاوز الحد المسموح (5 ميجابايت). يرجى اختيار ملف أصغر.");
+                alert("عفواً، حجم الملف يتجاوز الحد المسموح (5 ميجابايت).");
                 this.value = ""; 
             }
         });
