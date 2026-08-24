@@ -325,7 +325,7 @@
         };
 
         // ==========================================
-        // 3. المنطق الديناميكي لتواريخ النهاية المعدلة (تم التحديث هنا)
+        // 3. المنطق الديناميكي لتواريخ النهاية المعدلة 
         // ==========================================
         function checkRequiredDates() {
             const consTime = document.getElementById('cons_time');
@@ -333,7 +333,6 @@
             if (consTime && consEndDate) {
                 const val = consTime.value.trim();
                 const num = parseFloat(val);
-                // إجباري فقط لو الحقل مش فاضي والرقم أكبر من صفر
                 consEndDate.required = (val !== '' && !isNaN(num) && num > 0);
             }
 
@@ -350,7 +349,7 @@
         document.getElementById('cont_time').addEventListener('input', checkRequiredDates);
 
         // ==========================================
-        // 4. الحفظ والاسترجاع والإرسال
+        // 4. الحفظ والاسترجاع والإرسال (التحديث هنا)
         // ==========================================
         function saveToFile() {
             const formData = new FormData(document.getElementById('portfolioForm'));
@@ -394,12 +393,17 @@
                     for (const key in dataObj) {
                         if(key === 'obstacles') continue;
                         const field = document.querySelector(`[name="${key}"]`);
+                        
                         if(field && !field.readOnly) {
-                            field.value = dataObj[key];
+                            // تنظيف الأرقام المالية من الفواصل قبل إعادة عرضها لتجنب خطأ NaN
                             if (field.classList.contains('money-input')) {
-                                let parts = field.value.split('.');
+                                let rawValue = String(dataObj[key]).replace(/[^\d.]/g, '');
+                                let parts = rawValue.split('.');
+                                if (parts.length > 2) parts = [parts[0], parts[1]];
                                 if (parts[0]) parts[0] = Number(parts[0]).toLocaleString('en-US');
                                 field.value = parts.join('.');
+                            } else {
+                                field.value = dataObj[key];
                             }
                         }
                     }
