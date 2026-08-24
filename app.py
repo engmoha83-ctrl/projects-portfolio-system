@@ -1,8 +1,8 @@
 import os
 import json
 from datetime import date
-from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, UploadFile, File, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 import cloudinary
@@ -12,90 +12,15 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 # ==========================================
-# 1. إعدادات قاعدة البيانات (Supabase PostgreSQL)
+# 1. إعدادات قاعدة البيانات 
 # ==========================================
 DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
 
-def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS project_updates (
-            id SERIAL PRIMARY KEY,
-            username TEXT,
-            manager_name TEXT,
-            project_name TEXT,
-            project_desc TEXT,
-            project_type TEXT,
-            current_data_date TEXT,
-            
-            consultant_val REAL,
-            contractor_val REAL,
-            
-            consultant_mods_count INTEGER,
-            consultant_mods_val REAL,
-            consultant_mods_time TEXT,
-            
-            contractor_mods_count INTEGER,
-            contractor_mods_val REAL,
-            contractor_mods_time TEXT,
-            
-            cons_inv_count INTEGER,
-            cons_inv_val REAL,
-            cons_inv_date TEXT,
-            
-            cont_inv_count INTEGER,
-            cont_inv_val REAL,
-            cont_inv_date TEXT,
-            
-            start_contractual TEXT,
-            end_contractual TEXT,
-            start_actual TEXT,
-            end_expected TEXT,
-            
-            act_prog_cur REAL,
-            act_prog_prev REAL,
-            plan_prog_cur REAL,
-            plan_prog_prev REAL,
-            
-            works_completed TEXT,
-            works_ongoing TEXT,
-            works_planned TEXT,
-            obstacles_data JSONB,
-            
-            eval_labor INTEGER,
-            eval_equip INTEGER,
-            eval_financial INTEGER,
-            eval_hse INTEGER,
-            
-            drawings_sub INTEGER,
-            drawings_app INTEGER,
-            drawings_rev INTEGER,
-            
-            ir_sub INTEGER,
-            ir_app INTEGER,
-            ir_rev INTEGER,
-            
-            ncr_open INTEGER,
-            ncr_closed INTEGER,
-            
-            file_link TEXT,
-            submission_date TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-try:
-    init_db()
-except Exception as e:
-    print("تنبيه: تأكد من وضع رابط قاعدة البيانات.", e)
-
 # ==========================================
-# 2. إعدادات Cloudinary (رفع الملفات)
+# 2. إعدادات Cloudinary
 # ==========================================
 cloudinary.config(
   cloud_name = "wu5wjket",
@@ -108,33 +33,76 @@ def upload_to_cloudinary(file: UploadFile):
         result = cloudinary.uploader.upload(file.file, resource_type="auto")
         return result.get("secure_url")
     except Exception as e:
-        print(f"خطأ في الرفع إلى Cloudinary: {e}")
+        print(f"خطأ في الرفع: {e}")
         return None
 
 # ==========================================
-# 3. مسارات واجهة المستخدم والبيانات
+# 3. نظام تسجيل الدخول والجلسات
+# ==========================================
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, error: str = None):
+    return templates.TemplateResponse("login.html", {"request": request, "error": error})
+
+@app.post("/login")
+async def do_login(request: Request, username: str = Form(...), password: str = Form(...)):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT manager_name, project_name FROM users WHERE username=%s AND password=%s", (username, password))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user:
+        # إذا كانت البيانات صحيحة، ننشئ جلسة تحويل للصفحة الرئيسية
+        response = RedirectResponse(url="/", status_code=303)
+        response.set_cookie(key="auth_user", value=username, max_age=86400) # الجلسة صالحة ليوم كامل
+        return response
+    else:
+        # إذا كانت خاطئة نعيده لصفحة الدخول مع رسالة خطأ
+        return templates.TemplateResponse("login.html", {"request": request, "error": "اسم المستخدم أو كلمة المرور غير صحيحة"})
+
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie("auth_user")
+    return response
+
+# ==========================================
+# 4. الصفحة الرئيسية وإرسال التحديث
 # ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def home_page(request: Request):
-    return templates.TemplateResponse(name="index.html", request=request)
+    auth_user = request.cookies.get("auth_user")
+    if not auth_user:
+        return RedirectResponse(url="/login")
 
-@app.post("/save-section")
-async def save_section(request: Request):
-    form_data = await request.form()
-    project_name = form_data.get("project_name")
-    
-    if not project_name:
-        return {"error": "يرجى إدخال اسم المشروع أولاً لحفظ القسم."}
-        
-    return {"message": "تم حفظ بيانات القسم بنجاح ويمكن العودة لها لاحقاً!"}
+    # جلب بيانات المدير والمشروع للملء التلقائي
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT manager_name, project_name FROM users WHERE username=%s", (auth_user,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user:
+        response = RedirectResponse(url="/login")
+        response.delete_cookie("auth_user")
+        return response
+
+    manager_name, project_name = user
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "username": auth_user, 
+        "manager_name": manager_name, 
+        "project_name": project_name
+    })
 
 @app.post("/submit")
 async def submit_data(request: Request):
+    auth_user = request.cookies.get("auth_user")
+    if not auth_user:
+        return {"error": "انتهت الجلسة، يرجى تسجيل الدخول من جديد."}
+
     form_data = await request.form()
     
-    if form_data.get("password") != "admin123":
-        return {"error": "كلمة المرور غير صحيحة."}
-
     attachment = form_data.get("attachment")
     file_link = "لا يوجد مرفق"
     if attachment and attachment.filename:
@@ -189,12 +157,9 @@ async def submit_data(request: Request):
             form_data.get("act_prog_cur") or 0, form_data.get("act_prog_prev") or 0, form_data.get("plan_prog_cur") or 0, form_data.get("plan_prog_prev") or 0,
             form_data.get("works_completed"), form_data.get("works_ongoing"), form_data.get("works_planned"), form_data.get("obstacles_json"),
             form_data.get("eval_labor") or 0, form_data.get("eval_equip") or 0, form_data.get("eval_financial") or 0, form_data.get("eval_hse") or 0,
-            
-            # التقاط الحقول الجديدة
             form_data.get("drawings_sub") or 0, form_data.get("drawings_app") or 0, form_data.get("drawings_rev") or 0,
             form_data.get("ir_sub") or 0, form_data.get("ir_app") or 0, form_data.get("ir_rev") or 0,
             form_data.get("ncr_open") or 0, form_data.get("ncr_closed") or 0,
-            
             file_link, date.today().isoformat()
         ))
         conn.commit()
@@ -202,6 +167,11 @@ async def submit_data(request: Request):
         return {"message": "تم حفظ التحديث ورفع الملفات بنجاح!"}
     except Exception as e:
         return {"error": f"حدث خطأ أثناء حفظ البيانات: {e}"}
+
+@app.post("/save-section")
+async def save_section(request: Request):
+    form_data = await request.form()
+    return {"message": "تم حفظ بيانات القسم بنجاح!"}
 
 @app.get("/api/powerbi")
 async def powerbi_feed():
