@@ -11,7 +11,10 @@ import cloudinary.uploader
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-DB_URL = DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+# ==========================================
+# 1. إعدادات قاعدة البيانات (Supabase PostgreSQL)
+# ==========================================
+DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
@@ -68,6 +71,17 @@ def init_db():
             eval_financial INTEGER,
             eval_hse INTEGER,
             
+            drawings_sub INTEGER,
+            drawings_app INTEGER,
+            drawings_rev INTEGER,
+            
+            ir_sub INTEGER,
+            ir_app INTEGER,
+            ir_rev INTEGER,
+            
+            ncr_open INTEGER,
+            ncr_closed INTEGER,
+            
             file_link TEXT,
             submission_date TEXT
         )
@@ -80,6 +94,9 @@ try:
 except Exception as e:
     print("تنبيه: تأكد من وضع رابط قاعدة البيانات.", e)
 
+# ==========================================
+# 2. إعدادات Cloudinary (رفع الملفات)
+# ==========================================
 cloudinary.config(
   cloud_name = "wu5wjket",
   api_key = "241572682214285",
@@ -94,11 +111,13 @@ def upload_to_cloudinary(file: UploadFile):
         print(f"خطأ في الرفع إلى Cloudinary: {e}")
         return None
 
+# ==========================================
+# 3. مسارات واجهة المستخدم والبيانات
+# ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def home_page(request: Request):
     return templates.TemplateResponse(name="index.html", request=request)
 
-# مسار لحفظ القسم بشكل مستقل (Draft / Partial Save)
 @app.post("/save-section")
 async def save_section(request: Request):
     form_data = await request.form()
@@ -139,15 +158,24 @@ async def submit_data(request: Request):
                 act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev,
                 works_completed, works_ongoing, works_planned, obstacles_data,
                 eval_labor, eval_equip, eval_financial, eval_hse,
+                drawings_sub, drawings_app, drawings_rev,
+                ir_sub, ir_app, ir_rev,
+                ncr_open, ncr_closed,
                 file_link, submission_date
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s,
+                %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, %s,
                 %s, %s
             )
         ''', (
@@ -161,6 +189,12 @@ async def submit_data(request: Request):
             form_data.get("act_prog_cur") or 0, form_data.get("act_prog_prev") or 0, form_data.get("plan_prog_cur") or 0, form_data.get("plan_prog_prev") or 0,
             form_data.get("works_completed"), form_data.get("works_ongoing"), form_data.get("works_planned"), form_data.get("obstacles_json"),
             form_data.get("eval_labor") or 0, form_data.get("eval_equip") or 0, form_data.get("eval_financial") or 0, form_data.get("eval_hse") or 0,
+            
+            # التقاط الحقول الجديدة
+            form_data.get("drawings_sub") or 0, form_data.get("drawings_app") or 0, form_data.get("drawings_rev") or 0,
+            form_data.get("ir_sub") or 0, form_data.get("ir_app") or 0, form_data.get("ir_rev") or 0,
+            form_data.get("ncr_open") or 0, form_data.get("ncr_closed") or 0,
+            
             file_link, date.today().isoformat()
         ))
         conn.commit()
