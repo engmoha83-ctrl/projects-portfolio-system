@@ -99,12 +99,26 @@ async def submit_data(request: Request):
 
     form_data = await request.form()
     
+    # معالجة الملفات الثلاثة
     attachment = form_data.get("attachment")
+    master_plan = form_data.get("master_plan")
+    isometric = form_data.get("isometric")
+    
     file_link = "لا يوجد مرفق"
+    master_plan_link = "لا يوجد مرفق"
+    isometric_link = "لا يوجد مرفق"
+    
     if attachment and attachment.filename:
         uploaded_url = upload_to_cloudinary(attachment)
-        if uploaded_url:
-            file_link = uploaded_url
+        if uploaded_url: file_link = uploaded_url
+        
+    if master_plan and master_plan.filename:
+        uploaded_url = upload_to_cloudinary(master_plan)
+        if uploaded_url: master_plan_link = uploaded_url
+        
+    if isometric and isometric.filename:
+        uploaded_url = upload_to_cloudinary(isometric)
+        if uploaded_url: isometric_link = uploaded_url
 
     try:
         conn = get_db_connection()
@@ -113,9 +127,10 @@ async def submit_data(request: Request):
         cursor.execute('''
             INSERT INTO project_updates (
                 username, manager_name, project_name, project_desc, project_type, current_data_date,
+                project_owner, project_developer, project_contractor,
                 consultant_val, contractor_val, 
-                consultant_mods_count, consultant_mods_val, consultant_mods_time,
-                contractor_mods_count, contractor_mods_val, contractor_mods_time,
+                consultant_mods_count, consultant_mods_val, consultant_mods_time, consultant_mods_end_date,
+                contractor_mods_count, contractor_mods_val, contractor_mods_time, contractor_mods_end_date,
                 cons_inv_count, cons_inv_val, cons_inv_date,
                 cont_inv_count, cont_inv_val, cont_inv_date,
                 start_contractual, end_contractual, start_actual, end_expected,
@@ -125,28 +140,30 @@ async def submit_data(request: Request):
                 drawings_sub, drawings_app, drawings_rev,
                 ir_sub, ir_app, ir_rev,
                 ncr_open, ncr_closed,
-                file_link, submission_date
+                file_link, master_plan_link, isometric_link, submission_date
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
-                %s, %s,
-                %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s,
                 %s, %s, %s,
                 %s, %s,
-                %s, %s
+                %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, %s,
+                %s, %s, %s, %s
             )
         ''', (
             form_data.get("username"), form_data.get("manager_name"), form_data.get("project_name"), form_data.get("project_desc"), form_data.get("project_type"), form_data.get("current_data_date"),
+            form_data.get("project_owner"), form_data.get("project_developer"), form_data.get("project_contractor"),
             form_data.get("consultant_val") or 0, form_data.get("contractor_val") or 0,
-            form_data.get("consultant_mods_count") or 0, form_data.get("consultant_mods_val") or 0, form_data.get("consultant_mods_time"),
-            form_data.get("contractor_mods_count") or 0, form_data.get("contractor_mods_val") or 0, form_data.get("contractor_mods_time"),
+            form_data.get("consultant_mods_count") or 0, form_data.get("consultant_mods_val") or 0, form_data.get("consultant_mods_time"), form_data.get("consultant_mods_end_date"),
+            form_data.get("contractor_mods_count") or 0, form_data.get("contractor_mods_val") or 0, form_data.get("contractor_mods_time"), form_data.get("contractor_mods_end_date"),
             form_data.get("cons_inv_count") or 0, form_data.get("cons_inv_val") or 0, form_data.get("cons_inv_date"),
             form_data.get("cont_inv_count") or 0, form_data.get("cont_inv_val") or 0, form_data.get("cont_inv_date"),
             form_data.get("start_contractual"), form_data.get("end_contractual"), form_data.get("start_actual"), form_data.get("end_expected"),
@@ -156,7 +173,7 @@ async def submit_data(request: Request):
             form_data.get("drawings_sub") or 0, form_data.get("drawings_app") or 0, form_data.get("drawings_rev") or 0,
             form_data.get("ir_sub") or 0, form_data.get("ir_app") or 0, form_data.get("ir_rev") or 0,
             form_data.get("ncr_open") or 0, form_data.get("ncr_closed") or 0,
-            file_link, date.today().isoformat()
+            file_link, master_plan_link, isometric_link, date.today().isoformat()
         ))
         conn.commit()
         conn.close()
