@@ -14,7 +14,7 @@ templates = Jinja2Templates(directory="templates")
 # ==========================================
 # 1. إعدادات قاعدة البيانات (Supabase PostgreSQL)
 # ==========================================
-DB_URL = "postgresql://postgres:Saudi_Architects2026@db.rofppixfbshgdkhqoevo.supabase.co:5432/postgres"
+DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
