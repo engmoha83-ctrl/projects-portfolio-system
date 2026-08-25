@@ -20,7 +20,7 @@ def get_db_connection():
     return psycopg2.connect(DB_URL)
 
 # ==========================================
-# 2. إعدادات Cloudinary
+# 2. إعدادات Cloudinary (مع الضغط التلقائي)
 # ==========================================
 cloudinary.config(
   cloud_name = "wu5wjket",
@@ -30,7 +30,22 @@ cloudinary.config(
 
 def upload_to_cloudinary(file: UploadFile):
     try:
-        result = cloudinary.uploader.upload(file.file, resource_type="auto")
+        # التحقق: إذا كان الملف صورة، نطبق عليه خوارزميات الضغط
+        if file.content_type and file.content_type.startswith("image/"):
+            result = cloudinary.uploader.upload(
+                file.file, 
+                resource_type="image",
+                quality="auto",       # ضغط ذكي يقلل الحجم دون التأثير على وضوح الرؤية
+                fetch_format="auto",  # تحويل تلقائي لأفضل وأخف صيغة (مثل WebP)
+                width=1920,           # الحد الأقصى للعرض 1920 بيكسل (HD)
+                crop="limit"          # تطبيق التصغير فقط إذا كانت الصورة الأصلية أكبر من الحد
+            )
+        # أما إذا كان الملف PDF أو ملفات أخرى، نرفعه كما هو
+        else:
+            result = cloudinary.uploader.upload(
+                file.file, 
+                resource_type="auto"
+            )
         return result.get("secure_url")
     except Exception as e:
         print(f"خطأ في الرفع: {e}")
@@ -59,7 +74,6 @@ async def do_login(request: Request, username: str = Form(...), password: str = 
     conn.close()
 
     if user:
-        # توجيه المستخدم إلى بوابة التحديث بعد نجاح الدخول
         response = RedirectResponse(url="/update-portal", status_code=303)
         response.set_cookie(key="auth_user", value=username, max_age=86400)
         return response
