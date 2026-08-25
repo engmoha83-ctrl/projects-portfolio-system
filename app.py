@@ -30,17 +30,15 @@ cloudinary.config(
 
 def upload_to_cloudinary(file: UploadFile):
     try:
-        # التحقق: إذا كان الملف صورة، نطبق عليه خوارزميات الضغط
         if file.content_type and file.content_type.startswith("image/"):
             result = cloudinary.uploader.upload(
                 file.file, 
                 resource_type="image",
-                quality="auto",       # ضغط ذكي يقلل الحجم دون التأثير على وضوح الرؤية
-                fetch_format="auto",  # تحويل تلقائي لأفضل وأخف صيغة (مثل WebP)
-                width=1920,           # الحد الأقصى للعرض 1920 بيكسل (HD)
-                crop="limit"          # تطبيق التصغير فقط إذا كانت الصورة الأصلية أكبر من الحد
+                quality="auto",       
+                fetch_format="auto",  
+                width=1920,           
+                crop="limit"          
             )
-        # أما إذا كان الملف PDF أو ملفات أخرى، نرفعه كما هو
         else:
             result = cloudinary.uploader.upload(
                 file.file, 
@@ -95,10 +93,9 @@ async def admin_login_page(request: Request, error: str = None):
 
 @app.post("/admin")
 async def do_admin_login(request: Request, username: str = Form(...), password: str = Form(...)):
-    # قائمة حسابات الإدارة (يمكنك إضافة أي عدد تريده من المديرين هنا)
     ADMIN_ACCOUNTS = {
         "admin_mohamed": "admin_2026",
-        "admin_assistant": "admin_1234"  # بيانات دخول الأدمن الثاني
+        "admin_assistant": "admin_1234"
     }
     
     if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
@@ -117,8 +114,18 @@ async def admin_dashboard(request: Request):
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM project_updates ORDER BY id DESC")
     columns = [desc[0] for desc in cursor.description]
-    rows = cursor.fetchall()
+    raw_rows = cursor.fetchall()
     conn.close()
+    
+    # معالجة حقول الـ JSON لتظهر بصيغة صحيحة (علامات تنصيص مزدوجة) لتجنب أخطاء التعديل
+    rows = []
+    for row in raw_rows:
+        row_list = list(row)
+        for i, col in enumerate(columns):
+            if col == 'obstacles_data' and row_list[i] is not None:
+                if isinstance(row_list[i], (dict, list)):
+                    row_list[i] = json.dumps(row_list[i], ensure_ascii=False)
+        rows.append(row_list)
     
     return templates.TemplateResponse(request, "admin_dashboard.html", {
         "columns": columns, 
@@ -134,6 +141,10 @@ async def update_cell(request: Request):
     row_id = data.get("id")
     column = data.get("column")
     value = data.get("value")
+    
+    # حماية إضافية: إذا قام الأدمن بمسح الخلية بالكامل في عمود JSON، نرسل مصفوفة فارغة
+    if column == 'obstacles_data' and str(value).strip() == "":
+        value = "[]"
     
     try:
         conn = get_db_connection()
