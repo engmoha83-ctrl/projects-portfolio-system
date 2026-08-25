@@ -37,7 +37,14 @@ def upload_to_cloudinary(file: UploadFile):
         return None
 
 # ==========================================
-# 3. نظام تسجيل الدخول للمديرين
+# 3. الصفحة الرئيسية (Landing Page)
+# ==========================================
+@app.get("/", response_class=HTMLResponse)
+async def main_landing_page(request: Request):
+    return templates.TemplateResponse(request, "landing.html", {})
+
+# ==========================================
+# 4. نظام تسجيل الدخول للمديرين
 # ==========================================
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None):
@@ -52,7 +59,8 @@ async def do_login(request: Request, username: str = Form(...), password: str = 
     conn.close()
 
     if user:
-        response = RedirectResponse(url="/", status_code=303)
+        # توجيه المستخدم إلى بوابة التحديث بعد نجاح الدخول
+        response = RedirectResponse(url="/update-portal", status_code=303)
         response.set_cookie(key="auth_user", value=username, max_age=86400)
         return response
     else:
@@ -65,16 +73,14 @@ async def logout():
     return response
 
 # ==========================================
-# 4. لوحة تحكم الإدارة (Admin Dashboard)
+# 5. لوحة تحكم الإدارة (Admin Dashboard)
 # ==========================================
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_login_page(request: Request, error: str = None):
-    # صفحة دخول الأدمن المخفية
     return templates.TemplateResponse(request, "admin_login.html", {"error": error})
 
 @app.post("/admin")
 async def do_admin_login(request: Request, username: str = Form(...), password: str = Form(...)):
-    # بيانات دخولك الخاصة كمدير للنظام (يمكنك تغييرها كما تشاء)
     ADMIN_USER = "admin_mohamed"
     ADMIN_PASS = "admin_2026"
     
@@ -90,7 +96,6 @@ async def admin_dashboard(request: Request):
     if not request.cookies.get("super_admin_auth"):
         return RedirectResponse(url="/admin", status_code=303)
     
-    # جلب أسماء الأعمدة والبيانات من الجدول
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM project_updates ORDER BY id DESC")
@@ -116,7 +121,6 @@ async def update_cell(request: Request):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        # تحديث الخلية المطلوبة برمجياً في قاعدة البيانات
         cursor.execute(f"UPDATE project_updates SET {column} = %s WHERE id = %s", (value, row_id))
         conn.commit()
         conn.close()
@@ -131,10 +135,10 @@ async def admin_logout():
     return response
 
 # ==========================================
-# 5. الصفحة الرئيسية للمديرين وإرسال التحديث
+# 6. بوابة التحديث للمديرين (Update Portal)
 # ==========================================
-@app.get("/", response_class=HTMLResponse)
-async def home_page(request: Request):
+@app.get("/update-portal", response_class=HTMLResponse)
+async def update_portal_page(request: Request):
     auth_user = request.cookies.get("auth_user")
     if not auth_user:
         return RedirectResponse(url="/login")
@@ -262,10 +266,6 @@ async def submit_data(request: Request):
         return {"message": "تم حفظ التحديث ورفع الملفات بنجاح!"}
     except Exception as e:
         return {"error": f"حدث خطأ أثناء حفظ البيانات: {e}"}
-
-@app.post("/save-section")
-async def save_section(request: Request):
-    return {"message": "تم حفظ بيانات القسم بنجاح!"}
 
 @app.get("/api/powerbi")
 async def powerbi_feed():
