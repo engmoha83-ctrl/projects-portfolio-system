@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>البوابة الرئيسية | المعماريون السعوديون</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <style>
+        body { 
+            background: linear-gradient(135deg, #1a2b4c 0%, #111d33 100%); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin: 0; 
+        }
+        .landing-container { 
+            text-align: center; 
+            color: white; 
+            max-width: 800px; 
+            padding: 20px; 
+        }
+        .logo-text { 
+            font-size: 3rem; 
+            font-weight: bold; 
+            color: #d4a373; 
+            margin-bottom: 10px; 
+        }
+        .subtitle { 
+            font-size: 1.2rem; 
+            color: #e0e0e0; 
+            margin-bottom: 50px; 
+        }
+        .card-btn { 
+            background: white; 
+            border-radius: 15px; 
+            padding: 40px 20px; 
+            text-decoration: none; 
+            color: #1a2b4c; 
+            display: block; 
+            transition: transform 0.3s, box-shadow 0.3s; 
+            border: 2px solid transparent;
+        }
+        .card-btn:hover { 
+            transform: translateY(-10px); 
+            box-shadow: 0 10px 25px rgba(212, 163, 115, 0.4); 
+            border-color: #d4a373;
+        }
+        .icon { font-size: 4rem; margin-bottom: 20px; color: #1a2b4c; }
+        .card-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; }
+        .card-text { color: #6c757d; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+
+    <div class="landing-container">
+        <div class="logo-text">المعماريون السعوديون</div>
+        <div class="subtitle">النظام المركزي لإدارة ومتابعة المشاريع (PMIS)</div>
+        
+        <div class="row justify-content-center mt-5">
+            <!-- كارت دخول مديري المشاريع -->
+            <div class="col-md-5 mb-4">
+                <a href="/login" class="card-btn">
+                    <div class="icon">📊</div>
+                    <div class="card-title">بوابة التحديث الأسبوعي</div>
+                    <div class="card-text">دخول مديري المشاريع والمهندسين لإرسال التحديثات الأسبوعية ونسب الإنجاز.</div>
+                </a>
+            </div>
+            
+            <!-- كارت دخول الإدارة -->
+            <div class="col-md-5 mb-4">
+                <a href="/admin" class="card-btn">
+                    <div class="icon">🔐</div>
+                    <div class="card-title">لوحة تحكم الإدارة</div>
+                    <div class="card-text">دخول خاص لإدارة التخطيط لمراجعة وتعديل قواعد البيانات المركزية.</div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
