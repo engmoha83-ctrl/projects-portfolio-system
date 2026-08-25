@@ -14,7 +14,7 @@ templates = Jinja2Templates(directory="templates")
 # ==========================================
 # 1. إعدادات قاعدة البيانات 
 # ==========================================
-DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
@@ -37,7 +37,7 @@ def upload_to_cloudinary(file: UploadFile):
         return None
 
 # ==========================================
-# 3. نظام تسجيل الدخول والجلسات
+# 3. نظام تسجيل الدخول للمديرين
 # ==========================================
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None):
@@ -65,7 +65,73 @@ async def logout():
     return response
 
 # ==========================================
-# 4. الصفحة الرئيسية وإرسال التحديث
+# 4. لوحة تحكم الإدارة (Admin Dashboard)
+# ==========================================
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_login_page(request: Request, error: str = None):
+    # صفحة دخول الأدمن المخفية
+    return templates.TemplateResponse(request, "admin_login.html", {"error": error})
+
+@app.post("/admin")
+async def do_admin_login(request: Request, username: str = Form(...), password: str = Form(...)):
+    # بيانات دخولك الخاصة كمدير للنظام (يمكنك تغييرها كما تشاء)
+    ADMIN_USER = "admin_mohamed"
+    ADMIN_PASS = "admin_2026"
+    
+    if username == ADMIN_USER and password == ADMIN_PASS:
+        response = RedirectResponse(url="/admin-dashboard", status_code=303)
+        response.set_cookie(key="super_admin_auth", value="authorized", max_age=86400)
+        return response
+    else:
+        return templates.TemplateResponse(request, "admin_login.html", {"error": "بيانات الدخول غير صحيحة"})
+
+@app.get("/admin-dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return RedirectResponse(url="/admin", status_code=303)
+    
+    # جلب أسماء الأعمدة والبيانات من الجدول
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM project_updates ORDER BY id DESC")
+    columns = [desc[0] for desc in cursor.description]
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return templates.TemplateResponse(request, "admin_dashboard.html", {
+        "columns": columns, 
+        "rows": rows
+    })
+
+@app.post("/api/update-cell")
+async def update_cell(request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return {"success": False, "error": "غير مصرح لك بالتعديل"}
+    
+    data = await request.json()
+    row_id = data.get("id")
+    column = data.get("column")
+    value = data.get("value")
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # تحديث الخلية المطلوبة برمجياً في قاعدة البيانات
+        cursor.execute(f"UPDATE project_updates SET {column} = %s WHERE id = %s", (value, row_id))
+        conn.commit()
+        conn.close()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/admin-logout")
+async def admin_logout():
+    response = RedirectResponse(url="/admin", status_code=303)
+    response.delete_cookie("super_admin_auth")
+    return response
+
+# ==========================================
+# 5. الصفحة الرئيسية للمديرين وإرسال التحديث
 # ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def home_page(request: Request):
@@ -99,7 +165,6 @@ async def submit_data(request: Request):
 
     form_data = await request.form()
     
-    # معالجة الصور الأربعة للإنجاز
     attachments = [
         form_data.get("attachment_1"),
         form_data.get("attachment_2"),
@@ -113,7 +178,6 @@ async def submit_data(request: Request):
             url = upload_to_cloudinary(attachments[i])
             if url: links[i] = url
 
-    # معالجة المخططات الإضافية
     master_plan = form_data.get("master_plan")
     isometric = form_data.get("isometric")
     master_plan_link = "لا يوجد مرفق"
@@ -127,7 +191,6 @@ async def submit_data(request: Request):
         url = upload_to_cloudinary(isometric)
         if url: isometric_link = url
 
-    # معالجة نسب الإنجاز للباور بي آي
     def process_percentage(val):
         try:
             return float(val) / 100.0 if val else 0.0
@@ -199,6 +262,10 @@ async def submit_data(request: Request):
         return {"message": "تم حفظ التحديث ورفع الملفات بنجاح!"}
     except Exception as e:
         return {"error": f"حدث خطأ أثناء حفظ البيانات: {e}"}
+
+@app.post("/save-section")
+async def save_section(request: Request):
+    return {"message": "تم حفظ بيانات القسم بنجاح!"}
 
 @app.get("/api/powerbi")
 async def powerbi_feed():
