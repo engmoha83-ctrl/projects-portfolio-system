@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الجداول | الأدمن</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        .navbar { background-color: #1a2b4c; }
+        .table-container { margin: 20px; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow-x: auto; max-height: 80vh; }
+        
+        /* تصميم الجدول ليصبح مثل الإكسيل */
+        table { white-space: nowrap; font-size: 0.9rem; border-collapse: collapse; }
+        th { background-color: #e9ecef !important; color: #1a2b4c; font-weight: bold; border: 1px solid #dee2e6; position: sticky; top: 0; z-index: 10; }
+        td { border: 1px solid #dee2e6; padding: 8px 12px; cursor: cell; transition: background-color 0.2s; }
+        
+        /* تمييز الخلية عند النقر والتعديل */
+        td[contenteditable="true"]:focus { outline: 2px solid #d4a373; background-color: #fffdf8; }
+        
+        /* تجميد العمود الأول (ID) والثاني (اسم المشروع) ليظهرا دائماً عند التمرير يميناً */
+        th:nth-child(1), td:nth-child(1) { position: sticky; right: 0; background-color: #f1f3f5; z-index: 5; font-weight: bold; }
+        th:nth-child(4), td:nth-child(4) { position: sticky; right: 50px; background-color: #f1f3f5; z-index: 5; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark p-3">
+        <div class="container-fluid d-flex justify-content-between">
+            <h5 class="text-white mb-0">لوحة تحكم قواعد البيانات (Supabase Editor)</h5>
+            <a href="/admin-logout" class="btn btn-outline-light btn-sm">تسجيل خروج</a>
+        </div>
+    </nav>
+
+    <div class="table-container">
+        <p class="text-muted mb-3">💡 يمكنك النقر على أي خلية لتعديل محتواها. سيتم الحفظ تلقائياً في قاعدة البيانات بمجرد الضغط خارج الخلية.</p>
+        
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    {% for col in columns %}
+                    <th>{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    {% for i in range(columns|length) %}
+                        {% if columns[i] == 'id' %}
+                            <!-- عمود الـ ID لا يمكن تعديله -->
+                            <td>{{ row[i] }}</td>
+                        {% else %}
+                            <!-- باقي الخلايا قابلة للتعديل -->
+                            <td contenteditable="true" 
+                                onblur="updateCell(this, {{ row[0] }}, '{{ columns[i] }}')" 
+                                onkeydown="handleEnter(event, this)">
+                                {{ row[i] if row[i] != None else '' }}
+                            </td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // دالة لمنع النزول لسطر جديد عند ضغط Enter وحفظ البيانات مباشرة
+        function handleEnter(event, element) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                element.blur(); // سيقوم هذا الحدث تلقائياً بتشغيل دالة onblur أدناه
+            }
+        }
+
+        // دالة الحفظ اللحظي
+        function updateCell(element, rowId, column) {
+            const newValue = element.innerText.trim();
+            
+            // تغيير لون الخلية للأصفر الفاتح (دلالة على جاري الحفظ)
+            element.style.backgroundColor = "#fff3cd"; 
+
+            fetch('/api/update-cell', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: rowId, column: column, value: newValue })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // لون أخضر فاتح (دلالة على نجاح الحفظ) ثم يعود لطبيعته
+                    element.style.backgroundColor = "#d1e7dd"; 
+                    setTimeout(() => { element.style.backgroundColor = ""; }, 800);
+                } else {
+                    // لون أحمر (فشل الحفظ)
+                    element.style.backgroundColor = "#f8d7da"; 
+                    alert("عذراً، حدث خطأ أثناء حفظ التعديل: " + data.error);
+                }
+            })
+            .catch(error => {
+                element.style.backgroundColor = "#f8d7da";
+                alert("انقطع الاتصال بالسيرفر.");
+            });
+        }
+    </script>
+</body>
+</html>
