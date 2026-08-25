@@ -95,10 +95,13 @@ async def admin_login_page(request: Request, error: str = None):
 
 @app.post("/admin")
 async def do_admin_login(request: Request, username: str = Form(...), password: str = Form(...)):
-    ADMIN_USER = "admin_mohamed"
-    ADMIN_PASS = "admin_2026"
+    # قائمة حسابات الإدارة (يمكنك إضافة أي عدد تريده من المديرين هنا)
+    ADMIN_ACCOUNTS = {
+        "admin_mohamed": "admin_2026",
+        "admin_assistant": "admin_1234"  # بيانات دخول الأدمن الثاني
+    }
     
-    if username == ADMIN_USER and password == ADMIN_PASS:
+    if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
         response = RedirectResponse(url="/admin-dashboard", status_code=303)
         response.set_cookie(key="super_admin_auth", value="authorized", max_age=86400)
         return response
