@@ -11,6 +11,8 @@
         .gallery-img:hover { transform: scale(1.02); }
         .large-img { max-height: 600px; object-fit: contain; background-color: #f1f1f1; }
         .empty-state { text-align: center; padding: 50px; color: #6c757d; font-size: 1.2rem; display: none; }
+        /* تصميم خاص لإطار الـ PDF */
+        .pdf-frame { width: 100%; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); background: #f8f9fa; }
     </style>
 </head>
 <body>
@@ -22,19 +24,11 @@
             </button>
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/admin-dashboard">سجل التحديثات (الجدول)</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/admin-directory">دليل مديري المشاريع</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/admin-gallery">المعرض المرئي للمشاريع</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/admin-dashboard">سجل التحديثات (الجدول)</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin-directory">دليل مديري المشاريع</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/admin-gallery">المعرض المرئي للمشاريع</a></li>
                 </ul>
-                <div class="d-flex">
-                    <a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a>
-                </div>
+                <div class="d-flex"><a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a></div>
             </div>
         </div>
     </nav>
@@ -44,7 +38,6 @@
             <div class="col-md-3">
                 <h4 class="text-primary mb-0">المعرض المرئي للمشاريع</h4>
             </div>
-            
             <div class="col-md-9 text-md-end mt-3 mt-md-0">
                 <div class="d-inline-block me-3 text-start">
                     <label class="fw-bold text-muted small d-block mb-1">اسم المشروع:</label>
@@ -55,7 +48,6 @@
                         {% endfor %}
                     </select>
                 </div>
-                
                 <div class="d-inline-block text-start">
                     <label class="fw-bold text-muted small d-block mb-1">تاريخ البيانات:</label>
                     <select id="dateSelect" class="form-select" onchange="loadGallery()" disabled style="min-width: 200px;">
@@ -72,46 +64,57 @@
 
             <!-- التبويبات -->
             <ul class="nav nav-tabs mb-4" id="galleryTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active fw-bold" id="progress-tab" data-bs-toggle="tab" data-bs-target="#progress" type="button" role="tab">صور الإنجاز الأسبوعي</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-bold" id="master-tab" data-bs-toggle="tab" data-bs-target="#master" type="button" role="tab">المخطط العام (Masterplan)</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-bold" id="iso-tab" data-bs-toggle="tab" data-bs-target="#iso" type="button" role="tab">أيزومتريك (Isometric)</button>
-                </li>
+                <li class="nav-item" role="presentation"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#progress" type="button" role="tab">صور الإنجاز الأسبوعي</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#master" type="button" role="tab">المخطط العام (Masterplan)</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#iso" type="button" role="tab">أيزومتريك (Isometric)</button></li>
             </ul>
 
             <!-- محتوى التبويبات -->
             <div class="tab-content" id="galleryContent">
+                <!-- تبويب صور الإنجاز -->
                 <div class="tab-pane fade show active" id="progress" role="tabpanel">
                     <div id="progress-empty" class="empty-state">لم يتم رفع صور إنجاز في هذا التاريخ.</div>
                     <div class="row g-4" id="progress-grid">
-                        <div class="col-md-6 img-box"><a id="a-prog1" target="_blank"><img id="img-prog1" class="gallery-img"></a></div>
-                        <div class="col-md-6 img-box"><a id="a-prog2" target="_blank"><img id="img-prog2" class="gallery-img"></a></div>
-                        <div class="col-md-6 img-box"><a id="a-prog3" target="_blank"><img id="img-prog3" class="gallery-img"></a></div>
-                        <div class="col-md-6 img-box"><a id="a-prog4" target="_blank"><img id="img-prog4" class="gallery-img"></a></div>
+                        <div class="col-md-6 img-box" id="box-prog1">
+                            <a id="a-prog1" target="_blank"><img id="img-prog1" class="gallery-img"></a>
+                            <iframe id="frame-prog1" class="pdf-frame" style="display:none; height:300px;"></iframe>
+                        </div>
+                        <div class="col-md-6 img-box" id="box-prog2">
+                            <a id="a-prog2" target="_blank"><img id="img-prog2" class="gallery-img"></a>
+                            <iframe id="frame-prog2" class="pdf-frame" style="display:none; height:300px;"></iframe>
+                        </div>
+                        <div class="col-md-6 img-box" id="box-prog3">
+                            <a id="a-prog3" target="_blank"><img id="img-prog3" class="gallery-img"></a>
+                            <iframe id="frame-prog3" class="pdf-frame" style="display:none; height:300px;"></iframe>
+                        </div>
+                        <div class="col-md-6 img-box" id="box-prog4">
+                            <a id="a-prog4" target="_blank"><img id="img-prog4" class="gallery-img"></a>
+                            <iframe id="frame-prog4" class="pdf-frame" style="display:none; height:300px;"></iframe>
+                        </div>
                     </div>
                 </div>
 
+                <!-- تبويب المخطط العام -->
                 <div class="tab-pane fade" id="master" role="tabpanel">
                     <div id="master-empty" class="empty-state">لم يتم رفع المخطط العام في هذا التاريخ.</div>
                     <div id="master-grid" class="text-center">
                         <a id="a-master" target="_blank"><img id="img-master" class="gallery-img large-img"></a>
+                        <iframe id="frame-master" class="pdf-frame" style="display:none; height:600px;"></iframe>
                     </div>
                 </div>
 
+                <!-- تبويب الأيزومتريك -->
                 <div class="tab-pane fade" id="iso" role="tabpanel">
                     <div id="iso-empty" class="empty-state">لم يتم رفع لقطة أيزومتريك في هذا التاريخ.</div>
                     <div id="iso-grid" class="text-center">
                         <a id="a-iso" target="_blank"><img id="img-iso" class="gallery-img large-img"></a>
+                        <iframe id="frame-iso" class="pdf-frame" style="display:none; height:600px;"></iframe>
                     </div>
                 </div>
             </div>
             
             <div id="initial-msg" class="text-center py-5 text-muted">
-                <h4>الرجاء اختيار اسم مشروع وتاريخ لعرض الصور.</h4>
+                <h4>الرجاء اختيار اسم مشروع وتاريخ لعرض البيانات.</h4>
             </div>
         </div>
     </div>
@@ -125,26 +128,43 @@
             return url && url !== "لا يوجد مرفق" && url.trim() !== "";
         }
 
-        function setupImage(imgId, aId, boxId, url, emptyId, gridId, isMultiple = true) {
+        // الدالة الذكية الجديدة للتعامل مع الصور والـ PDF
+        function setupImage(imgId, aId, frameId, boxId, url, isMultiple = true) {
+            let imgEl = document.getElementById(imgId);
+            let aEl = document.getElementById(aId);
+            let frameEl = document.getElementById(frameId);
+            let boxEl = document.getElementById(boxId);
+
             if (checkValidUrl(url)) {
-                document.getElementById(imgId).src = url;
-                document.getElementById(aId).href = url;
-                if(isMultiple) document.getElementById(boxId).style.display = 'block';
+                let isPdf = url.toLowerCase().includes('.pdf');
+                
+                if (isPdf) {
+                    // إذا كان PDF نخفي الصورة ونظهر الـ Iframe
+                    aEl.style.display = 'none';
+                    frameEl.style.display = 'block';
+                    // استخدام عارض جوجل لضمان الفتح دون تحميل على جميع الأجهزة
+                    frameEl.src = 'https://docs.google.com/gview?url=' + encodeURIComponent(url) + '&embedded=true';
+                } else {
+                    // إذا كانت صورة نخفي الـ Iframe ونظهر الصورة المعتادة
+                    frameEl.style.display = 'none';
+                    aEl.style.display = 'block';
+                    imgEl.src = url;
+                    aEl.href = url;
+                }
+                
+                if(isMultiple && boxEl) boxEl.style.display = 'block';
                 return true;
             } else {
-                if(isMultiple) document.getElementById(boxId).style.display = 'none';
+                if(isMultiple && boxEl) boxEl.style.display = 'none';
                 return false;
             }
         }
 
-        // 1. جلب التواريخ المتاحة للمشروع
         function loadProjectDates() {
             const project = document.getElementById('projectSelect').value;
             const dateSelect = document.getElementById('dateSelect');
-            
             if (!project) return;
 
-            // تصفير القائمة
             dateSelect.innerHTML = '<option value="" selected disabled>جاري تحميل التواريخ...</option>';
             dateSelect.disabled = true;
             
@@ -160,8 +180,6 @@
                             dateSelect.appendChild(option);
                         });
                         dateSelect.disabled = false;
-                        
-                        // تحميل أحدث تاريخ تلقائياً
                         loadGallery();
                     } else {
                         dateSelect.innerHTML = '<option value="" selected disabled>لا توجد تواريخ مسجلة</option>';
@@ -169,11 +187,9 @@
                 });
         }
 
-        // 2. جلب الصور بناءً على المشروع والتاريخ
         function loadGallery() {
             const project = document.getElementById('projectSelect').value;
             const date = document.getElementById('dateSelect').value;
-            
             if (!project || !date) return;
             
             document.getElementById('initial-msg').style.display = 'none';
@@ -187,36 +203,23 @@
                         document.getElementById('date-badge').style.display = 'block';
                         document.getElementById('latest-date').innerText = data.submission_date;
 
-                        const p1 = setupImage('img-prog1', 'a-prog1', 'a-prog1', data.images.prog1, null, null, true);
-                        const p2 = setupImage('img-prog2', 'a-prog2', 'a-prog2', data.images.prog2, null, null, true);
-                        const p3 = setupImage('img-prog3', 'a-prog3', 'a-prog3', data.images.prog3, null, null, true);
-                        const p4 = setupImage('img-prog4', 'a-prog4', 'a-prog4', data.images.prog4, null, null, true);
+                        // تمرير 6 معاملات للدالة الجديدة
+                        const p1 = setupImage('img-prog1', 'a-prog1', 'frame-prog1', 'box-prog1', data.images.prog1, true);
+                        const p2 = setupImage('img-prog2', 'a-prog2', 'frame-prog2', 'box-prog2', data.images.prog2, true);
+                        const p3 = setupImage('img-prog3', 'a-prog3', 'frame-prog3', 'box-prog3', data.images.prog3, true);
+                        const p4 = setupImage('img-prog4', 'a-prog4', 'frame-prog4', 'box-prog4', data.images.prog4, true);
                         
-                        if(!p1 && !p2 && !p3 && !p4) {
-                            document.getElementById('progress-empty').style.display = 'block';
-                        } else {
-                            document.getElementById('progress-empty').style.display = 'none';
-                        }
+                        document.getElementById('progress-empty').style.display = (!p1 && !p2 && !p3 && !p4) ? 'block' : 'none';
 
-                        if (checkValidUrl(data.images.master)) {
-                            document.getElementById('img-master').src = data.images.master;
-                            document.getElementById('a-master').href = data.images.master;
-                            document.getElementById('master-grid').style.display = 'block';
-                            document.getElementById('master-empty').style.display = 'none';
-                        } else {
-                            document.getElementById('master-grid').style.display = 'none';
-                            document.getElementById('master-empty').style.display = 'block';
-                        }
+                        // معالجة المخطط العام والأيزومتريك
+                        setupImage('img-master', 'a-master', 'frame-master', 'master-grid', data.images.master, false);
+                        document.getElementById('master-grid').style.display = checkValidUrl(data.images.master) ? 'block' : 'none';
+                        document.getElementById('master-empty').style.display = checkValidUrl(data.images.master) ? 'none' : 'block';
 
-                        if (checkValidUrl(data.images.iso)) {
-                            document.getElementById('img-iso').src = data.images.iso;
-                            document.getElementById('a-iso').href = data.images.iso;
-                            document.getElementById('iso-grid').style.display = 'block';
-                            document.getElementById('iso-empty').style.display = 'none';
-                        } else {
-                            document.getElementById('iso-grid').style.display = 'none';
-                            document.getElementById('iso-empty').style.display = 'block';
-                        }
+                        setupImage('img-iso', 'a-iso', 'frame-iso', 'iso-grid', data.images.iso, false);
+                        document.getElementById('iso-grid').style.display = checkValidUrl(data.images.iso) ? 'block' : 'none';
+                        document.getElementById('iso-empty').style.display = checkValidUrl(data.images.iso) ? 'none' : 'block';
+                        
                     } else {
                         document.getElementById('date-badge').style.display = 'none';
                         document.getElementById('progress-empty').style.display = 'block';
