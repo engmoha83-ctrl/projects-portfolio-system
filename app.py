@@ -1,13 +1,13 @@
 import os
 import json
 from datetime import datetime, timedelta, date
-from fastapi import FastAPI, Request, UploadFile, File, Form
+from fastapi import FastAPI, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 import cloudinary
 import cloudinary.uploader
-import requests  # مكتبة جديدة لإرسال الإشعارات
+import requests
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -17,7 +17,6 @@ templates = Jinja2Templates(directory="templates")
 # ==========================================
 DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
 
-# إعدادات إشعارات تليجرام
 TELEGRAM_BOT_TOKEN = "8966674077:AAEF72u60b8wjWapVBSbnsBZqhWNwkYcvDA"
 TELEGRAM_CHAT_ID = "5838048978"
 
@@ -29,7 +28,6 @@ def get_db_connection():
 # ==========================================
 def send_telegram_alert(action_type, manager, project):
     try:
-        # حساب وقت السعودية (UTC + 3)
         ksa_time = datetime.utcnow() + timedelta(hours=3)
         time_str = ksa_time.strftime("%Y-%m-%d | %I:%M %p")
         
@@ -40,7 +38,7 @@ def send_telegram_alert(action_type, manager, project):
             
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         payload = {"chat_id": TELEGRAM_CHAT_ID, "text": msg}
-        requests.post(url, json=payload, timeout=5)  # timeout لعدم تعطيل السيرفر
+        requests.post(url, json=payload, timeout=5)
     except Exception as e:
         print(f"خطأ في إرسال الإشعار: {e}")
 
@@ -74,14 +72,14 @@ async def main_landing_page(request: Request):
     return templates.TemplateResponse(request, "landing.html", {})
 
 # ==========================================
-# 5. تسجيل دخول المديرين (مع إشعار التليجرام)
+# 5. تسجيل دخول المديرين 
 # ==========================================
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None):
     return templates.TemplateResponse(request, "login.html", {"error": error})
 
 @app.post("/login")
-async def do_login(request: Request, username: str = Form(...), password: str = Form(...)):
+async def do_login(request: Request, background_tasks: BackgroundTasks, username: str = Form(...), password: str = Form(...)):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT manager_name, project_name FROM users WHERE username=%s AND password=%s", (username, password))
@@ -89,11 +87,9 @@ async def do_login(request: Request, username: str = Form(...), password: str = 
     conn.close()
 
     if user:
-        # إرسال إشعار تليجرام فور تسجيل الدخول الناجح
-        send_telegram_alert("login", user[0], user[1])
-        
+        background_tasks.add_task(send_telegram_alert, "login", user[0], user[1])
         response = RedirectResponse(url="/update-portal", status_code=303)
-        response.set_cookie(key="auth_user", value=username, max_age=86400)
+        response.set_cookie(key="auth_user", value=username)
         return response
     else:
         return templates.TemplateResponse(request, "login.html", {"error": "اسم المستخدم أو كلمة المرور غير صحيحة"})
@@ -198,7 +194,7 @@ async def update_portal_page(request: Request):
     })
 
 @app.post("/submit")
-async def submit_data(request: Request):
+async def submit_data(request: Request, background_tasks: BackgroundTasks):
     auth_user = request.cookies.get("auth_user")
     if not auth_user:
         return {"error": "انتهت الجلسة، يرجى تسجيل الدخول."}
@@ -284,9 +280,7 @@ async def submit_data(request: Request):
         conn.commit()
         conn.close()
         
-        # إرسال إشعار التليجرام بعد نجاح الحفظ
-        send_telegram_alert("submit", form_data.get("manager_name"), form_data.get("project_name"))
-        
+        background_tasks.add_task(send_telegram_alert, "submit", form_data.get("manager_name"), form_data.get("project_name"))
         return {"message": "تم حفظ التحديث ورفع الملفات بنجاح!"}
     except Exception as e:
         return {"error": f"حدث خطأ أثناء حفظ البيانات: {e}"}
