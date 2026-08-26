@@ -101,7 +101,7 @@ async def logout():
     return response
 
 # ==========================================
-# 6. لوحة تحكم الإدارة
+# 6. لوحة تحكم الإدارة الأساسية
 # ==========================================
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_login_page(request: Request, error: str = None):
@@ -170,7 +170,58 @@ async def admin_logout():
     return response
 
 # ==========================================
-# 7. بوابة التحديث للمديرين (Update Portal)
+# 7. الإضافات الجديدة: دليل مديري المشاريع
+# ==========================================
+@app.get("/admin-directory", response_class=HTMLResponse)
+async def admin_directory_page(request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return RedirectResponse(url="/admin", status_code=303)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # جلب البيانات لترتيبها حسب المُعرّف
+    cursor.execute("SELECT id, username, manager_name, project_name, phone, email, location_link, profile_image FROM pm_directory ORDER BY id ASC")
+    pms = cursor.fetchall()
+    conn.close()
+
+    return templates.TemplateResponse(request, "admin_directory.html", {"pms": pms})
+
+@app.post("/admin-update-pm")
+async def admin_update_pm(
+    request: Request,
+    pm_id: int = Form(...),
+    phone: str = Form(""),
+    email: str = Form(""),
+    location_link: str = Form(""),
+    profile_image: UploadFile = File(None)
+):
+    if not request.cookies.get("super_admin_auth"):
+        return RedirectResponse(url="/admin", status_code=303)
+
+    update_query = "UPDATE pm_directory SET phone=%s, email=%s, location_link=%s"
+    params = [phone, email, location_link]
+
+    # إذا قام الأدمن برفع صورة جديدة، نرفعها على Cloudinary
+    if profile_image and profile_image.filename:
+        image_url = upload_to_cloudinary(profile_image)
+        if image_url:
+            update_query += ", profile_image=%s"
+            params.append(image_url)
+
+    update_query += " WHERE id=%s"
+    params.append(pm_id)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(update_query, tuple(params))
+    conn.commit()
+    conn.close()
+
+    # بعد نجاح التحديث، نرجعه لصفحة الدليل
+    return RedirectResponse(url="/admin-directory", status_code=303)
+
+# ==========================================
+# 8. بوابة التحديث للمديرين (Update Portal)
 # ==========================================
 @app.get("/update-portal", response_class=HTMLResponse)
 async def update_portal_page(request: Request):
