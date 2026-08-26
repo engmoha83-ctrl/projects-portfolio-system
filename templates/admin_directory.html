@@ -23,9 +23,14 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/admin-dashboard">سجل التحديثات (الجدول)</a>
                     </li>
+                    {% if admin_user == 'admin_mohamed' %}
                     <li class="nav-item">
                         <a class="nav-link active" href="/admin-directory">دليل مديري المشاريع</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin-gallery">المعرض المرئي للمشاريع</a>
+                    </li>
+                    {% endif %}
                 </ul>
                 <div class="d-flex">
                     <a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a>
