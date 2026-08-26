@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة التحكم | المعرض المرئي</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .gallery-container { background: white; border-radius: 10px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); min-height: 500px; }
+        .gallery-img { width: 100%; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; object-fit: cover; max-height: 300px; }
+        .gallery-img:hover { transform: scale(1.02); }
+        .large-img { max-height: 600px; object-fit: contain; background-color: #f1f1f1; }
+        .empty-state { text-align: center; padding: 50px; color: #6c757d; font-size: 1.2rem; display: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/admin-dashboard">إدارة المشاريع | لوحة التحكم</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="adminNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin-dashboard">سجل التحديثات (الجدول)</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin-directory">دليل مديري المشاريع</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/admin-gallery">المعرض المرئي للمشاريع</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        <div class="row align-items-center mb-4">
+            <div class="col-md-6">
+                <h3 class="text-primary mb-0">المعرض المرئي للمشاريع</h3>
+            </div>
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <label class="fw-bold me-2">اختر المشروع:</label>
+                <select id="projectSelect" class="form-select d-inline-block w-auto" onchange="loadGallery()">
+                    <option value="" selected disabled>-- يرجى اختيار مشروع --</option>
+                    {% for proj in projects %}
+                        <option value="{{ proj }}">{{ proj }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="gallery-container">
+            <div id="date-badge" class="alert alert-info py-2 mb-4 text-center fw-bold" style="display: none;">
+                تاريخ أحدث صور مرفوعة: <span id="latest-date"></span>
+            </div>
+
+            <!-- التبويبات -->
+            <ul class="nav nav-tabs mb-4" id="galleryTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-bold" id="progress-tab" data-bs-toggle="tab" data-bs-target="#progress" type="button" role="tab">صور الإنجاز الأسبوعي</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold" id="master-tab" data-bs-toggle="tab" data-bs-target="#master" type="button" role="tab">المخطط العام (Masterplan)</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold" id="iso-tab" data-bs-toggle="tab" data-bs-target="#iso" type="button" role="tab">أيزومتريك (Isometric)</button>
+                </li>
+            </ul>
+
+            <!-- محتوى التبويبات -->
+            <div class="tab-content" id="galleryContent">
+                
+                <!-- تبويب صور الإنجاز -->
+                <div class="tab-pane fade show active" id="progress" role="tabpanel">
+                    <div id="progress-empty" class="empty-state">لم يتم رفع صور إنجاز لهذا المشروع.</div>
+                    <div class="row g-4" id="progress-grid">
+                        <div class="col-md-6 img-box"><a id="a-prog1" target="_blank"><img id="img-prog1" class="gallery-img"></a></div>
+                        <div class="col-md-6 img-box"><a id="a-prog2" target="_blank"><img id="img-prog2" class="gallery-img"></a></div>
+                        <div class="col-md-6 img-box"><a id="a-prog3" target="_blank"><img id="img-prog3" class="gallery-img"></a></div>
+                        <div class="col-md-6 img-box"><a id="a-prog4" target="_blank"><img id="img-prog4" class="gallery-img"></a></div>
+                    </div>
+                </div>
+
+                <!-- تبويب المخطط العام -->
+                <div class="tab-pane fade" id="master" role="tabpanel">
+                    <div id="master-empty" class="empty-state">لم يتم رفع المخطط العام لهذا المشروع.</div>
+                    <div id="master-grid" class="text-center">
+                        <a id="a-master" target="_blank"><img id="img-master" class="gallery-img large-img"></a>
+                    </div>
+                </div>
+
+                <!-- تبويب الأيزومتريك -->
+                <div class="tab-pane fade" id="iso" role="tabpanel">
+                    <div id="iso-empty" class="empty-state">لم يتم رفع لقطة أيزومتريك لهذا المشروع.</div>
+                    <div id="iso-grid" class="text-center">
+                        <a id="a-iso" target="_blank"><img id="img-iso" class="gallery-img large-img"></a>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="initial-msg" class="text-center py-5 text-muted">
+                <h4>الرجاء اختيار اسم مشروع من القائمة العلوية لعرض الصور.</h4>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // إخفاء كل التبويبات عند فتح الصفحة لأول مرة
+        document.getElementById('galleryTabs').style.display = 'none';
+        document.getElementById('galleryContent').style.display = 'none';
+
+        function checkValidUrl(url) {
+            return url && url !== "لا يوجد مرفق" && url.trim() !== "";
+        }
+
+        function setupImage(imgId, aId, boxId, url, emptyId, gridId, isMultiple = true) {
+            if (checkValidUrl(url)) {
+                document.getElementById(imgId).src = url;
+                document.getElementById(aId).href = url;
+                if(isMultiple) document.getElementById(boxId).style.display = 'block';
+                return true;
+            } else {
+                if(isMultiple) document.getElementById(boxId).style.display = 'none';
+                return false;
+            }
+        }
+
+        function loadGallery() {
+            const project = document.getElementById('projectSelect').value;
+            if (!project) return;
+            
+            // إظهار واجهة التبويبات وإخفاء رسالة البداية
+            document.getElementById('initial-msg').style.display = 'none';
+            document.getElementById('galleryTabs').style.display = 'flex';
+            document.getElementById('galleryContent').style.display = 'block';
+
+            fetch(`/api/gallery-data?project=${encodeURIComponent(project)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // إظهار التاريخ
+                        document.getElementById('date-badge').style.display = 'block';
+                        document.getElementById('latest-date').innerText = data.date;
+
+                        // معالجة صور الإنجاز (4 صور)
+                        const p1 = setupImage('img-prog1', 'a-prog1', 'a-prog1', data.images.prog1, null, null, true);
+                        const p2 = setupImage('img-prog2', 'a-prog2', 'a-prog2', data.images.prog2, null, null, true);
+                        const p3 = setupImage('img-prog3', 'a-prog3', 'a-prog3', data.images.prog3, null, null, true);
+                        const p4 = setupImage('img-prog4', 'a-prog4', 'a-prog4', data.images.prog4, null, null, true);
+                        
+                        if(!p1 && !p2 && !p3 && !p4) {
+                            document.getElementById('progress-empty').style.display = 'block';
+                        } else {
+                            document.getElementById('progress-empty').style.display = 'none';
+                        }
+
+                        // معالجة المخطط العام
+                        if (checkValidUrl(data.images.master)) {
+                            document.getElementById('img-master').src = data.images.master;
+                            document.getElementById('a-master').href = data.images.master;
+                            document.getElementById('master-grid').style.display = 'block';
+                            document.getElementById('master-empty').style.display = 'none';
+                        } else {
+                            document.getElementById('master-grid').style.display = 'none';
+                            document.getElementById('master-empty').style.display = 'block';
+                        }
+
+                        // معالجة الأيزومتريك
+                        if (checkValidUrl(data.images.iso)) {
+                            document.getElementById('img-iso').src = data.images.iso;
+                            document.getElementById('a-iso').href = data.images.iso;
+                            document.getElementById('iso-grid').style.display = 'block';
+                            document.getElementById('iso-empty').style.display = 'none';
+                        } else {
+                            document.getElementById('iso-grid').style.display = 'none';
+                            document.getElementById('iso-empty').style.display = 'block';
+                        }
+                    } else {
+                        // لا توجد بيانات إطلاقاً لهذا المشروع
+                        document.getElementById('date-badge').style.display = 'none';
+                        document.getElementById('progress-empty').style.display = 'block';
+                        document.getElementById('master-empty').style.display = 'block';
+                        document.getElementById('iso-empty').style.display = 'block';
+                        
+                        document.querySelectorAll('.img-box, #master-grid, #iso-grid').forEach(el => el.style.display = 'none');
+                    }
+                });
+        }
+    </script>
+</body>
+</html>
