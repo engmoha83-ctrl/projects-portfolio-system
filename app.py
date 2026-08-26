@@ -190,7 +190,7 @@ async def admin_logout():
     return response
 
 # ==========================================
-# 5. المعرض المرئي للمشاريع (Gallery)
+# 5. المعرض المرئي للمشاريع (Gallery) بالتحديث الجديد
 # ==========================================
 @app.get("/admin-gallery", response_class=HTMLResponse)
 async def admin_gallery_page(request: Request):
@@ -204,22 +204,34 @@ async def admin_gallery_page(request: Request):
     conn.close()
     return templates.TemplateResponse(request, "admin_gallery.html", {"projects": projects, "admin_user": admin_user})
 
+# دالة جديدة لجلب التواريخ المتاحة للمشروع المختار
+@app.get("/api/project-dates")
+async def get_project_dates(project: str, request: Request):
+    if request.cookies.get("super_admin_auth") != "admin_mohamed": return {"error": "غير مصرح"}
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT current_data_date FROM project_updates WHERE project_name = %s AND current_data_date IS NOT NULL ORDER BY current_data_date DESC", (project,))
+    dates = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return {"success": True, "dates": dates}
+
+# دالة المعرض معدلة لتقبل (المشروع + تاريخ البيانات)
 @app.get("/api/gallery-data")
-async def get_gallery_data(project: str, request: Request):
+async def get_gallery_data(project: str, date: str, request: Request):
     if request.cookies.get("super_admin_auth") != "admin_mohamed": return {"error": "غير مصرح"}
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         SELECT file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link, submission_date 
-        FROM project_updates WHERE project_name = %s ORDER BY submission_date DESC, id DESC LIMIT 1
-    ''', (project,))
+        FROM project_updates WHERE project_name = %s AND current_data_date = %s ORDER BY id DESC LIMIT 1
+    ''', (project, date))
     row = cursor.fetchone()
     conn.close()
     if row:
         return {
             "success": True,
             "images": {"prog1": row[0], "prog2": row[1], "prog3": row[2], "prog4": row[3], "master": row[4], "iso": row[5]},
-            "date": str(row[6]) if row[6] else "غير محدد"
+            "submission_date": str(row[6]) if row[6] else "غير محدد"
         }
     return {"success": False}
 
@@ -296,7 +308,7 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         conn.commit()
         conn.close()
         background_tasks.add_task(send_telegram_alert, "submit", form_data.get("manager_name"), form_data.get("project_name"))
-        return {"message": "تم حفظ التحديث (واستبدال بيانات اليوم إن وجدت) بنجاح!"}
+        return {"message": "تم حفظ التحديث بنجاح!"}
     except Exception as e:
         return {"error": str(e)}
 
