@@ -1,26 +1,51 @@
 import os
 import json
-from datetime import date
+from datetime import datetime, timedelta, date
 from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 import cloudinary
 import cloudinary.uploader
+import requests  # مكتبة جديدة لإرسال الإشعارات
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 # ==========================================
-# 1. إعدادات قاعدة البيانات 
+# 1. الإعدادات الأساسية (بياناتك)
 # ==========================================
 DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+
+# إعدادات إشعارات تليجرام
+TELEGRAM_BOT_TOKEN = "8966674077:AAEF72u60b8wjWapVBSbnsBZqhWNwkYcvDA"
+TELEGRAM_CHAT_ID = "5838048978"
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
 
 # ==========================================
-# 2. إعدادات Cloudinary (مع الضغط التلقائي)
+# 2. دالة إرسال إشعارات التليجرام
+# ==========================================
+def send_telegram_alert(action_type, manager, project):
+    try:
+        # حساب وقت السعودية (UTC + 3)
+        ksa_time = datetime.utcnow() + timedelta(hours=3)
+        time_str = ksa_time.strftime("%Y-%m-%d | %I:%M %p")
+        
+        if action_type == "login":
+            msg = f"🟢 *تسجيل دخول جديد*\n\n👤 المدير: {manager}\n🏢 المشروع: {project}\n🕒 الوقت: {time_str}"
+        elif action_type == "submit":
+            msg = f"✅ *تم إرسال تحديث أسبوعي*\n\n👤 المدير: {manager}\n🏢 المشروع: {project}\n🕒 الوقت: {time_str}"
+            
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": msg}
+        requests.post(url, json=payload, timeout=5)  # timeout لعدم تعطيل السيرفر
+    except Exception as e:
+        print(f"خطأ في إرسال الإشعار: {e}")
+
+# ==========================================
+# 3. إعدادات Cloudinary
 # ==========================================
 cloudinary.config(
   cloud_name = "wu5wjket",
@@ -32,32 +57,24 @@ def upload_to_cloudinary(file: UploadFile):
     try:
         if file.content_type and file.content_type.startswith("image/"):
             result = cloudinary.uploader.upload(
-                file.file, 
-                resource_type="image",
-                quality="auto",       
-                fetch_format="auto",  
-                width=1920,           
-                crop="limit"          
+                file.file, resource_type="image", quality="auto", fetch_format="auto", width=1920, crop="limit"
             )
         else:
-            result = cloudinary.uploader.upload(
-                file.file, 
-                resource_type="auto"
-            )
+            result = cloudinary.uploader.upload(file.file, resource_type="auto")
         return result.get("secure_url")
     except Exception as e:
         print(f"خطأ في الرفع: {e}")
         return None
 
 # ==========================================
-# 3. الصفحة الرئيسية (Landing Page)
+# 4. الصفحة الرئيسية 
 # ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def main_landing_page(request: Request):
     return templates.TemplateResponse(request, "landing.html", {})
 
 # ==========================================
-# 4. نظام تسجيل الدخول للمديرين
+# 5. تسجيل دخول المديرين (مع إشعار التليجرام)
 # ==========================================
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None):
@@ -72,6 +89,9 @@ async def do_login(request: Request, username: str = Form(...), password: str = 
     conn.close()
 
     if user:
+        # إرسال إشعار تليجرام فور تسجيل الدخول الناجح
+        send_telegram_alert("login", user[0], user[1])
+        
         response = RedirectResponse(url="/update-portal", status_code=303)
         response.set_cookie(key="auth_user", value=username, max_age=86400)
         return response
@@ -85,7 +105,7 @@ async def logout():
     return response
 
 # ==========================================
-# 5. لوحة تحكم الإدارة (Admin Dashboard)
+# 6. لوحة تحكم الإدارة
 # ==========================================
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_login_page(request: Request, error: str = None):
@@ -97,7 +117,6 @@ async def do_admin_login(request: Request, username: str = Form(...), password: 
         "admin_mohamed": "admin_2026",
         "admin_assistant": "admin_1234"
     }
-    
     if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
         response = RedirectResponse(url="/admin-dashboard", status_code=303)
         response.set_cookie(key="super_admin_auth", value="authorized", max_age=86400)
@@ -117,7 +136,6 @@ async def admin_dashboard(request: Request):
     raw_rows = cursor.fetchall()
     conn.close()
     
-    # معالجة حقول الـ JSON لتظهر بصيغة صحيحة (علامات تنصيص مزدوجة) لتجنب أخطاء التعديل
     rows = []
     for row in raw_rows:
         row_list = list(row)
@@ -127,24 +145,17 @@ async def admin_dashboard(request: Request):
                     row_list[i] = json.dumps(row_list[i], ensure_ascii=False)
         rows.append(row_list)
     
-    return templates.TemplateResponse(request, "admin_dashboard.html", {
-        "columns": columns, 
-        "rows": rows
-    })
+    return templates.TemplateResponse(request, "admin_dashboard.html", {"columns": columns, "rows": rows})
 
 @app.post("/api/update-cell")
 async def update_cell(request: Request):
     if not request.cookies.get("super_admin_auth"):
-        return {"success": False, "error": "غير مصرح لك بالتعديل"}
+        return {"success": False, "error": "غير مصرح"}
     
     data = await request.json()
-    row_id = data.get("id")
-    column = data.get("column")
-    value = data.get("value")
+    row_id, column, value = data.get("id"), data.get("column"), data.get("value")
     
-    # حماية إضافية: إذا قام الأدمن بمسح الخلية بالكامل في عمود JSON، نرسل مصفوفة فارغة
-    if column == 'obstacles_data' and str(value).strip() == "":
-        value = "[]"
+    if column == 'obstacles_data' and str(value).strip() == "": value = "[]"
     
     try:
         conn = get_db_connection()
@@ -163,7 +174,7 @@ async def admin_logout():
     return response
 
 # ==========================================
-# 6. بوابة التحديث للمديرين (Update Portal)
+# 7. بوابة التحديث للمديرين (Update Portal)
 # ==========================================
 @app.get("/update-portal", response_class=HTMLResponse)
 async def update_portal_page(request: Request):
@@ -182,29 +193,20 @@ async def update_portal_page(request: Request):
         response.delete_cookie("auth_user")
         return response
 
-    manager_name, project_name = user
     return templates.TemplateResponse(request, "index.html", {
-        "username": auth_user, 
-        "manager_name": manager_name, 
-        "project_name": project_name
+        "username": auth_user, "manager_name": user[0], "project_name": user[1]
     })
 
 @app.post("/submit")
 async def submit_data(request: Request):
     auth_user = request.cookies.get("auth_user")
     if not auth_user:
-        return {"error": "انتهت الجلسة، يرجى تسجيل الدخول من جديد."}
+        return {"error": "انتهت الجلسة، يرجى تسجيل الدخول."}
 
     form_data = await request.form()
     
-    attachments = [
-        form_data.get("attachment_1"),
-        form_data.get("attachment_2"),
-        form_data.get("attachment_3"),
-        form_data.get("attachment_4")
-    ]
+    attachments = [form_data.get(f"attachment_{i}") for i in range(1, 5)]
     links = ["لا يوجد مرفق"] * 4
-    
     for i in range(4):
         if attachments[i] and getattr(attachments[i], "filename", None):
             url = upload_to_cloudinary(attachments[i])
@@ -212,22 +214,12 @@ async def submit_data(request: Request):
 
     master_plan = form_data.get("master_plan")
     isometric = form_data.get("isometric")
-    master_plan_link = "لا يوجد مرفق"
-    isometric_link = "لا يوجد مرفق"
-    
-    if master_plan and master_plan.filename:
-        url = upload_to_cloudinary(master_plan)
-        if url: master_plan_link = url
-        
-    if isometric and isometric.filename:
-        url = upload_to_cloudinary(isometric)
-        if url: isometric_link = url
+    master_plan_link = upload_to_cloudinary(master_plan) if master_plan and master_plan.filename else "لا يوجد مرفق"
+    isometric_link = upload_to_cloudinary(isometric) if isometric and isometric.filename else "لا يوجد مرفق"
 
     def process_percentage(val):
-        try:
-            return float(val) / 100.0 if val else 0.0
-        except ValueError:
-            return 0.0
+        try: return float(val) / 100.0 if val else 0.0
+        except ValueError: return 0.0
             
     act_prog_cur = process_percentage(form_data.get("act_prog_cur"))
     act_prog_prev = process_percentage(form_data.get("act_prog_prev"))
@@ -291,6 +283,10 @@ async def submit_data(request: Request):
         ))
         conn.commit()
         conn.close()
+        
+        # إرسال إشعار التليجرام بعد نجاح الحفظ
+        send_telegram_alert("submit", form_data.get("manager_name"), form_data.get("project_name"))
+        
         return {"message": "تم حفظ التحديث ورفع الملفات بنجاح!"}
     except Exception as e:
         return {"error": f"حدث خطأ أثناء حفظ البيانات: {e}"}
