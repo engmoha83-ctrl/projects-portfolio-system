@@ -11,7 +11,8 @@
         .gallery-img:hover { transform: scale(1.02); }
         .large-img { max-height: 600px; object-fit: contain; background-color: #f1f1f1; }
         .empty-state { text-align: center; padding: 50px; color: #6c757d; font-size: 1.2rem; display: none; }
-        .pdf-frame { width: 100%; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); background: #f8f9fa; }
+        .pdf-icon-wrapper { background-color: #f8f9fa; border: 2px dashed #dee2e6; padding: 40px; border-radius: 8px; transition: 0.3s; }
+        .pdf-icon-wrapper:hover { background-color: #e9ecef; border-color: #0d6efd; }
     </style>
 </head>
 <body>
@@ -70,44 +71,33 @@
 
             <!-- محتوى التبويبات -->
             <div class="tab-content" id="galleryContent">
-                <!-- تبويب صور الإنجاز -->
                 <div class="tab-pane fade show active" id="progress" role="tabpanel">
                     <div id="progress-empty" class="empty-state">لم يتم رفع صور إنجاز في هذا التاريخ.</div>
                     <div class="row g-4" id="progress-grid">
-                        <div class="col-md-6 img-box" id="box-prog1">
-                            <a id="a-prog1" target="_blank"><img id="img-prog1" class="gallery-img"></a>
-                            <iframe id="frame-prog1" class="pdf-frame" style="display:none; height:300px;"></iframe>
-                        </div>
-                        <div class="col-md-6 img-box" id="box-prog2">
-                            <a id="a-prog2" target="_blank"><img id="img-prog2" class="gallery-img"></a>
-                            <iframe id="frame-prog2" class="pdf-frame" style="display:none; height:300px;"></iframe>
-                        </div>
-                        <div class="col-md-6 img-box" id="box-prog3">
-                            <a id="a-prog3" target="_blank"><img id="img-prog3" class="gallery-img"></a>
-                            <iframe id="frame-prog3" class="pdf-frame" style="display:none; height:300px;"></iframe>
-                        </div>
-                        <div class="col-md-6 img-box" id="box-prog4">
-                            <a id="a-prog4" target="_blank"><img id="img-prog4" class="gallery-img"></a>
-                            <iframe id="frame-prog4" class="pdf-frame" style="display:none; height:300px;"></iframe>
-                        </div>
+                        <div class="col-md-6 img-box" id="box-prog1"><a id="a-prog1" target="_blank"><img id="img-prog1" class="gallery-img"></a></div>
+                        <div class="col-md-6 img-box" id="box-prog2"><a id="a-prog2" target="_blank"><img id="img-prog2" class="gallery-img"></a></div>
+                        <div class="col-md-6 img-box" id="box-prog3"><a id="a-prog3" target="_blank"><img id="img-prog3" class="gallery-img"></a></div>
+                        <div class="col-md-6 img-box" id="box-prog4"><a id="a-prog4" target="_blank"><img id="img-prog4" class="gallery-img"></a></div>
                     </div>
                 </div>
 
-                <!-- تبويب المخطط العام -->
                 <div class="tab-pane fade" id="master" role="tabpanel">
                     <div id="master-empty" class="empty-state">لم يتم رفع المخطط العام في هذا التاريخ.</div>
                     <div id="master-grid" class="text-center">
-                        <a id="a-master" target="_blank"><img id="img-master" class="gallery-img large-img"></a>
-                        <iframe id="frame-master" class="pdf-frame" style="display:none; height:700px;"></iframe>
+                        <a id="a-master" target="_blank" class="text-decoration-none">
+                            <img id="img-master" class="gallery-img large-img">
+                            <h5 id="text-master" class="mt-3 text-primary" style="display:none;">اضغط هنا لفتح مخطط الـ PDF</h5>
+                        </a>
                     </div>
                 </div>
 
-                <!-- تبويب الأيزومتريك -->
                 <div class="tab-pane fade" id="iso" role="tabpanel">
                     <div id="iso-empty" class="empty-state">لم يتم رفع لقطة أيزومتريك في هذا التاريخ.</div>
                     <div id="iso-grid" class="text-center">
-                        <a id="a-iso" target="_blank"><img id="img-iso" class="gallery-img large-img"></a>
-                        <iframe id="frame-iso" class="pdf-frame" style="display:none; height:700px;"></iframe>
+                        <a id="a-iso" target="_blank" class="text-decoration-none">
+                            <img id="img-iso" class="gallery-img large-img">
+                            <h5 id="text-iso" class="mt-3 text-primary" style="display:none;">اضغط هنا لفتح ملف الـ PDF</h5>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -127,31 +117,35 @@
             return url && url !== "لا يوجد مرفق" && url.trim() !== "";
         }
 
-        function setupImage(imgId, aId, frameId, boxId, url, isMultiple = true) {
+        // الدالة الأذكى للتعامل مع الصور والـ PDF بطريقة آمنة
+        function setupImage(imgId, aId, boxId, textId, url, isMultiple = true) {
             let imgEl = document.getElementById(imgId);
             let aEl = document.getElementById(aId);
-            let frameEl = document.getElementById(frameId);
             let boxEl = document.getElementById(boxId);
+            let textEl = textId ? document.getElementById(textId) : null;
 
             if (checkValidUrl(url)) {
                 let isPdf = url.toLowerCase().includes('.pdf');
                 
                 if (isPdf) {
-                    aEl.style.display = 'none';
-                    frameEl.style.display = 'block';
-                    // التعديل السحري هنا: نستخدم الرابط مباشرة ليقوم المتصفح بقراءته
-                    frameEl.src = url; 
+                    // إذا كان PDF نعرض أيقونة احترافية ورسالة
+                    imgEl.src = 'https://upload.wikimedia.org/wikipedia/commons/8/87/PDF_file_icon.svg';
+                    imgEl.className = 'gallery-img large-img pdf-icon-wrapper';
+                    imgEl.style.maxHeight = '250px'; // حجم أصغر للأيقونة
+                    if(textEl) textEl.style.display = 'block';
                 } else {
-                    frameEl.style.display = 'none';
-                    aEl.style.display = 'block';
+                    // إذا كان صورة نعرض الصورة الطبيعية
                     imgEl.src = url;
-                    aEl.href = url;
+                    imgEl.className = isMultiple ? 'gallery-img' : 'gallery-img large-img';
+                    imgEl.style.maxHeight = isMultiple ? '300px' : '600px';
+                    if(textEl) textEl.style.display = 'none';
                 }
                 
-                if(isMultiple && boxEl) boxEl.style.display = 'block';
+                aEl.href = url;
+                if(boxEl) boxEl.style.display = 'block';
                 return true;
             } else {
-                if(isMultiple && boxEl) boxEl.style.display = 'none';
+                if(boxEl) boxEl.style.display = 'none';
                 return false;
             }
         }
@@ -199,18 +193,18 @@
                         document.getElementById('date-badge').style.display = 'block';
                         document.getElementById('latest-date').innerText = data.submission_date;
 
-                        const p1 = setupImage('img-prog1', 'a-prog1', 'frame-prog1', 'box-prog1', data.images.prog1, true);
-                        const p2 = setupImage('img-prog2', 'a-prog2', 'frame-prog2', 'box-prog2', data.images.prog2, true);
-                        const p3 = setupImage('img-prog3', 'a-prog3', 'frame-prog3', 'box-prog3', data.images.prog3, true);
-                        const p4 = setupImage('img-prog4', 'a-prog4', 'frame-prog4', 'box-prog4', data.images.prog4, true);
+                        const p1 = setupImage('img-prog1', 'a-prog1', 'box-prog1', null, data.images.prog1, true);
+                        const p2 = setupImage('img-prog2', 'a-prog2', 'box-prog2', null, data.images.prog2, true);
+                        const p3 = setupImage('img-prog3', 'a-prog3', 'box-prog3', null, data.images.prog3, true);
+                        const p4 = setupImage('img-prog4', 'a-prog4', 'box-prog4', null, data.images.prog4, true);
                         
                         document.getElementById('progress-empty').style.display = (!p1 && !p2 && !p3 && !p4) ? 'block' : 'none';
 
-                        setupImage('img-master', 'a-master', 'frame-master', 'master-grid', data.images.master, false);
+                        setupImage('img-master', 'a-master', 'master-grid', 'text-master', data.images.master, false);
                         document.getElementById('master-grid').style.display = checkValidUrl(data.images.master) ? 'block' : 'none';
                         document.getElementById('master-empty').style.display = checkValidUrl(data.images.master) ? 'none' : 'block';
 
-                        setupImage('img-iso', 'a-iso', 'frame-iso', 'iso-grid', data.images.iso, false);
+                        setupImage('img-iso', 'a-iso', 'iso-grid', 'text-iso', data.images.iso, false);
                         document.getElementById('iso-grid').style.display = checkValidUrl(data.images.iso) ? 'block' : 'none';
                         document.getElementById('iso-empty').style.display = checkValidUrl(data.images.iso) ? 'none' : 'block';
                         
