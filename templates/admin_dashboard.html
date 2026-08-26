@@ -6,9 +6,12 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .table-container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
+        .table-container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; max-height: 70vh; }
         td { cursor: pointer; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
         td:hover { background-color: #f1f3f5; }
+        .filter-section { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .kpi-card { background: linear-gradient(45deg, #0d6efd, #0dcaf0); color: white; border-radius: 10px; padding: 15px; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .kpi-number { font-size: 2.5rem; font-weight: bold; margin: 0; }
     </style>
 </head>
 <body>
@@ -37,19 +40,63 @@
     </nav>
 
     <div class="container-fluid px-4 mb-5">
-        <h3 class="text-primary mb-4">سجل تحديثات المشاريع</h3>
+        <h3 class="text-primary mb-3">سجل تحديثات المشاريع</h3>
+        
+        <!-- قسم الفلاتر ومؤشرات الأداء -->
+        <div class="filter-section">
+            <div class="row g-3 align-items-center">
+                <!-- الفلاتر -->
+                <div class="col-md-10">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label text-muted small mb-1">اسم المشروع</label>
+                            <select id="filter-project" class="form-select" onchange="applyFilters()">
+                                <option value="">الكل</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-muted small mb-1">مدير المشروع</label>
+                            <select id="filter-pm" class="form-select" onchange="applyFilters()">
+                                <option value="">الكل</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-muted small mb-1">نوع المشروع</label>
+                            <select id="filter-type" class="form-select" onchange="applyFilters()">
+                                <option value="">الكل</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-muted small mb-1">تاريخ البيانات</label>
+                            <select id="filter-date" class="form-select" onchange="applyFilters()">
+                                <option value="">الكل</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <!-- مربع عدد التحديثات -->
+                <div class="col-md-2">
+                    <div class="kpi-card">
+                        <h6 class="mb-1 opacity-75">عدد التحديثات المعروضة</h6>
+                        <p class="kpi-number" id="update-count">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الجدول -->
         <div class="table-container">
-            <table class="table table-bordered table-hover align-middle">
-                <thead class="table-dark">
+            <table class="table table-bordered table-hover align-middle" id="updatesTable">
+                <thead class="table-dark" id="tableHeader">
                     <tr>
                         {% for col in translated_columns %}
                         <th>{{ col }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tableBody">
                     {% for row in rows %}
-                    <tr>
+                    <tr class="data-row">
                         {% for i in range(original_columns|length) %}
                         <td onclick="editCell({{ row[0] }}, '{{ original_columns[i] }}', this)" title="اضغط للتعديل">
                             {{ row[i] if row[i] != None else '' }}
@@ -63,9 +110,100 @@
     </div>
 
     <script>
+        // المتغيرات التي ستحفظ أرقام الأعمدة للبحث فيها
+        let colIndex = {
+            project: -1,
+            pm: -1,
+            type: -1,
+            date: -1
+        };
+
+        // دالة لتهيئة الفلاتر واستخراج البيانات من الجدول
+        function initFilters() {
+            const headers = Array.from(document.querySelectorAll("#tableHeader th")).map(th => th.innerText.trim());
+            
+            // تحديد أرقام الأعمدة بناءً على الترجمة
+            colIndex.project = headers.indexOf('اسم المشروع');
+            colIndex.pm = headers.indexOf('مدير المشروع');
+            colIndex.type = headers.indexOf('نوع المشروع');
+            colIndex.date = headers.indexOf('تاريخ البيانات');
+
+            const rows = document.querySelectorAll("#tableBody .data-row");
+            let projects = new Set(), pms = new Set(), types = new Set(), dates = new Set();
+
+            // استخراج القيم الفريدة
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                if(colIndex.project > -1) projects.add(cells[colIndex.project].innerText.trim());
+                if(colIndex.pm > -1) pms.add(cells[colIndex.pm].innerText.trim());
+                if(colIndex.type > -1) types.add(cells[colIndex.type].innerText.trim());
+                if(colIndex.date > -1) dates.add(cells[colIndex.date].innerText.trim());
+            });
+
+            // تعبئة القوائم المنسدلة
+            populateSelect("filter-project", projects);
+            populateSelect("filter-pm", pms);
+            populateSelect("filter-type", types);
+            populateSelect("filter-date", dates);
+
+            // تشغيل الفلتر مبدئياً لحساب العدد الكلي
+            applyFilters();
+        }
+
+        // دالة مساعدة لتعبئة الخيارات
+        function populateSelect(elementId, dataSet) {
+            const select = document.getElementById(elementId);
+            const sortedArray = Array.from(dataSet).filter(val => val !== "").sort();
+            sortedArray.forEach(val => {
+                const option = document.createElement("option");
+                option.value = val;
+                option.text = val;
+                select.appendChild(option);
+            });
+        }
+
+        // دالة تطبيق الفلاتر وإخفاء/إظهار الصفوف وتحديث العداد
+        function applyFilters() {
+            const filterProject = document.getElementById("filter-project").value.toLowerCase();
+            const filterPm = document.getElementById("filter-pm").value.toLowerCase();
+            const filterType = document.getElementById("filter-type").value.toLowerCase();
+            const filterDate = document.getElementById("filter-date").value.toLowerCase();
+            
+            let visibleCount = 0;
+            const rows = document.querySelectorAll("#tableBody .data-row");
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                
+                const valProject = colIndex.project > -1 ? cells[colIndex.project].innerText.trim().toLowerCase() : "";
+                const valPm = colIndex.pm > -1 ? cells[colIndex.pm].innerText.trim().toLowerCase() : "";
+                const valType = colIndex.type > -1 ? cells[colIndex.type].innerText.trim().toLowerCase() : "";
+                const valDate = colIndex.date > -1 ? cells[colIndex.date].innerText.trim().toLowerCase() : "";
+
+                // التحقق من مطابقة كل الفلاتر
+                const matchProject = (filterProject === "" || valProject === filterProject);
+                const matchPm = (filterPm === "" || valPm === filterPm);
+                const matchType = (filterType === "" || valType === filterType);
+                const matchDate = (filterDate === "" || valDate === filterDate);
+
+                if (matchProject && matchPm && matchType && matchDate) {
+                    row.style.display = ""; // إظهار الصف
+                    visibleCount++;
+                } else {
+                    row.style.display = "none"; // إخفاء الصف
+                }
+            });
+
+            // تحديث الرقم في مربع الـ KPI
+            document.getElementById("update-count").innerText = visibleCount;
+        }
+
+        // تشغيل التهيئة عند تحميل الصفحة
+        document.addEventListener("DOMContentLoaded", initFilters);
+
+        // نظام تعديل الخلايا الأصلي
         function editCell(rowId, column, cellElement) {
             if (column === 'id') return;
-            
             let currentValue = cellElement.innerText.trim();
             let newValue = prompt(`تعديل القيمة:`, currentValue);
             
@@ -81,6 +219,8 @@
                         cellElement.innerText = newValue;
                         cellElement.style.backgroundColor = '#d4edda';
                         setTimeout(() => cellElement.style.backgroundColor = '', 2000);
+                        // نعيد تشغيل الفلتر ليتحدث إذا قمنا بتعديل قيمة مرتبطة بالفلتر
+                        initFilters(); 
                     } else {
                         alert("حدث خطأ أثناء الحفظ: " + data.error);
                     }
