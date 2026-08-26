@@ -24,9 +24,12 @@
                     <li class="nav-item">
                         <a class="nav-link active" href="/admin-dashboard">سجل التحديثات (الجدول)</a>
                     </li>
+                    <!-- هذا الشرط يظهر رابط دليل المديرين لك أنت فقط admin_mohamed ويخفيه تماماً عن المساعد -->
+                    {% if admin_user == 'admin_mohamed' %}
                     <li class="nav-item">
                         <a class="nav-link" href="/admin-directory">دليل مديري المشاريع</a>
                     </li>
+                    {% endif %}
                 </ul>
                 <div class="d-flex">
                     <a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a>
