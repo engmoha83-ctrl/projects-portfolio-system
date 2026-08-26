@@ -11,7 +11,6 @@
         .gallery-img:hover { transform: scale(1.02); }
         .large-img { max-height: 600px; object-fit: contain; background-color: #f1f1f1; }
         .empty-state { text-align: center; padding: 50px; color: #6c757d; font-size: 1.2rem; display: none; }
-        /* تصميم خاص لإطار الـ PDF */
         .pdf-frame { width: 100%; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); background: #f8f9fa; }
     </style>
 </head>
@@ -99,7 +98,7 @@
                     <div id="master-empty" class="empty-state">لم يتم رفع المخطط العام في هذا التاريخ.</div>
                     <div id="master-grid" class="text-center">
                         <a id="a-master" target="_blank"><img id="img-master" class="gallery-img large-img"></a>
-                        <iframe id="frame-master" class="pdf-frame" style="display:none; height:600px;"></iframe>
+                        <iframe id="frame-master" class="pdf-frame" style="display:none; height:700px;"></iframe>
                     </div>
                 </div>
 
@@ -108,7 +107,7 @@
                     <div id="iso-empty" class="empty-state">لم يتم رفع لقطة أيزومتريك في هذا التاريخ.</div>
                     <div id="iso-grid" class="text-center">
                         <a id="a-iso" target="_blank"><img id="img-iso" class="gallery-img large-img"></a>
-                        <iframe id="frame-iso" class="pdf-frame" style="display:none; height:600px;"></iframe>
+                        <iframe id="frame-iso" class="pdf-frame" style="display:none; height:700px;"></iframe>
                     </div>
                 </div>
             </div>
@@ -128,7 +127,6 @@
             return url && url !== "لا يوجد مرفق" && url.trim() !== "";
         }
 
-        // الدالة الذكية الجديدة للتعامل مع الصور والـ PDF
         function setupImage(imgId, aId, frameId, boxId, url, isMultiple = true) {
             let imgEl = document.getElementById(imgId);
             let aEl = document.getElementById(aId);
@@ -139,13 +137,11 @@
                 let isPdf = url.toLowerCase().includes('.pdf');
                 
                 if (isPdf) {
-                    // إذا كان PDF نخفي الصورة ونظهر الـ Iframe
                     aEl.style.display = 'none';
                     frameEl.style.display = 'block';
-                    // استخدام عارض جوجل لضمان الفتح دون تحميل على جميع الأجهزة
-                    frameEl.src = 'https://docs.google.com/gview?url=' + encodeURIComponent(url) + '&embedded=true';
+                    // التعديل السحري هنا: نستخدم الرابط مباشرة ليقوم المتصفح بقراءته
+                    frameEl.src = url; 
                 } else {
-                    // إذا كانت صورة نخفي الـ Iframe ونظهر الصورة المعتادة
                     frameEl.style.display = 'none';
                     aEl.style.display = 'block';
                     imgEl.src = url;
@@ -203,7 +199,6 @@
                         document.getElementById('date-badge').style.display = 'block';
                         document.getElementById('latest-date').innerText = data.submission_date;
 
-                        // تمرير 6 معاملات للدالة الجديدة
                         const p1 = setupImage('img-prog1', 'a-prog1', 'frame-prog1', 'box-prog1', data.images.prog1, true);
                         const p2 = setupImage('img-prog2', 'a-prog2', 'frame-prog2', 'box-prog2', data.images.prog2, true);
                         const p3 = setupImage('img-prog3', 'a-prog3', 'frame-prog3', 'box-prog3', data.images.prog3, true);
@@ -211,7 +206,6 @@
                         
                         document.getElementById('progress-empty').style.display = (!p1 && !p2 && !p3 && !p4) ? 'block' : 'none';
 
-                        // معالجة المخطط العام والأيزومتريك
                         setupImage('img-master', 'a-master', 'frame-master', 'master-grid', data.images.master, false);
                         document.getElementById('master-grid').style.display = checkValidUrl(data.images.master) ? 'block' : 'none';
                         document.getElementById('master-empty').style.display = checkValidUrl(data.images.master) ? 'none' : 'block';
