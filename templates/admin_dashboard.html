@@ -12,7 +12,6 @@
     </style>
 </head>
 <body>
-    <!-- شريط التنقل الإداري الموحد -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold" href="/admin-dashboard">إدارة المشاريع | لوحة التحكم</a>
@@ -24,7 +23,6 @@
                     <li class="nav-item">
                         <a class="nav-link active" href="/admin-dashboard">سجل التحديثات (الجدول)</a>
                     </li>
-                    <!-- هذا الشرط يظهر رابط دليل المديرين لك أنت فقط admin_mohamed ويخفيه تماماً عن المساعد -->
                     {% if admin_user == 'admin_mohamed' %}
                     <li class="nav-item">
                         <a class="nav-link" href="/admin-directory">دليل مديري المشاريع</a>
@@ -44,7 +42,7 @@
             <table class="table table-bordered table-hover align-middle">
                 <thead class="table-dark">
                     <tr>
-                        {% for col in columns %}
+                        {% for col in translated_columns %}
                         <th>{{ col }}</th>
                         {% endfor %}
                     </tr>
@@ -52,8 +50,8 @@
                 <tbody>
                     {% for row in rows %}
                     <tr>
-                        {% for i in range(columns|length) %}
-                        <td onclick="editCell({{ row[0] }}, '{{ columns[i] }}', this)" title="اضغط للتعديل">
+                        {% for i in range(original_columns|length) %}
+                        <td onclick="editCell({{ row[0] }}, '{{ original_columns[i] }}', this)" title="اضغط للتعديل">
                             {{ row[i] if row[i] != None else '' }}
                         </td>
                         {% endfor %}
@@ -66,10 +64,10 @@
 
     <script>
         function editCell(rowId, column, cellElement) {
-            if (column === 'id') return; // منع تعديل الـ ID
+            if (column === 'id') return;
             
             let currentValue = cellElement.innerText.trim();
-            let newValue = prompt(`تعديل القيمة في عمود (${column}):`, currentValue);
+            let newValue = prompt(`تعديل القيمة:`, currentValue);
             
             if (newValue !== null && newValue !== currentValue) {
                 fetch('/api/update-cell', {
