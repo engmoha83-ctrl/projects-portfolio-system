@@ -15,6 +15,7 @@
     </style>
 </head>
 <body>
+    <!-- شريط التنقل الإداري الموحد -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold" href="/admin-dashboard">إدارة المشاريع | لوحة التحكم</a>
@@ -29,6 +30,9 @@
                     {% if admin_user == 'admin_mohamed' %}
                     <li class="nav-item">
                         <a class="nav-link" href="/admin-directory">دليل مديري المشاريع</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin-gallery">المعرض المرئي للمشاريع</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -45,7 +49,6 @@
         <!-- قسم الفلاتر ومؤشرات الأداء -->
         <div class="filter-section">
             <div class="row g-3 align-items-center">
-                <!-- الفلاتر -->
                 <div class="col-md-10">
                     <div class="row g-2">
                         <div class="col-md-3">
@@ -74,7 +77,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- مربع عدد التحديثات -->
                 <div class="col-md-2">
                     <div class="kpi-card">
                         <h6 class="mb-1 opacity-75">عدد التحديثات المعروضة</h6>
@@ -110,19 +112,11 @@
     </div>
 
     <script>
-        // المتغيرات التي ستحفظ أرقام الأعمدة للبحث فيها
-        let colIndex = {
-            project: -1,
-            pm: -1,
-            type: -1,
-            date: -1
-        };
+        let colIndex = { project: -1, pm: -1, type: -1, date: -1 };
 
-        // دالة لتهيئة الفلاتر واستخراج البيانات من الجدول
         function initFilters() {
             const headers = Array.from(document.querySelectorAll("#tableHeader th")).map(th => th.innerText.trim());
             
-            // تحديد أرقام الأعمدة بناءً على الترجمة
             colIndex.project = headers.indexOf('اسم المشروع');
             colIndex.pm = headers.indexOf('مدير المشروع');
             colIndex.type = headers.indexOf('نوع المشروع');
@@ -131,7 +125,6 @@
             const rows = document.querySelectorAll("#tableBody .data-row");
             let projects = new Set(), pms = new Set(), types = new Set(), dates = new Set();
 
-            // استخراج القيم الفريدة
             rows.forEach(row => {
                 const cells = row.querySelectorAll("td");
                 if(colIndex.project > -1) projects.add(cells[colIndex.project].innerText.trim());
@@ -140,17 +133,14 @@
                 if(colIndex.date > -1) dates.add(cells[colIndex.date].innerText.trim());
             });
 
-            // تعبئة القوائم المنسدلة
             populateSelect("filter-project", projects);
             populateSelect("filter-pm", pms);
             populateSelect("filter-type", types);
             populateSelect("filter-date", dates);
 
-            // تشغيل الفلتر مبدئياً لحساب العدد الكلي
             applyFilters();
         }
 
-        // دالة مساعدة لتعبئة الخيارات
         function populateSelect(elementId, dataSet) {
             const select = document.getElementById(elementId);
             const sortedArray = Array.from(dataSet).filter(val => val !== "").sort();
@@ -162,7 +152,6 @@
             });
         }
 
-        // دالة تطبيق الفلاتر وإخفاء/إظهار الصفوف وتحديث العداد
         function applyFilters() {
             const filterProject = document.getElementById("filter-project").value.toLowerCase();
             const filterPm = document.getElementById("filter-pm").value.toLowerCase();
@@ -180,28 +169,24 @@
                 const valType = colIndex.type > -1 ? cells[colIndex.type].innerText.trim().toLowerCase() : "";
                 const valDate = colIndex.date > -1 ? cells[colIndex.date].innerText.trim().toLowerCase() : "";
 
-                // التحقق من مطابقة كل الفلاتر
                 const matchProject = (filterProject === "" || valProject === filterProject);
                 const matchPm = (filterPm === "" || valPm === filterPm);
                 const matchType = (filterType === "" || valType === filterType);
                 const matchDate = (filterDate === "" || valDate === filterDate);
 
                 if (matchProject && matchPm && matchType && matchDate) {
-                    row.style.display = ""; // إظهار الصف
+                    row.style.display = ""; 
                     visibleCount++;
                 } else {
-                    row.style.display = "none"; // إخفاء الصف
+                    row.style.display = "none"; 
                 }
             });
 
-            // تحديث الرقم في مربع الـ KPI
             document.getElementById("update-count").innerText = visibleCount;
         }
 
-        // تشغيل التهيئة عند تحميل الصفحة
         document.addEventListener("DOMContentLoaded", initFilters);
 
-        // نظام تعديل الخلايا الأصلي
         function editCell(rowId, column, cellElement) {
             if (column === 'id') return;
             let currentValue = cellElement.innerText.trim();
@@ -219,7 +204,6 @@
                         cellElement.innerText = newValue;
                         cellElement.style.backgroundColor = '#d4edda';
                         setTimeout(() => cellElement.style.backgroundColor = '', 2000);
-                        // نعيد تشغيل الفلتر ليتحدث إذا قمنا بتعديل قيمة مرتبطة بالفلتر
                         initFilters(); 
                     } else {
                         alert("حدث خطأ أثناء الحفظ: " + data.error);
