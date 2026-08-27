@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة التحكم | المؤشرات التفاعلية</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .kpi-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-bottom: 4px solid #0d6efd; transition: 0.3s; }
+        .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .kpi-title { font-size: 0.9rem; color: #6c757d; font-weight: bold; margin-bottom: 5px; }
+        .kpi-value { font-size: 1.8rem; font-weight: bold; color: #2b3452; margin: 0; }
+        .chart-box { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        .chart-title { font-size: 1.1rem; font-weight: bold; color: #1a2b4c; margin-bottom: 15px; border-bottom: 2px solid #f1f3f5; padding-bottom: 10px; }
+        
+        /* بطاقة مدير المشروع */
+        .pm-card { background: linear-gradient(135deg, #1a2b4c, #2a4365); color: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: none; }
+        .pm-img { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 3px solid #d4a373; }
+        
+        .filter-bar { background: white; border-radius: 12px; padding: 15px 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/admin-dashboard">إدارة المشاريع | لوحة التحكم</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="/admin-dashboard">سجل التحديثات</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/admin-analytics">لوحة المؤشرات (Dashboards)</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin-directory">دليل المديرين</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin-gallery">المعرض المرئي</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4 mb-5">
+        
+        <!-- شريط الفلاتر الذكية -->
+        <div class="filter-bar">
+            <div class="row align-items-end g-3">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">تاريخ دورة التحديث (Data Date):</label>
+                    <select id="flt-date" class="form-select border-primary" onchange="applyFilters()"></select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">مدير المشروع:</label>
+                    <select id="flt-pm" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">نوع المشروع:</label>
+                    <select id="flt-type" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">المشروع:</label>
+                    <select id="flt-project" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
+                </div>
+            </div>
+        </div>
+
+        <!-- بطاقة مدير المشروع (تظهر عند اختيار مدير معين) -->
+        <div class="pm-card mb-4 align-items-center" id="pmProfileCard">
+            <div class="d-flex align-items-center gap-3">
+                <img src="" id="pmPhoto" class="pm-img" alt="PM">
+                <div>
+                    <h4 class="mb-1 fw-bold text-warning" id="pmName">اسم المدير</h4>
+                    <p class="mb-0 small opacity-75">📱 <span id="pmPhone"></span> | ✉️ <span id="pmEmail"></span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- مؤشرات الأداء (KPIs) -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3"><div class="kpi-card border-primary"><div class="kpi-title">عدد المشاريع المفلترة</div><div class="kpi-value text-primary" id="kpi-count">0</div></div></div>
+            <div class="col-md-3"><div class="kpi-card border-success"><div class="kpi-title">إجمالي قيمة المقاولات (ريال)</div><div class="kpi-value text-success" id="kpi-value">0</div></div></div>
+            <div class="col-md-3"><div class="kpi-card border-warning"><div class="kpi-title">متوسط الإنجاز الفعلي</div><div class="kpi-value text-warning" id="kpi-actual">0%</div></div></div>
+            <div class="col-md-3"><div class="kpi-card border-danger"><div class="kpi-title">مخالفات الجودة المفتوحة (NCR)</div><div class="kpi-value text-danger" id="kpi-ncr">0</div></div></div>
+        </div>
+
+        <!-- الرسومات البيانية -->
+        <div class="row g-4">
+            <div class="col-md-8">
+                <div class="chart-box">
+                    <div class="chart-title">📊 مقارنة الإنجاز (المخطط مقابل الفعلي) للمشاريع</div>
+                    <div id="barChart" style="min-height: 350px;"></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="chart-box">
+                    <div class="chart-title">🥧 توزيع المشاريع حسب النوع</div>
+                    <div id="donutChart" style="min-height: 350px;"></div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="chart-box">
+                    <div class="chart-title">🎯 تقييم أداء المقاولين التقني (متوسط العمالة، المعدات، المالي، السلامة)</div>
+                    <div id="radarChart" style="min-height: 350px; display: flex; justify-content: center;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let rawData = [];
+        let pmData = [];
+        let charts = {};
+
+        // جلب البيانات من السيرفر
+        fetch('/api/analytics-data')
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    rawData = data.updates;
+                    pmData = data.pms;
+                    initFilters();
+                }
+            });
+
+        function initFilters() {
+            let dates = [...new Set(rawData.map(item => item.current_data_date))].filter(Boolean).sort().reverse();
+            let pms = [...new Set(rawData.map(item => item.manager_name))].filter(Boolean).sort();
+            let types = [...new Set(rawData.map(item => item.project_type))].filter(Boolean).sort();
+            let projects = [...new Set(rawData.map(item => item.project_name))].filter(Boolean).sort();
+
+            const populate = (id, arr) => {
+                const el = document.getElementById(id);
+                arr.forEach(val => el.add(new Option(val, val)));
+            };
+
+            const dateSelect = document.getElementById('flt-date');
+            dates.forEach(val => dateSelect.add(new Option(val, val)));
+            
+            populate('flt-pm', pms);
+            populate('flt-type', types);
+            populate('flt-project', projects);
+
+            initCharts();
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const fDate = document.getElementById('flt-date').value;
+            const fPm = document.getElementById('flt-pm').value;
+            const fType = document.getElementById('flt-type').value;
+            const fProj = document.getElementById('flt-project').value;
+
+            // فلترة البيانات
+            let filtered = rawData.filter(item => {
+                return (!fDate || item.current_data_date === fDate) &&
+                       (!fPm || item.manager_name === fPm) &&
+                       (!fType || item.project_type === fType) &&
+                       (!fProj || item.project_name === fProj);
+            });
+
+            updateKPIs(filtered);
+            updateCharts(filtered);
+            updatePMCard(fPm);
+        }
+
+        function updatePMCard(managerName) {
+            const card = document.getElementById('pmProfileCard');
+            if(!managerName) {
+                card.style.display = 'none';
+                return;
+            }
+            
+            const pm = pmData.find(p => p.manager_name === managerName);
+            if(pm) {
+                document.getElementById('pmName').innerText = pm.manager_name;
+                document.getElementById('pmPhone').innerText = pm.phone || 'غير مسجل';
+                document.getElementById('pmEmail').innerText = pm.email || 'غير مسجل';
+                document.getElementById('pmPhoto').src = (pm.profile_image && pm.profile_image !== 'لا يوجد مرفق') ? pm.profile_image : 'https://via.placeholder.com/70x70.png?text=PM';
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        }
+
+        function updateKPIs(data) {
+            document.getElementById('kpi-count').innerText = data.length;
+            
+            let totalVal = data.reduce((sum, item) => sum + (parseFloat(item.contractor_val) || 0), 0);
+            document.getElementById('kpi-value').innerText = totalVal.toLocaleString('en-US');
+
+            let avgActual = data.length ? data.reduce((sum, item) => sum + (parseFloat(item.act_prog_cur) || 0), 0) / data.length : 0;
+            document.getElementById('kpi-actual').innerText = (avgActual * 100).toFixed(1) + '%';
+
+            let totalNCR = data.reduce((sum, item) => sum + (parseInt(item.ncr_open) || 0), 0);
+            document.getElementById('kpi-ncr').innerText = totalNCR;
+        }
+
+        function initCharts() {
+            // 1. Bar Chart (Planned vs Actual)
+            charts.bar = new ApexCharts(document.querySelector("#barChart"), {
+                chart: { type: 'bar', height: 350, toolbar: { show: false }, fontFamily: 'Segoe UI' },
+                series: [], xaxis: { categories: [] },
+                colors: ['#0d6efd', '#198754'],
+                plotOptions: { bar: { borderRadius: 4, horizontal: false, dataLabels: { position: 'top' } } },
+                dataLabels: { enabled: true, formatter: val => val + "%", style: { colors: ['#fff'] } },
+                stroke: { show: true, width: 2, colors: ['transparent'] }
+            });
+            charts.bar.render();
+
+            // 2. Donut Chart (Project Types)
+            charts.donut = new ApexCharts(document.querySelector("#donutChart"), {
+                chart: { type: 'donut', height: 350, fontFamily: 'Segoe UI' },
+                series: [], labels: [],
+                legend: { position: 'bottom' }
+            });
+            charts.donut.render();
+
+            // 3. Radar Chart (Contractor Evaluation)
+            charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
+                chart: { type: 'radar', height: 380, fontFamily: 'Segoe UI', toolbar: { show: false } },
+                series: [], labels: ['العمالة', 'المعدات', 'الموقف المالي', 'السلامة (HSE)'],
+                stroke: { width: 2 }, fill: { opacity: 0.2 },
+                markers: { size: 4 }
+            });
+            charts.radar.render();
+        }
+
+        function updateCharts(data) {
+            // تجهيز بيانات Bar Chart (الإنجاز)
+            let projNames = data.map(d => (d.project_name || 'بدون اسم').substring(0, 15) + '..');
+            let planned = data.map(d => Math.round((parseFloat(d.plan_prog_cur) || 0) * 100));
+            let actual = data.map(d => Math.round((parseFloat(d.act_prog_cur) || 0) * 100));
+            
+            charts.bar.updateSeries([{ name: 'مخطط', data: planned }, { name: 'فعلي', data: actual }]);
+            charts.bar.updateOptions({ xaxis: { categories: projNames } });
+
+            // تجهيز بيانات Donut Chart (الأنواع)
+            let typeCount = {};
+            data.forEach(d => {
+                let type = d.project_type || 'غير محدد';
+                typeCount[type] = (typeCount[type] || 0) + 1;
+            });
+            charts.donut.updateSeries(Object.values(typeCount));
+            charts.donut.updateOptions({ labels: Object.keys(typeCount) });
+
+            // تجهيز بيانات Radar Chart (تقييم المقاول) - نأخذ المتوسطات للبيانات المفلترة
+            if(data.length > 0) {
+                let avgLabor = data.reduce((s, d) => s + (parseFloat(d.eval_labor)||0), 0) / data.length;
+                let avgEquip = data.reduce((s, d) => s + (parseFloat(d.eval_equip)||0), 0) / data.length;
+                let avgFin = data.reduce((s, d) => s + (parseFloat(d.eval_financial)||0), 0) / data.length;
+                let avgHse = data.reduce((s, d) => s + (parseFloat(d.eval_hse)||0), 0) / data.length;
+                
+                charts.radar.updateSeries([{
+                    name: 'متوسط التقييم (من 10)',
+                    data: [avgLabor.toFixed(1), avgEquip.toFixed(1), avgFin.toFixed(1), avgHse.toFixed(1)]
+                }]);
+            } else {
+                charts.radar.updateSeries([]);
+            }
+        }
+    </script>
+</body>
+</html>
