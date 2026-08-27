@@ -553,6 +553,45 @@
                 }
             });
         });
+        // ==========================================
+        // التحديد الذكي لتاريخ البيانات (Smart Cut-off Date)
+        // ==========================================
+        function setSmartDataDate() {
+            let now = new Date();
+            // ضبط الوقت على توقيت السعودية (UTC+3)
+            let utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            let ksaTime = new Date(utc + (3600000 * 3));
+            
+            let day = ksaTime.getDay(); // الأحد=0, الإثنين=1, ..., السبت=6
+            let hours = ksaTime.getHours();
+            let daysToAdd = 0;
+            
+            if (day === 3) daysToAdd = 0; // الأربعاء
+            else if (day === 4) daysToAdd = -1; // الخميس
+            else if (day === 5) daysToAdd = -2; // الجمعة
+            else if (day === 6 && hours < 9) daysToAdd = -3; // السبت
+            else if (day === 0 && hours < 9) daysToAdd = -4; // الأحد قبل 9 صباحاً
+            else if (day === 0 && hours >= 9) daysToAdd = 3; // الأحد بعد 9 صباحاً
+            else if (day === 1) daysToAdd = 2; // الإثنين
+            else if (day === 2) daysToAdd = 1; // الثلاثاء
+            
+            let dataDate = new Date(ksaTime);
+            dataDate.setDate(ksaTime.getDate() + daysToAdd);
+            
+            let dateString = dataDate.toISOString().split('T')[0];
+            let dateField = document.querySelector('input[name="current_data_date"]');
+            
+            if (dateField) {
+                dateField.value = dateString;
+                dateField.setAttribute('readonly', 'readonly');
+                dateField.style.backgroundColor = '#e9ecef';
+                dateField.style.pointerEvents = 'none'; // منع التعديل تماماً
+                dateField.title = "يتم تحديد هذا التاريخ تلقائياً حسب دورة التحديث الأسبوعية";
+            }
+        }
+        
+        // تشغيل الدالة فوراً عند تحميل الصفحة
+        window.addEventListener('DOMContentLoaded', setSmartDataDate);
     </script>
 </body>
 </html>
