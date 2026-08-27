@@ -196,10 +196,51 @@
 
         function editCell(rowId, column, cellElement) {
             if (column === 'id') return;
+            
+            // 1. تحديد الأعمدة التي تقبل أرقاماً فقط
+            const numberColumns = [
+                'consultant_val', 'contractor_val', 
+                'consultant_mods_count', 'consultant_mods_val', 'consultant_mods_time', 
+                'contractor_mods_count', 'contractor_mods_val', 'contractor_mods_time',
+                'cons_inv_count', 'cons_inv_val', 'cont_inv_count', 'cont_inv_val',
+                'act_prog_cur', 'act_prog_prev', 'plan_prog_cur', 'plan_prog_prev',
+                'eval_labor', 'eval_equip', 'eval_financial', 'eval_hse',
+                'drawings_sub', 'drawings_app', 'drawings_rev',
+                'ir_sub', 'ir_app', 'ir_rev', 'ncr_open', 'ncr_closed'
+            ];
+
+            // 2. تحديد الأعمدة التي تقبل تواريخ فقط
+            const dateColumns = [
+                'current_data_date', 'consultant_mods_end_date', 'contractor_mods_end_date',
+                'cons_inv_date', 'cont_inv_date', 'start_contractual', 'end_contractual',
+                'start_actual', 'end_expected', 'submission_date'
+            ];
+
             let currentValue = cellElement.innerText.trim();
             let newValue = prompt(`تعديل القيمة:`, currentValue);
             
             if (newValue !== null && newValue !== currentValue) {
+                
+                // --- نظام الحماية (Validation) ---
+                if (newValue.trim() !== "") {
+                    // حماية الأرقام
+                    if (numberColumns.includes(column)) {
+                        if (isNaN(Number(newValue))) {
+                            alert("⛔ خطأ: هذا الحقل مخصص للأرقام فقط. لا يمكنك إدخال نصوص مثل '" + newValue + "'.");
+                            return; // إيقاف العملية
+                        }
+                    }
+                    // حماية التواريخ
+                    if (dateColumns.includes(column)) {
+                        let dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+                        if (!dateRegex.test(newValue)) {
+                            alert("⛔ خطأ: يرجى إدخال التاريخ بالصيغة الصحيحة (YYYY-MM-DD).");
+                            return; // إيقاف العملية
+                        }
+                    }
+                }
+                // --------------------------------
+
                 fetch('/api/update-cell', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
