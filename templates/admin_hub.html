@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>بوابة الإدارة المركزية | المعماريون السعوديون</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .hub-header { background: #343a40; color: white; padding: 50px 0; text-align: center; margin-bottom: 50px; border-bottom: 5px solid #d4a373; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .hub-card {
+            background: white; border-radius: 15px; padding: 40px 20px;
+            text-align: center; text-decoration: none; color: #343a40;
+            display: block; transition: all 0.3s ease;
+            border: 1px solid #dee2e6; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            height: 100%; position: relative; overflow: hidden;
+        }
+        .hub-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: transparent; transition: 0.3s;
+        }
+        .hub-card:hover {
+            transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); text-decoration: none; color: #0d6efd;
+        }
+        .hub-card:hover::before { background: #0d6efd; }
+        .hub-icon { font-size: 4rem; margin-bottom: 20px; transition: 0.3s; }
+        .hub-card:hover .hub-icon { transform: scale(1.1); }
+        .hub-title { font-size: 1.4rem; font-weight: bold; margin-bottom: 15px; }
+        .hub-desc { font-size: 0.95rem; color: #6c757d; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    
+    <div class="hub-header">
+        <h1 class="fw-bold mb-3">بوابة الإدارة المركزية (PMIS)</h1>
+        <p class="text-white-50 fs-5">اختر النظام الذي تود الدخول إليه يا مهندس محمد</p>
+        <a href="/admin-logout" class="btn btn-outline-light px-4 mt-3 rounded-pill">تسجيل الخروج</a>
+    </div>
+
+    <div class="container mb-5">
+        <div class="row justify-content-center g-4">
+            
+            <!-- الكارت 1: متاح للجميع -->
+            <div class="col-md-6 col-lg-3">
+                <a href="/admin-dashboard" class="hub-card">
+                    <div class="hub-icon">📋</div>
+                    <div class="hub-title">سجل التحديثات</div>
+                    <div class="hub-desc">قاعدة البيانات الرئيسية لمتابعة وتعديل بيانات المشاريع بأسلوب الجداول.</div>
+                </a>
+            </div>
+
+            <!-- الكروت التالية تظهر لحساب الإدارة العليا فقط -->
+            {% if admin_user == 'admin_mohamed' %}
+            
+            <div class="col-md-6 col-lg-3">
+                <a href="/admin-analytics" class="hub-card">
+                    <div class="hub-icon">📊</div>
+                    <div class="hub-title">لوحة المؤشرات (Dashboards)</div>
+                    <div class="hub-desc">رسومات بيانية وتحليلات تفاعلية ذكية لأداء المشاريع والمقاولين.</div>
+                </a>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+                <a href="/admin-directory" class="hub-card">
+                    <div class="hub-icon">👤</div>
+                    <div class="hub-title">دليل المديرين</div>
+                    <div class="hub-desc">إدارة بيانات التواصل، اللوكيشن، وصور مديري المشاريع الشخصية.</div>
+                </a>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+                <a href="/admin-gallery" class="hub-card">
+                    <div class="hub-icon">🖼️</div>
+                    <div class="hub-title">المعرض المرئي</div>
+                    <div class="hub-desc">استعراض صور الإنجاز الأسبوعية والمخططات الهندسية (PDF).</div>
+                </a>
+            </div>
+            
+            {% endif %}
+            
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
