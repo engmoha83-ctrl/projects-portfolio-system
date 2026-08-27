@@ -20,22 +20,18 @@
     <!-- شريط التنقل الإداري الموحد -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="/admin-dashboard">إدارة المشاريع | لوحة التحكم</a>
+            <!-- اللوجو الآن يرجعك للبوابة المركزية -->
+            <a class="navbar-brand fw-bold" href="/admin-hub">إدارة المشاريع | البوابة المركزية</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/admin-dashboard">سجل التحديثات (الجدول)</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/admin-dashboard">سجل التحديثات</a></li>
                     {% if admin_user == 'admin_mohamed' %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/admin-directory">دليل مديري المشاريع</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/admin-gallery">المعرض المرئي للمشاريع</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/admin-analytics">لوحة المؤشرات</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin-directory">دليل المديرين</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin-gallery">المعرض المرئي</a></li>
                     {% endif %}
                 </ul>
                 <div class="d-flex">
@@ -44,7 +40,6 @@
             </div>
         </div>
     </nav>
-
     <div class="container-fluid px-4 mb-5">
         <h3 class="text-primary mb-3">سجل تحديثات المشاريع</h3>
         
