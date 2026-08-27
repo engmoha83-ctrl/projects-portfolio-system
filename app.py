@@ -116,6 +116,27 @@ async def do_admin_login(request: Request, username: str = Form(...), password: 
         response.set_cookie(key="super_admin_auth", value=username, max_age=86400)
         return response
     return templates.TemplateResponse(request, "admin_login.html", {"error": "بيانات الدخول غير صحيحة"})
+    
+@app.get("/admin-dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM project_updates ORDER BY submission_date DESC, id DESC")
+    original_columns = [desc[0] for desc in cursor.description]
+    raw_rows = cursor.fetchall()
+    conn.close()
+    
+    translated_columns = [ARABIC_COLUMNS.get(col, col) for col in original_columns]
+    rows = []
+    for row in raw_rows:
+        row_list = list(row)
+        for i, col in enumerate(original_columns):
+            if col == 'obstacles_data' and row_list[i]: row_list[i] = json.dumps(row_list[i], ensure_ascii=False)
+        rows.append(row_list)
+    return templates.TemplateResponse(request, "admin_dashboard.html", {"original_columns": original_columns, "translated_columns": translated_columns, "rows": rows, "admin_user": admin_user})
 
 # ==========================================
 # المسار الجديد للبوابة المركزية (Admin Hub)
