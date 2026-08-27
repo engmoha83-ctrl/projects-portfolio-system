@@ -259,6 +259,41 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
     if not auth_user: return {"error": "انتهت الجلسة، يرجى تسجيل الدخول."}
     form_data = await request.form()
     username = form_data.get("username")
+    # ==========================================
+# 7. لوحة المؤشرات التفاعلية (Analytics Dashboard)
+# ==========================================
+@app.get("/admin-analytics", response_class=HTMLResponse)
+async def admin_analytics_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
+    return templates.TemplateResponse(request, "admin_analytics.html", {"admin_user": admin_user})
+
+@app.get("/api/analytics-data")
+async def get_analytics_data(request: Request):
+    if not request.cookies.get("super_admin_auth"): return {"error": "غير مصرح"}
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # جلب بيانات المشاريع الأساسية للتحليل
+        cursor.execute('''
+            SELECT project_name, manager_name, project_type, current_data_date, 
+                   contractor_val, plan_prog_cur, act_prog_cur, ncr_open,
+                   eval_labor, eval_equip, eval_financial, eval_hse
+            FROM project_updates
+        ''')
+        updates_cols = [desc[0] for desc in cursor.description]
+        updates = [dict(zip(updates_cols, row)) for row in cursor.fetchall()]
+        
+        # جلب بيانات مديري المشاريع لبطاقة التعريف
+        cursor.execute('SELECT manager_name, phone, email, profile_image FROM pm_directory')
+        pm_cols = [desc[0] for desc in cursor.description]
+        pms = [dict(zip(pm_cols, row)) for row in cursor.fetchall()]
+        
+        conn.close()
+        return {"success": True, "updates": updates, "pms": pms}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
     # ========================================================
     # التحديث الذكي: حساب الـ Data Date ووقت الإرسال بدقة
