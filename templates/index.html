@@ -514,6 +514,37 @@
                 this.value = parts.join('.');
             });
         });
+        // ==========================================
+        // حماية الإدخال الذكية (Smart Validation)
+        // ==========================================
+        
+        // 1. حماية الحقول النصية (إظهار رسالة عند كتابة أرقام)
+        // تم تطبيقها على المالك والمطور كمثال لتجنب تعطيل حقول الوصف
+        const textOnlyFields = document.querySelectorAll('input[name="project_owner"], input[name="project_developer"]');
+        
+        textOnlyFields.forEach(field => {
+            field.addEventListener('input', function() {
+                if (/[0-9]/.test(this.value)) {
+                    alert("⛔ تنبيه: هذا الحقل مخصص للنصوص فقط ولا يسمح بإدخال أرقام.");
+                    // إزالة الأرقام فوراً من الخلية
+                    this.value = this.value.replace(/[0-9]/g, ''); 
+                }
+            });
+        });
+
+        // 2. حماية حقول الأرقام والتكلفة (إظهار رسالة عند كتابة نصوص)
+        const allNumberFields = document.querySelectorAll('input[type="number"], .money-input');
+        
+        allNumberFields.forEach(field => {
+            field.addEventListener('input', function() {
+                // فحص وجود أي حروف (عربية أو إنجليزية)
+                if (/[a-zA-Z\u0600-\u06FF]/.test(this.value)) {
+                    alert("⛔ تنبيه: هذا الحقل مخصص للأرقام فقط ولا يسمح بإدخال نصوص.");
+                    // إزالة الحروف فوراً من الخلية
+                    this.value = this.value.replace(/[a-zA-Z\u0600-\u06FF]/g, ''); 
+                }
+            });
+        });
     </script>
 </body>
 </html>
