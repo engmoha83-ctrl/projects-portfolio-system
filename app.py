@@ -258,12 +258,35 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
     auth_user = request.cookies.get("auth_user")
     if not auth_user: return {"error": "انتهت الجلسة، يرجى تسجيل الدخول."}
     form_data = await request.form()
-    today_date, username = date.today().isoformat(), form_data.get("username")
+    username = form_data.get("username")
+
+    # ========================================================
+    # التحديث الذكي: حساب الـ Data Date ووقت الإرسال بدقة
+    # ========================================================
+    ksa_time = datetime.utcnow() + timedelta(hours=3)
+    # تسجيل وقت الإرسال الفعلي بالدقيقة
+    submission_timestamp = ksa_time.strftime("%Y-%m-%d | %I:%M %p") 
+    
+    wd = ksa_time.weekday() # الإثنين=0, الأحد=6
+    if wd == 2: days_to_add = 0             # الأربعاء
+    elif wd == 3: days_to_add = -1          # الخميس
+    elif wd == 4: days_to_add = -2          # الجمعة
+    elif wd == 5: days_to_add = -3          # السبت
+    elif wd == 6 and ksa_time.hour < 9: days_to_add = -4  # الأحد قبل 9 صباحاً
+    elif wd == 6 and ksa_time.hour >= 9: days_to_add = 3  # الأحد بعد 9 صباحاً
+    elif wd == 0: days_to_add = 2           # الإثنين
+    elif wd == 1: days_to_add = 1           # الثلاثاء
+    
+    # تثبيت تاريخ البيانات ليكون الأربعاء الخاص بهذه الدورة
+    calculated_data_date = (ksa_time + timedelta(days=days_to_add)).date().isoformat()
+    # ========================================================
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link FROM project_updates WHERE username=%s AND submission_date=%s", (username, today_date))
+        
+        # التحديث الذكي: البحث عن السجل بناءً على دورة التحديث (Data Date) وليس تاريخ الإرسال
+        cursor.execute("SELECT id, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link FROM project_updates WHERE username=%s AND current_data_date=%s", (username, calculated_data_date))
         existing_record = cursor.fetchone()
 
         attachments = [form_data.get(f"attachment_{i}") for i in range(1, 5)]
@@ -283,7 +306,8 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
             except ValueError: return 0.0
 
         data_values = (
-            form_data.get("manager_name"), form_data.get("project_name"), form_data.get("project_desc"), form_data.get("project_type"), form_data.get("current_data_date"),
+            form_data.get("manager_name"), form_data.get("project_name"), form_data.get("project_desc"), form_data.get("project_type"), 
+            calculated_data_date, # الاعتماد المطلق على تاريخ السيرفر المحسوب
             form_data.get("project_owner"), form_data.get("project_developer"), form_data.get("project_contractor"),
             form_data.get("consultant_val") or 0, form_data.get("contractor_val") or 0,
             form_data.get("consultant_mods_count") or 0, form_data.get("consultant_mods_val") or 0, form_data.get("consultant_mods_time"), form_data.get("consultant_mods_end_date"),
@@ -301,9 +325,10 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         )
 
         if existing_record:
-            cursor.execute('''UPDATE project_updates SET manager_name=%s, project_name=%s, project_desc=%s, project_type=%s, current_data_date=%s, project_owner=%s, project_developer=%s, project_contractor=%s, consultant_val=%s, contractor_val=%s, consultant_mods_count=%s, consultant_mods_val=%s, consultant_mods_time=%s, consultant_mods_end_date=%s, contractor_mods_count=%s, contractor_mods_val=%s, contractor_mods_time=%s, contractor_mods_end_date=%s, cons_inv_count=%s, cons_inv_val=%s, cons_inv_date=%s, cont_inv_count=%s, cont_inv_val=%s, cont_inv_date=%s, start_contractual=%s, end_contractual=%s, start_actual=%s, end_expected=%s, act_prog_cur=%s, act_prog_prev=%s, plan_prog_cur=%s, plan_prog_prev=%s, works_completed=%s, works_ongoing=%s, works_planned=%s, obstacles_data=%s, eval_labor=%s, eval_equip=%s, eval_financial=%s, eval_hse=%s, drawings_sub=%s, drawings_app=%s, drawings_rev=%s, ir_sub=%s, ir_app=%s, ir_rev=%s, ncr_open=%s, ncr_closed=%s, file_link_1=%s, file_link_2=%s, file_link_3=%s, file_link_4=%s, master_plan_link=%s, isometric_link=%s WHERE id = %s''', data_values + (existing_record[0],))
+            # تحديث السجل مع تسجيل وقت التعديل الجديد في submission_date
+            cursor.execute('''UPDATE project_updates SET manager_name=%s, project_name=%s, project_desc=%s, project_type=%s, current_data_date=%s, project_owner=%s, project_developer=%s, project_contractor=%s, consultant_val=%s, contractor_val=%s, consultant_mods_count=%s, consultant_mods_val=%s, consultant_mods_time=%s, consultant_mods_end_date=%s, contractor_mods_count=%s, contractor_mods_val=%s, contractor_mods_time=%s, contractor_mods_end_date=%s, cons_inv_count=%s, cons_inv_val=%s, cons_inv_date=%s, cont_inv_count=%s, cont_inv_val=%s, cont_inv_date=%s, start_contractual=%s, end_contractual=%s, start_actual=%s, end_expected=%s, act_prog_cur=%s, act_prog_prev=%s, plan_prog_cur=%s, plan_prog_prev=%s, works_completed=%s, works_ongoing=%s, works_planned=%s, obstacles_data=%s, eval_labor=%s, eval_equip=%s, eval_financial=%s, eval_hse=%s, drawings_sub=%s, drawings_app=%s, drawings_rev=%s, ir_sub=%s, ir_app=%s, ir_rev=%s, ncr_open=%s, ncr_closed=%s, file_link_1=%s, file_link_2=%s, file_link_3=%s, file_link_4=%s, master_plan_link=%s, isometric_link=%s, submission_date=%s WHERE id = %s''', data_values + (submission_timestamp, existing_record[0],))
         else:
-            cursor.execute('''INSERT INTO project_updates (manager_name, project_name, project_desc, project_type, current_data_date, project_owner, project_developer, project_contractor, consultant_val, contractor_val, consultant_mods_count, consultant_mods_val, consultant_mods_time, consultant_mods_end_date, contractor_mods_count, contractor_mods_val, contractor_mods_time, contractor_mods_end_date, cons_inv_count, cons_inv_val, cons_inv_date, cont_inv_count, cont_inv_val, cont_inv_date, start_contractual, end_contractual, start_actual, end_expected, act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev, works_completed, works_ongoing, works_planned, obstacles_data, eval_labor, eval_equip, eval_financial, eval_hse, drawings_sub, drawings_app, drawings_rev, ir_sub, ir_app, ir_rev, ncr_open, ncr_closed, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link, username, submission_date) VALUES (''' + ",".join(["%s"] * 54) + ''', %s, %s)''', data_values + (username, today_date))
+            cursor.execute('''INSERT INTO project_updates (manager_name, project_name, project_desc, project_type, current_data_date, project_owner, project_developer, project_contractor, consultant_val, contractor_val, consultant_mods_count, consultant_mods_val, consultant_mods_time, consultant_mods_end_date, contractor_mods_count, contractor_mods_val, contractor_mods_time, contractor_mods_end_date, cons_inv_count, cons_inv_val, cons_inv_date, cont_inv_count, cont_inv_val, cont_inv_date, start_contractual, end_contractual, start_actual, end_expected, act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev, works_completed, works_ongoing, works_planned, obstacles_data, eval_labor, eval_equip, eval_financial, eval_hse, drawings_sub, drawings_app, drawings_rev, ir_sub, ir_app, ir_rev, ncr_open, ncr_closed, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link, username, submission_date) VALUES (''' + ",".join(["%s"] * 54) + ''', %s, %s)''', data_values + (username, submission_timestamp))
 
         conn.commit()
         conn.close()
