@@ -282,9 +282,191 @@ async def update_portal_page(request: Request):
 @app.post("/submit")
 async def submit_data(request: Request, background_tasks: BackgroundTasks):
     auth_user = request.cookies.get("auth_user")
-    if not auth_user: return {"error": "انتهت الجلسة، يرجى تسجيل الدخول."}
+    if not auth_user: 
+        return HTMLResponse(content="<h3>انتهت الجلسة، يرجى تسجيل الدخول.</h3>", status_code=401)
+    
     form_data = await request.form()
     username = form_data.get("username")
+
+    # ========================================================
+    # التحديث الذكي: حساب الـ Data Date ووقت الإرسال بدقة
+    # ========================================================
+    ksa_time = datetime.utcnow() + timedelta(hours=3)
+    submission_timestamp = ksa_time.strftime("%Y-%m-%d | %I:%M %p") 
+    
+    wd = ksa_time.weekday()
+    if wd == 2: days_to_add = 0             # الأربعاء
+    elif wd == 3: days_to_add = -1          # الخميس
+    elif wd == 4: days_to_add = -2          # الجمعة
+    elif wd == 5: days_to_add = -3          # السبت
+    elif wd == 6 and ksa_time.hour < 9: days_to_add = -4  # الأحد قبل 9 صباحاً
+    elif wd == 6 and ksa_time.hour >= 9: days_to_add = 3  # الأحد بعد 9 صباحاً
+    elif wd == 0: days_to_add = 2           # الإثنين
+    elif wd == 1: days_to_add = 1           # الثلاثاء
+    
+    calculated_data_date = (ksa_time + timedelta(days=days_to_add)).date().isoformat()
+    # ========================================================
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link FROM project_updates WHERE username=%s AND current_data_date=%s", (username, calculated_data_date))
+        existing_record = cursor.fetchone()
+
+        attachments = [form_data.get(f"attachment_{i}") for i in range(1, 5)]
+        links = ["لا يوجد مرفق"] * 4
+        for i in range(4):
+            if attachments[i] and getattr(attachments[i], "filename", None):
+                links[i] = upload_to_cloudinary(attachments[i]) or "لا يوجد مرفق"
+            elif existing_record: links[i] = existing_record[i+1]
+
+        master_plan = form_data.get("master_plan")
+        isometric = form_data.get("isometric")
+        master_plan_link = upload_to_cloudinary(master_plan) if master_plan and getattr(master_plan, "filename", None) else (existing_record[5] if existing_record else "لا يوجد مرفق")
+        isometric_link = upload_to_cloudinary(isometric) if isometric and getattr(isometric, "filename", None) else (existing_record[6] if existing_record else "لا يوجد مرفق")
+
+        # ========================================================
+        # فلاتر تنظيف البيانات (Data Sanitizers) لمنع انهيار قاعدة البيانات
+        # ========================================================
+        def clean_num(val):
+            if val is None or str(val).strip() == "": return 0
+            try: return float(val)
+            except: return 0
+
+        def clean_date(val):
+            return val if val and str(val).strip() != "" else None
+            
+        def process_percentage(val):
+            if val is None or str(val).strip() == "": return 0.0
+            try: return float(val) / 100.0
+            except: return 0.0
+
+        def clean_json(val):
+            return val if val and str(val).strip() != "" else "[]"
+        # ========================================================
+
+        data_values = (
+            form_data.get("manager_name"), 
+            form_data.get("project_name"), 
+            form_data.get("project_desc"), 
+            form_data.get("project_type"), 
+            calculated_data_date, 
+            form_data.get("project_owner"), 
+            form_data.get("project_developer"), 
+            form_data.get("project_contractor"),
+            
+            clean_num(form_data.get("consultant_val")), 
+            clean_num(form_data.get("contractor_val")),
+            clean_num(form_data.get("consultant_mods_count")), 
+            clean_num(form_data.get("consultant_mods_val")), 
+            clean_num(form_data.get("consultant_mods_time")), 
+            clean_date(form_data.get("consultant_mods_end_date")),
+            
+            clean_num(form_data.get("contractor_mods_count")), 
+            clean_num(form_data.get("contractor_mods_val")), 
+            clean_num(form_data.get("contractor_mods_time")), 
+            clean_date(form_data.get("contractor_mods_end_date")),
+            
+            clean_num(form_data.get("cons_inv_count")), 
+            clean_num(form_data.get("cons_inv_val")), 
+            clean_date(form_data.get("cons_inv_date")),
+            
+            clean_num(form_data.get("cont_inv_count")), 
+            clean_num(form_data.get("cont_inv_val")), 
+            clean_date(form_data.get("cont_inv_date")),
+            
+            clean_date(form_data.get("start_contractual")), 
+            clean_date(form_data.get("end_contractual")), 
+            clean_date(form_data.get("start_actual")), 
+            clean_date(form_data.get("end_expected")),
+            
+            process_percentage(form_data.get("act_prog_cur")), 
+            process_percentage(form_data.get("act_prog_prev")), 
+            process_percentage(form_data.get("plan_prog_cur")), 
+            process_percentage(form_data.get("plan_prog_prev")),
+            
+            form_data.get("works_completed"), 
+            form_data.get("works_ongoing"), 
+            form_data.get("works_planned"), 
+            clean_json(form_data.get("obstacles_json")),
+            
+            clean_num(form_data.get("eval_labor")), 
+            clean_num(form_data.get("eval_equip")), 
+            clean_num(form_data.get("eval_financial")), 
+            clean_num(form_data.get("eval_hse")),
+            
+            clean_num(form_data.get("drawings_sub")), 
+            clean_num(form_data.get("drawings_app")), 
+            clean_num(form_data.get("drawings_rev")),
+            
+            clean_num(form_data.get("ir_sub")), 
+            clean_num(form_data.get("ir_app")), 
+            clean_num(form_data.get("ir_rev")),
+            
+            clean_num(form_data.get("ncr_open")), 
+            clean_num(form_data.get("ncr_closed")),
+            
+            links[0], links[1], links[2], links[3], 
+            master_plan_link, isometric_link
+        )
+
+        if existing_record:
+            cursor.execute('''UPDATE project_updates SET manager_name=%s, project_name=%s, project_desc=%s, project_type=%s, current_data_date=%s, project_owner=%s, project_developer=%s, project_contractor=%s, consultant_val=%s, contractor_val=%s, consultant_mods_count=%s, consultant_mods_val=%s, consultant_mods_time=%s, consultant_mods_end_date=%s, contractor_mods_count=%s, contractor_mods_val=%s, contractor_mods_time=%s, contractor_mods_end_date=%s, cons_inv_count=%s, cons_inv_val=%s, cons_inv_date=%s, cont_inv_count=%s, cont_inv_val=%s, cont_inv_date=%s, start_contractual=%s, end_contractual=%s, start_actual=%s, end_expected=%s, act_prog_cur=%s, act_prog_prev=%s, plan_prog_cur=%s, plan_prog_prev=%s, works_completed=%s, works_ongoing=%s, works_planned=%s, obstacles_data=%s, eval_labor=%s, eval_equip=%s, eval_financial=%s, eval_hse=%s, drawings_sub=%s, drawings_app=%s, drawings_rev=%s, ir_sub=%s, ir_app=%s, ir_rev=%s, ncr_open=%s, ncr_closed=%s, file_link_1=%s, file_link_2=%s, file_link_3=%s, file_link_4=%s, master_plan_link=%s, isometric_link=%s, submission_date=%s WHERE id = %s''', data_values + (submission_timestamp, existing_record[0],))
+        else:
+            cursor.execute('''INSERT INTO project_updates (manager_name, project_name, project_desc, project_type, current_data_date, project_owner, project_developer, project_contractor, consultant_val, contractor_val, consultant_mods_count, consultant_mods_val, consultant_mods_time, consultant_mods_end_date, contractor_mods_count, contractor_mods_val, contractor_mods_time, contractor_mods_end_date, cons_inv_count, cons_inv_val, cons_inv_date, cont_inv_count, cont_inv_val, cont_inv_date, start_contractual, end_contractual, start_actual, end_expected, act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev, works_completed, works_ongoing, works_planned, obstacles_data, eval_labor, eval_equip, eval_financial, eval_hse, drawings_sub, drawings_app, drawings_rev, ir_sub, ir_app, ir_rev, ncr_open, ncr_closed, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link, username, submission_date) VALUES (''' + ",".join(["%s"] * 54) + ''', %s, %s)''', data_values + (username, submission_timestamp))
+
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(send_telegram_alert, "submit", form_data.get("manager_name"), form_data.get("project_name"))
+        
+        # عرض شاشة نجاح احترافية 
+        success_html = """
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>تم بنجاح | المعماريون السعوديون</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+        </head>
+        <body style="background-color: #f4f6f9; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Segoe UI', Tahoma, sans-serif;">
+            <div class="text-center bg-white p-5 rounded-4 shadow-sm" style="max-width: 500px; width: 100%;">
+                <div style="font-size: 5rem; line-height: 1; margin-bottom: 20px;">✅</div>
+                <h2 class="text-success fw-bold mb-3">تم إرسال التحديث بنجاح!</h2>
+                <p class="text-muted mb-4">شكراً لك، تم حفظ بيانات المشروع في النظام المركزي للإدارة.</p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="/update-portal" class="btn btn-primary px-4 fw-bold">رجوع للبوابة</a>
+                    <a href="/logout" class="btn btn-outline-danger px-4 fw-bold">تسجيل الخروج</a>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=success_html, status_code=200)
+
+    except Exception as e:
+        # عرض شاشة خطأ توضح السبب الفعلي في حال حدوث أي خطأ مستقبلي
+        error_html = f"""
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>خطأ | المعماريون السعوديون</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+        </head>
+        <body style="background-color: #f4f6f9; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Segoe UI', Tahoma, sans-serif;">
+            <div class="text-center bg-white p-5 rounded-4 shadow-sm" style="max-width: 500px; width: 100%;">
+                <div style="font-size: 5rem; line-height: 1; margin-bottom: 20px;">❌</div>
+                <h2 class="text-danger fw-bold mb-3">عفواً، حدث خطأ أثناء الحفظ!</h2>
+                <p class="text-muted mb-4 text-break">تفاصيل الخطأ: {str(e)}</p>
+                <a href="/update-portal" class="btn btn-primary px-4 fw-bold">الرجوع والمحاولة مرة أخرى</a>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=error_html, status_code=500)
     # ==========================================
 # 7. لوحة المؤشرات التفاعلية (Analytics Dashboard)
 # ==========================================
