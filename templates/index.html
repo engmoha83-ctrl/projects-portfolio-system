@@ -220,19 +220,20 @@
                     <label class="fw-bold text-primary mb-2" data-i18n="sec8_photos">رفع صور الإنجاز الأسبوعية (حتى 4 صور)</label>
                     <div class="col-md-6 mb-2">
                         <label class="small text-muted" data-i18n="sec8_photo1">صورة الإنجاز 1</label>
-                        <input class="form-control" type="file" name="attachment_1" accept="image/*,.pdf,.xls,.xlsx">
+                        <!-- التعديل هنا: قصر القبول على الصور فقط -->
+                        <input class="form-control" type="file" name="attachment_1" accept="image/*">
                     </div>
                     <div class="col-md-6 mb-2">
                         <label class="small text-muted" data-i18n="sec8_photo2">صورة الإنجاز 2</label>
-                        <input class="form-control" type="file" name="attachment_2" accept="image/*,.pdf,.xls,.xlsx">
+                        <input class="form-control" type="file" name="attachment_2" accept="image/*">
                     </div>
                     <div class="col-md-6 mb-2">
                         <label class="small text-muted" data-i18n="sec8_photo3">صورة الإنجاز 3</label>
-                        <input class="form-control" type="file" name="attachment_3" accept="image/*,.pdf,.xls,.xlsx">
+                        <input class="form-control" type="file" name="attachment_3" accept="image/*">
                     </div>
                     <div class="col-md-6 mb-2">
                         <label class="small text-muted" data-i18n="sec8_photo4">صورة الإنجاز 4</label>
-                        <input class="form-control" type="file" name="attachment_4" accept="image/*,.pdf,.xls,.xlsx">
+                        <input class="form-control" type="file" name="attachment_4" accept="image/*">
                     </div>
                 </div>
                 <hr>
@@ -370,15 +371,26 @@
         document.getElementById('cons_time').addEventListener('input', checkRequiredDates);
         document.getElementById('cont_time').addEventListener('input', checkRequiredDates);
 
-        function saveToFile() {
+        // ==========================================
+        // التعديل الجديد: قراءة الملفات وتحويلها لـ Base64 للحفظ
+        // ==========================================
+        const getBase64 = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        async function saveToFile() {
             const formData = new FormData(document.getElementById('portfolioForm'));
             const dataObj = {};
-            formData.forEach((value, key) => {
-                // استثناء جميع حقول الملفات الجديدة
+            dataObj['files'] = {}; // إنشاء مساحة مخصصة لحفظ الصور
+            
+            for (let [key, value] of formData.entries()) {
                 if(!['attachment_1', 'attachment_2', 'attachment_3', 'attachment_4', 'master_plan', 'isometric'].includes(key) && !key.includes('[]')) {
                     dataObj[key] = value;
                 }
-            });
+            }
             
             let obstacles = [];
             document.querySelectorAll('.obstacle-row').forEach(row => {
@@ -388,6 +400,21 @@
                 if (desc) obstacles.push({ description: desc, impact: impact, closed: isClosed });
             });
             dataObj['obstacles'] = obstacles;
+            
+            // قراءة كل المرفقات وتحويلها لبيانات مشفرة وحفظها
+            const fileFields = ['attachment_1', 'attachment_2', 'attachment_3', 'attachment_4', 'master_plan', 'isometric'];
+            for (let fieldName of fileFields) {
+                const fileInput = document.querySelector(`[name="${fieldName}"]`);
+                if (fileInput && fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    const base64 = await getBase64(file);
+                    dataObj['files'][fieldName] = {
+                        name: file.name,
+                        type: file.type,
+                        data: base64
+                    };
+                }
+            }
             
             const dataStr = JSON.stringify(dataObj, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
@@ -403,6 +430,18 @@
             URL.revokeObjectURL(url);
         }
 
+        // ==========================================
+        // التعديل الجديد: دالة مساعدة لفك التشفير وإعادة الصورة
+        // ==========================================
+        function dataURLtoFile(dataurl, filename) {
+            let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new File([u8arr], filename, {type:mime});
+        }
+
         function loadFromFile(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -411,7 +450,7 @@
                 try {
                     const dataObj = JSON.parse(e.target.result);
                     for (const key in dataObj) {
-                        if(key === 'obstacles') continue;
+                        if(key === 'obstacles' || key === 'files') continue;
                         const field = document.querySelector(`[name="${key}"]`);
                         
                         if(field && !field.readOnly) {
@@ -449,10 +488,26 @@
                             container.appendChild(row);
                         });
                     }
+
+                    // إسترجاع الصور المحفوظة ووضعها في حقول الإدخال
+                    if (dataObj.files) {
+                        for (let key in dataObj.files) {
+                            const fileData = dataObj.files[key];
+                            const fileInput = document.querySelector(`[name="${key}"]`);
+                            if (fileInput) {
+                                const restoredFile = dataURLtoFile(fileData.data, fileData.name);
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(restoredFile);
+                                fileInput.files = dataTransfer.files;
+                            }
+                        }
+                    }
+
                     checkRequiredDates(); 
-                    alert("✅ Data loaded successfully!");
+                    alert("✅ تم استرجاع المسودة والصور بنجاح!");
                 } catch (err) {
-                    alert("❌ Error reading the file.");
+                    console.error(err);
+                    alert("❌ حدث خطأ أثناء قراءة الملف.");
                 }
                 event.target.value = '';
             };
@@ -514,6 +569,7 @@
                 this.value = parts.join('.');
             });
         });
+        
         // ==========================================
         // حماية الإدخال الذكية (Smart Validation)
         // ==========================================
@@ -553,6 +609,7 @@
                 }
             });
         });
+        
         // ==========================================
         // التحديد الذكي لتاريخ البيانات (Smart Cut-off Date)
         // ==========================================
