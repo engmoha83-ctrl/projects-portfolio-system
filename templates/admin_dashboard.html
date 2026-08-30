@@ -9,6 +9,17 @@
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .table-container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; max-height: 70vh; }
+        
+        /* تثبيت رأس الجدول أثناء التمرير */
+        #updatesTable thead th {
+            position: sticky;
+            top: 0;
+            background-color: #212529;
+            color: white;
+            z-index: 10;
+            border-bottom: 2px solid #495057;
+        }
+
         td { cursor: pointer; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
         td:hover { background-color: #f1f3f5; }
         .filter-section { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
@@ -27,7 +38,7 @@
             </button>
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="/admin-dashboard">سجل التحديثات</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/admin-dashboard">سجل التحديثات</a></li>
                     {% if admin_user == 'admin_mohamed' %}
                     <li class="nav-item"><a class="nav-link" href="/admin-analytics">لوحة المؤشرات</a></li>
                     <li class="nav-item"><a class="nav-link" href="/admin-directory">دليل المديرين</a></li>
@@ -40,6 +51,7 @@
             </div>
         </div>
     </nav>
+
     <div class="container-fluid px-4 mb-5">
         <h3 class="text-primary mb-3">سجل تحديثات المشاريع</h3>
         
@@ -47,7 +59,7 @@
         <div class="filter-section">
             <div class="row g-3 align-items-stretch">
                 <!-- الفلاتر -->
-                <div class="col-md-10">
+                <div class="col-md-8">
                     <div class="row g-2">
                         <div class="col-md-3">
                             <label class="form-label text-muted small mb-1">اسم المشروع</label>
@@ -75,11 +87,18 @@
                         </div>
                     </div>
                 </div>
-                <!-- مربع عدد التحديثات وزر التصدير -->
-                <div class="col-md-2 d-flex flex-column">
-                    <div class="kpi-card flex-grow-1">
-                        <h6 class="mb-0 opacity-75 small">عدد التحديثات المعروضة</h6>
-                        <p class="kpi-number" id="update-count">0</p>
+                
+                <!-- مربعات عدد التحديثات وزر التصدير -->
+                <div class="col-md-4 d-flex flex-column gap-2">
+                    <div class="d-flex gap-2 flex-grow-1">
+                        <div class="kpi-card flex-grow-1" style="background: linear-gradient(45deg, #198754, #20c997);">
+                            <h6 class="mb-0 opacity-75 small" title="عدد المشاريع التي تم تحديثها في أحدث تاريخ بيانات مسجل">تحديثات أحدث دورة</h6>
+                            <p class="kpi-number" id="latest-count">0</p>
+                        </div>
+                        <div class="kpi-card flex-grow-1">
+                            <h6 class="mb-0 opacity-75 small" title="عدد التحديثات المعروضة حالياً بناءً على الفلاتر">المعروض حالياً</h6>
+                            <p class="kpi-number" id="update-count">0</p>
+                        </div>
                     </div>
                     <button class="btn btn-success fw-bold shadow-sm w-100" onclick="exportToExcel()">
                         📥 تصدير Excel
@@ -145,6 +164,7 @@
 
         function populateSelect(elementId, dataSet) {
             const select = document.getElementById(elementId);
+            select.innerHTML = '<option value="">الكل</option>';
             const sortedArray = Array.from(dataSet).filter(val => val !== "").sort();
             sortedArray.forEach(val => {
                 const option = document.createElement("option");
@@ -161,7 +181,19 @@
             const filterDate = document.getElementById("filter-date").value.toLowerCase();
             
             let visibleCount = 0;
+            let latestDateCount = 0;
             const rows = document.querySelectorAll("#tableBody .data-row");
+
+            // العثور على أحدث تاريخ مسجل في الجدول
+            let allDates = [];
+            if(colIndex.date > -1) {
+                rows.forEach(row => {
+                    let d = row.querySelectorAll("td")[colIndex.date].innerText.trim();
+                    if(d) allDates.push(d);
+                });
+            }
+            allDates.sort().reverse();
+            let latestDate = allDates.length > 0 ? allDates[0] : "";
 
             rows.forEach(row => {
                 const cells = row.querySelectorAll("td");
@@ -170,6 +202,11 @@
                 const valPm = colIndex.pm > -1 ? cells[colIndex.pm].innerText.trim().toLowerCase() : "";
                 const valType = colIndex.type > -1 ? cells[colIndex.type].innerText.trim().toLowerCase() : "";
                 const valDate = colIndex.date > -1 ? cells[colIndex.date].innerText.trim().toLowerCase() : "";
+
+                // حساب عدد المشاريع التي تم تحديثها في أحدث دورة زمنية مستقلة عن الفلاتر
+                if (colIndex.date > -1 && cells[colIndex.date].innerText.trim() === latestDate) {
+                    latestDateCount++;
+                }
 
                 const matchProject = (filterProject === "" || valProject === filterProject);
                 const matchPm = (filterPm === "" || valPm === filterPm);
@@ -185,6 +222,7 @@
             });
 
             document.getElementById("update-count").innerText = visibleCount;
+            document.getElementById("latest-count").innerText = latestDateCount;
         }
 
         document.addEventListener("DOMContentLoaded", initFilters);
