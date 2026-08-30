@@ -454,10 +454,19 @@ async def get_analytics_data(request: Request):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        # إضافة كافة الأعمدة المطلوبة للداشبورد الجديد
         cursor.execute('''
             SELECT project_name, manager_name, project_type, current_data_date, 
-                   contractor_val, plan_prog_cur, act_prog_cur, ncr_open,
-                   eval_labor, eval_equip, eval_financial, eval_hse
+                   contractor_val, consultant_val,
+                   consultant_mods_count, contractor_mods_count,
+                   consultant_mods_val, contractor_mods_val,
+                   cons_inv_count, cont_inv_count, cons_inv_val, cont_inv_val,
+                   drawings_sub, drawings_app, drawings_rev,
+                   ir_sub, ir_app, ir_rev, ncr_open, ncr_closed,
+                   consultant_mods_time, contractor_mods_time,
+                   start_contractual, end_contractual, start_actual, end_expected,
+                   plan_prog_cur, plan_prog_prev, act_prog_cur, act_prog_prev,
+                   obstacles_data, eval_labor, eval_equip, eval_financial, eval_hse
             FROM project_updates
         ''')
         updates_cols = [desc[0] for desc in cursor.description]
