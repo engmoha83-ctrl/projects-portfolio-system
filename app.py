@@ -8,6 +8,10 @@ import psycopg2
 import cloudinary
 import cloudinary.uploader
 import requests
+from dotenv import load_dotenv
+
+# تحميل المتغيرات البيئية
+load_dotenv()
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -15,9 +19,9 @@ templates = Jinja2Templates(directory="templates")
 # ==========================================
 # 1. الإعدادات الأساسية 
 # ==========================================
-DB_URL = "postgresql://postgres.rofppixfbshgdkhqoevo:Saudi_Architects2026@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
-TELEGRAM_BOT_TOKEN = "8966674077:AAEF72u60b8wjWapVBSbnsBZqhWNwkYcvDA"
-TELEGRAM_CHAT_ID = "5838048978"
+DB_URL = os.getenv("DATABASE_URL")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
