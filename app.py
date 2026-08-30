@@ -111,41 +111,21 @@ async def admin_login_page(request: Request, error: str = None):
 async def do_admin_login(request: Request, username: str = Form(...), password: str = Form(...)):
     ADMIN_ACCOUNTS = {"admin_mohamed": "admin_2026", "admin_assistant": "admin_1234"}
     if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
-        # التعديل هنا: التوجيه أصبح لصفحة البوابة المركزية بدلاً من الداشبورد مباشرة
         response = RedirectResponse(url="/admin-hub", status_code=303) 
         response.set_cookie(key="super_admin_auth", value=username, max_age=86400)
         return response
     return templates.TemplateResponse(request, "admin_login.html", {"error": "بيانات الدخول غير صحيحة"})
     
-@app.get("/admin-dashboard", response_class=HTMLResponse)
-async def admin_dashboard(request: Request):
-    admin_user = request.cookies.get("super_admin_auth")
-    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM project_updates ORDER BY submission_date DESC, id DESC")
-    original_columns = [desc[0] for desc in cursor.description]
-    raw_rows = cursor.fetchall()
-    conn.close()
-    
-    translated_columns = [ARABIC_COLUMNS.get(col, col) for col in original_columns]
-    rows = []
-    for row in raw_rows:
-        row_list = list(row)
-        for i, col in enumerate(original_columns):
-            if col == 'obstacles_data' and row_list[i]: row_list[i] = json.dumps(row_list[i], ensure_ascii=False)
-        rows.append(row_list)
-    return templates.TemplateResponse(request, "admin_dashboard.html", {"original_columns": original_columns, "translated_columns": translated_columns, "rows": rows, "admin_user": admin_user})
-
-# ==========================================
-# المسار الجديد للبوابة المركزية (Admin Hub)
-# ==========================================
 @app.get("/admin-hub", response_class=HTMLResponse)
 async def admin_hub_page(request: Request):
     admin_user = request.cookies.get("super_admin_auth")
     if not admin_user: return RedirectResponse(url="/admin", status_code=303)
     return templates.TemplateResponse(request, "admin_hub.html", {"admin_user": admin_user})
+
+@app.get("/admin-dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -216,7 +196,7 @@ async def admin_logout():
     return response
 
 # ==========================================
-# 5. المعرض المرئي للمشاريع (Gallery) بالتحديث الجديد
+# 5. المعرض المرئي للمشاريع (Gallery)
 # ==========================================
 @app.get("/admin-gallery", response_class=HTMLResponse)
 async def admin_gallery_page(request: Request):
@@ -230,7 +210,6 @@ async def admin_gallery_page(request: Request):
     conn.close()
     return templates.TemplateResponse(request, "admin_gallery.html", {"projects": projects, "admin_user": admin_user})
 
-# دالة جديدة لجلب التواريخ المتاحة للمشروع المختار
 @app.get("/api/project-dates")
 async def get_project_dates(project: str, request: Request):
     if request.cookies.get("super_admin_auth") != "admin_mohamed": return {"error": "غير مصرح"}
@@ -241,7 +220,6 @@ async def get_project_dates(project: str, request: Request):
     conn.close()
     return {"success": True, "dates": dates}
 
-# دالة المعرض معدلة لتقبل (المشروع + تاريخ البيانات)
 @app.get("/api/gallery-data")
 async def get_gallery_data(project: str, date: str, request: Request):
     if request.cookies.get("super_admin_auth") != "admin_mohamed": return {"error": "غير مصرح"}
@@ -288,48 +266,75 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
     form_data = await request.form()
     username = form_data.get("username")
 
-    # ========================================================
-    # التحديث الذكي: حساب الـ Data Date ووقت الإرسال بدقة
-    # ========================================================
+    # حساب الـ Data Date ووقت الإرسال
     ksa_time = datetime.utcnow() + timedelta(hours=3)
     sub_date = ksa_time.strftime("%Y-%m-%d")
-    sub_time = ksa_time.strftime("%I:%M %p")
+    sub_time = ksa_time.strftime("%I:%M %p") 
     
     wd = ksa_time.weekday()
-    if wd == 2: days_to_add = 0             # الأربعاء
-    elif wd == 3: days_to_add = -1          # الخميس
-    elif wd == 4: days_to_add = -2          # الجمعة
-    elif wd == 5: days_to_add = -3          # السبت
-    elif wd == 6 and ksa_time.hour < 9: days_to_add = -4  # الأحد قبل 9 صباحاً
-    elif wd == 6 and ksa_time.hour >= 9: days_to_add = 3  # الأحد بعد 9 صباحاً
-    elif wd == 0: days_to_add = 2           # الإثنين
-    elif wd == 1: days_to_add = 1           # الثلاثاء
+    if wd == 2: days_to_add = 0             
+    elif wd == 3: days_to_add = -1          
+    elif wd == 4: days_to_add = -2          
+    elif wd == 5: days_to_add = -3          
+    elif wd == 6 and ksa_time.hour < 9: days_to_add = -4  
+    elif wd == 6 and ksa_time.hour >= 9: days_to_add = 3  
+    elif wd == 0: days_to_add = 2           
+    elif wd == 1: days_to_add = 1           
     
     calculated_data_date = (ksa_time + timedelta(days=days_to_add)).date().isoformat()
-    # ========================================================
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # جلب السجل الحالي لنفس دورة التحديث
         cursor.execute("SELECT id, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link FROM project_updates WHERE username=%s AND current_data_date=%s", (username, calculated_data_date))
         existing_record = cursor.fetchone()
 
+        # جلب أحدث سجل للمشروع عموماً (لنقل الروابط القديمة إذا تم استرجاع مسودة)
+        cursor.execute("SELECT file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link FROM project_updates WHERE username=%s AND project_name=%s ORDER BY current_data_date DESC LIMIT 1", (username, form_data.get("project_name")))
+        previous_record = cursor.fetchone()
+
         attachments = [form_data.get(f"attachment_{i}") for i in range(1, 5)]
         links = ["لا يوجد مرفق"] * 4
+        
         for i in range(4):
-            if attachments[i] and getattr(attachments[i], "filename", None):
-                links[i] = upload_to_cloudinary(attachments[i]) or "لا يوجد مرفق"
-            elif existing_record: links[i] = existing_record[i+1]
+            flag_val = form_data.get(f"flag_attachment_{i+1}")
+            file_obj = attachments[i]
+            
+            # منع التكرار وإعادة رفع الصور باستخدام الختم البرمجي (Flag)
+            if flag_val == "true" and existing_record and existing_record[i+1] and existing_record[i+1] != "لا يوجد مرفق":
+                links[i] = existing_record[i+1]
+            elif flag_val == "true" and previous_record and previous_record[i] and previous_record[i] != "لا يوجد مرفق":
+                links[i] = previous_record[i]
+            elif file_obj and getattr(file_obj, "filename", None):
+                links[i] = upload_to_cloudinary(file_obj) or "لا يوجد مرفق"
+            elif existing_record and existing_record[i+1]:
+                links[i] = existing_record[i+1]
 
         master_plan = form_data.get("master_plan")
-        isometric = form_data.get("isometric")
-        master_plan_link = upload_to_cloudinary(master_plan) if master_plan and getattr(master_plan, "filename", None) else (existing_record[5] if existing_record else "لا يوجد مرفق")
-        isometric_link = upload_to_cloudinary(isometric) if isometric and getattr(isometric, "filename", None) else (existing_record[6] if existing_record else "لا يوجد مرفق")
+        flag_master = form_data.get("flag_master_plan")
+        if flag_master == "true" and existing_record and existing_record[5] and existing_record[5] != "لا يوجد مرفق":
+            master_plan_link = existing_record[5]
+        elif flag_master == "true" and previous_record and previous_record[4] and previous_record[4] != "لا يوجد مرفق":
+            master_plan_link = previous_record[4]
+        elif master_plan and getattr(master_plan, "filename", None):
+            master_plan_link = upload_to_cloudinary(master_plan) or "لا يوجد مرفق"
+        else:
+            master_plan_link = existing_record[5] if existing_record and existing_record[5] else "لا يوجد مرفق"
 
-        # ========================================================
-        # فلاتر تنظيف البيانات (Data Sanitizers) لمنع انهيار قاعدة البيانات
-        # ========================================================
+        isometric = form_data.get("isometric")
+        flag_iso = form_data.get("flag_isometric")
+        if flag_iso == "true" and existing_record and existing_record[6] and existing_record[6] != "لا يوجد مرفق":
+            isometric_link = existing_record[6]
+        elif flag_iso == "true" and previous_record and previous_record[5] and previous_record[5] != "لا يوجد مرفق":
+            isometric_link = previous_record[5]
+        elif isometric and getattr(isometric, "filename", None):
+            isometric_link = upload_to_cloudinary(isometric) or "لا يوجد مرفق"
+        else:
+            isometric_link = existing_record[6] if existing_record and existing_record[6] else "لا يوجد مرفق"
+
+        # فلاتر تنظيف البيانات
         def clean_num(val):
             if val is None or str(val).strip() == "": return 0
             try: return float(val)
@@ -345,83 +350,36 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
 
         def clean_json(val):
             return val if val and str(val).strip() != "" else "[]"
-        # ========================================================
 
         data_values = (
-            form_data.get("manager_name"), 
-            form_data.get("project_name"), 
-            form_data.get("project_desc"), 
-            form_data.get("project_type"), 
-            calculated_data_date, 
-            form_data.get("project_owner"), 
-            form_data.get("project_developer"), 
-            form_data.get("project_contractor"),
-            
-            clean_num(form_data.get("consultant_val")), 
-            clean_num(form_data.get("contractor_val")),
-            clean_num(form_data.get("consultant_mods_count")), 
-            clean_num(form_data.get("consultant_mods_val")), 
-            clean_num(form_data.get("consultant_mods_time")), 
-            clean_date(form_data.get("consultant_mods_end_date")),
-            
-            clean_num(form_data.get("contractor_mods_count")), 
-            clean_num(form_data.get("contractor_mods_val")), 
-            clean_num(form_data.get("contractor_mods_time")), 
-            clean_date(form_data.get("contractor_mods_end_date")),
-            
-            clean_num(form_data.get("cons_inv_count")), 
-            clean_num(form_data.get("cons_inv_val")), 
-            clean_date(form_data.get("cons_inv_date")),
-            
-            clean_num(form_data.get("cont_inv_count")), 
-            clean_num(form_data.get("cont_inv_val")), 
-            clean_date(form_data.get("cont_inv_date")),
-            
-            clean_date(form_data.get("start_contractual")), 
-            clean_date(form_data.get("end_contractual")), 
-            clean_date(form_data.get("start_actual")), 
-            clean_date(form_data.get("end_expected")),
-            
-            process_percentage(form_data.get("act_prog_cur")), 
-            process_percentage(form_data.get("act_prog_prev")), 
-            process_percentage(form_data.get("plan_prog_cur")), 
-            process_percentage(form_data.get("plan_prog_prev")),
-            
-            form_data.get("works_completed"), 
-            form_data.get("works_ongoing"), 
-            form_data.get("works_planned"), 
-            clean_json(form_data.get("obstacles_json")),
-            
-            clean_num(form_data.get("eval_labor")), 
-            clean_num(form_data.get("eval_equip")), 
-            clean_num(form_data.get("eval_financial")), 
-            clean_num(form_data.get("eval_hse")),
-            
-            clean_num(form_data.get("drawings_sub")), 
-            clean_num(form_data.get("drawings_app")), 
-            clean_num(form_data.get("drawings_rev")),
-            
-            clean_num(form_data.get("ir_sub")), 
-            clean_num(form_data.get("ir_app")), 
-            clean_num(form_data.get("ir_rev")),
-            
-            clean_num(form_data.get("ncr_open")), 
-            clean_num(form_data.get("ncr_closed")),
-            
-            links[0], links[1], links[2], links[3], 
-            master_plan_link, isometric_link
+            form_data.get("manager_name"), form_data.get("project_name"), form_data.get("project_desc"), form_data.get("project_type"), 
+            calculated_data_date, form_data.get("project_owner"), form_data.get("project_developer"), form_data.get("project_contractor"),
+            clean_num(form_data.get("consultant_val")), clean_num(form_data.get("contractor_val")),
+            clean_num(form_data.get("consultant_mods_count")), clean_num(form_data.get("consultant_mods_val")), 
+            clean_num(form_data.get("consultant_mods_time")), clean_date(form_data.get("consultant_mods_end_date")),
+            clean_num(form_data.get("contractor_mods_count")), clean_num(form_data.get("contractor_mods_val")), 
+            clean_num(form_data.get("contractor_mods_time")), clean_date(form_data.get("contractor_mods_end_date")),
+            clean_num(form_data.get("cons_inv_count")), clean_num(form_data.get("cons_inv_val")), clean_date(form_data.get("cons_inv_date")),
+            clean_num(form_data.get("cont_inv_count")), clean_num(form_data.get("cont_inv_val")), clean_date(form_data.get("cont_inv_date")),
+            clean_date(form_data.get("start_contractual")), clean_date(form_data.get("end_contractual")), clean_date(form_data.get("start_actual")), clean_date(form_data.get("end_expected")),
+            process_percentage(form_data.get("act_prog_cur")), process_percentage(form_data.get("act_prog_prev")), process_percentage(form_data.get("plan_prog_cur")), process_percentage(form_data.get("plan_prog_prev")),
+            form_data.get("works_completed"), form_data.get("works_ongoing"), form_data.get("works_planned"), clean_json(form_data.get("obstacles_json")),
+            clean_num(form_data.get("eval_labor")), clean_num(form_data.get("eval_equip")), clean_num(form_data.get("eval_financial")), clean_num(form_data.get("eval_hse")),
+            clean_num(form_data.get("drawings_sub")), clean_num(form_data.get("drawings_app")), clean_num(form_data.get("drawings_rev")),
+            clean_num(form_data.get("ir_sub")), clean_num(form_data.get("ir_app")), clean_num(form_data.get("ir_rev")),
+            clean_num(form_data.get("ncr_open")), clean_num(form_data.get("ncr_closed")),
+            links[0], links[1], links[2], links[3], master_plan_link, isometric_link
         )
 
         if existing_record:
             cursor.execute('''UPDATE project_updates SET manager_name=%s, project_name=%s, project_desc=%s, project_type=%s, current_data_date=%s, project_owner=%s, project_developer=%s, project_contractor=%s, consultant_val=%s, contractor_val=%s, consultant_mods_count=%s, consultant_mods_val=%s, consultant_mods_time=%s, consultant_mods_end_date=%s, contractor_mods_count=%s, contractor_mods_val=%s, contractor_mods_time=%s, contractor_mods_end_date=%s, cons_inv_count=%s, cons_inv_val=%s, cons_inv_date=%s, cont_inv_count=%s, cont_inv_val=%s, cont_inv_date=%s, start_contractual=%s, end_contractual=%s, start_actual=%s, end_expected=%s, act_prog_cur=%s, act_prog_prev=%s, plan_prog_cur=%s, plan_prog_prev=%s, works_completed=%s, works_ongoing=%s, works_planned=%s, obstacles_data=%s, eval_labor=%s, eval_equip=%s, eval_financial=%s, eval_hse=%s, drawings_sub=%s, drawings_app=%s, drawings_rev=%s, ir_sub=%s, ir_app=%s, ir_rev=%s, ncr_open=%s, ncr_closed=%s, file_link_1=%s, file_link_2=%s, file_link_3=%s, file_link_4=%s, master_plan_link=%s, isometric_link=%s, submission_date=%s, submission_time=%s WHERE id = %s''', data_values + (sub_date, sub_time, existing_record[0],))
         else:
-            cursor.execute('''INSERT INTO project_updates (manager_name, project_name, project_desc, project_type, current_data_date, project_owner, project_developer, project_contractor, consultant_val, contractor_val, consultant_mods_count, consultant_mods_val, consultant_mods_time, consultant_mods_end_date, contractor_mods_count, contractor_mods_val, contractor_mods_time, contractor_mods_end_date, cons_inv_count, cons_inv_val, cons_inv_date, cont_inv_count, cont_inv_val, cont_inv_date, start_contractual, end_contractual, start_actual, end_expected, act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev, works_completed, works_ongoing, works_planned, obstacles_data, eval_labor, eval_equip, eval_financial, eval_hse, drawings_sub, drawings_app, drawings_rev, ir_sub, ir_app, ir_rev, ncr_open, ncr_closed, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link, username, submission_date, submission_time) VALUES (''' + ",".join(["%s"] * 55) + ''', %s, %s, %s)''', data_values + (username, sub_date, sub_time))
+            cursor.execute('''INSERT INTO project_updates (manager_name, project_name, project_desc, project_type, current_data_date, project_owner, project_developer, project_contractor, consultant_val, contractor_val, consultant_mods_count, consultant_mods_val, consultant_mods_time, consultant_mods_end_date, contractor_mods_count, contractor_mods_val, contractor_mods_time, contractor_mods_end_date, cons_inv_count, cons_inv_val, cons_inv_date, cont_inv_count, cont_inv_val, cont_inv_date, start_contractual, end_contractual, start_actual, end_expected, act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev, works_completed, works_ongoing, works_planned, obstacles_data, eval_labor, eval_equip, eval_financial, eval_hse, drawings_sub, drawings_app, drawings_rev, ir_sub, ir_app, ir_rev, ncr_open, ncr_closed, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link, username, submission_date, submission_time) VALUES (''' + ",".join(["%s"] * 54) + ''', %s, %s, %s)''', data_values + (username, sub_date, sub_time))
 
         conn.commit()
         conn.close()
         background_tasks.add_task(send_telegram_alert, "submit", form_data.get("manager_name"), form_data.get("project_name"))
         
-        # عرض شاشة نجاح احترافية 
         success_html = """
         <!DOCTYPE html>
         <html lang="ar" dir="rtl">
@@ -447,7 +405,6 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         return HTMLResponse(content=success_html, status_code=200)
 
     except Exception as e:
-        # عرض شاشة خطأ توضح السبب الفعلي في حال حدوث أي خطأ مستقبلي
         error_html = f"""
         <!DOCTYPE html>
         <html lang="ar" dir="rtl">
@@ -468,7 +425,8 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         </html>
         """
         return HTMLResponse(content=error_html, status_code=500)
-    # ==========================================
+
+# ==========================================
 # 7. لوحة المؤشرات التفاعلية (Analytics Dashboard)
 # ==========================================
 @app.get("/admin-analytics", response_class=HTMLResponse)
@@ -483,8 +441,6 @@ async def get_analytics_data(request: Request):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # جلب بيانات المشاريع الأساسية للتحليل
         cursor.execute('''
             SELECT project_name, manager_name, project_type, current_data_date, 
                    contractor_val, plan_prog_cur, act_prog_cur, ncr_open,
@@ -494,7 +450,6 @@ async def get_analytics_data(request: Request):
         updates_cols = [desc[0] for desc in cursor.description]
         updates = [dict(zip(updates_cols, row)) for row in cursor.fetchall()]
         
-        # جلب بيانات مديري المشاريع لبطاقة التعريف
         cursor.execute('SELECT manager_name, phone, email, profile_image FROM pm_directory')
         pm_cols = [desc[0] for desc in cursor.description]
         pms = [dict(zip(pm_cols, row)) for row in cursor.fetchall()]
@@ -503,83 +458,6 @@ async def get_analytics_data(request: Request):
         return {"success": True, "updates": updates, "pms": pms}
     except Exception as e:
         return {"success": False, "error": str(e)}
-
-    # ========================================================
-    # التحديث الذكي: حساب الـ Data Date ووقت الإرسال بدقة
-    # ========================================================
-    ksa_time = datetime.utcnow() + timedelta(hours=3)
-    # تسجيل وقت الإرسال الفعلي بالدقيقة
-    submission_timestamp = ksa_time.strftime("%Y-%m-%d | %I:%M %p") 
-    
-    wd = ksa_time.weekday() # الإثنين=0, الأحد=6
-    if wd == 2: days_to_add = 0             # الأربعاء
-    elif wd == 3: days_to_add = -1          # الخميس
-    elif wd == 4: days_to_add = -2          # الجمعة
-    elif wd == 5: days_to_add = -3          # السبت
-    elif wd == 6 and ksa_time.hour < 9: days_to_add = -4  # الأحد قبل 9 صباحاً
-    elif wd == 6 and ksa_time.hour >= 9: days_to_add = 3  # الأحد بعد 9 صباحاً
-    elif wd == 0: days_to_add = 2           # الإثنين
-    elif wd == 1: days_to_add = 1           # الثلاثاء
-    
-    # تثبيت تاريخ البيانات ليكون الأربعاء الخاص بهذه الدورة
-    calculated_data_date = (ksa_time + timedelta(days=days_to_add)).date().isoformat()
-    # ========================================================
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # التحديث الذكي: البحث عن السجل بناءً على دورة التحديث (Data Date) وليس تاريخ الإرسال
-        cursor.execute("SELECT id, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link FROM project_updates WHERE username=%s AND current_data_date=%s", (username, calculated_data_date))
-        existing_record = cursor.fetchone()
-
-        attachments = [form_data.get(f"attachment_{i}") for i in range(1, 5)]
-        links = ["لا يوجد مرفق"] * 4
-        for i in range(4):
-            if attachments[i] and getattr(attachments[i], "filename", None):
-                links[i] = upload_to_cloudinary(attachments[i]) or "لا يوجد مرفق"
-            elif existing_record: links[i] = existing_record[i+1]
-
-        master_plan = form_data.get("master_plan")
-        isometric = form_data.get("isometric")
-        master_plan_link = upload_to_cloudinary(master_plan) if master_plan and getattr(master_plan, "filename", None) else (existing_record[5] if existing_record else "لا يوجد مرفق")
-        isometric_link = upload_to_cloudinary(isometric) if isometric and getattr(isometric, "filename", None) else (existing_record[6] if existing_record else "لا يوجد مرفق")
-
-        def process_percentage(val):
-            try: return float(val) / 100.0 if val else 0.0
-            except ValueError: return 0.0
-
-        data_values = (
-            form_data.get("manager_name"), form_data.get("project_name"), form_data.get("project_desc"), form_data.get("project_type"), 
-            calculated_data_date, # الاعتماد المطلق على تاريخ السيرفر المحسوب
-            form_data.get("project_owner"), form_data.get("project_developer"), form_data.get("project_contractor"),
-            form_data.get("consultant_val") or 0, form_data.get("contractor_val") or 0,
-            form_data.get("consultant_mods_count") or 0, form_data.get("consultant_mods_val") or 0, form_data.get("consultant_mods_time"), form_data.get("consultant_mods_end_date"),
-            form_data.get("contractor_mods_count") or 0, form_data.get("contractor_mods_val") or 0, form_data.get("contractor_mods_time"), form_data.get("contractor_mods_end_date"),
-            form_data.get("cons_inv_count") or 0, form_data.get("cons_inv_val") or 0, form_data.get("cons_inv_date"),
-            form_data.get("cont_inv_count") or 0, form_data.get("cont_inv_val") or 0, form_data.get("cont_inv_date"),
-            form_data.get("start_contractual"), form_data.get("end_contractual"), form_data.get("start_actual"), form_data.get("end_expected"),
-            process_percentage(form_data.get("act_prog_cur")), process_percentage(form_data.get("act_prog_prev")), process_percentage(form_data.get("plan_prog_cur")), process_percentage(form_data.get("plan_prog_prev")),
-            form_data.get("works_completed"), form_data.get("works_ongoing"), form_data.get("works_planned"), form_data.get("obstacles_json"),
-            form_data.get("eval_labor") or 0, form_data.get("eval_equip") or 0, form_data.get("eval_financial") or 0, form_data.get("eval_hse") or 0,
-            form_data.get("drawings_sub") or 0, form_data.get("drawings_app") or 0, form_data.get("drawings_rev") or 0,
-            form_data.get("ir_sub") or 0, form_data.get("ir_app") or 0, form_data.get("ir_rev") or 0,
-            form_data.get("ncr_open") or 0, form_data.get("ncr_closed") or 0,
-            links[0], links[1], links[2], links[3], master_plan_link, isometric_link
-        )
-
-        if existing_record:
-            # تحديث السجل مع تسجيل وقت التعديل الجديد في submission_date
-            cursor.execute('''UPDATE project_updates SET manager_name=%s, project_name=%s, project_desc=%s, project_type=%s, current_data_date=%s, project_owner=%s, project_developer=%s, project_contractor=%s, consultant_val=%s, contractor_val=%s, consultant_mods_count=%s, consultant_mods_val=%s, consultant_mods_time=%s, consultant_mods_end_date=%s, contractor_mods_count=%s, contractor_mods_val=%s, contractor_mods_time=%s, contractor_mods_end_date=%s, cons_inv_count=%s, cons_inv_val=%s, cons_inv_date=%s, cont_inv_count=%s, cont_inv_val=%s, cont_inv_date=%s, start_contractual=%s, end_contractual=%s, start_actual=%s, end_expected=%s, act_prog_cur=%s, act_prog_prev=%s, plan_prog_cur=%s, plan_prog_prev=%s, works_completed=%s, works_ongoing=%s, works_planned=%s, obstacles_data=%s, eval_labor=%s, eval_equip=%s, eval_financial=%s, eval_hse=%s, drawings_sub=%s, drawings_app=%s, drawings_rev=%s, ir_sub=%s, ir_app=%s, ir_rev=%s, ncr_open=%s, ncr_closed=%s, file_link_1=%s, file_link_2=%s, file_link_3=%s, file_link_4=%s, master_plan_link=%s, isometric_link=%s, submission_date=%s WHERE id = %s''', data_values + (submission_timestamp, existing_record[0],))
-        else:
-            cursor.execute('''INSERT INTO project_updates (manager_name, project_name, project_desc, project_type, current_data_date, project_owner, project_developer, project_contractor, consultant_val, contractor_val, consultant_mods_count, consultant_mods_val, consultant_mods_time, consultant_mods_end_date, contractor_mods_count, contractor_mods_val, contractor_mods_time, contractor_mods_end_date, cons_inv_count, cons_inv_val, cons_inv_date, cont_inv_count, cont_inv_val, cont_inv_date, start_contractual, end_contractual, start_actual, end_expected, act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev, works_completed, works_ongoing, works_planned, obstacles_data, eval_labor, eval_equip, eval_financial, eval_hse, drawings_sub, drawings_app, drawings_rev, ir_sub, ir_app, ir_rev, ncr_open, ncr_closed, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link, username, submission_date) VALUES (''' + ",".join(["%s"] * 54) + ''', %s, %s)''', data_values + (username, submission_timestamp))
-
-        conn.commit()
-        conn.close()
-        background_tasks.add_task(send_telegram_alert, "submit", form_data.get("manager_name"), form_data.get("project_name"))
-        return {"message": "تم حفظ التحديث بنجاح!"}
-    except Exception as e:
-        return {"error": str(e)}
 
 @app.get("/api/powerbi")
 async def powerbi_feed():
