@@ -583,7 +583,20 @@
         const allNumberFields = document.querySelectorAll('input[type="number"], .money-input');
         
         allNumberFields.forEach(field => {
+            // 1. منع النزول عن الصفر باستخدام أسهم المتصفح (Spinners)
+            if (field.type === 'number') {
+                field.min = "0";
+            }
+
             field.addEventListener('keydown', function(e) {
+                // 2. منع كتابة علامة السالب (-) نهائياً
+                if (e.key === '-') {
+                    e.preventDefault();
+                    alert("⛔ تنبيه: غير مسموح بإدخال أرقام سالبة في النظام.");
+                    return;
+                }
+                
+                // منع كتابة الحروف
                 if (e.key.length === 1) {
                     if (/[a-zA-Z\u0600-\u06FF]/.test(e.key)) {
                         e.preventDefault(); 
@@ -593,6 +606,18 @@
             });
 
             field.addEventListener('input', function() {
+                // 3. حماية إضافية ضد اللصق (Paste)
+                // مسح علامة السالب إذا تم لصقها بطريق الخطأ
+                if (this.value.includes('-')) {
+                    this.value = this.value.replace(/-/g, '');
+                }
+                
+                // تحويل أي قيمة سالبة لموجبة في حقول الأرقام
+                if (this.type === 'number' && Number(this.value) < 0) {
+                    this.value = Math.abs(this.value);
+                }
+
+                // مسح أي حروف ملصقة
                 if (/[a-zA-Z\u0600-\u06FF]/.test(this.value)) {
                     alert("⛔ تنبيه: لقد قمت بلصق نصوص! هذا الحقل مخصص للأرقام فقط.");
                     this.value = this.value.replace(/[a-zA-Z\u0600-\u06FF]/g, ''); 
