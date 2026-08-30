@@ -649,6 +649,28 @@
         
         // تشغيل الدالة فوراً عند تحميل الصفحة
         window.addEventListener('DOMContentLoaded', setSmartDataDate);
+        // ==========================================
+        // حماية حقول الصور (منع رفع PDF أو Excel قطرياً)
+        // ==========================================
+        const imageInputs = [
+            document.querySelector('input[name="attachment_1"]'),
+            document.querySelector('input[name="attachment_2"]'),
+            document.querySelector('input[name="attachment_3"]'),
+            document.querySelector('input[name="attachment_4"]')
+        ];
+
+        imageInputs.forEach(input => {
+            if (input) {
+                input.addEventListener('change', function(e) {
+                    const file = this.files[0];
+                    // التأكد من وجود ملف، وأن نوعه لا يبدأ بكلمة image
+                    if (file && !file.type.startsWith('image/')) {
+                        alert('⛔ غير مسموح: يرجى رفع ملفات (صور) فقط في هذا الحقل. لا يمكن رفع ملفات PDF أو Excel هنا.');
+                        this.value = ''; // تفريغ الحقل فوراً وطرد الملف
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>
