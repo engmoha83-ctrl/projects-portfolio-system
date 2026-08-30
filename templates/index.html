@@ -611,7 +611,7 @@
                     const file = this.files[0];
                     if (fieldName.startsWith('attachment_')) {
                         if (file && !file.type.startsWith('image/')) {
-                            alert('⛔ غير مسموح: يرجى رفع ملفات (صور) فقط في هذا الحقل. لا يمكن رفع ملفات PDF أو Excel هنا.');
+                            alert('⛔ غير مسموح: يرجى رفع ملفات (صور) فقط في هذا الحقل. لا يمكن رفع ملفات بامتدادت أخرى هنا.');
                             this.value = ''; 
                             if (flagInput) flagInput.value = "false";
                         }
