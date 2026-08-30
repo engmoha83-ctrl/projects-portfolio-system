@@ -117,11 +117,16 @@ async def admin_login_page(request: Request, error: str = None):
 
 @app.post("/admin")
 async def do_admin_login(request: Request, username: str = Form(...), password: str = Form(...)):
-    ADMIN_ACCOUNTS = {"admin_mohamed": "admin_2026", "admin_assistant": "admin_1234"}
+    ADMIN_ACCOUNTS = {
+        "admin_mohamed": os.getenv("ADMIN_MOHAMED_PWD"),
+        "admin_assistant": os.getenv("ADMIN_ASSISTANT_PWD")
+    }
+    
     if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
         response = RedirectResponse(url="/admin-hub", status_code=303) 
         response.set_cookie(key="super_admin_auth", value=username, max_age=86400)
         return response
+        
     return templates.TemplateResponse(request, "admin_login.html", {"error": "بيانات الدخول غير صحيحة"})
     
 @app.get("/admin-hub", response_class=HTMLResponse)
