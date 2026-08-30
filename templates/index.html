@@ -220,7 +220,6 @@
                     <label class="fw-bold text-primary mb-2" data-i18n="sec8_photos">رفع صور الإنجاز الأسبوعية (حتى 4 صور)</label>
                     <div class="col-md-6 mb-2">
                         <label class="small text-muted" data-i18n="sec8_photo1">صورة الإنجاز 1</label>
-                        <!-- التعديل هنا: قصر القبول على الصور فقط -->
                         <input class="form-control" type="file" name="attachment_1" accept="image/*">
                     </div>
                     <div class="col-md-6 mb-2">
@@ -249,6 +248,14 @@
                 <small class="text-danger" data-i18n="f_max_size">الحد الأقصى لكل ملف: 5 ميجابايت.</small>
             </div>
 
+            <!-- حقول الختم البرمجي الخفية -->
+            <input type="hidden" name="flag_attachment_1" value="false">
+            <input type="hidden" name="flag_attachment_2" value="false">
+            <input type="hidden" name="flag_attachment_3" value="false">
+            <input type="hidden" name="flag_attachment_4" value="false">
+            <input type="hidden" name="flag_master_plan" value="false">
+            <input type="hidden" name="flag_isometric" value="false">
+
             <input type="file" id="draftFileInput" accept=".json" style="display: none;" onchange="loadFromFile(event)">
 
             <div class="row mb-5">
@@ -270,9 +277,6 @@
     </div>
 
     <script>
-        // ==========================================
-        // 1. قاموس اللغات (Dictionary)
-        // ==========================================
         const i18n = {
             ar: {
                 page_title: "المعماريون السعوديون | بوابة التحديث", nav_title: "المعماريون السعوديون", nav_subtitle: "بوابة إدارة المشاريع - التحديث الأسبوعي", btn_logout: "تسجيل خروج", welcome_msg: "أهلاً بك،", working_on: "جاري العمل على",
@@ -309,14 +313,14 @@
             },
             es: {
                 page_title: "Arquitectos Saudíes | Portal", nav_title: "Arquitectos Saudíes", nav_subtitle: "Gestión de Proyectos - Actualización", btn_logout: "Cerrar sesión", welcome_msg: "Bienvenido,", working_on: "Trabajando en",
-                sec1_title: "Información Básica del Proyecto", f_username: "Usuario", f_manager: "Gerente del Proyecto", f_project: "Nombre del Proyecto", f_owner: "Propietario", f_developer: "Desarrollador", f_contractor: "Contratista", ph_contractor: "Escriba 'Múltiples' si hay varios", f_desc: "Descripción del Proyecto", f_type: "Tipo de Proyecto", sel_choose: "-- Seleccione el Tipo --", opt_t1:"Residencial", opt_t2:"Comercial", opt_t3:"Hotel", opt_t4:"Oficinas", opt_t5:"Uso Mixto", opt_t6:"Industrial", opt_t7:"Entretenimiento", opt_t8:"Deportes", opt_t9:"Salud", opt_t10:"Gobierno", opt_t11:"Otro", f_date: "Fecha de Datos",
+                sec1_title: "Información Básica del Proyecto", f_username: "Usuario", f_manager: "Gerente del Proyecto", f_project: "Nombre del Proyecto", f_owner: "Propietario", f_developer: "Desarrollador", f_contractor: "Contratista", ph_contractor: "Escriba 'Múltiples' si hay varios", f_desc: "Descripción del Proyecto", f_type: "Type de Proyecto", sel_choose: "-- Seleccione el Tipo --", opt_t1:"Residencial", opt_t2:"Comercial", opt_t3:"Hotel", opt_t4:"Oficinas", opt_t5:"Uso Mixto", opt_t6:"Industrial", opt_t7:"Entretenimiento", opt_t8:"Deportes", opt_t9:"Salud", opt_t10:"Gobierno", opt_t11:"Otro", f_date: "Fecha de Datos",
                 sec2_title: "Datos Contractuales y Facturas", f_cons_val: "Valor Contrato Consultor", f_cont_val: "Valor Contrato Contratista", f_cons_inv_c: "Cant. Facturas Consultor", f_cons_inv_v: "Valor Facturas Consultor", f_cons_inv_d: "Fecha Última Factura Cons.", f_cont_inv_c: "Cant. Facturas Contratista", f_cont_inv_v: "Valor Facturas Contratista", f_cont_inv_d: "Fecha Última Factura Cont.",
                 sec3_title: "Modificaciones Contrato Consultor", sec4_title: "Modificaciones Contrato Contratista", f_chg_count: "Cantidad de Órdenes de Cambio", f_chg_val: "Valor de Cambios", f_chg_time: "Extensión de Tiempo", f_chg_end_date: "Fecha final modificada", ph_days: "ej: 30 Días",
                 sec5_title: "Fechas y Progreso", f_start_c: "Inicio Contractual", f_end_c: "Fin Contractual", f_start_a: "Inicio Real", f_end_e: "Fin Esperado", f_prog_ac: "Progreso Real (Actual)", f_prog_ap: "Progreso Real (Anterior)", f_prog_pc: "Progreso Planeado (Actual)", f_prog_pp: "Progreso Planeado (Anterior)",
                 sec6_title: "Estado Ejecutivo y Obstáculos", f_works_c: "Trabajos Completados", f_works_o: "Trabajos en Curso", f_works_p: "Trabajos Planeados", f_obs_title: "Obstáculos Actuales", btn_add_obs: "+ Añadir Problema", ph_obs: "Descripción del obstáculo", f_obs_closed: "¿Resuelto?", btn_delete: "Eliminar", imp_h: "Alto Impacto", imp_m: "Impacto Medio", imp_l: "Bajo Impacto", imp_n: "Sin Impacto",
                 sec7_title: "Evaluación y Documentos", f_eval_1: "Mano de obra (0-10)", f_eval_2: "Equipos (0-10)", f_eval_3: "Capacidad Financiera (0-10)", f_eval_4: "Seguridad (0-10)", f_dr_sub: "Planos Enviados", f_dr_app: "Planos Aprobados", f_dr_rev: "Planos en Revisión", f_ir_sub: "IR Enviados", f_ir_app: "IR Aprobados", f_ir_rev: "IR en Revisión", f_ncr_o: "NCR Abiertos", f_ncr_c: "NCR Cerrados",
                 sec8_title: "Adjuntos (Opcional)", sec8_photos: "Fotos de Progreso (Hasta 4)", sec8_photo1: "Foto 1", sec8_photo2: "Foto 2", sec8_photo3: "Foto 3", sec8_photo4: "Foto 4", sec8_master: "Plano Maestro (Master Plan)", sec8_iso: "Vistas Isométricas", f_max_size: "Tamaño máximo: 5 MB.",
-                btn_restore: "⬇️ Cargar Borrador", btn_save: "💾 Guardar Borrador", btn_print: "🖨️ Imprimir / PDF", btn_submit: "Enviar Actualización"
+                btn_restore: "⬇️ Cargar Borrador", btn_save: "💾 Guardar Borrador", btn_print: "🖨️ Imprimer / PDF", btn_submit: "Enviar Actualización"
             }
         };
         
@@ -371,9 +375,6 @@
         document.getElementById('cons_time').addEventListener('input', checkRequiredDates);
         document.getElementById('cont_time').addEventListener('input', checkRequiredDates);
 
-        // ==========================================
-        // التعديل الجديد: قراءة الملفات وتحويلها لـ Base64 للحفظ
-        // ==========================================
         const getBase64 = (file) => new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
@@ -384,7 +385,7 @@
         async function saveToFile() {
             const formData = new FormData(document.getElementById('portfolioForm'));
             const dataObj = {};
-            dataObj['files'] = {}; // إنشاء مساحة مخصصة لحفظ الصور
+            dataObj['files'] = {}; 
             
             for (let [key, value] of formData.entries()) {
                 if(!['attachment_1', 'attachment_2', 'attachment_3', 'attachment_4', 'master_plan', 'isometric'].includes(key) && !key.includes('[]')) {
@@ -401,7 +402,6 @@
             });
             dataObj['obstacles'] = obstacles;
             
-            // قراءة كل المرفقات وتحويلها لبيانات مشفرة وحفظها
             const fileFields = ['attachment_1', 'attachment_2', 'attachment_3', 'attachment_4', 'master_plan', 'isometric'];
             for (let fieldName of fileFields) {
                 const fileInput = document.querySelector(`[name="${fieldName}"]`);
@@ -430,9 +430,6 @@
             URL.revokeObjectURL(url);
         }
 
-        // ==========================================
-        // التعديل الجديد: دالة مساعدة لفك التشفير وإعادة الصورة
-        // ==========================================
         function dataURLtoFile(dataurl, filename) {
             let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
                 bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
@@ -489,7 +486,6 @@
                         });
                     }
 
-                    // إسترجاع الصور المحفوظة ووضعها في حقول الإدخال
                     if (dataObj.files) {
                         for (let key in dataObj.files) {
                             const fileData = dataObj.files[key];
@@ -499,6 +495,9 @@
                                 const dataTransfer = new DataTransfer();
                                 dataTransfer.items.add(restoredFile);
                                 fileInput.files = dataTransfer.files;
+                                
+                                const flagInput = document.querySelector(`[name="flag_${key}"]`);
+                                if (flagInput) flagInput.value = "true";
                             }
                         }
                     }
@@ -570,11 +569,6 @@
             });
         });
         
-        // ==========================================
-        // حماية الإدخال الذكية (Smart Validation)
-        // ==========================================
-        
-        // 1. حماية الحقول النصية (إظهار رسالة عند كتابة أرقام)
         const textOnlyFields = document.querySelectorAll('input[name="project_owner"], input[name="project_developer"]');
         
         textOnlyFields.forEach(field => {
@@ -586,22 +580,18 @@
             });
         });
 
-        // 2. حماية حقول الأرقام والتكلفة (إظهار رسالة عند محاولة كتابة نصوص)
         const allNumberFields = document.querySelectorAll('input[type="number"], .money-input');
         
         allNumberFields.forEach(field => {
-            // التقاط ضغطة الزر قبل أن يمنعها المتصفح
             field.addEventListener('keydown', function(e) {
-                // التأكد أن الزر المضغوط هو حرف (وليس زر تحكم مثل Backspace أو الأسهم)
                 if (e.key.length === 1) {
                     if (/[a-zA-Z\u0600-\u06FF]/.test(e.key)) {
-                        e.preventDefault(); // منع الحرف من الظهور
+                        e.preventDefault(); 
                         alert("⛔ تنبيه: هذا الحقل مخصص للأرقام فقط ولا يسمح بإدخال نصوص.");
                     }
                 }
             });
 
-            // حماية إضافية في حالة محاولة النسخ واللصق (Paste)
             field.addEventListener('input', function() {
                 if (/[a-zA-Z\u0600-\u06FF]/.test(this.value)) {
                     alert("⛔ تنبيه: لقد قمت بلصق نصوص! هذا الحقل مخصص للأرقام فقط.");
@@ -609,28 +599,44 @@
                 }
             });
         });
+
+        const fileFields = ['attachment_1', 'attachment_2', 'attachment_3', 'attachment_4', 'master_plan', 'isometric'];
+        fileFields.forEach(fieldName => {
+            const input = document.querySelector(`input[name="${fieldName}"]`);
+            if (input) {
+                input.addEventListener('change', function(e) {
+                    const flagInput = document.querySelector(`input[name="flag_${fieldName}"]`);
+                    if (flagInput) flagInput.value = "false";
+                    
+                    const file = this.files[0];
+                    if (fieldName.startsWith('attachment_')) {
+                        if (file && !file.type.startsWith('image/')) {
+                            alert('⛔ غير مسموح: يرجى رفع ملفات (صور) فقط في هذا الحقل. لا يمكن رفع ملفات PDF أو Excel هنا.');
+                            this.value = ''; 
+                            if (flagInput) flagInput.value = "false";
+                        }
+                    }
+                });
+            }
+        });
         
-        // ==========================================
-        // التحديد الذكي لتاريخ البيانات (Smart Cut-off Date)
-        // ==========================================
         function setSmartDataDate() {
             let now = new Date();
-            // ضبط الوقت على توقيت السعودية (UTC+3)
             let utc = now.getTime() + (now.getTimezoneOffset() * 60000);
             let ksaTime = new Date(utc + (3600000 * 3));
             
-            let day = ksaTime.getDay(); // الأحد=0, الإثنين=1, ..., السبت=6
+            let day = ksaTime.getDay(); 
             let hours = ksaTime.getHours();
             let daysToAdd = 0;
             
-            if (day === 3) daysToAdd = 0; // الأربعاء
-            else if (day === 4) daysToAdd = -1; // الخميس
-            else if (day === 5) daysToAdd = -2; // الجمعة
-            else if (day === 6 && hours < 9) daysToAdd = -3; // السبت
-            else if (day === 0 && hours < 9) daysToAdd = -4; // الأحد قبل 9 صباحاً
-            else if (day === 0 && hours >= 9) daysToAdd = 3; // الأحد بعد 9 صباحاً
-            else if (day === 1) daysToAdd = 2; // الإثنين
-            else if (day === 2) daysToAdd = 1; // الثلاثاء
+            if (day === 3) daysToAdd = 0; 
+            else if (day === 4) daysToAdd = -1; 
+            else if (day === 5) daysToAdd = -2; 
+            else if (day === 6 && hours < 9) daysToAdd = -3; 
+            else if (day === 0 && hours < 9) daysToAdd = -4; 
+            else if (day === 0 && hours >= 9) daysToAdd = 3; 
+            else if (day === 1) daysToAdd = 2; 
+            else if (day === 2) daysToAdd = 1; 
             
             let dataDate = new Date(ksaTime);
             dataDate.setDate(ksaTime.getDate() + daysToAdd);
@@ -642,35 +648,12 @@
                 dateField.value = dateString;
                 dateField.setAttribute('readonly', 'readonly');
                 dateField.style.backgroundColor = '#e9ecef';
-                dateField.style.pointerEvents = 'none'; // منع التعديل تماماً
+                dateField.style.pointerEvents = 'none'; 
                 dateField.title = "يتم تحديد هذا التاريخ تلقائياً حسب دورة التحديث الأسبوعية";
             }
         }
         
-        // تشغيل الدالة فوراً عند تحميل الصفحة
         window.addEventListener('DOMContentLoaded', setSmartDataDate);
-        // ==========================================
-        // حماية حقول الصور (منع رفع PDF أو Excel قطرياً)
-        // ==========================================
-        const imageInputs = [
-            document.querySelector('input[name="attachment_1"]'),
-            document.querySelector('input[name="attachment_2"]'),
-            document.querySelector('input[name="attachment_3"]'),
-            document.querySelector('input[name="attachment_4"]')
-        ];
-
-        imageInputs.forEach(input => {
-            if (input) {
-                input.addEventListener('change', function(e) {
-                    const file = this.files[0];
-                    // التأكد من وجود ملف، وأن نوعه لا يبدأ بكلمة image
-                    if (file && !file.type.startsWith('image/')) {
-                        alert('⛔ غير مسموح: يرجى رفع ملفات (صور) فقط في هذا الحقل. لا يمكن رفع ملفات ملفات أخرى هنا.');
-                        this.value = ''; // تفريغ الحقل فوراً وطرد الملف
-                    }
-                });
-            }
-        });
     </script>
 </body>
 </html>
