@@ -64,7 +64,11 @@ def send_telegram_alert(action_type, manager, project):
     except:
         pass
 
-cloudinary.config(cloud_name="wu5wjket", api_key="241572682214285", api_secret="K-susQH7Qh5lMeD7nwtdznSYnnU")
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+)
 def upload_to_cloudinary(file: UploadFile):
     try:
         if file.content_type and file.content_type.startswith("image/"):
