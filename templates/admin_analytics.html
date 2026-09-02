@@ -67,9 +67,9 @@
         }
         .table td, .table th { vertical-align: middle; border-color: var(--border-color); }
 
-        /* ضبط حركة وأبعاد الـ Carousel لحل مشكلة الأسهم */
-        .carousel-inner { min-height: 480px; display: flex; align-items: center; }
-        .slide-container { padding: 10px 60px; width: 100%; }
+        /* ضبط حركة وأبعاد الـ Carousel (تم إزالة السطر المتعارض) */
+        .carousel-inner { min-height: 520px; padding-bottom: 20px; }
+        .slide-container { padding: 10px 80px; width: 100%; }
         .carousel-control-prev, .carousel-control-next { width: 50px; background: rgba(0,0,0,0.3); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; }
         .carousel-indicators { bottom: -40px; }
         .carousel-indicators [data-bs-target] { background-color: var(--text-muted); width: 30px; height: 4px; }
@@ -186,10 +186,9 @@
                     </div>
                 </div>
 
-                <!-- الشريحة 4: جدول التباين باللون الداكن -->
                 <div class="carousel-item slide-container">
                     <div class="slide-header">📈 تفاصيل الإنجاز والتباين (Variance)</div>
-                    <div class="chart-box h-100 p-0 overflow-auto" style="max-height: 400px;">
+                    <div class="chart-box h-100 p-0 overflow-auto" style="max-height: 420px;">
                         <table class="table table-sm table-hover table-bordered text-center m-0">
                             <thead style="position: sticky; top: 0; z-index: 1;">
                                 <tr>
@@ -245,9 +244,8 @@
                             <div class="chart-box p-0 overflow-hidden">
                                 <div class="chart-title text-danger pt-3 m-0 border-0">⚠️ أبرز المعوقات الحالية</div>
                                 <div class="table-responsive">
-                                    <!-- جدول المعوقات باللون الداكن -->
                                     <table class="table table-sm table-striped m-0">
-                                        <thead><tr><th>المشروع</th><th>وصف العائق</th><th>التأثير</th></tr></thead>
+                                        <thead class="table-light"><tr><th>المشروع</th><th>وصف العائق</th><th>التأثير</th></tr></thead>
                                         <tbody id="obstacles-table-body"></tbody>
                                     </table>
                                 </div>
