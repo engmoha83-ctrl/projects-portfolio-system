@@ -115,6 +115,13 @@ async def logout():
 async def admin_login_page(request: Request, error: str = None):
     return templates.TemplateResponse(request, "admin_login.html", {"error": error})
 
+@app.get("/project-dashboard", response_class=HTMLResponse)
+async def project_dashboard_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
+    # سيتم بناء قالب (project_dashboard.html) لهذه الصفحة لاحقاً
+    return templates.TemplateResponse(request, "project_dashboard.html", {"admin_user": admin_user})
+
 @app.post("/admin")
 async def do_admin_login(request: Request, username: str = Form(...), password: str = Form(...)):
     ADMIN_ACCOUNTS = {
