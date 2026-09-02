@@ -49,17 +49,28 @@
         .chart-box { background: var(--bg-card); border-radius: 8px; padding: 15px; border: 1px solid var(--border-color); height: 100%; }
         .chart-title { font-size: 0.95rem; font-weight: bold; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 15px; text-align: center; }
         
-        /* الجداول الداكنة */
-        .table { color: var(--text-main); font-size: 0.85rem; margin-bottom: 0; }
-        .table-light, .table-light th, .table-light td { background-color: #363945 !important; color: var(--text-main) !important; border-color: var(--border-color); }
-        .table-bordered td, .table-bordered th { border-color: var(--border-color); vertical-align: middle; }
-        .table-hover tbody tr:hover { background-color: #3f4250; color: var(--text-main); }
-        .table-striped>tbody>tr:nth-of-type(odd)>* { color: var(--text-main); background-color: rgba(255, 255, 255, 0.02); }
+        /* الجداول الداكنة الاحترافية */
+        .table { 
+            --bs-table-bg: var(--bg-main); 
+            --bs-table-color: var(--text-main); 
+            --bs-table-border-color: var(--border-color); 
+            --bs-table-striped-bg: rgba(255, 255, 255, 0.03); 
+            --bs-table-hover-bg: #3f4250; 
+            font-size: 0.85rem; 
+            margin-bottom: 0; 
+        }
+        .table thead th { 
+            background-color: #363945 !important; 
+            color: #fff !important; 
+            font-weight: bold; 
+            border-bottom: 2px solid var(--border-color) !important; 
+        }
+        .table td, .table th { vertical-align: middle; border-color: var(--border-color); }
 
-        /* ضبط الـ Carousel */
-        .carousel-inner { min-height: 520px; padding-bottom: 20px; }
-        .slide-container { padding: 10px 80px; width: 100%; }
-        .carousel-control-prev, .carousel-control-next { width: 50px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; }
+        /* ضبط حركة وأبعاد الـ Carousel لحل مشكلة الأسهم */
+        .carousel-inner { min-height: 480px; display: flex; align-items: center; }
+        .slide-container { padding: 10px 60px; width: 100%; }
+        .carousel-control-prev, .carousel-control-next { width: 50px; background: rgba(0,0,0,0.3); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; }
         .carousel-indicators { bottom: -40px; }
         .carousel-indicators [data-bs-target] { background-color: var(--text-muted); width: 30px; height: 4px; }
         .carousel-indicators .active { background-color: var(--c-cyan); }
@@ -91,6 +102,7 @@
     </nav>
 
     <div class="container-fluid px-4 mb-5 pb-4">
+        
         <div class="filter-bar">
             <div class="row align-items-end g-3">
                 <div class="col-md-3">
@@ -123,7 +135,6 @@
 
             <div class="carousel-inner bg-transparent">
                 
-                <!-- الشريحة 1: الماليات -->
                 <div class="carousel-item active slide-container">
                     <div class="slide-header">💰 الماليات والعقود (تراكمي)</div>
                     <div class="row g-3">
@@ -136,7 +147,6 @@
                     </div>
                 </div>
 
-                <!-- الشريحة 2: التواريخ والتصنيف -->
                 <div class="carousel-item slide-container">
                     <div class="slide-header">📅 التواريخ التعاقدية والتصنيف</div>
                     <div class="row g-3">
@@ -158,7 +168,6 @@
                     </div>
                 </div>
 
-                <!-- الشريحة 3: الأداء والرسوم -->
                 <div class="carousel-item slide-container">
                     <div class="slide-header">📊 مؤشرات الأداء الزمني والإنجاز</div>
                     <div class="row g-3">
@@ -177,12 +186,12 @@
                     </div>
                 </div>
 
-                <!-- الشريحة 4: جدول التباين -->
+                <!-- الشريحة 4: جدول التباين باللون الداكن -->
                 <div class="carousel-item slide-container">
                     <div class="slide-header">📈 تفاصيل الإنجاز والتباين (Variance)</div>
-                    <div class="chart-box h-100 p-0 overflow-auto" style="max-height: 420px;">
+                    <div class="chart-box h-100 p-0 overflow-auto" style="max-height: 400px;">
                         <table class="table table-sm table-hover table-bordered text-center m-0">
-                            <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                            <thead style="position: sticky; top: 0; z-index: 1;">
                                 <tr>
                                     <th rowspan="2">المشروع</th>
                                     <th colspan="3">الإنجاز المخطط (%)</th>
@@ -199,7 +208,6 @@
                     </div>
                 </div>
 
-                <!-- الشريحة 5: الجودة والمعوقات -->
                 <div class="carousel-item slide-container">
                     <div class="slide-header">📂 الجودة، المستندات، والمعوقات</div>
                     <div class="row g-3">
@@ -237,8 +245,9 @@
                             <div class="chart-box p-0 overflow-hidden">
                                 <div class="chart-title text-danger pt-3 m-0 border-0">⚠️ أبرز المعوقات الحالية</div>
                                 <div class="table-responsive">
+                                    <!-- جدول المعوقات باللون الداكن -->
                                     <table class="table table-sm table-striped m-0">
-                                        <thead class="table-light"><tr><th>المشروع</th><th>وصف العائق</th><th>التأثير</th></tr></thead>
+                                        <thead><tr><th>المشروع</th><th>وصف العائق</th><th>التأثير</th></tr></thead>
                                         <tbody id="obstacles-table-body"></tbody>
                                     </table>
                                 </div>
@@ -451,7 +460,7 @@
             });
             allObstacles.slice(0, 6).forEach(obs => {
                 let badgeClass = obs.impact === 'كبير' ? 'badge-impact-كبير' : 'badge-impact-متوسط';
-                tbody.innerHTML += `<tr><td style="width: 25%;" class="fw-bold text-white">${obs.proj}</td><td style="width: 55%;">${obs.desc}</td><td style="width: 20%;"><span class="badge ${badgeClass}">${obs.impact}</span></td></tr>`;
+                tbody.innerHTML += `<tr><td style="width: 25%;" class="fw-bold text-white">${obs.proj}</td><td style="width: 55%; text-white">${obs.desc}</td><td style="width: 20%;"><span class="badge ${badgeClass}">${obs.impact}</span></td></tr>`;
             });
             if(allObstacles.length === 0) tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات حرجة مفتوحة</td></tr>';
         }
