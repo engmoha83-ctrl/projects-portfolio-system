@@ -516,22 +516,17 @@
             window.dispatchEvent(new Event('resize'));
         });
 
-        fetch('/api/analytics-data')
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) { 
-                    // تنظيف صامت لمسميات المشاريع المرفوضة واعتماد الاسم الصحيح
-                    rawData = data.updates.map(item => {
-                        if(item.project_name && item.project_name.includes('Avenir Al-Fursan')) {
-                            item.project_name = 'Sira Garden';
-                        }
-                        return item;
-                    });
-                    initCharts(); 
-                    initFilters(); 
-                }
-            })
-            .catch(err => console.error("Error loading data:", err));
+       // الكود بدون أي اختراعات أو تعديل للأسماء
+fetch('/api/analytics-data')
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) { 
+            rawData = data.updates; // قراءة البيانات الخام مباشرة من الجدول
+            initCharts(); 
+            initFilters(); 
+        }
+    })
+    .catch(err => console.error("Error loading data:", err));
 
         function num(val) { return parseFloat(val) || 0; }
         
