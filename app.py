@@ -461,7 +461,6 @@ async def get_analytics_data(request: Request):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        # إضافة كافة الأعمدة المطلوبة للداشبورد الجديد
         cursor.execute('''
             SELECT project_name, manager_name, project_type, current_data_date, 
                    contractor_val, consultant_val,
