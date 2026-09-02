@@ -67,9 +67,9 @@
         }
         .table td, .table th { vertical-align: middle; border-color: var(--border-color); }
 
-        /* ضبط حركة وأبعاد الـ Carousel (تم إزالة السطر المتعارض) */
-        .carousel-inner { min-height: 520px; padding-bottom: 20px; }
-        .slide-container { padding: 10px 80px; width: 100%; }
+        /* ضبط حركة وأبعاد الـ Carousel */
+        .carousel-inner { min-height: 480px; display: flex; align-items: center; }
+        .slide-container { padding: 10px 60px; width: 100%; }
         .carousel-control-prev, .carousel-control-next { width: 50px; background: rgba(0,0,0,0.3); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; }
         .carousel-indicators { bottom: -40px; }
         .carousel-indicators [data-bs-target] { background-color: var(--text-muted); width: 30px; height: 4px; }
@@ -122,6 +122,13 @@
                     <select id="flt-project" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
             </div>
+        </div>
+
+        <!-- أزرار التحكم في التشغيل / الإيقاف -->
+        <div class="d-flex justify-content-end mb-3">
+            <button id="toggleCarouselBtn" class="btn btn-outline-info btn-sm fw-bold shadow-sm">
+                ⏸ إيقاف العرض التلقائي
+            </button>
         </div>
 
         <div id="dashboardCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="6000" data-bs-pause="hover">
@@ -270,7 +277,27 @@
         let rawData = [];
         let charts = {};
 
-        document.getElementById('dashboardCarousel').addEventListener('slid.bs.carousel', function () {
+        // برمجة زر إيقاف وتشغيل العرض التلقائي
+        const carouselElement = document.getElementById('dashboardCarousel');
+        const toggleBtn = document.getElementById('toggleCarouselBtn');
+        let isCarouselPlaying = true;
+
+        toggleBtn.addEventListener('click', function() {
+            const bsCarousel = bootstrap.Carousel.getOrCreateInstance(carouselElement);
+            if (isCarouselPlaying) {
+                bsCarousel.pause();
+                toggleBtn.innerHTML = '▶️ تشغيل العرض التلقائي';
+                toggleBtn.classList.replace('btn-outline-info', 'btn-outline-success');
+                isCarouselPlaying = false;
+            } else {
+                bsCarousel.cycle();
+                toggleBtn.innerHTML = '⏸ إيقاف العرض التلقائي';
+                toggleBtn.classList.replace('btn-outline-success', 'btn-outline-info');
+                isCarouselPlaying = true;
+            }
+        });
+
+        carouselElement.addEventListener('slid.bs.carousel', function () {
             window.dispatchEvent(new Event('resize'));
         });
 
@@ -448,32 +475,27 @@
         }
 
         function updateObstaclesTable(data) {
-    const tbody = document.getElementById('obstacles-table-body');
-    tbody.innerHTML = '';
-    let allObstacles = [];
-    
-    data.forEach(item => {
-        if(item.obstacles_data && item.obstacles_data !== '[]') {
-            try { 
-                // معالجة البيانات سواء كانت نص JSON أو كائن جاهز
-                let obsList = typeof item.obstacles_data === 'string' ? JSON.parse(item.obstacles_data) : item.obstacles_data;
-                
-                obsList.forEach(obs => { 
-                    if(!obs.closed && (obs.impact === 'كبير' || obs.impact === 'متوسط')) {
-                        allObstacles.push({ proj: item.project_name, desc: obs.description, impact: obs.impact }); 
-                    }
-                }); 
-            } catch(e) { console.error("خطأ في قراءة المعوقات للمشروع:", item.project_name, e); }
+            const tbody = document.getElementById('obstacles-table-body');
+            tbody.innerHTML = '';
+            let allObstacles = [];
+            data.forEach(item => {
+                if(item.obstacles_data && item.obstacles_data !== '[]') {
+                    try { 
+                        let obsList = typeof item.obstacles_data === 'string' ? JSON.parse(item.obstacles_data) : item.obstacles_data;
+                        obsList.forEach(obs => { 
+                            if(!obs.closed && (obs.impact === 'كبير' || obs.impact === 'متوسط')) {
+                                allObstacles.push({ proj: item.project_name, desc: obs.description, impact: obs.impact }); 
+                            }
+                        }); 
+                    } catch(e) {}
+                }
+            });
+            allObstacles.slice(0, 6).forEach(obs => {
+                let badgeClass = obs.impact === 'كبير' ? 'badge-impact-كبير' : 'badge-impact-متوسط';
+                tbody.innerHTML += `<tr><td style="width: 25%;" class="fw-bold text-white">${obs.proj}</td><td style="width: 55%; text-white">${obs.desc}</td><td style="width: 20%;"><span class="badge ${badgeClass}">${obs.impact}</span></td></tr>`;
+            });
+            if(allObstacles.length === 0) tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات حرجة مفتوحة</td></tr>';
         }
-    });
-
-    allObstacles.slice(0, 6).forEach(obs => {
-        let badgeClass = obs.impact === 'كبير' ? 'badge-impact-كبير' : 'badge-impact-متوسط';
-        tbody.innerHTML += `<tr><td style="width: 25%;" class="fw-bold text-white">${obs.proj}</td><td style="width: 55%; text-white">${obs.desc}</td><td style="width: 20%;"><span class="badge ${badgeClass}">${obs.impact}</span></td></tr>`;
-    });
-    
-    if(allObstacles.length === 0) tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات حرجة مفتوحة</td></tr>';
-}
     </script>
 </body>
 </html>
