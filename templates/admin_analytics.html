@@ -12,12 +12,17 @@
         .kpi-value { font-size: 1.5rem; font-weight: bold; color: #2b3452; margin: 0; }
         .kpi-sub { font-size: 0.75rem; color: #adb5bd; }
         .chart-box { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 20px; height: 100%; }
-        .chart-title { font-size: 1rem; font-weight: bold; color: #1a2b4c; margin-bottom: 10px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; text-align: center; }
-        .section-title { font-size: 1.1rem; font-weight: bold; color: #1a2b4c; margin: 25px 0 15px 0; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; }
-        .filter-bar { background: white; border-radius: 12px; padding: 15px 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        .chart-title { font-size: 1rem; font-weight: bold; color: #1a2b4c; margin-bottom: 15px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; text-align: center; }
+        .filter-bar { background: white; border-radius: 12px; padding: 15px 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; border-top: 4px solid #1a2b4c; }
         .table-sm th, .table-sm td { font-size: 0.85rem; vertical-align: middle; }
         .badge-impact-كبير { background-color: #dc3545; }
         .badge-impact-متوسط { background-color: #fd7e14; }
+        
+        /* تنسيقات الـ Carousel */
+        .carousel-control-prev, .carousel-control-next { width: 5%; background: rgba(0,0,0,0.05); border-radius: 10px; }
+        .carousel-control-prev-icon, .carousel-control-next-icon { filter: invert(1) grayscale(100) drop-shadow(0 0 2px rgba(0,0,0,0.5)); }
+        .carousel-indicators [data-bs-target] { background-color: #1a2b4c; width: 40px; height: 5px; }
+        .slide-container { padding: 20px 60px; min-height: 600px; }
     </style>
 </head>
 <body>
@@ -41,9 +46,10 @@
             </div>
         </div>
     </nav>
+
     <div class="container-fluid px-4 mb-5">
         
-        <!-- الفلاتر -->
+        <!-- الفلاتر الثابتة -->
         <div class="filter-bar">
             <div class="row align-items-end g-3">
                 <div class="col-md-3">
@@ -67,118 +73,166 @@
             </div>
         </div>
 
-        <div class="section-title">💰 المؤشرات المالية والعقود</div>
-        <div class="row g-3">
-            <div class="col-md-2"><div class="kpi-card border-success"><div class="kpi-title">عقود المقاولين</div><div class="kpi-value text-success" id="kpi-cont-val">0</div></div></div>
-            <div class="col-md-2"><div class="kpi-card border-success"><div class="kpi-title">عقود الاستشاريين</div><div class="kpi-value text-success" id="kpi-cons-val">0</div></div></div>
-            <div class="col-md-2"><div class="kpi-card border-warning"><div class="kpi-title">أوامر التغيير (عدد)</div><div class="kpi-value text-warning" id="kpi-chg-count">0</div></div></div>
-            <div class="col-md-2"><div class="kpi-card border-warning"><div class="kpi-title">أوامر التغيير (قيمة)</div><div class="kpi-value text-warning" id="kpi-chg-val">0</div></div></div>
-            <div class="col-md-2"><div class="kpi-card border-info"><div class="kpi-title">الفواتير (عدد)</div><div class="kpi-value text-info" id="kpi-inv-count">0</div><div class="kpi-sub">م: <span id="s-cont-inv-c">0</span> | ا: <span id="s-cons-inv-c">0</span></div></div></div>
-            <div class="col-md-2"><div class="kpi-card border-info"><div class="kpi-title">الفواتير (قيمة)</div><div class="kpi-value text-info" id="kpi-inv-val">0</div></div></div>
-        </div>
+        <!-- بداية الداشبورد المتحركة (Carousel) -->
+        <div id="dashboardCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000" data-bs-pause="hover">
+            <!-- المؤشرات السفلية -->
+            <div class="carousel-indicators mb-0" style="bottom: -20px;">
+                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="0" class="active"></button>
+                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="1"></button>
+                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="2"></button>
+                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="3"></button>
+            </div>
 
-        <!-- الرسوم البيانية المسترجعة -->
-        <div class="row g-3 mt-3">
-            <div class="col-md-3">
-                <div class="chart-box">
-                    <div class="chart-title">مؤشر الأداء الزمني العام (SPI)</div>
-                    <div id="spiGauge" style="min-height: 250px;"></div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="chart-box">
-                    <div class="chart-title">تصنيف المشاريع</div>
-                    <div id="donutChart" style="min-height: 250px;"></div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="chart-box">
-                    <div class="chart-title">متوسط التقييم التقني للمقاولين</div>
-                    <div id="radarChart" style="min-height: 250px; display: flex; justify-content: center;"></div>
-                </div>
-            </div>
-            <div class="col-12">
-                <div class="chart-box">
-                    <div class="chart-title">نسب الإنجاز (المخطط مقابل الفعلي) للمشاريع</div>
-                    <div id="barChart" style="min-height: 300px;"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mt-2">
-            <div class="col-md-6">
-                <div class="section-title">📅 تواريخ المشاريع وتمديد العقود</div>
-                <div class="row g-3">
-                    <div class="col-md-4"><div class="kpi-card border-secondary"><div class="kpi-title">أقل بداية تعاقدية</div><div class="kpi-value fs-5" id="kpi-min-start-c">-</div></div></div>
-                    <div class="col-md-4"><div class="kpi-card border-secondary"><div class="kpi-title">أكبر نهاية تعاقدية</div><div class="kpi-value fs-5" id="kpi-max-end-c">-</div></div></div>
-                    <div class="col-md-4"><div class="kpi-card border-danger"><div class="kpi-title">إجمالي التمديد (يوم)</div><div class="kpi-value text-danger" id="kpi-ext-time">0</div></div></div>
-                    <div class="col-md-6"><div class="kpi-card border-primary"><div class="kpi-title">أقل بداية فعلية</div><div class="kpi-value fs-5" id="kpi-min-start-a">-</div></div></div>
-                    <div class="col-md-6"><div class="kpi-card border-primary"><div class="kpi-title">أكبر نهاية متوقعة</div><div class="kpi-value fs-5" id="kpi-max-end-e">-</div></div></div>
-                </div>
-            </div>
-            
-            <div class="col-md-6">
-                <div class="section-title">📂 الجودة والمستندات الفنية</div>
-                <div class="row g-3">
-                    <div class="col-md-4"><div class="kpi-card border-dark"><div class="kpi-title">المخططات</div>
-                        <div class="kpi-sub mt-1">مقدمة: <b class="text-dark" id="dr-sub">0</b></div>
-                        <div class="kpi-sub">معتمدة: <b class="text-success" id="dr-app">0</b></div>
-                        <div class="kpi-sub">قيد الدراسة: <b class="text-warning" id="dr-rev">0</b></div>
-                    </div></div>
-                    <div class="col-md-4"><div class="kpi-card border-dark"><div class="kpi-title">طلبات الاستلام (IR)</div>
-                        <div class="kpi-sub mt-1">مقدمة: <b class="text-dark" id="ir-sub">0</b></div>
-                        <div class="kpi-sub">معتمدة: <b class="text-success" id="ir-app">0</b></div>
-                        <div class="kpi-sub">قيد الدراسة: <b class="text-warning" id="ir-rev">0</b></div>
-                    </div></div>
-                    <div class="col-md-4"><div class="kpi-card border-danger"><div class="kpi-title">مخالفات الجودة (NCR)</div>
-                        <div class="kpi-value text-danger text-center mt-2" id="kpi-ncr-open">0 <span class="fs-6 text-muted">مفتوحة</span></div>
-                        <div class="kpi-value text-success text-center mt-1" id="kpi-ncr-closed">0 <span class="fs-6 text-muted">مغلقة</span></div>
-                    </div></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mt-4">
-            <div class="col-md-8">
-                <div class="chart-box h-100">
-                    <div class="chart-title mb-3">تفاصيل الإنجاز والتباين (Variance) للمشاريع</div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover table-bordered text-center align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th rowspan="2">المشروع</th>
-                                    <th colspan="3">الإنجاز المخطط (%)</th>
-                                    <th colspan="3">الإنجاز الفعلي (%)</th>
-                                    <th rowspan="2" title="Schedule Performance Index">SPI</th>
-                                </tr>
-                                <tr>
-                                    <th>سابق</th><th>حالي</th><th>التباين</th>
-                                    <th>سابق</th><th>حالي</th><th>التباين</th>
-                                </tr>
-                            </thead>
-                            <tbody id="progress-table-body"></tbody>
-                        </table>
+            <div class="carousel-inner bg-white rounded-4 shadow-sm">
+                
+                <!-- الشريحة 1: الماليات والعقود -->
+                <div class="carousel-item active slide-container">
+                    <h4 class="text-primary fw-bold mb-4 border-bottom pb-2">💰 الماليات والعقود (تراكمي)</h4>
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <div class="row g-3">
+                                <div class="col-md-4"><div class="kpi-card border-success"><div class="kpi-title">عقود المقاولين</div><div class="kpi-value text-success" id="kpi-cont-val">0</div></div></div>
+                                <div class="col-md-4"><div class="kpi-card border-success"><div class="kpi-title">عقود الاستشاريين</div><div class="kpi-value text-success" id="kpi-cons-val">0</div></div></div>
+                                <div class="col-md-4"><div class="kpi-card border-warning"><div class="kpi-title">أوامر التغيير (عدد)</div><div class="kpi-value text-warning" id="kpi-chg-count">0</div></div></div>
+                                <div class="col-md-4"><div class="kpi-card border-warning"><div class="kpi-title">أوامر التغيير (قيمة)</div><div class="kpi-value text-warning" id="kpi-chg-val">0</div></div></div>
+                                <div class="col-md-4"><div class="kpi-card border-info"><div class="kpi-title">الفواتير (عدد)</div><div class="kpi-value text-info" id="kpi-inv-count">0</div><div class="kpi-sub">م: <span id="s-cont-inv-c">0</span> | ا: <span id="s-cons-inv-c">0</span></div></div></div>
+                                <div class="col-md-4"><div class="kpi-card border-info"><div class="kpi-title">الفواتير (قيمة)</div><div class="kpi-value text-info" id="kpi-inv-val">0</div></div></div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="chart-box">
+                                <div class="chart-title">مؤشر الأداء الزمني العام (SPI)</div>
+                                <div id="spiGauge" style="min-height: 250px;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="col-md-4">
-                <div class="chart-box h-100">
-                    <div class="chart-title mb-3">⚠️ أبرز المعوقات (عالي/متوسط التأثير)</div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped">
-                            <thead><tr><th>المشروع</th><th>وصف العائق</th><th>التأثير</th></tr></thead>
-                            <tbody id="obstacles-table-body"></tbody>
-                        </table>
+                <!-- الشريحة 2: التواريخ والتصنيف -->
+                <div class="carousel-item slide-container">
+                    <h4 class="text-primary fw-bold mb-4 border-bottom pb-2">📅 التواريخ التعاقدية والتمديدات</h4>
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <div class="row g-3">
+                                <div class="col-md-4"><div class="kpi-card border-secondary"><div class="kpi-title">أقل بداية تعاقدية</div><div class="kpi-value fs-5" id="kpi-min-start-c">-</div></div></div>
+                                <div class="col-md-4"><div class="kpi-card border-secondary"><div class="kpi-title">أكبر نهاية تعاقدية</div><div class="kpi-value fs-5" id="kpi-max-end-c">-</div></div></div>
+                                <div class="col-md-4"><div class="kpi-card border-danger"><div class="kpi-title">إجمالي التمديد (يوم)</div><div class="kpi-value text-danger" id="kpi-ext-time">0</div></div></div>
+                                <div class="col-md-6"><div class="kpi-card border-primary"><div class="kpi-title">أقل بداية فعلية</div><div class="kpi-value fs-5" id="kpi-min-start-a">-</div></div></div>
+                                <div class="col-md-6"><div class="kpi-card border-primary"><div class="kpi-title">أكبر نهاية متوقعة</div><div class="kpi-value fs-5" id="kpi-max-end-e">-</div></div></div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="chart-box">
+                                <div class="chart-title">تصنيف المشاريع المفلترة</div>
+                                <div id="donutChart" style="min-height: 250px;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- الشريحة 3: الإنجاز والتباين -->
+                <div class="carousel-item slide-container">
+                    <h4 class="text-primary fw-bold mb-4 border-bottom pb-2">📈 نسب الإنجاز والتباين (Variance)</h4>
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <div class="chart-box">
+                                <div class="chart-title">نسب الإنجاز (المخطط مقابل الفعلي)</div>
+                                <div id="barChart" style="min-height: 250px;"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover table-bordered text-center align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th rowspan="2">المشروع</th>
+                                            <th colspan="3">الإنجاز المخطط (%)</th>
+                                            <th colspan="3">الإنجاز الفعلي (%)</th>
+                                            <th rowspan="2" title="Schedule Performance Index">SPI</th>
+                                        </tr>
+                                        <tr>
+                                            <th>سابق</th><th>حالي</th><th>التباين</th>
+                                            <th>سابق</th><th>حالي</th><th>التباين</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="progress-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- الشريحة 4: الجودة والمعوقات -->
+                <div class="carousel-item slide-container">
+                    <h4 class="text-primary fw-bold mb-4 border-bottom pb-2">📂 الجودة، المستندات، والمعوقات</h4>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="row g-2">
+                                <div class="col-12"><div class="kpi-card border-dark"><div class="kpi-title">المخططات</div>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <div class="text-center"><b class="text-dark d-block" id="dr-sub">0</b><span class="kpi-sub">مقدمة</span></div>
+                                        <div class="text-center"><b class="text-success d-block" id="dr-app">0</b><span class="kpi-sub">معتمدة</span></div>
+                                        <div class="text-center"><b class="text-warning d-block" id="dr-rev">0</b><span class="kpi-sub">دراسة</span></div>
+                                    </div>
+                                </div></div>
+                                <div class="col-12"><div class="kpi-card border-dark"><div class="kpi-title">طلبات الاستلام (IR)</div>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <div class="text-center"><b class="text-dark d-block" id="ir-sub">0</b><span class="kpi-sub">مقدمة</span></div>
+                                        <div class="text-center"><b class="text-success d-block" id="ir-app">0</b><span class="kpi-sub">معتمدة</span></div>
+                                        <div class="text-center"><b class="text-warning d-block" id="ir-rev">0</b><span class="kpi-sub">دراسة</span></div>
+                                    </div>
+                                </div></div>
+                                <div class="col-12"><div class="kpi-card border-danger"><div class="kpi-title">مخالفات الجودة (NCR)</div>
+                                    <div class="d-flex justify-content-around mt-2">
+                                        <div class="text-center"><b class="text-danger d-block fs-4" id="kpi-ncr-open">0</b><span class="kpi-sub">مفتوحة</span></div>
+                                        <div class="text-center"><b class="text-success d-block fs-4" id="kpi-ncr-closed">0</b><span class="kpi-sub">مغلقة</span></div>
+                                    </div>
+                                </div></div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="chart-box">
+                                <div class="chart-title">متوسط التقييم التقني</div>
+                                <div id="radarChart" style="min-height: 280px; display: flex; justify-content: center;"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="chart-box h-100">
+                                <div class="chart-title text-danger">⚠️ أبرز المعوقات الحالية</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped">
+                                        <thead><tr><th>المشروع</th><th>وصف العائق</th><th>التأثير</th></tr></thead>
+                                        <tbody id="obstacles-table-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
+
+            <!-- أزرار التحكم -->
+            <button class="carousel-control-prev" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">السابق</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">التالي</span>
+            </button>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let rawData = [];
         let charts = {};
+
+        // إعادة رسم الرسومات البيانية عند تغيير الشريحة لتجنب مشكلة الأبعاد في العناصر المخفية
+        document.getElementById('dashboardCarousel').addEventListener('slid.bs.carousel', function () {
+            window.dispatchEvent(new Event('resize'));
+        });
 
         fetch('/api/analytics-data').then(res => res.json()).then(data => {
             if(data.success) { rawData = data.updates; initCharts(); initFilters(); }
@@ -189,26 +243,22 @@
         function initCharts() {
             // SPI Gauge
             charts.spi = new ApexCharts(document.querySelector("#spiGauge"), {
-                chart: { type: 'radialBar', height: 250 },
+                chart: { type: 'radialBar', height: 280 },
                 series: [0],
                 plotOptions: {
                     radialBar: {
-                        startAngle: -135, endAngle: 135,
-                        hollow: { size: '50%' },
+                        startAngle: -135, endAngle: 135, hollow: { size: '55%' },
                         track: { background: '#e7e7e7', strokeWidth: '97%', margin: 5 },
-                        dataLabels: {
-                            name: { show: false },
-                            value: { fontSize: '30px', fontWeight: 'bold', formatter: function(val) { return (val / 100).toFixed(2); } }
-                        }
+                        dataLabels: { name: { show: false }, value: { fontSize: '35px', fontWeight: 'bold', formatter: val => (val / 100).toFixed(2) } }
                     }
                 },
                 colors: ['#20c997']
             });
             charts.spi.render();
 
-            // Histogram (Bar Chart)
+            // Histogram
             charts.bar = new ApexCharts(document.querySelector("#barChart"), {
-                chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'Segoe UI' },
+                chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'Segoe UI' },
                 series: [], xaxis: { categories: [] },
                 colors: ['#0d6efd', '#198754'],
                 plotOptions: { bar: { borderRadius: 4, horizontal: false, dataLabels: { position: 'top' } } },
@@ -217,17 +267,17 @@
             });
             charts.bar.render();
 
-            // Donut Chart
+            // Donut
             charts.donut = new ApexCharts(document.querySelector("#donutChart"), {
-                chart: { type: 'donut', height: 250, fontFamily: 'Segoe UI' },
+                chart: { type: 'donut', height: 280, fontFamily: 'Segoe UI' },
                 series: [], labels: [], legend: { position: 'bottom' }
             });
             charts.donut.render();
 
-            // Radar Chart
+            // Radar
             charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
-                chart: { type: 'radar', height: 250, fontFamily: 'Segoe UI', toolbar: { show: false } },
-                series: [], labels: ['العمالة', 'المعدات', 'الموقف المالي', 'السلامة (HSE)'],
+                chart: { type: 'radar', height: 280, fontFamily: 'Segoe UI', toolbar: { show: false } },
+                series: [], labels: ['العمالة', 'المعدات', 'الموقف المالي', 'السلامة'],
                 stroke: { width: 2 }, fill: { opacity: 0.2 }, markers: { size: 4 }
             });
             charts.radar.render();
@@ -253,25 +303,13 @@
             const fType = document.getElementById('flt-type').value;
             const fProj = document.getElementById('flt-project').value;
 
-            // البيانات المستقلة (أحدث حالة لكل مشروع بناءً على فلاتر المدير والنوع والاسم)
-            let independentData = rawData.filter(item => 
-                (!fPm || item.manager_name === fPm) && 
-                (!fType || item.project_type === fType) && 
-                (!fProj || item.project_name === fProj)
-            );
-            
+            let independentData = rawData.filter(item => (!fPm || item.manager_name === fPm) && (!fType || item.project_type === fType) && (!fProj || item.project_name === fProj));
             let latestProjects = {};
-            independentData.forEach(item => {
-                if (!latestProjects[item.project_name] || item.current_data_date > latestProjects[item.project_name].current_data_date) {
-                    latestProjects[item.project_name] = item;
-                }
-            });
+            independentData.forEach(item => { if (!latestProjects[item.project_name] || item.current_data_date > latestProjects[item.project_name].current_data_date) latestProjects[item.project_name] = item; });
             let uniqueProjects = Object.values(latestProjects);
             updateIndependentKPIs(uniqueProjects);
 
-            // البيانات المعتمدة: إذا تم اختيار "الكل" نستخدم أحدث حالة للمشاريع (uniqueProjects)، وإلا نصفي بالتاريخ المحدد
             let dateFilteredData = fDate === "" ? uniqueProjects : independentData.filter(item => item.current_data_date === fDate);
-            
             updateDependentKPIs(dateFilteredData);
             updateProgressTable(dateFilteredData);
             updateObstaclesTable(dateFilteredData);
@@ -279,47 +317,36 @@
         }
 
         function updateChartsData(data) {
-            // تحديث SPI Gauge
             let avgActual = data.reduce((s, d) => s + num(d.act_prog_cur), 0) / (data.length || 1);
             let avgPlanned = data.reduce((s, d) => s + num(d.plan_prog_cur), 0) / (data.length || 1);
             let spi = avgPlanned > 0 ? (avgActual / avgPlanned) : 0;
-            
             let spiGaugeValue = spi * 100; 
             let spiColor = spi >= 1 ? '#198754' : (spi >= 0.9 ? '#fd7e14' : '#dc3545');
             charts.spi.updateOptions({ colors: [spiColor] });
             charts.spi.updateSeries([spiGaugeValue]);
 
-            // تحديث Histogram
             let projNames = data.map(d => (d.project_name || 'بدون اسم').substring(0, 15) + '..');
             let planned = data.map(d => Math.round(num(d.plan_prog_cur) * 100));
             let actual = data.map(d => Math.round(num(d.act_prog_cur) * 100));
             charts.bar.updateSeries([{ name: 'مخطط', data: planned }, { name: 'فعلي', data: actual }]);
             charts.bar.updateOptions({ xaxis: { categories: projNames } });
 
-            // تحديث Donut Chart
             let typeCount = {};
-            data.forEach(d => {
-                let type = d.project_type || 'غير محدد';
-                typeCount[type] = (typeCount[type] || 0) + 1;
-            });
+            data.forEach(d => { let type = d.project_type || 'غير محدد'; typeCount[type] = (typeCount[type] || 0) + 1; });
             charts.donut.updateSeries(Object.values(typeCount));
             charts.donut.updateOptions({ labels: Object.keys(typeCount) });
 
-            // تحديث Radar Chart
             if(data.length > 0) {
                 let avgLabor = data.reduce((s, d) => s + num(d.eval_labor), 0) / data.length;
                 let avgEquip = data.reduce((s, d) => s + num(d.eval_equip), 0) / data.length;
                 let avgFin = data.reduce((s, d) => s + num(d.eval_financial), 0) / data.length;
                 let avgHse = data.reduce((s, d) => s + num(d.eval_hse), 0) / data.length;
-                charts.radar.updateSeries([{ name: 'متوسط التقييم (من 10)', data: [avgLabor.toFixed(1), avgEquip.toFixed(1), avgFin.toFixed(1), avgHse.toFixed(1)] }]);
-            } else {
-                charts.radar.updateSeries([]);
-            }
+                charts.radar.updateSeries([{ name: 'متوسط التقييم', data: [avgLabor.toFixed(1), avgEquip.toFixed(1), avgFin.toFixed(1), avgHse.toFixed(1)] }]);
+            } else charts.radar.updateSeries([]);
         }
 
         function updateIndependentKPIs(data) {
             let sumVal = (key) => data.reduce((s, d) => s + num(d[key]), 0);
-            
             document.getElementById('kpi-cont-val').innerText = sumVal('contractor_val').toLocaleString('en-US');
             document.getElementById('kpi-cons-val').innerText = sumVal('consultant_val').toLocaleString('en-US');
             document.getElementById('kpi-chg-count').innerText = sumVal('consultant_mods_count') + sumVal('contractor_mods_count');
@@ -333,46 +360,33 @@
             document.getElementById('kpi-ext-time').innerText = sumVal('consultant_mods_time') + sumVal('contractor_mods_time');
 
             let getDates = (key) => data.map(d => d[key]).filter(d => d && d.trim() !== "");
-            let sContractual = getDates('start_contractual'), eContractual = getDates('end_contractual');
-            let sActual = getDates('start_actual'), eExpected = getDates('end_expected');
-
-            document.getElementById('kpi-min-start-c').innerText = sContractual.length ? sContractual.sort()[0] : '-';
-            document.getElementById('kpi-max-end-c').innerText = eContractual.length ? eContractual.sort().reverse()[0] : '-';
-            document.getElementById('kpi-min-start-a').innerText = sActual.length ? sActual.sort()[0] : '-';
-            document.getElementById('kpi-max-end-e').innerText = eExpected.length ? eExpected.sort().reverse()[0] : '-';
+            document.getElementById('kpi-min-start-c').innerText = getDates('start_contractual').length ? getDates('start_contractual').sort()[0] : '-';
+            document.getElementById('kpi-max-end-c').innerText = getDates('end_contractual').length ? getDates('end_contractual').sort().reverse()[0] : '-';
+            document.getElementById('kpi-min-start-a').innerText = getDates('start_actual').length ? getDates('start_actual').sort()[0] : '-';
+            document.getElementById('kpi-max-end-e').innerText = getDates('end_expected').length ? getDates('end_expected').sort().reverse()[0] : '-';
         }
 
         function updateDependentKPIs(data) {
             let sumVal = (key) => data.reduce((s, d) => s + num(d[key]), 0);
-            document.getElementById('dr-sub').innerText = sumVal('drawings_sub');
-            document.getElementById('dr-app').innerText = sumVal('drawings_app');
-            document.getElementById('dr-rev').innerText = sumVal('drawings_rev');
-            document.getElementById('ir-sub').innerText = sumVal('ir_sub');
-            document.getElementById('ir-app').innerText = sumVal('ir_app');
-            document.getElementById('ir-rev').innerText = sumVal('ir_rev');
-            document.getElementById('kpi-ncr-open').innerHTML = sumVal('ncr_open') + ' <span class="fs-6 text-muted">مفتوحة</span>';
-            document.getElementById('kpi-ncr-closed').innerHTML = sumVal('ncr_closed') + ' <span class="fs-6 text-muted">مغلقة</span>';
+            document.getElementById('dr-sub').innerText = sumVal('drawings_sub'); document.getElementById('dr-app').innerText = sumVal('drawings_app'); document.getElementById('dr-rev').innerText = sumVal('drawings_rev');
+            document.getElementById('ir-sub').innerText = sumVal('ir_sub'); document.getElementById('ir-app').innerText = sumVal('ir_app'); document.getElementById('ir-rev').innerText = sumVal('ir_rev');
+            document.getElementById('kpi-ncr-open').innerText = sumVal('ncr_open'); document.getElementById('kpi-ncr-closed').innerText = sumVal('ncr_closed');
         }
 
         function updateProgressTable(data) {
             const tbody = document.getElementById('progress-table-body');
             tbody.innerHTML = '';
-            
             data.forEach(item => {
                 let pp = num(item.plan_prog_prev) * 100, pc = num(item.plan_prog_cur) * 100;
                 let ap = num(item.act_prog_prev) * 100, ac = num(item.act_prog_cur) * 100;
                 let varP = (pc - pp).toFixed(1), varA = (ac - ap).toFixed(1);
                 let spi = pc > 0 ? (ac / pc).toFixed(2) : '-';
-                
                 let spiColor = spi >= 1 ? 'text-success fw-bold' : (spi > 0 ? 'text-danger fw-bold' : '');
                 
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="text-start fw-bold">${item.project_name || '-'}</td>
+                tbody.innerHTML += `<tr><td class="text-start fw-bold">${item.project_name || '-'}</td>
                         <td>${pp.toFixed(1)}%</td><td>${pc.toFixed(1)}%</td><td class="text-primary">+${varP}%</td>
                         <td>${ap.toFixed(1)}%</td><td>${ac.toFixed(1)}%</td><td class="text-primary">+${varA}%</td>
-                        <td class="${spiColor}">${spi}</td>
-                    </tr>`;
+                        <td class="${spiColor}">${spi}</td></tr>`;
             });
         }
 
@@ -380,25 +394,14 @@
             const tbody = document.getElementById('obstacles-table-body');
             tbody.innerHTML = '';
             let allObstacles = [];
-
             data.forEach(item => {
                 if(item.obstacles_data && item.obstacles_data !== '[]') {
-                    try {
-                        let parsed = JSON.parse(item.obstacles_data);
-                        parsed.forEach(obs => {
-                            if(!obs.closed && (obs.impact === 'كبير' || obs.impact === 'متوسط')) {
-                                allObstacles.push({ proj: item.project_name, desc: obs.description, impact: obs.impact });
-                            }
-                        });
-                    } catch(e) {}
+                    try { JSON.parse(item.obstacles_data).forEach(obs => { if(!obs.closed && (obs.impact === 'كبير' || obs.impact === 'متوسط')) allObstacles.push({ proj: item.project_name, desc: obs.description, impact: obs.impact }); }); } catch(e) {}
                 }
             });
-
             allObstacles.slice(0, 5).forEach(obs => {
                 let badgeClass = obs.impact === 'كبير' ? 'badge-impact-كبير' : 'badge-impact-متوسط';
-                tbody.innerHTML += `<tr><td style="width: 25%; font-size: 0.8rem;" class="fw-bold">${obs.proj}</td>
-                                        <td style="width: 55%; font-size: 0.8rem;">${obs.desc}</td>
-                                        <td style="width: 20%;"><span class="badge ${badgeClass}">${obs.impact}</span></td></tr>`;
+                tbody.innerHTML += `<tr><td style="width: 25%; font-size: 0.8rem;" class="fw-bold">${obs.proj}</td><td style="width: 55%; font-size: 0.8rem;">${obs.desc}</td><td style="width: 20%;"><span class="badge ${badgeClass}">${obs.impact}</span></td></tr>`;
             });
             if(allObstacles.length === 0) tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">لا توجد معوقات حرجة مفتوحة</td></tr>';
         }
