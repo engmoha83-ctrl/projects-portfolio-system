@@ -13,40 +13,44 @@
             --c-red: #dc3545; --c-blue: #0d6efd; --c-yellow: #ffc107;
         }
 
-        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; overflow-x: hidden; }
-        .navbar { background-color: var(--bg-navbar) !important; border-bottom: 2px solid var(--border-color); margin-bottom: 15px !important; }
+        /* منع التمرير وتثبيت الأبعاد الأساسية */
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
+        .navbar { background-color: var(--bg-navbar) !important; border-bottom: 2px solid var(--border-color); margin-bottom: 10px !important; }
         
-        .filter-bar { background: var(--bg-card); border-radius: 8px; padding: 10px 25px; margin-bottom: 15px; border: 1px solid var(--border-color); }
-        .form-label { color: var(--text-muted); font-weight: bold; margin-bottom: 2px; }
+        .filter-bar { background: var(--bg-card); border-radius: 8px; padding: 10px 25px; margin-bottom: 10px; border: 1px solid var(--border-color); }
+        .form-label { color: var(--text-muted); font-weight: bold; margin-bottom: 2px; font-size: 0.8rem; }
         .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.85rem; }
         .form-select:focus { background-color: var(--bg-main); color: var(--text-main); border-color: var(--c-cyan); box-shadow: 0 0 0 .25rem rgba(13, 202, 240, .25); }
         
-        .kpi-card { background: var(--bg-card); border-radius: 8px; padding: 10px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: center; border-top: 4px solid #6c757d; }
+        /* البطاقات والجداول */
+        .kpi-card { background: var(--bg-card); border-radius: 8px; padding: 5px 10px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: center; border-top: 4px solid #6c757d; }
         .kpi-title { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; }
-        .kpi-value { font-size: 1.2rem; font-weight: bold; margin: 0; }
-        
+        .kpi-value { font-size: 1.15rem; font-weight: bold; margin: 0; }
         .border-t-cyan { border-top-color: var(--c-cyan); } .border-t-orange { border-top-color: var(--c-orange); }
         .border-t-green { border-top-color: var(--c-green); } .border-t-red { border-top-color: var(--c-red); }
         .border-t-blue { border-top-color: var(--c-blue); } .border-t-yellow { border-top-color: var(--c-yellow); }
 
-        .chart-box { background: var(--bg-card); border-radius: 8px; padding: 10px 15px; border: 1px solid var(--border-color); height: 100%; }
-        .chart-title { font-size: 0.85rem; font-weight: bold; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; margin-bottom: 5px; text-align: center; }
-
         .table { --bs-table-bg: transparent; --bs-table-color: var(--text-main); --bs-table-border-color: var(--border-color); margin-bottom: 0; font-size: 0.75rem; }
-        .table thead th { background-color: #363945 !important; color: #fff !important; font-weight: bold; border-bottom: 2px solid var(--border-color); padding: 5px; }
-        .table td, .table th { border-color: var(--border-color); vertical-align: middle; color: var(--text-main); padding: 5px; }
-        .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(255, 255, 255, 0.02); color: var(--text-main); }
-        .table-hover > tbody > tr:hover > * { background-color: #3f4250; color: var(--text-main); }
+        .table thead th { background-color: #363945 !important; color: #fff !important; font-weight: bold; border-bottom: 2px solid var(--border-color); padding: 6px; }
+        .table td, .table th { border-color: var(--border-color); vertical-align: middle; color: var(--text-main); padding: 6px; }
+        .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(255, 255, 255, 0.02); }
+        .table-hover > tbody > tr:hover > * { background-color: #3f4250; }
 
-        /* حل نهائي لمشكلة Bootstrap Carousel: تثبيت الارتفاع بدون Flex */
-        .carousel-inner { height: 650px; overflow: hidden; }
-        .slide-container { padding: 0 60px; width: 100%; height: 100%; }
-        .carousel-control-prev, .carousel-control-next { width: 40px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; z-index: 5; margin: 0 10px; }
-        .carousel-indicators { bottom: -20px; margin-bottom: 0; }
+        /* الهندسة الهيكلية للشاشات (Grid Layout) */
+        .carousel-inner { height: 600px; overflow: hidden; }
+        .slide-container { padding: 0 50px; height: 100%; width: 100%; }
+        .slide-header { font-size: 1.1rem; color: var(--text-main); font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+        .slide-layout { height: 500px; } /* ارتفاع ثابت وموحد لكل الرسوم في جميع الصفحات */
+        
+        .chart-box { background: var(--bg-card); border-radius: 8px; padding: 10px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .chart-title { font-size: 0.85rem; font-weight: bold; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; margin-bottom: 5px; text-align: center; }
+        .chart-wrapper { flex: 1; min-height: 0; position: relative; } /* حاوية الرسم تتمدد لتملأ المساحة المتاحة فقط */
+        .half-height { height: calc(50% - 0.5rem); } /* مقاس دقيق لصفين ليتساوى مع ارتفاع عمود كامل */
+
+        .carousel-control-prev, .carousel-control-next { width: 40px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; z-index: 5; margin: 0 5px; }
+        .carousel-indicators { bottom: -10px; margin-bottom: 0; }
         .carousel-indicators [data-bs-target] { background-color: var(--text-muted); width: 30px; height: 4px; }
         .carousel-indicators .active { background-color: var(--c-cyan); }
-        
-        .slide-header { font-size: 1rem; color: var(--text-main); font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
         .badge-impact-كبير { background-color: var(--c-red); color: white; }
         .badge-impact-متوسط { background-color: var(--c-orange); color: white; }
     </style>
@@ -55,13 +59,11 @@
     <nav class="navbar navbar-expand-lg shadow">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold text-white fs-6" href="/admin-hub">إدارة المشاريع | البوابة المركزية</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar"></button>
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-dashboard">سجل التحديثات</a></li>
                     <li class="nav-item"><a class="nav-link active text-white fw-bold" href="/admin-analytics">لوحة المؤشرات</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-directory">دليل المديرين</a></li>
-                    <li class="nav-item"><a class="nav-link text-white-50" href="/admin-gallery">المعرض المرئي</a></li>
                 </ul>
                 <div class="d-flex"><a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a></div>
             </div>
@@ -69,31 +71,33 @@
     </nav>
 
     <div class="container-fluid px-4">
+        <!-- الفلاتر -->
         <div class="filter-bar">
             <div class="row align-items-end g-2">
                 <div class="col-md-3">
-                    <label class="form-label small">تاريخ التحديث (اللقطة الحالية):</label>
+                    <label class="form-label">تاريخ التحديث (اللقطة الحالية):</label>
                     <select id="flt-date" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small">مدير المشروع:</label>
+                    <label class="form-label">مدير المشروع:</label>
                     <select id="flt-pm" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small">نوع المشروع:</label>
+                    <label class="form-label">نوع المشروع:</label>
                     <select id="flt-type" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small">المشروع:</label>
+                    <label class="form-label">المشروع:</label>
                     <select id="flt-project" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
                 <div class="col-md-1 text-end">
-                    <button id="toggleCarouselBtn" class="btn btn-outline-info btn-sm fw-bold w-100">⏸ إيقاف</button>
+                    <button id="toggleCarouselBtn" class="btn btn-outline-info btn-sm fw-bold w-100 h-100">⏸ إيقاف</button>
                 </div>
             </div>
         </div>
 
-        <div id="dashboardCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="8000">
+        <!-- تم إزالة data-bs-ride لتشغيل الـ Carousel بشكل برمجي مستقر -->
+        <div id="dashboardCarousel" class="carousel slide">
             <div class="carousel-indicators">
                 <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="0" class="active"></button>
                 <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="1"></button>
@@ -104,88 +108,104 @@
 
             <div class="carousel-inner bg-transparent">
                 
-                <!-- الشريحة 1 -->
+                <!-- الشريحة 1: الماليات -->
                 <div class="carousel-item active">
                     <div class="slide-container">
                         <div class="slide-header">💰 الماليات والعقود (تراكمي)</div>
-                        <div class="row g-3">
-                            <div class="col-md-7">
-                                <div class="row g-2">
-                                    <div class="col-md-6"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود المقاولين</div><div class="kpi-value text-info" id="kpi-cont-val">0</div></div></div>
-                                    <div class="col-md-6"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود الاستشاريين</div><div class="kpi-value text-info" id="kpi-cons-val">0</div></div></div>
-                                    <div class="col-md-3"><div class="kpi-card border-t-orange"><div class="kpi-title">أوامر التغيير - مقاول (قيمة)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-val">0</div></div></div>
-                                    <div class="col-md-3"><div class="kpi-card border-t-orange"><div class="kpi-title">أوامر التغيير - مقاول (عدد)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-cnt">0</div></div></div>
-                                    <div class="col-md-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">أوامر التغيير - استشاري (قيمة)</div><div class="kpi-value text-warning" id="kpi-cons-chg-val">0</div></div></div>
-                                    <div class="col-md-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">أوامر التغيير - استشاري (عدد)</div><div class="kpi-value text-warning" id="kpi-cons-chg-cnt">0</div></div></div>
-                                    <div class="col-md-3"><div class="kpi-card border-t-green"><div class="kpi-title">فواتير المقاول (قيمة)</div><div class="kpi-value text-success" id="kpi-cont-inv-val">0</div></div></div>
-                                    <div class="col-md-3"><div class="kpi-card border-t-green"><div class="kpi-title">فواتير المقاول (عدد)</div><div class="kpi-value text-success" id="kpi-cont-inv-cnt">0</div></div></div>
-                                    <div class="col-md-3"><div class="kpi-card border-t-blue"><div class="kpi-title">فواتير الاستشاري (قيمة)</div><div class="kpi-value text-primary" id="kpi-cons-inv-val">0</div></div></div>
-                                    <div class="col-md-3"><div class="kpi-card border-t-blue"><div class="kpi-title">فواتير الاستشاري (عدد)</div><div class="kpi-value text-primary" id="kpi-cons-inv-cnt">0</div></div></div>
+                        <div class="row g-3 slide-layout">
+                            <div class="col-md-7 h-100 d-flex flex-column gap-2">
+                                <div class="row g-2 flex-fill">
+                                    <div class="col-6"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود المقاولين</div><div class="kpi-value text-info" id="kpi-cont-val">0</div></div></div>
+                                    <div class="col-6"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود الاستشاريين</div><div class="kpi-value text-info" id="kpi-cons-val">0</div></div></div>
+                                </div>
+                                <div class="row g-2 flex-fill">
+                                    <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">أوامر تغيير المقاول (قيمة)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">أوامر تغيير المقاول (عدد)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-cnt">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">أوامر تغيير الاستشاري (قيمة)</div><div class="kpi-value text-warning" id="kpi-cons-chg-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">أوامر تغيير الاستشاري (عدد)</div><div class="kpi-value text-warning" id="kpi-cons-chg-cnt">0</div></div></div>
+                                </div>
+                                <div class="row g-2 flex-fill">
+                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">فواتير المقاول (قيمة)</div><div class="kpi-value text-success" id="kpi-cont-inv-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">فواتير المقاول (عدد)</div><div class="kpi-value text-success" id="kpi-cont-inv-cnt">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">فواتير الاستشاري (قيمة)</div><div class="kpi-value text-primary" id="kpi-cons-inv-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">فواتير الاستشاري (عدد)</div><div class="kpi-value text-primary" id="kpi-cons-inv-cnt">0</div></div></div>
                                 </div>
                             </div>
-                            <div class="col-md-5">
-                                <div class="chart-box">
+                            <div class="col-md-5 h-100">
+                                <div class="chart-box h-100">
                                     <div class="chart-title">التدفق النقدي الأسبوعي (Cash Flow) للمقاولين</div>
-                                    <div id="cashFlowChart"></div>
+                                    <div class="chart-wrapper" id="cashFlowChart"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- الشريحة 2 -->
+                <!-- الشريحة 2: التواريخ -->
                 <div class="carousel-item">
                     <div class="slide-container">
                         <div class="slide-header">📅 التواريخ وأداء البرنامج الزمني</div>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <div class="row g-2">
-                                    <div class="col-12"><div class="kpi-card border-t-blue py-2"><div class="kpi-title">أقل بداية تعاقدية</div><div class="kpi-value fs-5 text-white" id="kpi-min-start-c">-</div></div></div>
-                                    <div class="col-12"><div class="kpi-card border-t-cyan py-2"><div class="kpi-title">أكبر نهاية تعاقدية</div><div class="kpi-value fs-5 text-white" id="kpi-max-end-c">-</div></div></div>
-                                    <div class="col-6"><div class="kpi-card border-t-orange py-2"><div class="kpi-title">أقل بداية فعلية</div><div class="kpi-value fs-6 text-white" id="kpi-min-start-a">-</div></div></div>
-                                    <div class="col-6"><div class="kpi-card border-t-orange py-2"><div class="kpi-title">أكبر نهاية متوقعة</div><div class="kpi-value fs-6 text-white" id="kpi-max-end-e">-</div></div></div>
-                                    <div class="col-12"><div class="kpi-card border-t-red py-2"><div class="kpi-title">إجمالي التمديدات (يوم)</div><div class="kpi-value fs-4 text-danger" id="kpi-ext-time">0</div></div></div>
+                        <div class="row g-3 slide-layout">
+                            <div class="col-md-4 h-100 d-flex flex-column gap-2">
+                                <div class="row g-2 flex-fill">
+                                    <div class="col-12"><div class="kpi-card border-t-blue"><div class="kpi-title">أقل بداية تعاقدية</div><div class="kpi-value fs-5 text-white" id="kpi-min-start-c">-</div></div></div>
+                                    <div class="col-12"><div class="kpi-card border-t-cyan"><div class="kpi-title">أكبر نهاية تعاقدية</div><div class="kpi-value fs-5 text-white" id="kpi-max-end-c">-</div></div></div>
+                                </div>
+                                <div class="row g-2 flex-fill">
+                                    <div class="col-6"><div class="kpi-card border-t-orange"><div class="kpi-title">أقل بداية فعلية</div><div class="kpi-value fs-6 text-white" id="kpi-min-start-a">-</div></div></div>
+                                    <div class="col-6"><div class="kpi-card border-t-orange"><div class="kpi-title">أكبر نهاية متوقعة</div><div class="kpi-value fs-6 text-white" id="kpi-max-end-e">-</div></div></div>
+                                </div>
+                                <div class="row g-2 flex-fill">
+                                    <div class="col-12"><div class="kpi-card border-t-red"><div class="kpi-title">إجمالي التمديدات (يوم)</div><div class="kpi-value fs-4 text-danger" id="kpi-ext-time">0</div></div></div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="chart-box">
+                            <div class="col-md-4 h-100">
+                                <div class="chart-box h-100">
                                     <div class="chart-title">المدة المنقضية مقابل المتبقية</div>
-                                    <div id="elapsedChart"></div>
+                                    <div class="chart-wrapper" id="elapsedChart"></div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="chart-box">
+                            <div class="col-md-4 h-100">
+                                <div class="chart-box h-100">
                                     <div class="chart-title">أداء البرنامج الزمني</div>
-                                    <div id="timePerfChart"></div>
+                                    <div class="chart-wrapper" id="timePerfChart"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- الشريحة 3 -->
+                <!-- الشريحة 3: الإنجاز والأداء (تمت إضافة نسب الإنجاز هنا وضبط المقاسات) -->
                 <div class="carousel-item">
                     <div class="slide-container">
                         <div class="slide-header">📊 مؤشرات الإنجاز والأداء (S-Curve & SPI)</div>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <div class="chart-box">
+                        <div class="row g-3 slide-layout">
+                            <!-- عمود اليمين: مؤشر SPI بارتفاع 100% -->
+                            <div class="col-md-3 h-100">
+                                <div class="chart-box h-100">
                                     <div class="chart-title">مؤشر SPI العام</div>
-                                    <div id="spiGauge"></div>
+                                    <div class="chart-wrapper" id="spiGauge"></div>
                                 </div>
                             </div>
-                            <div class="col-md-8">
-                                <div class="row g-3">
-                                    <div class="col-12">
-                                        <div class="chart-box">
+                            <!-- عمود اليسار: مقسم لصفين متطابقين -->
+                            <div class="col-md-9 h-100 d-flex flex-column gap-3">
+                                <!-- الصف العلوي: نسب الإنجاز -->
+                                <div class="chart-box half-height">
+                                    <div class="chart-title">نسب الإنجاز (المخطط مقابل الفعلي) للمشاريع</div>
+                                    <div class="chart-wrapper" id="barChart"></div>
+                                </div>
+                                <!-- الصف السفلي: S-Curve و SPI Trend -->
+                                <div class="row g-3 half-height m-0">
+                                    <div class="col-md-6 h-100 p-0 pe-2">
+                                        <div class="chart-box h-100">
                                             <div class="chart-title">المنحنى الزمني للمشروع (S-Curve الأسبوعي)</div>
-                                            <div id="sCurveChart"></div>
+                                            <div class="chart-wrapper" id="sCurveChart"></div>
                                         </div>
                                     </div>
-                                    <div class="col-12">
-                                        <div class="chart-box">
+                                    <div class="col-md-6 h-100 p-0 ps-2">
+                                        <div class="chart-box h-100">
                                             <div class="chart-title">تطور مؤشر الأداء الزمني (SPI) أسبوعياً</div>
-                                            <div id="spiTrendChart"></div>
+                                            <div class="chart-wrapper" id="spiTrendChart"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -194,28 +214,34 @@
                     </div>
                 </div>
 
-                <!-- الشريحة 4 -->
+                <!-- الشريحة 4: الجودة (تم تحويلها لـ 4 مربعات متساوية) -->
                 <div class="carousel-item">
                     <div class="slide-container">
-                        <div class="slide-header">📂 الجودة والمستندات (QC Histograms)</div>
-                        <div class="row g-2">
-                            <div class="col-md-4"><div class="chart-box"><div class="chart-title">المخططات / الرسومات</div><div id="drawingsChart"></div></div></div>
-                            <div class="col-md-4"><div class="chart-box"><div class="chart-title">طلبات الاستلام (IR)</div><div id="irChart"></div></div></div>
-                            <div class="col-md-4"><div class="chart-box"><div class="chart-title">مخالفات الجودة (NCR)</div><div id="ncrChart"></div></div></div>
-                            
-                            <div class="col-md-8"><div class="chart-box mt-2"><div class="chart-title">نسب الإنجاز (المخطط مقابل الفعلي) للمشاريع</div><div id="barChart"></div></div></div>
-                            <div class="col-md-4"><div class="chart-box mt-2"><div class="chart-title">التقييم الفني للمقاولين</div><div id="radarChart"></div></div></div>
+                        <div class="slide-header">📂 الجودة والمستندات (QC)</div>
+                        <div class="row g-3 slide-layout">
+                            <div class="col-md-6 half-height">
+                                <div class="chart-box h-100"><div class="chart-title">المخططات / الرسومات</div><div class="chart-wrapper" id="drawingsChart"></div></div>
+                            </div>
+                            <div class="col-md-6 half-height">
+                                <div class="chart-box h-100"><div class="chart-title">طلبات الاستلام (IR)</div><div class="chart-wrapper" id="irChart"></div></div>
+                            </div>
+                            <div class="col-md-6 half-height mt-3">
+                                <div class="chart-box h-100"><div class="chart-title">مخالفات الجودة (NCR)</div><div class="chart-wrapper" id="ncrChart"></div></div>
+                            </div>
+                            <div class="col-md-6 half-height mt-3">
+                                <div class="chart-box h-100"><div class="chart-title">التقييم الفني للمقاولين</div><div class="chart-wrapper" id="radarChart"></div></div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- الشريحة 5 -->
+                <!-- الشريحة 5: التفاصيل والتباين -->
                 <div class="carousel-item">
                     <div class="slide-container">
                         <div class="slide-header">📈 تفاصيل التباين (Variance) وأبرز المعوقات</div>
-                        <div class="row g-3">
-                            <div class="col-md-8">
-                                <div class="chart-box p-0" style="height: 550px; overflow-y: auto;">
+                        <div class="row g-3 slide-layout">
+                            <div class="col-md-8 h-100">
+                                <div class="chart-box p-0 h-100 overflow-auto">
                                     <table class="table table-sm table-hover table-bordered text-center m-0">
                                         <thead style="position: sticky; top: 0; z-index: 1;">
                                             <tr>
@@ -233,8 +259,8 @@
                                     </table>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="chart-box p-0" style="height: 550px; overflow-y: auto;">
+                            <div class="col-md-4 h-100">
+                                <div class="chart-box p-0 h-100 overflow-auto">
                                     <div class="chart-title text-danger pt-2 m-0 border-0 text-center sticky-top" style="background:var(--bg-card);">⚠️ أبرز المعوقات الحالية</div>
                                     <div class="table-responsive">
                                         <table class="table table-sm table-striped m-0 text-center">
@@ -250,12 +276,8 @@
 
             </div>
 
-            <button class="carousel-control-prev" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="prev">
-                <span class="carousel-control-prev-icon"></span>
-            </button>
-            <button class="carousel-control-next" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="next">
-                <span class="carousel-control-next-icon"></span>
-            </button>
+            <button class="carousel-control-prev" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+            <button class="carousel-control-next" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
         </div>
     </div>
 
@@ -264,20 +286,33 @@
         let rawData = [];
         let charts = {};
 
+        // برمجة التشغيل والإيقاف بشكل مستقر تماماً
         const carouselElement = document.getElementById('dashboardCarousel');
-        const bsCarousel = new bootstrap.Carousel(carouselElement, { interval: 8000, ride: 'carousel', pause: 'hover' });
-        const toggleBtn = document.getElementById('toggleCarouselBtn');
+        const bsCarousel = new bootstrap.Carousel(carouselElement, {
+            interval: 8000,
+            pause: false // نمنع إيقاف الهوفر عشان الزرار هو اللي يتحكم 100%
+        });
+        
+        // التشغيل التلقائي من البداية
+        bsCarousel.cycle();
         let isCarouselPlaying = true;
 
+        const toggleBtn = document.getElementById('toggleCarouselBtn');
         toggleBtn.addEventListener('click', function() {
             if (isCarouselPlaying) { 
-                bsCarousel.pause(); toggleBtn.innerHTML = '▶️ تشغيل'; toggleBtn.classList.replace('btn-outline-info', 'btn-outline-success'); isCarouselPlaying = false; 
+                bsCarousel.pause(); 
+                toggleBtn.innerHTML = '▶️ تشغيل'; 
+                toggleBtn.classList.replace('btn-outline-info', 'btn-outline-success'); 
+                isCarouselPlaying = false; 
             } else { 
-                bsCarousel.cycle(); toggleBtn.innerHTML = '⏸ إيقاف'; toggleBtn.classList.replace('btn-outline-success', 'btn-outline-info'); isCarouselPlaying = true; 
+                bsCarousel.cycle(); 
+                toggleBtn.innerHTML = '⏸ إيقاف'; 
+                toggleBtn.classList.replace('btn-outline-success', 'btn-outline-info'); 
+                isCarouselPlaying = true; 
             }
         });
 
-        // إصلاح مشكلة اختفاء الرسوم عند العودة للشريحة
+        // لتفادي مشاكل الأبعاد في ApexCharts عند تغيير الشريحة
         carouselElement.addEventListener('slid.bs.carousel', function () { window.dispatchEvent(new Event('resize')); });
 
         fetch('/api/analytics-data').then(res => res.json()).then(data => {
@@ -287,11 +322,11 @@
         function num(val) { return parseFloat(val) || 0; }
         
         function initCharts() {
-            const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI' } };
+            // جميع الرسوم تأخذ 100% من حجم الحاوية المجهزة لها بدقة (بدون تحديد بيكسلات لضمان التناسق)
+            const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI', width: '100%', height: '100%' } };
             
-            // تحديد ارتفاعات ثابتة بالبيكسل لكل شارت لضمان عدم الانهيار
             charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
-                ...darkOpts, chart: { type: 'bar', height: 350, ...darkOpts.chart },
+                ...darkOpts, chart: { type: 'bar', ...darkOpts.chart },
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } },
                 yaxis: { labels: { style: { colors: '#adb5bd' }, formatter: (val) => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } },
                 colors: ['#0dcaf0', '#ffc107'], stroke: { show: true, width: 2, colors: ['transparent'] },
@@ -299,57 +334,59 @@
             }); charts.cashFlow.render();
 
             charts.elapsed = new ApexCharts(document.querySelector("#elapsedChart"), {
-                ...darkOpts, chart: { type: 'donut', height: 280, ...darkOpts.chart },
+                ...darkOpts, chart: { type: 'donut', ...darkOpts.chart },
                 series: [], labels: ['المدة المنقضية', 'المدة المتبقية'],
                 colors: ['#0dcaf0', '#ffc107'], stroke: { show: false }, legend: { position: 'bottom' },
                 dataLabels: { formatter: function (val) { return val.toFixed(1) + "%" } }
             }); charts.elapsed.render();
 
             charts.timePerf = new ApexCharts(document.querySelector("#timePerfChart"), {
-                ...darkOpts, chart: { type: 'donut', height: 280, ...darkOpts.chart },
+                ...darkOpts, chart: { type: 'donut', ...darkOpts.chart },
                 series: [], labels: ['متقدم', 'متوافق', 'متأخر'],
                 colors: ['#0dcaf0', '#198754', '#dc3545'], stroke: { show: false }, legend: { position: 'bottom' },
                 dataLabels: { formatter: function (val) { return val.toFixed(1) + "%" } }
             }); charts.timePerf.render();
 
             charts.spi = new ApexCharts(document.querySelector("#spiGauge"), {
-                ...darkOpts, chart: { type: 'radialBar', height: 480, ...darkOpts.chart }, series: [0],
+                ...darkOpts, chart: { type: 'radialBar', ...darkOpts.chart }, series: [0],
                 plotOptions: { radialBar: { startAngle: -120, endAngle: 120, hollow: { size: '65%' }, track: { background: '#444857' }, dataLabels: { name: { show: false }, value: { fontSize: '45px', fontWeight: 'bold', color: '#fff', formatter: val => (val/100).toFixed(2), offsetY: 15 } } } },
                 stroke: { lineCap: 'round' }, colors: ['#fd7e14']
             }); charts.spi.render();
 
-            // رفع أرقام S-Curve للأعلى وتلوينها بالأبيض
+            charts.bar = new ApexCharts(document.querySelector("#barChart"), {
+                ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], 
+                xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, 
+                yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, colors: ['#0dcaf0', '#198754'],
+                plotOptions: { bar: { dataLabels: { position: 'top' } } }, 
+                dataLabels: { enabled: true, offsetY: -15, formatter: val => val + "%", style: { fontSize: '10px', colors: ['#fff'] }, background: { enabled: false } }, 
+                grid: { borderColor: '#444857' }
+            }); charts.bar.render();
+
             charts.sCurve = new ApexCharts(document.querySelector("#sCurveChart"), {
-                ...darkOpts, chart: { type: 'line', height: 220, ...darkOpts.chart },
-                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } },
-                yaxis: { labels: { style: { colors: '#adb5bd' }, formatter: val => val.toFixed(1) + "%" } },
+                ...darkOpts, chart: { type: 'line', ...darkOpts.chart },
+                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
+                yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } },
                 colors: ['#0dcaf0', '#ffc107', '#0dcaf0', '#ffc107'], stroke: { width: [0, 0, 3, 3], dashArray: [0, 0, 5, 5] },
                 plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
-                dataLabels: { enabled: true, enabledOnSeries: [0, 1], offsetY: -15, formatter: val => val.toFixed(1) + "%", style: { fontSize: '10px', colors: ['#fff'] }, background: { enabled: false } },
-                grid: { borderColor: '#444857' }
+                dataLabels: { enabled: true, enabledOnSeries: [0, 1], offsetY: -15, formatter: val => val.toFixed(1) + "%", style: { fontSize: '9px', colors: ['#fff'] }, background: { enabled: false } },
+                grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
             }); charts.sCurve.render();
 
             charts.spiTrend = new ApexCharts(document.querySelector("#spiTrendChart"), {
-                ...darkOpts, chart: { type: 'area', height: 200, ...darkOpts.chart },
-                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } },
-                yaxis: { labels: { style: { colors: '#adb5bd' }, formatter: val => val.toFixed(2) } }, colors: ['#0dcaf0'],
+                ...darkOpts, chart: { type: 'area', ...darkOpts.chart },
+                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
+                yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(2) } }, colors: ['#0dcaf0'],
                 dataLabels: { enabled: true, formatter: val => val.toFixed(2), offsetY: -5, style: { fontSize: '10px' }, background: { enabled: false } },
                 stroke: { curve: 'smooth', width: 2 }, fill: { opacity: 0.3 }, grid: { borderColor: '#444857' }
             }); charts.spiTrend.render();
 
-            // رفع أرقام الجودة QC للأعلى
-            const hcOpts = { ...darkOpts, chart: { type: 'bar', height: 220, ...darkOpts.chart }, plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '11px', colors: ['#fff'] }, formatter: val => val > 0 ? val : "" }, xaxis: { categories: ['الإجمالي'], labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' }, formatter: val => val.toFixed(0) } }, grid: { borderColor: '#444857' }, legend: { fontSize: '10px', markers: { width: 8, height: 8 } } };
+            const hcOpts = { ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '11px', colors: ['#fff'] }, background: { enabled: false }, formatter: val => val > 0 ? val : "" }, xaxis: { categories: ['الإجمالي'], labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' }, formatter: val => val.toFixed(0) } }, grid: { borderColor: '#444857' }, legend: { fontSize: '10px', markers: { width: 8, height: 8 } } };
             charts.dr = new ApexCharts(document.querySelector("#drawingsChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.dr.render();
             charts.ir = new ApexCharts(document.querySelector("#irChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.ir.render();
             charts.ncr = new ApexCharts(document.querySelector("#ncrChart"), { ...hcOpts, series: [], colors: ['#dc3545', '#198754'] }); charts.ncr.render();
 
-            charts.bar = new ApexCharts(document.querySelector("#barChart"), {
-                ...darkOpts, chart: { type: 'bar', height: 220, ...darkOpts.chart }, series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } }, yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, colors: ['#0dcaf0', '#198754'],
-                plotOptions: { bar: { dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -15, formatter: val => val + "%", style: { fontSize: '9px', colors: ['#fff'] }, background: { enabled: false } }, grid: { borderColor: '#444857' }
-            }); charts.bar.render();
-
             charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
-                ...darkOpts, chart: { type: 'radar', height: 220, ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
+                ...darkOpts, chart: { type: 'radar', ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
                 stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 3 },
                 yaxis: { show: false }, xaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, plotOptions: { radar: { polygons: { strokeColors: '#444857', connectorColors: '#444857' } } }
             }); charts.radar.render();
@@ -455,7 +492,14 @@
             let avgA = data.reduce((s, d) => s + num(d.act_prog_cur), 0) / (data.length || 1);
             let avgP = data.reduce((s, d) => s + num(d.plan_prog_cur), 0) / (data.length || 1);
             let spi = avgP > 0 ? (avgA / avgP) : 0;
-            charts.spi.updateOptions({ colors: [spi >= 1 ? '#198754' : (spi >= 0.95 ? '#fd7e14' : '#dc3545')] });
+            
+            // تحديد لون مؤشر SPI حسب المطلوب
+            let spiColor = '';
+            if (spi < 0.6) spiColor = '#dc3545'; // أحمر
+            else if (spi < 0.85) spiColor = '#fd7e14'; // برتقالي
+            else spiColor = '#198754'; // أخضر
+
+            charts.spi.updateOptions({ colors: [spiColor] });
             charts.spi.updateSeries([spi * 100]);
 
             let ahead=0, onsch=0, behind=0;
