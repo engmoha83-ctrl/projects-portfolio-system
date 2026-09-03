@@ -325,6 +325,7 @@
         function initCharts() {
             const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI', width: '100%', height: '100%' } };
             
+            // تم توحيد المحور الصادي باستخدام max function في التحديث لمنع الـ Scaling Issues
             charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
                 ...darkOpts, chart: { type: 'line', ...darkOpts.chart },
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
@@ -393,7 +394,6 @@
             charts.ir = new ApexCharts(document.querySelector("#irChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.ir.render();
             charts.ncr = new ApexCharts(document.querySelector("#ncrChart"), { ...hcOpts, series: [], colors: ['#dc3545', '#198754'] }); charts.ncr.render();
 
-            // تفعيل DataLabels على الرادار وعمل خلفية داكنة خفيفة ليبرز الرقم
             charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
                 ...darkOpts, chart: { type: 'radar', ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
                 stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 4 },
@@ -403,13 +403,13 @@
         }
 
         function initFilters() {
-            let dates = [...new Set(rawData.map(item => item.current_data_date))].filter(Boolean).sort().reverse();
+            let dates = [...new Set(rawData.map(item => item.current_data_date))].filter(Boolean).sort();
             let pms = [...new Set(rawData.map(item => item.manager_name))].filter(Boolean).sort();
             let types = [...new Set(rawData.map(item => item.project_type))].filter(Boolean).sort();
             let projects = [...new Set(rawData.map(item => item.project_name))].filter(Boolean).sort();
 
             const populate = (id, arr) => { const el = document.getElementById(id); arr.forEach(val => el.add(new Option(val, val))); };
-            dates.forEach(val => document.getElementById('flt-date').add(new Option(val, val)));
+            [...dates].reverse().forEach(val => document.getElementById('flt-date').add(new Option(val, val)));
             populate('flt-pm', pms); populate('flt-type', types); populate('flt-project', projects);
             applyFilters();
         }
@@ -422,6 +422,7 @@
 
             let baseData = rawData.filter(item => (!fPm || item.manager_name === fPm) && (!fType || item.project_type === fType) && (!fProj || item.project_name === fProj));
             
+            // ترتيب التواريخ تصاعدياً من الأقدم للأحدث لرسم التراكمي بطريقة صحيحة
             let trendDates = [...new Set(baseData.map(item => item.current_data_date))].filter(Boolean).sort();
             
             let trendCashFlow = { dates: [], pInc: [], aInc: [], pCum: [], aCum: [] };
@@ -429,13 +430,22 @@
             let trendSPI = { dates: [], spi: [] };
             let cumP = 0, cumA = 0;
 
+            // حساب التدفق التراكمي
+            let prevPCum = 0;
+            let prevACum = 0;
+
             trendDates.forEach(date => {
                 let dData = baseData.filter(i => i.current_data_date === date);
                 
                 let pCostCum = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.plan_prog_cur)), 0);
                 let aCostCum = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.act_prog_cur)), 0);
-                let pCostInc = dData.reduce((s, i) => s + (num(i.contractor_val) * Math.max(0, num(i.plan_prog_cur) - num(i.plan_prog_prev))), 0);
-                let aCostInc = dData.reduce((s, i) => s + (num(i.contractor_val) * Math.max(0, num(i.act_prog_cur) - num(i.act_prog_prev))), 0);
+                
+                // حساب المقطوع كالفرق بين التراكمي الحالي والتراكمي السابق
+                let pCostInc = Math.max(0, pCostCum - prevPCum);
+                let aCostInc = Math.max(0, aCostCum - prevACum);
+
+                prevPCum = pCostCum;
+                prevACum = aCostCum;
                 
                 trendCashFlow.dates.push(date); 
                 trendCashFlow.pCum.push(pCostCum); trendCashFlow.aCum.push(aCostCum);
@@ -450,8 +460,15 @@
                 trendSPI.dates.push(date); trendSPI.spi.push(spi);
             });
 
+            // توحيد محور الـ Y لرسومات المخطط والفعلي
+            let maxCF = Math.max(...trendCashFlow.pCum, ...trendCashFlow.aCum);
+            let yaxisConfig = { max: maxCF * 1.1, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } };
+
+            charts.cashFlow.updateOptions({
+                xaxis: {categories: trendCashFlow.dates},
+                yaxis: [yaxisConfig, {show:false}, {opposite:true, ...yaxisConfig}, {show:false}]
+            });
             charts.cashFlow.updateSeries([{name:'مخطط أسبوعي', type:'column', data:trendCashFlow.pInc}, {name:'فعلي أسبوعي', type:'column', data:trendCashFlow.aInc}, {name:'مخطط تراكمي', type:'line', data:trendCashFlow.pCum}, {name:'فعلي تراكمي', type:'line', data:trendCashFlow.aCum}]);
-            charts.cashFlow.updateOptions({xaxis: {categories: trendCashFlow.dates}});
             
             charts.sCurve.updateSeries([{name:'مخطط أسبوعي', type:'column', data:trendSCurve.pBar}, {name:'فعلي أسبوعي', type:'column', data:trendSCurve.aBar}, {name:'مخطط تراكمي', type:'line', data:trendSCurve.pLine}, {name:'فعلي تراكمي', type:'line', data:trendSCurve.aLine}]);
             charts.sCurve.updateOptions({xaxis: {categories: trendSCurve.dates}});
@@ -527,7 +544,6 @@
             });
             charts.timePerf.updateSeries([ahead, onsch, behind]);
 
-            // تحديث قيم الجودة (QC) وإضافة الإجماليات أعلى الرسوم
             let sum = (k) => data.reduce((s, d) => s + num(d[k]), 0);
             
             let drSub = sum('drawings_sub'), drApp = sum('drawings_app'), drRev = sum('drawings_rev');
