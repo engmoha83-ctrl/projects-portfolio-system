@@ -18,9 +18,9 @@
         body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; overflow-x: hidden; }
         .navbar { background-color: var(--bg-navbar) !important; border-bottom: 2px solid var(--border-color); margin-bottom: 10px !important; }
         
-        .filter-bar { background: var(--bg-card); border-radius: 8px; padding: 10px 25px; margin-bottom: 10px; border: 1px solid var(--border-color); }
-        .form-label { color: var(--text-muted); font-weight: bold; margin-bottom: 2px; font-size: 0.8rem; }
-        .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.85rem; }
+        .filter-bar { background: var(--bg-card); border-radius: 8px; padding: 10px 15px; margin-bottom: 10px; border: 1px solid var(--border-color); }
+        .form-label { color: var(--text-muted); font-weight: bold; margin-bottom: 2px; font-size: 0.75rem; }
+        .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.8rem; padding: 4px 8px; }
         .form-select:focus { border-color: var(--c-cyan); box-shadow: none; }
 
         /* الكروت: منع القص وإعطاء حرية للنص */
@@ -96,7 +96,7 @@
     </nav>
 
     <div class="container-fluid px-4 mb-4">
-        <!-- شريط الفلاتر والتحكم -->
+        <!-- الفلاتر والتبديل -->
         <div class="filter-bar">
             <div class="row align-items-end g-2">
                 <div class="col-md-2"><label class="form-label">تاريخ التحديث:</label><select id="flt-date" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select></div>
@@ -108,90 +108,92 @@
             </div>
         </div>
 
-        <!-- ========================================================== -->
-        <!-- العرض المجمع (Grid Canvas) بـ التوأمة (Twin IDs) -->
-        <!-- ========================================================== -->
+        <!-- ========================================================= -->
+        <!-- العرض المجمع (Grid Canvas) بـ IDs منفصلة تبدأ بـ grid- -->
+        <!-- ========================================================= -->
         <div id="grid-dashboard">
             <div class="grid-canvas-wrapper">
                 <div class="grid-stack" id="grid-canvas">
                     
-                    <!-- شريحة 1: الماليات كروت -->
-                    <div class="grid-stack-item" id="grid-item-finance-kpi" gs-x="0" gs-y="0" gs-w="7" gs-h="4">
+                    <!-- كروت الشريحة 1 -->
+                    <div class="grid-stack-item" data-id="grid-kpis1" gs-w="5" gs-h="4" gs-x="0" gs-y="0">
                         <div class="grid-stack-item-content">
                             <div class="gs-drag-handle">🖱️ إجماليات المشاريع والأوامر</div>
-                            <div class="gs-content-body d-flex flex-column gap-2 p-2">
+                            <div class="gs-content-body d-flex flex-column gap-2">
                                 <div class="row g-2 flex-fill min-vh-0">
-                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">إجمالي المشاريع</div><div class="kpi-value text-white" id="grid-kpi-total-proj">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">التحديثات المستلمة</div><div class="kpi-value text-success" id="grid-kpi-updated-proj">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود المقاولين</div><div class="kpi-value text-info" id="grid-kpi-cont-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود الاستشاريين</div><div class="kpi-value text-info" id="grid-kpi-cons-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">المشاريع</div><div class="kpi-value text-white" id="grid-kpi-total-proj">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">المحدثة</div><div class="kpi-value text-success" id="grid-kpi-updated-proj">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقد المقاول</div><div class="kpi-value text-info" id="grid-kpi-cont-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقد استشاري</div><div class="kpi-value text-info" id="grid-kpi-cons-val">0</div></div></div>
                                 </div>
                                 <div class="row g-2 flex-fill min-vh-0">
-                                    <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">ت.مقاول (قيمة)</div><div class="kpi-value" style="color:var(--c-orange)" id="grid-kpi-cont-chg-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">ت.مقاول (عدد)</div><div class="kpi-value" style="color:var(--c-orange)" id="grid-kpi-cont-chg-cnt">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">ت.استشاري (قيمة)</div><div class="kpi-value text-warning" id="grid-kpi-cons-chg-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">ت.استشاري (عدد)</div><div class="kpi-value text-warning" id="grid-kpi-cons-chg-cnt">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">ت.مقاول (ق)</div><div class="kpi-value" style="color:var(--c-orange)" id="grid-kpi-cont-chg-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">ت.مقاول (ع)</div><div class="kpi-value" style="color:var(--c-orange)" id="grid-kpi-cont-chg-cnt">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">ت.استشاري(ق)</div><div class="kpi-value text-warning" id="grid-kpi-cons-chg-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">ت.استشاري(ع)</div><div class="kpi-value text-warning" id="grid-kpi-cons-chg-cnt">0</div></div></div>
                                 </div>
                                 <div class="row g-2 flex-fill min-vh-0">
-                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">ف.مقاول (قيمة)</div><div class="kpi-value text-success" id="grid-kpi-cont-inv-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">ف.مقاول (عدد)</div><div class="kpi-value text-success" id="grid-kpi-cont-inv-cnt">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">ف.استشاري (قيمة)</div><div class="kpi-value text-primary" id="grid-kpi-cons-inv-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">ف.استشاري (عدد)</div><div class="kpi-value text-primary" id="grid-kpi-cons-inv-cnt">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">ف.مقاول(ق)</div><div class="kpi-value text-success" id="grid-kpi-cont-inv-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">ف.مقاول(ع)</div><div class="kpi-value text-success" id="grid-kpi-cont-inv-cnt">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">ف.استشاري(ق)</div><div class="kpi-value text-primary" id="grid-kpi-cons-inv-val">0</div></div></div>
+                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">ف.استشاري(ع)</div><div class="kpi-value text-primary" id="grid-kpi-cons-inv-cnt">0</div></div></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <!-- شريحة 1: الماليات شارت -->
-                    <div class="grid-stack-item" id="grid-item-finance-chart" gs-x="7" gs-y="0" gs-w="5" gs-h="4">
+
+                    <!-- كاش فلو -->
+                    <div class="grid-stack-item" data-id="grid-cashflow" gs-w="7" gs-h="4" gs-x="5" gs-y="0">
                         <div class="grid-stack-item-content">
-                            <div class="gs-drag-handle">🖱️ التدفق النقدي للمقاولين</div>
+                            <div class="gs-drag-handle">🖱️ التدفق النقدي التراكمي للمقاولين</div>
                             <div class="gs-content-body"><div class="chart-wrapper" id="grid-cashFlowChart"></div></div>
                         </div>
                     </div>
 
-                    <!-- شريحة 2: التواريخ كروت -->
-                    <div class="grid-stack-item" id="grid-item-dates-kpi" gs-x="0" gs-y="4" gs-w="4" gs-h="4">
+                    <!-- كروت الشريحة 2 -->
+                    <div class="grid-stack-item" data-id="grid-kpis2" gs-w="4" gs-h="4" gs-x="0" gs-y="4">
                         <div class="grid-stack-item-content">
                             <div class="gs-drag-handle">🖱️ التواريخ والتمديدات</div>
-                            <div class="gs-content-body d-flex flex-column gap-2 p-2">
+                            <div class="gs-content-body d-flex flex-column gap-2">
                                 <div class="row g-2 flex-fill min-vh-0">
-                                    <div class="col-12"><div class="kpi-card border-t-blue"><div class="kpi-title">أقل بداية تعاقدية للمشاريع</div><div class="kpi-value fs-5 text-white" id="grid-kpi-min-start-c">-</div></div></div>
-                                    <div class="col-12"><div class="kpi-card border-t-cyan"><div class="kpi-title">أكبر نهاية تعاقدية للمشاريع</div><div class="kpi-value fs-5 text-white" id="grid-kpi-max-end-c">-</div></div></div>
+                                    <div class="col-6"><div class="kpi-card border-t-blue"><div class="kpi-title">أقل بداية تعاقدية</div><div class="kpi-value fs-6 text-white" id="grid-kpi-min-start-c">-</div></div></div>
+                                    <div class="col-6"><div class="kpi-card border-t-cyan"><div class="kpi-title">أكبر نهاية تعاقدية</div><div class="kpi-value fs-6 text-white" id="grid-kpi-max-end-c">-</div></div></div>
                                 </div>
                                 <div class="row g-2 flex-fill min-vh-0">
                                     <div class="col-6"><div class="kpi-card border-t-orange"><div class="kpi-title">أقل بداية فعلية</div><div class="kpi-value fs-6 text-white" id="grid-kpi-min-start-a">-</div></div></div>
                                     <div class="col-6"><div class="kpi-card border-t-orange"><div class="kpi-title">أكبر نهاية متوقعة</div><div class="kpi-value fs-6 text-white" id="grid-kpi-max-end-e">-</div></div></div>
                                 </div>
                                 <div class="row g-2 flex-fill min-vh-0">
-                                    <div class="col-6"><div class="kpi-card border-t-red"><div class="kpi-title">تمديدات مقاولين</div><div class="kpi-value fs-5 text-danger" id="grid-kpi-ext-time-cont">0 <span class="fs-6">يوم</span></div></div></div>
-                                    <div class="col-6"><div class="kpi-card border-t-yellow"><div class="kpi-title">تمديدات استشاريين</div><div class="kpi-value fs-5 text-warning" id="grid-kpi-ext-time-cons">0 <span class="fs-6">يوم</span></div></div></div>
+                                    <div class="col-6"><div class="kpi-card border-t-red"><div class="kpi-title">تمديدات مقاولين</div><div class="kpi-value fs-5 text-danger" id="grid-kpi-ext-time-cont">0</div></div></div>
+                                    <div class="col-6"><div class="kpi-card border-t-yellow"><div class="kpi-title">تمديدات استشاريين</div><div class="kpi-value fs-5 text-warning" id="grid-kpi-ext-time-cons">0</div></div></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="grid-stack-item" id="grid-item-elapsed" gs-x="4" gs-y="4" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ المدة المنقضية</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-elapsedChart"></div></div></div></div>
-                    <div class="grid-stack-item" id="grid-item-timeperf" gs-x="8" gs-y="4" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ أداء البرنامج</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-timePerfChart"></div></div></div></div>
 
-                    <!-- شريحة 3: الإنجاز -->
-                    <div class="grid-stack-item" id="grid-item-spi" gs-x="0" gs-y="8" gs-w="3" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ مؤشر SPI العام</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-spiGauge"></div></div></div></div>
-                    <div class="grid-stack-item" id="grid-item-bar" gs-x="3" gs-y="8" gs-w="9" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ نسب الإنجاز للمشاريع</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-barChart"></div></div></div></div>
-                    <div class="grid-stack-item" id="grid-item-scurve" gs-x="0" gs-y="12" gs-w="6" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ S-Curve الأسبوعي</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-sCurveChart"></div></div></div></div>
-                    <div class="grid-stack-item" id="grid-item-spitrend" gs-x="6" gs-y="12" gs-w="6" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ تطور SPI أسبوعياً</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-spiTrendChart"></div></div></div></div>
+                    <!-- باقي الشارتس -->
+                    <div class="grid-stack-item" data-id="grid-elapsed" gs-w="4" gs-h="4" gs-x="4" gs-y="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ المدة المنقضية</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-elapsedChart"></div></div></div></div>
+                    <div class="grid-stack-item" data-id="grid-timeperf" gs-w="4" gs-h="4" gs-x="8" gs-y="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ أداء البرنامج الزمني</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-timePerfChart"></div></div></div></div>
+                    
+                    <div class="grid-stack-item" data-id="grid-spi" gs-w="3" gs-h="4" gs-x="0" gs-y="8"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ مؤشر SPI</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-spiGauge"></div></div></div></div>
+                    <div class="grid-stack-item" data-id="grid-bar" gs-w="9" gs-h="4" gs-x="3" gs-y="8"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ نسب الإنجاز للمشاريع</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-barChart"></div></div></div></div>
+                    
+                    <div class="grid-stack-item" data-id="grid-scurve" gs-w="6" gs-h="4" gs-x="0" gs-y="12"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ S-Curve</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-sCurveChart"></div></div></div></div>
+                    <div class="grid-stack-item" data-id="grid-spitrend" gs-w="6" gs-h="4" gs-x="6" gs-y="12"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ تطور SPI</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-spiTrendChart"></div></div></div></div>
 
-                    <!-- شريحة 4: الجودة -->
-                    <div class="grid-stack-item" id="grid-item-dr" gs-x="0" gs-y="16" gs-w="3" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ المخططات والرسومات <span id="grid-dr-total-lbl" class="text-warning mx-1">0</span></div><div class="gs-content-body"><div class="chart-wrapper" id="grid-drawingsChart"></div></div></div></div>
-                    <div class="grid-stack-item" id="grid-item-ir" gs-x="3" gs-y="16" gs-w="3" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ طلبات الاستلام <span id="grid-ir-total-lbl" class="text-warning mx-1">0</span></div><div class="gs-content-body"><div class="chart-wrapper" id="grid-irChart"></div></div></div></div>
-                    <div class="grid-stack-item" id="grid-item-ncr" gs-x="6" gs-y="16" gs-w="3" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ مخالفات الجودة <span id="grid-ncr-total-lbl" class="text-warning mx-1">0</span></div><div class="gs-content-body"><div class="chart-wrapper" id="grid-ncrChart"></div></div></div></div>
-                    <div class="grid-stack-item" id="grid-item-radar" gs-x="9" gs-y="16" gs-w="3" gs-h="4"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ التقييم الفني</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-radarChart"></div></div></div></div>
+                    <div class="grid-stack-item" data-id="grid-dr" gs-w="3" gs-h="4" gs-x="0" gs-y="16"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ الرسومات <span id="grid-dr-total-lbl" class="text-warning">0</span></div><div class="gs-content-body"><div class="chart-wrapper" id="grid-drawingsChart"></div></div></div></div>
+                    <div class="grid-stack-item" data-id="grid-ir" gs-w="3" gs-h="4" gs-x="3" gs-y="16"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ الاستلام <span id="grid-ir-total-lbl" class="text-warning">0</span></div><div class="gs-content-body"><div class="chart-wrapper" id="grid-irChart"></div></div></div></div>
+                    <div class="grid-stack-item" data-id="grid-ncr" gs-w="3" gs-h="4" gs-x="6" gs-y="16"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ المخالفات <span id="grid-ncr-total-lbl" class="text-warning">0</span></div><div class="gs-content-body"><div class="chart-wrapper" id="grid-ncrChart"></div></div></div></div>
+                    <div class="grid-stack-item" data-id="grid-radar" gs-w="3" gs-h="4" gs-x="9" gs-y="16"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ التقييم الفني</div><div class="gs-content-body"><div class="chart-wrapper" id="grid-radarChart"></div></div></div></div>
 
-                    <!-- شريحة 5: الجداول -->
-                    <div class="grid-stack-item" id="grid-item-table1" gs-x="0" gs-y="20" gs-w="8" gs-h="6"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ تفاصيل التباين</div><div class="gs-content-body p-0"><table class="table table-sm table-hover table-bordered text-center m-0"><thead style="position: sticky; top: 0; z-index: 1;"><tr><th rowspan="2">المشروع</th><th colspan="3">مخطط (%)</th><th colspan="3">فعلي (%)</th><th rowspan="2">SPI</th></tr><tr><th>سابق</th><th>حالي</th><th>التباين</th><th>سابق</th><th>حالي</th><th>التباين</th></tr></thead><tbody id="grid-progress-table-body"></tbody></table></div></div></div>
-                    <div class="grid-stack-item" id="grid-item-table2" gs-x="8" gs-y="20" gs-w="4" gs-h="6"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ أبرز المعوقات</div><div class="gs-content-body p-0"><table class="table table-sm table-striped m-0 text-center"><thead class="table-light"><tr><th>المشروع</th><th>العائق</th><th>التأثير</th></tr></thead><tbody id="grid-obstacles-table-body"></tbody></table></div></div></div>
+                    <!-- الجداول -->
+                    <div class="grid-stack-item" data-id="grid-table1" gs-w="8" gs-h="6" gs-x="0" gs-y="20"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ التباين</div><div class="gs-content-body p-0"><table class="table table-sm table-hover table-bordered text-center m-0"><thead style="position: sticky; top: 0; z-index: 1;"><tr><th rowspan="2">المشروع</th><th colspan="3">مخطط (%)</th><th colspan="3">فعلي (%)</th><th rowspan="2">SPI</th></tr><tr><th>سابق</th><th>حالي</th><th>التباين</th><th>سابق</th><th>حالي</th><th>التباين</th></tr></thead><tbody id="grid-progress-table-body"></tbody></table></div></div></div>
+                    <div class="grid-stack-item" data-id="grid-table2" gs-w="4" gs-h="6" gs-x="8" gs-y="20"><div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ المعوقات</div><div class="gs-content-body p-0"><table class="table table-sm table-striped m-0 text-center"><thead class="table-light"><tr><th>المشروع</th><th>العائق</th><th>التأثير</th></tr></thead><tbody id="grid-obstacles-table-body"></tbody></table></div></div></div>
 
                 </div>
             </div>
             
-            <!-- لوحة الخصائص الجانبية -->
+            <!-- اللوحة الجانبية -->
             <div class="sidebar-panel">
                 <div class="toolbar-btns">
                     <button class="btn btn-outline-light" onclick="addCustomWidget('text')">➕ إضافة نص</button>
@@ -202,8 +204,8 @@
                 <div id="widget-settings">
                     <h5 class="text-info text-center" id="prop-title">خصائص العنصر</h5>
                     <div class="prop-row">
-                        <div class="prop-group"><label>X (أفقي)</label><input type="number" id="prop-x" class="prop-input" onchange="updateGridFromSidebar()"></div>
-                        <div class="prop-group"><label>Y (رأسي)</label><input type="number" id="prop-y" class="prop-input" onchange="updateGridFromSidebar()"></div>
+                        <div class="prop-group"><label>المكان X</label><input type="number" id="prop-x" class="prop-input" onchange="updateGridFromSidebar()"></div>
+                        <div class="prop-group"><label>المكان Y</label><input type="number" id="prop-y" class="prop-input" onchange="updateGridFromSidebar()"></div>
                     </div>
                     <div class="prop-row">
                         <div class="prop-group"><label>العرض (W)</label><input type="number" id="prop-w" class="prop-input" onchange="updateGridFromSidebar()"></div>
@@ -227,7 +229,7 @@
         </div>
 
         <!-- ========================================================== -->
-        <!-- العرض الافتراضي للشرائح (Carousel) - نسخة 5 الأصلية 100% -->
+        <!-- العرض الافتراضي للشرائح (Carousel) -->
         <!-- ========================================================== -->
         <div id="carousel-dashboard">
             <div id="dashboardCarousel" class="carousel slide">
@@ -241,7 +243,7 @@
 
                 <div class="carousel-inner bg-transparent">
                     
-                    <!-- شريحة 1: الماليات -->
+                    <!-- الشريحة 1: الماليات -->
                     <div class="carousel-item active">
                         <div class="slide-container">
                             <div class="slide-header">💰 الماليات والعقود (تراكمي)</div>
@@ -411,6 +413,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // ==========================================
+        // 1. المتغيرات والتهيئة
+        // ==========================================
         let rawData = [];
         let totalUsersFromDB = 33; 
         
@@ -442,7 +447,7 @@
                 document.getElementById('dashboardCarousel').addEventListener('slid.bs.carousel', () => { window.dispatchEvent(new Event('resize')); });
             }
 
-            // بنرسم الشارتس للنسختين في الخلفية
+            // رسم كل الشارتس (التوأمة: بيترسموا للسلايدر وبيترسموا للمجمع في نفس الوقت بأمان)
             initAllChartsTwin();
 
             // جلب الداتا وتوزيعها
@@ -493,7 +498,7 @@
                     if (node.id && node.id.startsWith('custom-')) {
                         createCustomWidgetFromNode(node);
                     } else if (node.id) {
-                        let el = document.getElementById(node.id);
+                        let el = document.querySelector(`[data-id="${node.id}"]`);
                         if(el) gridStack.update(el, {x: node.x, y: node.y, w: node.w, h: node.h});
                     }
                 });
@@ -516,16 +521,16 @@
             let layout = [];
             gridStack.getGridItems().forEach(item => {
                 let node = item.gridstackNode;
-                let id = item.id;
-                let data = { id: id, x: node.x, y: node.y, w: node.w, h: node.h };
-                if (id && id.startsWith('custom-text')) {
+                let id = item.getAttribute('data-id');
+                let customData = {};
+                if(id && id.startsWith('custom-text')) {
                     let txt = item.querySelector('.custom-widget-text');
-                    data.text = txt.value; data.color = txt.style.color; data.size = txt.style.fontSize;
-                } else if (id && id.startsWith('custom-line')) {
+                    customData = { text: txt.value, color: txt.style.color, size: txt.style.fontSize };
+                } else if(id && id.startsWith('custom-line')) {
                     let hr = item.querySelector('hr');
-                    data.color = hr.style.borderColor; data.size = hr.style.borderWidth;
+                    customData = { color: hr.style.borderColor, size: hr.style.borderWidth };
                 }
-                layout.push(data);
+                layout.push({ x: node.x, y: node.y, w: node.w, h: node.h, id: id, ...customData });
             });
             localStorage.setItem('grid_layout_data', JSON.stringify(layout));
         }
@@ -547,11 +552,12 @@
         function populatePropertyPanel(element) {
             document.getElementById('no-widget-msg').style.display = 'none';
             document.getElementById('widget-settings').style.display = 'block';
+            
             let node = element.gridstackNode;
             document.getElementById('prop-x').value = node.x; document.getElementById('prop-y').value = node.y;
             document.getElementById('prop-w').value = node.w; document.getElementById('prop-h').value = node.h;
 
-            let id = element.id;
+            let id = element.getAttribute('data-id');
             document.getElementById('prop-title').innerText = id.startsWith('custom-') ? 'عنصر مخصص' : 'مؤشر داشبورد';
             
             if(id.startsWith('custom-')) {
@@ -583,7 +589,7 @@
         function updateCustomStyle() {
             if(!selectedWidget) return;
             let color = document.getElementById('prop-color').value, size = document.getElementById('prop-size').value;
-            let id = selectedWidget.id;
+            let id = selectedWidget.getAttribute('data-id');
             if(id.includes('text')) {
                 let txt = selectedWidget.querySelector('.custom-widget-text');
                 txt.style.color = color; txt.style.fontSize = size + 'px';
@@ -603,20 +609,20 @@
 
         function addCustomWidget(type) {
             let id = `custom-${type}-${Date.now()}`;
-            createCustomWidgetFromNode({ id: id, x: 0, y: 0, w: 12, h: type==='text'?2:1, text: '', color: '#0dcaf0', size: type==='text'?'24px':'2px' }, true);
+            createCustomWidgetFromNode({ id: id, x: 0, y: 0, w: 12, h: type==='text'?2:1, text: '', color: '#0dcaf0', size: type==='text'?'24px':'2px' });
         }
 
-        function createCustomWidgetFromNode(node, isNew = false) {
+        function createCustomWidgetFromNode(node) {
             let innerHtml = '';
             if (node.id.includes('text')) innerHtml = `<textarea class="custom-widget-text" style="color:${node.color || '#fff'}; font-size:${node.size || '24px'}" placeholder="اكتب العنوان هنا...">${node.text || ''}</textarea>`;
             else if (node.id.includes('line')) innerHtml = `<div class="custom-widget-line"><hr style="border-color:${node.color || '#0dcaf0'}; border-width:${node.size || '2px'}; border-style:solid; width:100%;"></div>`;
             
             let gridItem = document.createElement('div');
-            gridItem.className = 'grid-stack-item'; gridItem.id = node.id;
+            gridItem.className = 'grid-stack-item'; gridItem.setAttribute('data-id', node.id);
             gridItem.innerHTML = `<div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ عنصر مخصص</div><div class="gs-content-body">${innerHtml}</div></div>`;
             
             let options = { w: node.w, h: node.h, x: node.x, y: node.y };
-            if(isNew) options.autoPosition = true;
+            if(node.x === undefined) options.autoPosition = true;
             
             gridStack.addWidget(gridItem, options);
             gridItem.addEventListener('click', function() { selectWidget(this); });
@@ -630,21 +636,24 @@
         }
 
         // ==========================================
-        // 4. رسم الرسوم البيانية في النسختين (Twin Rendering)
+        // 4. رسم الشارتس للنسختين معاً (Twin Rendering) مع إضافة series للمخططات الفارغة
         // ==========================================
         function initAllChartsTwin() {
             const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI', width: '100%', height: '100%' } };
             
-            const renderChart = (baseId, type, config) => {
-                // رسم الخاص بالسلايدر
-                let elCarousel = document.getElementById(baseId);
-                if(elCarousel) { charts.carousel[baseId] = new ApexCharts(elCarousel, { ...darkOpts, chart: { type: type, ...darkOpts.chart }, ...config }); charts.carousel[baseId].render(); }
-                // رسم الخاص بالمجمع
-                let elGrid = document.getElementById('grid-' + baseId);
-                if(elGrid) { charts.grid[baseId] = new ApexCharts(elGrid, { ...darkOpts, chart: { type: type, ...darkOpts.chart }, ...config }); charts.grid[baseId].render(); }
+            // دالة ترسم الشارت في السلايدر وفي الشبكة المجمعة مع بعض
+            const renderTwin = (baseId, type, config) => {
+                charts.carousel[baseId] = null;
+                charts.grid[baseId] = null;
+                
+                let el1 = document.getElementById(baseId);
+                if(el1) { charts.carousel[baseId] = new ApexCharts(el1, { ...darkOpts, chart: { type: type, ...darkOpts.chart }, ...config }); charts.carousel[baseId].render(); }
+                
+                let el2 = document.getElementById("grid-" + baseId);
+                if(el2) { charts.grid[baseId] = new ApexCharts(el2, { ...darkOpts, chart: { type: type, ...darkOpts.chart }, ...config }); charts.grid[baseId].render(); }
             }
 
-            renderChart("cashFlowChart", 'bar', {
+            renderTwin("cashFlowChart", 'bar', {
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } },
                 colors: ['#0dcaf0', '#ffc107'], plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
@@ -652,30 +661,31 @@
                 grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
             });
 
-            renderChart("elapsedChart", 'donut', {
+            renderTwin("elapsedChart", 'donut', {
                 series: [], labels: ['المدة المنقضية', 'المدة المتبقية'],
                 colors: ['#0dcaf0', '#ffc107'], stroke: { show: false }, legend: { position: 'bottom' }, dataLabels: { formatter: val => val.toFixed(1) + "%" }
             });
 
-            renderChart("timePerfChart", 'donut', {
+            renderTwin("timePerfChart", 'donut', {
                 series: [], labels: ['متقدم', 'متوافق', 'متأخر'],
                 colors: ['#0dcaf0', '#198754', '#dc3545'], stroke: { show: false }, legend: { position: 'bottom' }, dataLabels: { formatter: val => val.toFixed(1) + "%" }
             });
 
-            renderChart("spiGauge", 'radialBar', {
+            renderTwin("spiGauge", 'radialBar', {
                 series: [0],
                 plotOptions: { radialBar: { startAngle: -120, endAngle: 120, hollow: { size: '65%' }, track: { background: '#444857' }, dataLabels: { name: { show: false }, value: { fontSize: '30px', fontWeight: 'bold', color: '#fff', formatter: val => (val/100).toFixed(2), offsetY: 10 } } } },
                 stroke: { lineCap: 'round' }, colors: ['#fd7e14']
             });
 
-            renderChart("barChart", 'bar', {
-                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '10px' }, hideOverlappingLabels: false, rotate: -45, trim: true, maxHeight: 70 } }, 
+            renderTwin("barChart", 'bar', {
+                series: [], 
+                xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '10px' }, hideOverlappingLabels: false, rotate: -45, trim: true, maxHeight: 70 } }, 
                 yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, colors: ['#0dcaf0', '#198754'],
                 plotOptions: { bar: { dataLabels: { position: 'top' } } }, 
                 dataLabels: { enabled: true, offsetY: -15, formatter: val => val + "%", style: { fontSize: '10px', colors: ['#fff'] } }, grid: { borderColor: '#444857' }
             });
 
-            renderChart("sCurveChart", 'bar', {
+            renderTwin("sCurveChart", 'bar', {
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } },
                 colors: ['#0dcaf0', '#ffc107'], plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
@@ -683,18 +693,18 @@
                 grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
             });
 
-            renderChart("spiTrendChart", 'area', {
+            renderTwin("spiTrendChart", 'area', {
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(2) } }, colors: ['#0dcaf0'],
                 dataLabels: { enabled: true, formatter: val => val.toFixed(2), offsetY: -5, style: { fontSize: '10px' } }, stroke: { curve: 'smooth', width: 2 }, fill: { opacity: 0.3 }, grid: { borderColor: '#444857' }
             });
 
-            const qcOpts = { plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '10px', colors: ['#fff'] }, formatter: val => val > 0 ? val : "" }, xaxis: { categories: ['الإجمالي'], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } }, yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(0) } }, grid: { borderColor: '#444857' }, legend: { fontSize: '9px', markers: { width: 8, height: 8 } } };
-            renderChart("drawingsChart", 'bar', { ...qcOpts, colors: ['#0dcaf0', '#198754', '#ffc107'] });
-            renderChart("irChart", 'bar', { ...qcOpts, colors: ['#0dcaf0', '#198754', '#ffc107'] });
-            renderChart("ncrChart", 'bar', { ...qcOpts, colors: ['#dc3545', '#198754'] });
+            const qcOpts = { series: [], plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '10px', colors: ['#fff'] }, formatter: val => val > 0 ? val : "" }, xaxis: { categories: ['الإجمالي'], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } }, yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(0) } }, grid: { borderColor: '#444857' }, legend: { fontSize: '9px', markers: { width: 8, height: 8 } } };
+            renderTwin("drawingsChart", 'bar', { ...qcOpts, colors: ['#0dcaf0', '#198754', '#ffc107'] });
+            renderTwin("irChart", 'bar', { ...qcOpts, colors: ['#0dcaf0', '#198754', '#ffc107'] });
+            renderTwin("ncrChart", 'bar', { ...qcOpts, colors: ['#dc3545', '#198754'] });
 
-            renderChart("radarChart", 'radar', {
+            renderTwin("radarChart", 'radar', {
                 series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
                 stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 3 },
                 dataLabels: { enabled: true, style: { fontSize: '9px', colors: ['#fff'] }, background: { enabled: true, foreColor: '#1e1e24', borderRadius: 2, padding: 3, borderWidth: 0 } },
@@ -703,7 +713,7 @@
         }
 
         // ==========================================
-        // 5. ضخ البيانات في النسختين معاً (Twin Data Binding)
+        // 6. ضخ البيانات في النسختين معاً (Twin Data Binding)
         // ==========================================
         function updateTwinChart(baseId, method, payload) {
             if(charts.carousel[baseId]) { try { charts.carousel[baseId][method](payload); } catch(e){} }
