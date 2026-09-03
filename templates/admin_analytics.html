@@ -2,54 +2,86 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>لوحة التحكم | المؤشرات التفاعلية</title>
+    <title>لوحة التحكم | المؤشرات التفاعلية المتقدمة</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    
     <style>
         :root {
             --bg-main: #1e1e24; --bg-card: #2b2d35; --bg-navbar: #15161a;
             --text-main: #f8f9fa; --text-muted: #adb5bd; --border-color: #444857;
-            --c-cyan: #0dcaf0; --c-orange: #fd7e14; --c-green: #198754;
-            --c-red: #dc3545; --c-blue: #0d6efd; --c-yellow: #ffc107;
+            --c-cyan: #0dcaf0; --c-orange: #fd7e14; --c-green: #198754; --c-red: #dc3545; --c-yellow: #ffc107;
         }
 
-        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; overflow-x: hidden; }
         .navbar { background-color: var(--bg-navbar) !important; border-bottom: 2px solid var(--border-color); margin-bottom: 10px !important; }
         
-        .filter-bar { background: var(--bg-card); border-radius: 8px; padding: 10px 25px; margin-bottom: 10px; border: 1px solid var(--border-color); }
-        .form-label { color: var(--text-muted); font-weight: bold; margin-bottom: 2px; font-size: 0.8rem; }
-        .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.85rem; }
-        .form-select:focus { background-color: var(--bg-main); color: var(--text-main); border-color: var(--c-cyan); box-shadow: 0 0 0 .25rem rgba(13, 202, 240, .25); }
-        
-        .kpi-card { background: var(--bg-card); border-radius: 8px; padding: 5px 10px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: center; border-top: 4px solid #6c757d; }
-        .kpi-title { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; }
-        .kpi-value { font-size: 1.15rem; font-weight: bold; margin: 0; }
-        .border-t-cyan { border-top-color: var(--c-cyan); } .border-t-orange { border-top-color: var(--c-orange); }
-        .border-t-green { border-top-color: var(--c-green); } .border-t-red { border-top-color: var(--c-red); }
-        .border-t-blue { border-top-color: var(--c-blue); } .border-t-yellow { border-top-color: var(--c-yellow); }
+        .filter-bar { background: var(--bg-card); border-radius: 8px; padding: 10px 15px; margin-bottom: 10px; border: 1px solid var(--border-color); }
+        .form-label { color: var(--text-muted); font-weight: bold; margin-bottom: 2px; font-size: 0.75rem; }
+        .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.8rem; padding: 4px 8px; }
+        .form-select:focus { border-color: var(--c-cyan); box-shadow: none; }
+
+        /* تعديل الكروت لمنع القص والسماح بالتمدد (Flex Wrap & Normal White Space) */
+        .kpi-card { background: var(--bg-card); border-radius: 6px; padding: 8px 4px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-top: 3px solid #6c757d; min-height: 0; }
+        .kpi-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; line-height: 1.2; font-weight: bold; width: 100%; white-space: normal; overflow: visible; word-wrap: break-word; }
+        .kpi-value { font-size: 1.1rem; font-weight: bold; margin: 0; line-height: 1.1; }
+        .border-t-cyan { border-top-color: var(--c-cyan); } .border-t-orange { border-top-color: var(--c-orange); } .border-t-green { border-top-color: var(--c-green); } .border-t-red { border-top-color: var(--c-red); } .border-t-blue { border-top-color: var(--c-blue); } .border-t-yellow { border-top-color: var(--c-yellow); }
 
         .table { --bs-table-bg: transparent; --bs-table-color: var(--text-main); --bs-table-border-color: var(--border-color); margin-bottom: 0; font-size: 0.75rem; }
-        .table thead th { background-color: #363945 !important; color: #fff !important; font-weight: bold; border-bottom: 2px solid var(--border-color); padding: 6px; }
-        .table td, .table th { border-color: var(--border-color); vertical-align: middle; color: var(--text-main); padding: 6px; }
-        .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(255, 255, 255, 0.02); }
-        .table-hover > tbody > tr:hover > * { background-color: #3f4250; }
+        .table thead th { background-color: #363945 !important; color: #fff !important; font-weight: bold; border-bottom: 2px solid var(--border-color); padding: 4px; }
+        .table td, .table th { border-color: var(--border-color); vertical-align: middle; color: var(--text-main); padding: 4px; }
 
-        .carousel-inner { height: 600px; overflow: hidden; }
-        .slide-container { padding: 0 50px; height: 100%; width: 100%; }
-        .slide-header { font-size: 1.1rem; color: var(--text-main); font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
-        .slide-layout { height: 500px; } 
+        /* الشرائح (Carousel Mode) */
+        .carousel-inner { min-height: 600px; overflow: visible; }
+        .slide-container { padding: 0 40px; height: 100%; width: 100%; display: flex; flex-direction: column; }
+        .slide-header { font-size: 1.1rem; color: var(--text-main); font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+        .slide-layout { flex: 1; min-height: 500px; } 
         
-        .chart-box { background: var(--bg-card); border-radius: 8px; padding: 10px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .chart-box { background: var(--bg-card); border-radius: 8px; padding: 10px; border: 1px solid var(--border-color); display: flex; flex-direction: column; height: 100%; width: 100%; }
         .chart-title { font-size: 0.85rem; font-weight: bold; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; margin-bottom: 5px; text-align: center; }
-        .chart-wrapper { flex: 1; min-height: 0; position: relative; } 
+        .chart-wrapper { flex: 1; min-height: 0; position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; } 
         .half-height { height: calc(50% - 0.5rem); } 
 
         .carousel-control-prev, .carousel-control-next { width: 40px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; z-index: 5; margin: 0 5px; }
-        .carousel-indicators { bottom: -10px; margin-bottom: 0; }
+        .carousel-indicators { bottom: -20px; margin-bottom: 0; }
         .carousel-indicators [data-bs-target] { background-color: var(--text-muted); width: 30px; height: 4px; }
         .carousel-indicators .active { background-color: var(--c-cyan); }
-        .badge-impact-كبير { background-color: var(--c-red); color: white; }
-        .badge-impact-متوسط { background-color: var(--c-orange); color: white; }
+
+        /* العرض المجمع (Grid Builder Mode) */
+        .grid-view-active #carousel-wrapper { display: none !important; }
+        .grid-view-active #builder-wrapper { display: flex !important; }
+        .grid-view-active body { overflow-y: auto; background-image: radial-gradient(circle, #444857 1px, transparent 1px); background-size: 20px 20px; }
+        .grid-view-active .chart-box { border: none !important; padding: 0 !important; background: transparent !important; }
+
+        #builder-wrapper { display: none; padding: 10px; gap: 15px; align-items: flex-start; }
+        .grid-container { flex: 1; min-height: 800px; border: 2px dashed var(--border-color); border-radius: 10px; padding: 10px; background: rgba(30, 30, 36, 0.8); }
+        .grid-stack-item-content { background: var(--bg-card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        
+        .gs-drag-handle { background: #363945; color: #fff; padding: 4px; font-size: 0.75rem; text-align: center; cursor: grab; font-weight: bold; border-bottom: 1px solid var(--border-color); }
+        .gs-drag-handle:active { cursor: grabbing; }
+        .gs-content-body { flex: 1; min-height: 0; padding: 8px; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .grid-stack-item.ui-draggable-dragging .grid-stack-item-content { opacity: 0.9; border: 2px dashed var(--c-cyan); }
+        .grid-stack-item.selected-widget .grid-stack-item-content { border: 2px solid var(--c-orange); box-shadow: 0 0 10px rgba(253, 126, 20, 0.5); }
+
+        .custom-widget-text { width: 100%; height: 100%; outline: none; border: none; background: transparent; color: #fff; font-size: 1.5rem; font-weight: bold; resize: none; text-align: center; display: flex; align-items: center; justify-content: center; }
+        .custom-widget-line { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+        .custom-widget-line hr { margin: 0; width: 100%; border: none; }
+
+        /* اللوحة الجانبية (Properties Panel) */
+        .prop-panel { width: 260px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color); padding: 12px; position: sticky; top: 10px; box-shadow: -5px 0 15px rgba(0,0,0,0.5); z-index: 100; }
+        .prop-panel h5 { font-size: 0.9rem; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 12px; }
+        .prop-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .prop-group { flex: 1; }
+        .prop-group label { display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; }
+        .prop-input { width: 100%; background: var(--bg-main); color: #fff; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px; font-size: 0.8rem; text-align: center; }
+        .prop-input:focus { border-color: var(--c-orange); outline: none; }
+        
+        .toolbar-btns { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+        .toolbar-btns button { flex: 1 1 45%; font-size: 0.75rem; padding: 5px; }
+        #widget-settings { display: none; }
     </style>
 </head>
 <body>
@@ -63,350 +95,600 @@
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-directory">دليل المديرين</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-gallery">المعرض المرئي</a></li>
                 </ul>
-                <div class="d-flex"><a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a></div>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid px-4">
+    <div class="container-fluid px-4 mb-4">
+        <!-- شريط الفلاتر -->
         <div class="filter-bar">
             <div class="row align-items-end g-2">
-                <div class="col-md-3">
-                    <label class="form-label">تاريخ التحديث (اللقطة الحالية):</label>
-                    <select id="flt-date" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select>
+                <div class="col-md-2">
+                    <label class="form-label">تاريخ التحديث:</label>
+                    <select id="flt-date" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">مدير المشروع:</label>
-                    <select id="flt-pm" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select>
+                    <select id="flt-pm" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">نوع المشروع:</label>
-                    <select id="flt-type" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select>
+                    <select id="flt-type" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">المشروع:</label>
-                    <select id="flt-project" class="form-select form-select-sm" onchange="applyFilters()"><option value="">الكل</option></select>
+                    <select id="flt-project" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
-                <div class="col-md-1 text-end">
-                    <button id="toggleCarouselBtn" class="btn btn-outline-info btn-sm fw-bold w-100 h-100">⏸ إيقاف</button>
+                <div class="col-md-2 text-end">
+                    <button id="toggleViewBtn" class="btn btn-warning btn-sm fw-bold w-100 h-100">🔲 تفعيل العرض المجمع</button>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button id="toggleCarouselBtn" class="btn btn-outline-info btn-sm fw-bold w-100 h-100">⏸ إيقاف الشرائح</button>
                 </div>
             </div>
         </div>
 
-        <div id="dashboardCarousel" class="carousel slide">
-            <div class="carousel-indicators">
-                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="0" class="active"></button>
-                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="1"></button>
-                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="2"></button>
-                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="3"></button>
-                <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="4"></button>
+        <!-- العرض المجمع (Grid Canvas) -->
+        <div id="builder-wrapper">
+            <div class="grid-container">
+                <div class="grid-stack" id="grid-canvas"></div>
             </div>
-
-            <div class="carousel-inner bg-transparent">
+            
+            <div class="prop-panel">
+                <div class="toolbar-btns">
+                    <button class="btn btn-outline-light" onclick="addCustomWidget('text')">➕ نص</button>
+                    <button class="btn btn-outline-light" onclick="addCustomWidget('line')">➕ خط</button>
+                    <button class="btn btn-outline-danger w-100 mt-1" onclick="resetGrid()">🔄 استعادة الافتراضي</button>
+                </div>
                 
-                <!-- الشريحة 1: الماليات -->
-                <div class="carousel-item active">
-                    <div class="slide-container">
-                        <div class="slide-header">💰 الماليات والعقود (تراكمي)</div>
-                        <div class="row g-3 slide-layout">
-                            <div class="col-md-7 h-100 d-flex flex-column gap-2">
-                                <div class="row g-2 flex-fill">
-                                    <!-- كروت المشاريع والتحديثات -->
-                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">إجمالي المشاريع</div><div class="kpi-value text-white" id="kpi-total-proj">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">التحديثات المستلمة</div><div class="kpi-value text-success" id="kpi-updated-proj">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود المقاولين</div><div class="kpi-value text-info" id="kpi-cont-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود الاستشاريين</div><div class="kpi-value text-info" id="kpi-cons-val">0</div></div></div>
-                                </div>
-                                <div class="row g-2 flex-fill">
-                                    <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">تغيير المقاول (قيمة)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">تغيير المقاول (عدد)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-cnt">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">تغيير الاستشاري (قيمة)</div><div class="kpi-value text-warning" id="kpi-cons-chg-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">تغيير الاستشاري (عدد)</div><div class="kpi-value text-warning" id="kpi-cons-chg-cnt">0</div></div></div>
-                                </div>
-                                <div class="row g-2 flex-fill">
-                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">فواتير المقاول (قيمة)</div><div class="kpi-value text-success" id="kpi-cont-inv-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">فواتير المقاول (عدد)</div><div class="kpi-value text-success" id="kpi-cont-inv-cnt">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">فواتير الاستشاري (قيمة)</div><div class="kpi-value text-primary" id="kpi-cons-inv-val">0</div></div></div>
-                                    <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">فواتير الاستشاري (عدد)</div><div class="kpi-value text-primary" id="kpi-cons-inv-cnt">0</div></div></div>
-                                </div>
-                            </div>
-                            <div class="col-md-5 h-100">
-                                <div class="chart-box h-100">
-                                    <div class="chart-title">التدفق النقدي التراكمي (Cash Flow) للمقاولين</div>
-                                    <div class="chart-wrapper" id="cashFlowChart"></div>
-                                </div>
-                            </div>
+                <div id="widget-settings">
+                    <h5 class="text-info text-center" id="prop-title">خصائص العنصر</h5>
+                    <div class="prop-row">
+                        <div class="prop-group"><label>X (أفقي)</label><input type="number" id="prop-x" class="prop-input" onchange="updateGridItem()"></div>
+                        <div class="prop-group"><label>Y (رأسي)</label><input type="number" id="prop-y" class="prop-input" onchange="updateGridItem()"></div>
+                    </div>
+                    <div class="prop-row">
+                        <div class="prop-group"><label>العرض (W)</label><input type="number" id="prop-w" class="prop-input" onchange="updateGridItem()"></div>
+                        <div class="prop-group"><label>الطول (H)</label><input type="number" id="prop-h" class="prop-input" onchange="updateGridItem()"></div>
+                    </div>
+                    
+                    <div id="custom-styling-opts" style="display:none; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                        <div class="prop-group mb-2">
+                            <label>اللون (Color)</label>
+                            <input type="color" id="prop-color" class="prop-input w-100" style="padding:0; height:25px;" onchange="updateCustomStyle()">
+                        </div>
+                        <div class="prop-group" id="thickness-group">
+                            <label>السماكة / الحجم</label>
+                            <input type="number" id="prop-size" class="prop-input" value="2" onchange="updateCustomStyle()">
                         </div>
                     </div>
+                    <button class="btn btn-danger btn-sm w-100 mt-2" id="delete-widget-btn" onclick="deleteSelectedWidget()" style="display:none;">🗑️ حذف العنصر</button>
+                </div>
+                <div id="no-widget-msg" class="text-muted text-center mt-3" style="font-size:0.75rem;">👈 اضغط على أي عنصر لتعديله وسحبه</div>
+            </div>
+        </div>
+
+        <!-- الشرائح الافتراضية (Carousel) -->
+        <div id="carousel-wrapper">
+            <div id="dashboardCarousel" class="carousel slide">
+                <div class="carousel-indicators">
+                    <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="0" class="active"></button>
+                    <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="1"></button>
+                    <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="2"></button>
+                    <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="3"></button>
+                    <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="4"></button>
                 </div>
 
-                <!-- الشريحة 2: التواريخ -->
-                <div class="carousel-item">
-                    <div class="slide-container">
-                        <div class="slide-header">📅 التواريخ وأداء البرنامج الزمني</div>
-                        <div class="row g-3 slide-layout">
-                            <div class="col-md-4 h-100 d-flex flex-column gap-2">
-                                <div class="row g-2 flex-fill">
-                                    <div class="col-12"><div class="kpi-card border-t-blue"><div class="kpi-title">أقل بداية تعاقدية للمشاريع</div><div class="kpi-value fs-5 text-white" id="kpi-min-start-c">-</div></div></div>
-                                    <div class="col-12"><div class="kpi-card border-t-cyan"><div class="kpi-title">أكبر نهاية تعاقدية للمشاريع</div><div class="kpi-value fs-5 text-white" id="kpi-max-end-c">-</div></div></div>
-                                </div>
-                                <div class="row g-2 flex-fill">
-                                    <div class="col-6"><div class="kpi-card border-t-orange"><div class="kpi-title">أقل بداية فعلية</div><div class="kpi-value fs-6 text-white" id="kpi-min-start-a">-</div></div></div>
-                                    <div class="col-6"><div class="kpi-card border-t-orange"><div class="kpi-title">أكبر نهاية متوقعة</div><div class="kpi-value fs-6 text-white" id="kpi-max-end-e">-</div></div></div>
-                                </div>
-                                <div class="row g-2 flex-fill">
-                                    <div class="col-6"><div class="kpi-card border-t-red"><div class="kpi-title">إجمالي تمديدات المقاولين</div><div class="kpi-value fs-4 text-danger" id="kpi-ext-time-cont">0 <span class="fs-6">يوم</span></div></div></div>
-                                    <div class="col-6"><div class="kpi-card border-t-yellow"><div class="kpi-title">إجمالي تمديدات الاستشاريين</div><div class="kpi-value fs-4 text-warning" id="kpi-ext-time-cons">0 <span class="fs-6">يوم</span></div></div></div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 h-100">
-                                <div class="chart-box h-100">
-                                    <div class="chart-title">المدة المنقضية مقابل المتبقية</div>
-                                    <div class="chart-wrapper" id="elapsedChart"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 h-100">
-                                <div class="chart-box h-100">
-                                    <div class="chart-title">أداء البرنامج الزمني</div>
-                                    <div class="chart-wrapper" id="timePerfChart"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- الشريحة 3: الإنجاز والأداء -->
-                <div class="carousel-item">
-                    <div class="slide-container">
-                        <div class="slide-header">📊 مؤشرات الإنجاز والأداء (S-Curve & SPI)</div>
-                        <div class="row g-3 slide-layout">
-                            <div class="col-md-3 h-100">
-                                <div class="chart-box h-100">
-                                    <div class="chart-title">مؤشر SPI العام</div>
-                                    <div class="chart-wrapper" id="spiGauge"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-9 h-100 d-flex flex-column gap-3">
-                                <div class="chart-box half-height">
-                                    <div class="chart-title">نسب الإنجاز (المخطط مقابل الفعلي) للمشاريع</div>
-                                    <div class="chart-wrapper" id="barChart"></div>
-                                </div>
-                                <div class="row g-3 half-height m-0">
-                                    <div class="col-md-6 h-100 p-0 pe-2">
-                                        <div class="chart-box h-100">
-                                            <div class="chart-title">المنحنى الزمني للمشروع (S-Curve الأسبوعي)</div>
-                                            <div class="chart-wrapper" id="sCurveChart"></div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 h-100 p-0 ps-2">
-                                        <div class="chart-box h-100">
-                                            <div class="chart-title">تطور مؤشر الأداء الزمني (SPI) أسبوعياً</div>
-                                            <div class="chart-wrapper" id="spiTrendChart"></div>
+                <div class="carousel-inner bg-transparent">
+                    
+                    <!-- شريحة 1 -->
+                    <div class="carousel-item active">
+                        <div class="slide-container">
+                            <div class="slide-header">💰 الماليات والعقود (تراكمي)</div>
+                            <div class="row g-3 slide-layout">
+                                <div class="col-md-7 h-100 d-flex flex-column gap-2" id="slot-widget-kpi1">
+                                    <div class="chart-box" id="widget-kpi1" data-gs-w="5" data-gs-h="4">
+                                        <div class="chart-title">إجماليات المشاريع والأوامر</div>
+                                        <div class="chart-wrapper d-flex flex-column gap-1">
+                                            <div class="row g-2 flex-fill min-vh-0">
+                                                <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">إجمالي المشاريع</div><div class="kpi-value text-white" id="kpi-total-proj">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">المحدثة</div><div class="kpi-value text-success" id="kpi-updated-proj">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقد المقاول</div><div class="kpi-value text-info" id="kpi-cont-val">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقد الاستشاري</div><div class="kpi-value text-info" id="kpi-cons-val">0</div></div></div>
+                                            </div>
+                                            <div class="row g-2 flex-fill min-vh-0">
+                                                <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">ت.مقاول (قيمة)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-val">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-orange"><div class="kpi-title">ت.مقاول (عدد)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-cnt">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">ت.استشاري(قيمة)</div><div class="kpi-value text-warning" id="kpi-cons-chg-val">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">ت.استشاري(عدد)</div><div class="kpi-value text-warning" id="kpi-cons-chg-cnt">0</div></div></div>
+                                            </div>
+                                            <div class="row g-2 flex-fill min-vh-0">
+                                                <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">ف.مقاول (قيمة)</div><div class="kpi-value text-success" id="kpi-cont-inv-val">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-green"><div class="kpi-title">ف.مقاول (عدد)</div><div class="kpi-value text-success" id="kpi-cont-inv-cnt">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">ف.استشاري(قيمة)</div><div class="kpi-value text-primary" id="kpi-cons-inv-val">0</div></div></div>
+                                                <div class="col-3"><div class="kpi-card border-t-blue"><div class="kpi-title">ف.استشاري(عدد)</div><div class="kpi-value text-primary" id="kpi-cons-inv-cnt">0</div></div></div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- الشريحة 4: الجودة -->
-                <div class="carousel-item">
-                    <div class="slide-container">
-                        <div class="slide-header">📂 الجودة والمستندات (QC)</div>
-                        <div class="row g-3 slide-layout">
-                            <div class="col-md-6 half-height">
-                                <div class="chart-box h-100">
-                                    <div class="chart-title d-flex justify-content-between align-items-center">
-                                        <span>المخططات / الرسومات</span>
-                                        <span class="fs-6 text-warning" id="dr-total-lbl" style="font-size: 0.75rem !important;">الإجمالي: 0</span>
+                                <div class="col-md-5 h-100" id="slot-widget-cashflow">
+                                    <div class="chart-box" id="widget-cashflow" data-gs-w="7" data-gs-h="4">
+                                        <div class="chart-title">التدفق النقدي التراكمي للمقاولين</div>
+                                        <div class="chart-wrapper" id="cashFlowChart"></div>
                                     </div>
-                                    <div class="chart-wrapper" id="drawingsChart"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 half-height">
-                                <div class="chart-box h-100">
-                                    <div class="chart-title d-flex justify-content-between align-items-center">
-                                        <span>طلبات الاستلام (IR)</span>
-                                        <span class="fs-6 text-warning" id="ir-total-lbl" style="font-size: 0.75rem !important;">الإجمالي: 0</span>
-                                    </div>
-                                    <div class="chart-wrapper" id="irChart"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 half-height mt-3">
-                                <div class="chart-box h-100">
-                                    <div class="chart-title d-flex justify-content-between align-items-center">
-                                        <span>مخالفات الجودة (NCR)</span>
-                                        <span class="fs-6 text-warning" id="ncr-total-lbl" style="font-size: 0.75rem !important;">الإجمالي: 0</span>
-                                    </div>
-                                    <div class="chart-wrapper" id="ncrChart"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 half-height mt-3">
-                                <div class="chart-box h-100">
-                                    <div class="chart-title text-center">التقييم الفني للمقاولين</div>
-                                    <div class="chart-wrapper" id="radarChart"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- الشريحة 5: التفاصيل والتباين -->
-                <div class="carousel-item">
-                    <div class="slide-container">
-                        <div class="slide-header">📈 تفاصيل التباين (Variance) وأبرز المعوقات</div>
-                        <div class="row g-3 slide-layout">
-                            <div class="col-md-8 h-100">
-                                <div class="chart-box p-0 h-100 overflow-auto">
-                                    <table class="table table-sm table-hover table-bordered text-center m-0">
-                                        <thead style="position: sticky; top: 0; z-index: 1;">
-                                            <tr>
-                                                <th rowspan="2">المشروع</th>
-                                                <th colspan="3">الإنجاز المخطط (%)</th>
-                                                <th colspan="3">الإنجاز الفعلي (%)</th>
-                                                <th rowspan="2" title="Schedule Performance Index">SPI</th>
-                                            </tr>
-                                            <tr>
-                                                <th>سابق</th><th>حالي</th><th>التباين</th>
-                                                <th>سابق</th><th>حالي</th><th>التباين</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="progress-table-body"></tbody>
-                                    </table>
+                    <!-- شريحة 2 -->
+                    <div class="carousel-item">
+                        <div class="slide-container">
+                            <div class="slide-header">📅 التواريخ وأداء البرنامج الزمني</div>
+                            <div class="row g-3 slide-layout">
+                                <div class="col-md-4 h-100 d-flex flex-column gap-2" id="slot-widget-kpi2">
+                                    <div class="chart-box" id="widget-kpi2" data-gs-w="4" data-gs-h="4">
+                                        <div class="chart-title">التواريخ والتمديدات</div>
+                                        <div class="chart-wrapper d-flex flex-column gap-2">
+                                            <div class="row g-2 flex-fill min-vh-0">
+                                                <div class="col-6"><div class="kpi-card border-t-blue"><div class="kpi-title">أقل بداية تعاقدية</div><div class="kpi-value fs-6 text-white" id="kpi-min-start-c">-</div></div></div>
+                                                <div class="col-6"><div class="kpi-card border-t-cyan"><div class="kpi-title">أكبر نهاية تعاقدية</div><div class="kpi-value fs-6 text-white" id="kpi-max-end-c">-</div></div></div>
+                                            </div>
+                                            <div class="row g-2 flex-fill min-vh-0">
+                                                <div class="col-6"><div class="kpi-card border-t-orange"><div class="kpi-title">أقل بداية فعلية</div><div class="kpi-value fs-6 text-white" id="kpi-min-start-a">-</div></div></div>
+                                                <div class="col-6"><div class="kpi-card border-t-orange"><div class="kpi-title">أكبر نهاية متوقعة</div><div class="kpi-value fs-6 text-white" id="kpi-max-end-e">-</div></div></div>
+                                            </div>
+                                            <div class="row g-2 flex-fill min-vh-0">
+                                                <div class="col-6"><div class="kpi-card border-t-red"><div class="kpi-title">تمديدات مقاولين</div><div class="kpi-value fs-5 text-danger" id="kpi-ext-time-cont">0</div></div></div>
+                                                <div class="col-6"><div class="kpi-card border-t-yellow"><div class="kpi-title">تمديدات استشاريين</div><div class="kpi-value fs-5 text-warning" id="kpi-ext-time-cons">0</div></div></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 h-100" id="slot-widget-elapsed">
+                                    <div class="chart-box" id="widget-elapsed" data-gs-w="4" data-gs-h="4">
+                                        <div class="chart-title">المدة المنقضية مقابل المتبقية</div>
+                                        <div class="chart-wrapper" id="elapsedChart"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 h-100" id="slot-widget-timeperf">
+                                    <div class="chart-box" id="widget-timeperf" data-gs-w="4" data-gs-h="4">
+                                        <div class="chart-title">أداء البرنامج الزمني</div>
+                                        <div class="chart-wrapper" id="timePerfChart"></div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-4 h-100">
-                                <div class="chart-box p-0 h-100 overflow-auto">
-                                    <div class="chart-title text-danger pt-2 m-0 border-0 text-center sticky-top" style="background:var(--bg-card);">⚠️ أبرز المعوقات الحالية</div>
-                                    <div class="table-responsive">
-                                        <table class="table table-sm table-striped m-0 text-center">
-                                            <thead class="table-light"><tr><th>المشروع</th><th>العائق</th><th>التأثير</th></tr></thead>
-                                            <tbody id="obstacles-table-body"></tbody>
+                        </div>
+                    </div>
+
+                    <!-- شريحة 3 -->
+                    <div class="carousel-item">
+                        <div class="slide-container">
+                            <div class="slide-header">📊 مؤشرات الإنجاز والأداء (S-Curve & SPI)</div>
+                            <div class="row g-3 slide-layout">
+                                <div class="col-md-3 h-100" id="slot-widget-spi">
+                                    <div class="chart-box" id="widget-spi" data-gs-w="3" data-gs-h="4">
+                                        <div class="chart-title">مؤشر SPI العام</div>
+                                        <div class="chart-wrapper" id="spiGauge"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-9 h-100 d-flex flex-column gap-3">
+                                    <div class="half-height" id="slot-widget-bar">
+                                        <div class="chart-box" id="widget-bar" data-gs-w="9" data-gs-h="4">
+                                            <div class="chart-title">نسب الإنجاز (المخطط مقابل الفعلي) للمشاريع</div>
+                                            <div class="chart-wrapper" id="barChart"></div>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 half-height m-0">
+                                        <div class="col-md-6 h-100 p-0 pe-2" id="slot-widget-scurve">
+                                            <div class="chart-box" id="widget-scurve" data-gs-w="5" data-gs-h="4">
+                                                <div class="chart-title">المنحنى الزمني للمشروع (S-Curve)</div>
+                                                <div class="chart-wrapper" id="sCurveChart"></div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 h-100 p-0 ps-2" id="slot-widget-spitrend">
+                                            <div class="chart-box" id="widget-spitrend" data-gs-w="4" data-gs-h="4">
+                                                <div class="chart-title">تطور مؤشر الأداء (SPI)</div>
+                                                <div class="chart-wrapper" id="spiTrendChart"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- شريحة 4 -->
+                    <div class="carousel-item">
+                        <div class="slide-container">
+                            <div class="slide-header">📂 الجودة والمستندات (QC)</div>
+                            <div class="row g-3 slide-layout">
+                                <div class="col-md-6 half-height" id="slot-widget-dr">
+                                    <div class="chart-box" id="widget-dr" data-gs-w="4" data-gs-h="4">
+                                        <div class="chart-title d-flex justify-content-between align-items-center"><span>الرسومات</span><span class="fs-6 text-warning" id="dr-total-lbl">0</span></div>
+                                        <div class="chart-wrapper" id="drawingsChart"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 half-height" id="slot-widget-ir">
+                                    <div class="chart-box" id="widget-ir" data-gs-w="4" data-gs-h="4">
+                                        <div class="chart-title d-flex justify-content-between align-items-center"><span>الاستلام (IR)</span><span class="fs-6 text-warning" id="ir-total-lbl">0</span></div>
+                                        <div class="chart-wrapper" id="irChart"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 half-height mt-3" id="slot-widget-ncr">
+                                    <div class="chart-box" id="widget-ncr" data-gs-w="4" data-gs-h="4">
+                                        <div class="chart-title d-flex justify-content-between align-items-center"><span>المخالفات (NCR)</span><span class="fs-6 text-warning" id="ncr-total-lbl">0</span></div>
+                                        <div class="chart-wrapper" id="ncrChart"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 half-height mt-3" id="slot-widget-radar">
+                                    <div class="chart-box" id="widget-radar" data-gs-w="4" data-gs-h="4">
+                                        <div class="chart-title text-center">التقييم الفني للمقاولين</div>
+                                        <div class="chart-wrapper" id="radarChart"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- شريحة 5 -->
+                    <div class="carousel-item">
+                        <div class="slide-container">
+                            <div class="slide-header">📈 تفاصيل التباين (Variance) وأبرز المعوقات</div>
+                            <div class="row g-3 slide-layout">
+                                <div class="col-md-8 h-100" id="slot-widget-table1">
+                                    <div class="chart-box p-0 overflow-auto" id="widget-table1" data-gs-w="8" data-gs-h="6">
+                                        <table class="table table-sm table-hover table-bordered text-center m-0">
+                                            <thead style="position: sticky; top: 0; z-index: 1;"><tr><th rowspan="2">المشروع</th><th colspan="3">مخطط (%)</th><th colspan="3">فعلي (%)</th><th rowspan="2">SPI</th></tr><tr><th>سابق</th><th>حالي</th><th>التباين</th><th>سابق</th><th>حالي</th><th>التباين</th></tr></thead>
+                                            <tbody id="progress-table-body"></tbody>
                                         </table>
                                     </div>
                                 </div>
+                                <div class="col-md-4 h-100" id="slot-widget-table2">
+                                    <div class="chart-box p-0 overflow-auto" id="widget-table2" data-gs-w="4" data-gs-h="6">
+                                        <div class="chart-title text-danger pt-2 m-0 border-0 text-center sticky-top" style="background:var(--bg-card);">⚠️ المعوقات الحالية</div>
+                                        <table class="table table-sm table-striped m-0 text-center"><thead class="table-light"><tr><th>المشروع</th><th>العائق</th><th>التأثير</th></tr></thead><tbody id="obstacles-table-body"></tbody></table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+
                 </div>
-
+                <button class="carousel-control-prev" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+                <button class="carousel-control-next" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
             </div>
-
-            <button class="carousel-control-prev" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
-            <button class="carousel-control-next" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // ==========================================
+        // 1. المتغيرات والتهيئة الآمنة (Safe Initialization)
+        // ==========================================
         let rawData = [];
-        let totalUsersFromDB = 33; // القيمة الافتراضية
+        let totalUsersFromDB = 33; 
         let charts = {};
+        let gridStack = null;
+        let selectedWidget = null;
+        let bsCarousel = null;
 
-        const carouselElement = document.getElementById('dashboardCarousel');
-        const bsCarousel = new bootstrap.Carousel(carouselElement, { interval: 8000, pause: false });
-        bsCarousel.cycle();
-        let isCarouselPlaying = true;
+        // مصفوفة تعيين كل Chart لمكانه في الشرائح
+        const WIDGET_MAPPING = [
+            'widget-kpi1', 'widget-cashflow', 'widget-kpi2', 'widget-elapsed', 'widget-timeperf',
+            'widget-spi', 'widget-bar', 'widget-scurve', 'widget-spitrend',
+            'widget-dr', 'widget-ir', 'widget-ncr', 'widget-radar',
+            'widget-table1', 'widget-table2'
+        ];
 
-        const toggleBtn = document.getElementById('toggleCarouselBtn');
-        toggleBtn.addEventListener('click', function() {
-            if (isCarouselPlaying) { 
-                bsCarousel.pause(); toggleBtn.innerHTML = '▶️ تشغيل'; toggleBtn.classList.replace('btn-outline-info', 'btn-outline-success'); isCarouselPlaying = false; 
-            } else { 
-                bsCarousel.cycle(); toggleBtn.innerHTML = '⏸ إيقاف'; toggleBtn.classList.replace('btn-outline-success', 'btn-outline-info'); isCarouselPlaying = true; 
+        document.addEventListener("DOMContentLoaded", () => {
+            // أولاً: بناء الـ DOM بناءً على الحالة المحفوظة (سلايدر أم شبكة)
+            let isGrid = localStorage.getItem('dashboard_view') === 'grid';
+            if (isGrid) {
+                prepareGridDOM();
+            } else {
+                bsCarousel = new bootstrap.Carousel(document.getElementById('dashboardCarousel'), { interval: 8000, pause: false });
+                bsCarousel.cycle();
+                document.getElementById('dashboardCarousel').addEventListener('slid.bs.carousel', () => window.dispatchEvent(new Event('resize')));
             }
+
+            // ثانياً: رسم الـ Charts بعد استقرار الـ DOM في مكانه الصحيح
+            initChartsSafe();
+
+            // ثالثاً: جلب البيانات وتوزيعها (Safe Data Binding)
+            fetch('/api/analytics-data').then(res => res.json()).then(data => {
+                if(data.success) { rawData = data.updates; if (data.total_users !== undefined) totalUsersFromDB = data.total_users; }
+                initFilters();
+            }).catch(() => initFilters()); // لتفادي الانهيار في غياب الـ API
         });
 
-        carouselElement.addEventListener('slid.bs.carousel', function () { window.dispatchEvent(new Event('resize')); });
-
-        fetch('/api/analytics-data').then(res => res.json()).then(data => {
-            if(data.success) { 
-                rawData = data.updates; 
-                if (data.total_users !== undefined) totalUsersFromDB = data.total_users; 
-                initCharts(); initFilters(); 
-            }
+        // ==========================================
+        // 2. أزرار التحكم والتبديل (Safe Toggle)
+        // ==========================================
+        document.getElementById('toggleCarouselBtn').addEventListener('click', function() {
+            if(!bsCarousel) return;
+            if (this.innerHTML.includes('إيقاف')) { bsCarousel.pause(); this.innerHTML = '▶️ تشغيل الشرائح'; this.classList.replace('btn-outline-info', 'btn-outline-success'); } 
+            else { bsCarousel.cycle(); this.innerHTML = '⏸ إيقاف الشرائح'; this.classList.replace('btn-outline-success', 'btn-outline-info'); }
         });
 
-        function num(val) { return parseFloat(val) || 0; }
-        
-        function initCharts() {
+        document.getElementById('toggleViewBtn').addEventListener('click', function() {
+            let isGrid = localStorage.getItem('dashboard_view') === 'grid';
+            localStorage.setItem('dashboard_view', isGrid ? 'carousel' : 'grid');
+            // إعادة تحميل الصفحة بالكامل هي الطريقة الوحيدة الآمنة 100% لمنع تداخل ApexCharts
+            location.reload(); 
+        });
+
+        // ==========================================
+        // 3. النقل الفيزيائي الآمن للشبكة (Physical DOM Move)
+        // ==========================================
+        function prepareGridDOM() {
+            document.body.classList.add('grid-view-active');
+            let tglBtn = document.getElementById('toggleViewBtn');
+            tglBtn.innerHTML = '🎬 العودة للشرائح';
+            tglBtn.classList.replace('btn-warning', 'btn-danger');
+
+            gridStack = GridStack.init({ cellHeight: 60, margin: 10, animate: true, float: true, resizable: { handles: 'se, sw, e, w' } }, '#grid-canvas');
+            
+            gridStack.on('change added removed', function(e, items) {
+                saveGridState();
+                if (selectedWidget && items) { let updated = items.find(i => i.el === selectedWidget); if(updated) populatePropertyPanel(updated.el); }
+                setTimeout(() => window.dispatchEvent(new Event('resize')), 150); // إجبار التمدد عند التغيير
+            });
+
+            const savedLayout = localStorage.getItem('grid_layout_data');
+            
+            if (savedLayout && savedLayout.length > 5) {
+                let layout = JSON.parse(savedLayout);
+                layout.forEach(node => {
+                    if(node.id && node.id.startsWith('custom-')) {
+                        addCustomWidgetFromNode(node);
+                    } else if (node.id) {
+                        let widgetEl = document.getElementById(node.id);
+                        if(widgetEl) moveToGrid(widgetEl, node);
+                    }
+                });
+                
+                // جلب أي عناصر لم يتم حفظها
+                WIDGET_MAPPING.forEach(id => {
+                    let el = document.getElementById(id);
+                    if(el && !el.closest('.grid-stack')) moveToGrid(el, { w: parseInt(el.getAttribute('data-gs-w')), h: parseInt(el.getAttribute('data-gs-h')), autoPosition: true });
+                });
+            } else {
+                let cx=0, cy=0;
+                WIDGET_MAPPING.forEach(id => {
+                    let el = document.getElementById(id);
+                    if(el) {
+                        let w = parseInt(el.getAttribute('data-gs-w')) || 4, h = parseInt(el.getAttribute('data-gs-h')) || 4;
+                        if(cx + w > 12) { cx = 0; cy += h; }
+                        moveToGrid(el, { x: cx, y: cy, w: w, h: h });
+                        cx += w;
+                    }
+                });
+            }
+        }
+
+        function moveToGrid(widgetEl, node) {
+            widgetEl.parentNode.removeChild(widgetEl);
+            let gridItem = document.createElement('div');
+            gridItem.className = 'grid-stack-item';
+            gridItem.setAttribute('data-original-id', widgetEl.id);
+            
+            let content = document.createElement('div');
+            content.className = 'grid-stack-item-content';
+            
+            let handle = document.createElement('div');
+            handle.className = 'gs-drag-handle';
+            handle.innerHTML = '🖱️ اسحب المربع';
+            content.appendChild(handle);
+            
+            let body = document.createElement('div');
+            body.className = 'gs-content-body';
+            body.appendChild(widgetEl);
+            content.appendChild(body);
+            gridItem.appendChild(content);
+            
+            let options = { w: node.w || 4, h: node.h || 4 };
+            if(node.autoPosition) options.autoPosition = true; else { options.x = node.x; options.y = node.y; }
+            
+            gridStack.addWidget(gridItem, options);
+            gridItem.addEventListener('click', function() { selectWidget(this); });
+        }
+
+        function saveGridState() {
+            if(!gridStack) return;
+            let layout = [];
+            gridStack.getGridItems().forEach(item => {
+                let node = item.gridstackNode;
+                let origId = item.getAttribute('data-original-id');
+                let customText = '', customColor = '', customSize = '';
+                
+                if(origId.startsWith('custom-text')) {
+                    let txt = item.querySelector('.custom-widget-text');
+                    customText = txt.value; customColor = txt.style.color; customSize = txt.style.fontSize;
+                } else if(origId.startsWith('custom-line')) {
+                    let hr = item.querySelector('hr');
+                    customColor = hr.style.borderColor; customSize = hr.style.borderWidth;
+                }
+                layout.push({ x: node.x, y: node.y, w: node.w, h: node.h, id: origId, customText, customColor, customSize });
+            });
+            localStorage.setItem('grid_layout_data', JSON.stringify(layout));
+        }
+
+        function resetGrid() {
+            if(confirm("استعادة الشكل الافتراضي المجمع؟")) { localStorage.removeItem('grid_layout_data'); location.reload(); }
+        }
+
+        // --- اللوحة الجانبية ---
+        function selectWidget(element) {
+            if(selectedWidget) selectedWidget.classList.remove('selected-widget');
+            selectedWidget = element;
+            selectedWidget.classList.add('selected-widget');
+            populatePropertyPanel(element);
+        }
+
+        function populatePropertyPanel(element) {
+            document.getElementById('no-widget-msg').style.display = 'none';
+            document.getElementById('widget-settings').style.display = 'block';
+            let node = element.gridstackNode;
+            if(!node) return;
+            document.getElementById('prop-x').value = node.x; document.getElementById('prop-y').value = node.y;
+            document.getElementById('prop-w').value = node.w; document.getElementById('prop-h').value = node.h;
+
+            let origId = element.getAttribute('data-original-id');
+            document.getElementById('prop-title').innerText = origId.startsWith('custom-') ? 'عنصر مخصص' : 'مؤشر داشبورد';
+            
+            if(origId.startsWith('custom-')) {
+                document.getElementById('delete-widget-btn').style.display = 'block';
+                document.getElementById('custom-styling-opts').style.display = 'block';
+                if(origId.includes('text')) {
+                    let txt = element.querySelector('.custom-widget-text');
+                    document.getElementById('prop-color').value = rgb2hex(window.getComputedStyle(txt).color);
+                    document.getElementById('prop-size').value = parseInt(window.getComputedStyle(txt).fontSize);
+                    document.getElementById('thickness-group').querySelector('label').innerText = 'حجم الخط (px)';
+                } else {
+                    let hr = element.querySelector('hr');
+                    document.getElementById('prop-color').value = rgb2hex(window.getComputedStyle(hr).borderColor);
+                    document.getElementById('prop-size').value = parseInt(window.getComputedStyle(hr).borderWidth);
+                    document.getElementById('thickness-group').querySelector('label').innerText = 'سماكة الخط (px)';
+                }
+            } else {
+                document.getElementById('delete-widget-btn').style.display = 'none'; document.getElementById('custom-styling-opts').style.display = 'none';
+            }
+        }
+
+        function updateGridItem() {
+            if(!selectedWidget || !gridStack) return;
+            let x = parseInt(document.getElementById('prop-x').value), y = parseInt(document.getElementById('prop-y').value);
+            let w = parseInt(document.getElementById('prop-w').value), h = parseInt(document.getElementById('prop-h').value);
+            gridStack.update(selectedWidget, {x, y, w, h}); saveGridState();
+        }
+
+        function updateCustomStyle() {
+            if(!selectedWidget) return;
+            let color = document.getElementById('prop-color').value, size = document.getElementById('prop-size').value;
+            let origId = selectedWidget.getAttribute('data-original-id');
+            if(origId.includes('text')) {
+                let txt = selectedWidget.querySelector('.custom-widget-text');
+                txt.style.color = color; txt.style.fontSize = size + 'px';
+            } else {
+                let hr = selectedWidget.querySelector('hr');
+                hr.style.borderColor = color; hr.style.borderWidth = size + 'px'; hr.style.borderStyle = 'solid';
+            }
+            saveGridState();
+        }
+
+        function deleteSelectedWidget() {
+            if(selectedWidget && gridStack) {
+                gridStack.removeWidget(selectedWidget); selectedWidget = null;
+                document.getElementById('no-widget-msg').style.display = 'block'; document.getElementById('widget-settings').style.display = 'none'; saveGridState();
+            }
+        }
+
+        function addCustomWidget(type) {
+            let wId = `custom-${type}-${Date.now()}`;
+            addCustomWidgetFromNode({id: wId, x: 0, y: 0, w: 12, h: type==='text'?2:1, customText: '', customColor: '#0dcaf0', customSize: type==='text'?'24px':'2px'}, true);
+        }
+
+        function addCustomWidgetFromNode(node, isNew = false) {
+            let innerHtml = '';
+            if (node.id.includes('text')) innerHtml = `<textarea class="custom-widget-text" style="color:${node.customColor || '#fff'}; font-size:${node.customSize || '24px'}" placeholder="اكتب العنوان هنا...">${node.customText || ''}</textarea>`;
+            else if (node.id.includes('line')) innerHtml = `<div class="custom-widget-line"><hr style="border-color:${node.customColor || '#0dcaf0'}; border-width:${node.customSize || '2px'}; border-style:solid; width:100%;"></div>`;
+            
+            let gridItem = document.createElement('div');
+            gridItem.className = 'grid-stack-item'; gridItem.setAttribute('data-original-id', node.id);
+            gridItem.innerHTML = `<div class="grid-stack-item-content"><div class="gs-drag-handle">🖱️ اسحب</div><div class="gs-content-body" style="padding:0;">${innerHtml}</div></div>`;
+            
+            let options = { w: node.w, h: node.h };
+            if(isNew) options.autoPosition = true; else { options.x = node.x; options.y = node.y; }
+            
+            gridStack.addWidget(gridItem, options);
+            gridItem.addEventListener('click', function() { selectWidget(this); });
+            if(node.id.includes('text')) gridItem.querySelector('textarea').addEventListener('input', saveGridState);
+            saveGridState();
+        }
+
+        function rgb2hex(rgb) {
+            if (rgb.search("rgb") == -1) return rgb;
+            rgb = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+))?\)$/);
+            function hex(x) { return ("0" + parseInt(x).toString(16)).slice(-2); }
+            return "#" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]);
+        }
+
+        // ==========================================
+        // 4. بناء الرسوم البيانية بأمان (Safe Init)
+        // ==========================================
+        function initChartsSafe() {
             const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI', width: '100%', height: '100%' } };
             
-            // 1. التدفق النقدي: أعمدة تراكمية فقط
-            charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
-                ...darkOpts, chart: { type: 'bar', ...darkOpts.chart },
-                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
+            // دالة لمنع توقف الكود لو الـ Chart مش موجود
+            const renderSafe = (id, config) => {
+                let el = document.querySelector(id);
+                if(el) { charts[id] = new ApexCharts(el, config); charts[id].render(); }
+            }
+
+            renderSafe("#cashFlowChart", {
+                ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } },
-                colors: ['#0dcaf0', '#ffc107'], 
-                plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
+                colors: ['#0dcaf0', '#ffc107'], plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
                 dataLabels: { enabled: true, offsetY: -15, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0), style: { fontSize: '9px', colors: ['#fff'] }, background: { enabled: false } }, 
                 grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
-            }); charts.cashFlow.render();
+            });
 
-            charts.elapsed = new ApexCharts(document.querySelector("#elapsedChart"), {
-                ...darkOpts, chart: { type: 'donut', ...darkOpts.chart },
-                series: [], labels: ['المدة المنقضية', 'المدة المتبقية'],
-                colors: ['#0dcaf0', '#ffc107'], stroke: { show: false }, legend: { position: 'bottom' },
-                dataLabels: { formatter: function (val) { return val.toFixed(1) + "%" } }
-            }); charts.elapsed.render();
+            renderSafe("#elapsedChart", {
+                ...darkOpts, chart: { type: 'donut', ...darkOpts.chart }, series: [], labels: ['المدة المنقضية', 'المدة المتبقية'],
+                colors: ['#0dcaf0', '#ffc107'], stroke: { show: false }, legend: { position: 'bottom' }, dataLabels: { formatter: val => val.toFixed(1) + "%" }
+            });
 
-            charts.timePerf = new ApexCharts(document.querySelector("#timePerfChart"), {
-                ...darkOpts, chart: { type: 'donut', ...darkOpts.chart },
-                series: [], labels: ['متقدم', 'متوافق', 'متأخر'],
-                colors: ['#0dcaf0', '#198754', '#dc3545'], stroke: { show: false }, legend: { position: 'bottom' },
-                dataLabels: { formatter: function (val) { return val.toFixed(1) + "%" } }
-            }); charts.timePerf.render();
+            renderSafe("#timePerfChart", {
+                ...darkOpts, chart: { type: 'donut', ...darkOpts.chart }, series: [], labels: ['متقدم', 'متوافق', 'متأخر'],
+                colors: ['#0dcaf0', '#198754', '#dc3545'], stroke: { show: false }, legend: { position: 'bottom' }, dataLabels: { formatter: val => val.toFixed(1) + "%" }
+            });
 
-            charts.spi = new ApexCharts(document.querySelector("#spiGauge"), {
+            renderSafe("#spiGauge", {
                 ...darkOpts, chart: { type: 'radialBar', ...darkOpts.chart }, series: [0],
-                plotOptions: { radialBar: { startAngle: -120, endAngle: 120, hollow: { size: '65%' }, track: { background: '#444857' }, dataLabels: { name: { show: false }, value: { fontSize: '45px', fontWeight: 'bold', color: '#fff', formatter: val => (val/100).toFixed(2), offsetY: 15 } } } },
+                plotOptions: { radialBar: { startAngle: -120, endAngle: 120, hollow: { size: '65%' }, track: { background: '#444857' }, dataLabels: { name: { show: false }, value: { fontSize: '40px', fontWeight: 'bold', color: '#fff', formatter: val => (val/100).toFixed(2), offsetY: 15 } } } },
                 stroke: { lineCap: 'round' }, colors: ['#fd7e14']
-            }); charts.spi.render();
+            });
 
-            charts.bar = new ApexCharts(document.querySelector("#barChart"), {
+            renderSafe("#barChart", {
                 ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], 
-                xaxis: { 
-                    categories: [], 
-                    labels: { style: { colors: '#adb5bd', fontSize: '10px' }, hideOverlappingLabels: false, rotate: -45, trim: true, maxHeight: 70 } 
-                }, 
+                xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '10px' }, hideOverlappingLabels: false, rotate: -45, trim: true, maxHeight: 70 } }, 
                 yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, colors: ['#0dcaf0', '#198754'],
                 plotOptions: { bar: { dataLabels: { position: 'top' } } }, 
-                dataLabels: { enabled: true, offsetY: -15, formatter: val => val + "%", style: { fontSize: '10px', colors: ['#fff'] }, background: { enabled: false } }, 
-                grid: { borderColor: '#444857' }
-            }); charts.bar.render();
+                dataLabels: { enabled: true, offsetY: -15, formatter: val => val + "%", style: { fontSize: '10px', colors: ['#fff'] }, background: { enabled: false } }, grid: { borderColor: '#444857' }
+            });
 
-            // 2. تعديل الـ S-Curve ليصبح أعمدة تراكمية فقط بدون أي خطوط (Curve)
-            charts.sCurve = new ApexCharts(document.querySelector("#sCurveChart"), {
-                ...darkOpts, chart: { type: 'bar', ...darkOpts.chart },
-                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
+            renderSafe("#sCurveChart", {
+                ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } },
-                colors: ['#0dcaf0', '#ffc107'], 
-                plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
+                colors: ['#0dcaf0', '#ffc107'], plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
                 dataLabels: { enabled: true, offsetY: -15, formatter: val => val.toFixed(1) + "%", style: { fontSize: '9px', colors: ['#fff'] }, background: { enabled: false } },
                 grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
-            }); charts.sCurve.render();
+            });
 
-            charts.spiTrend = new ApexCharts(document.querySelector("#spiTrendChart"), {
-                ...darkOpts, chart: { type: 'area', ...darkOpts.chart },
-                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
+            renderSafe("#spiTrendChart", {
+                ...darkOpts, chart: { type: 'area', ...darkOpts.chart }, series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(2) } }, colors: ['#0dcaf0'],
-                dataLabels: { enabled: true, formatter: val => val.toFixed(2), offsetY: -5, style: { fontSize: '10px' }, background: { enabled: false } },
-                stroke: { curve: 'smooth', width: 2 }, fill: { opacity: 0.3 }, grid: { borderColor: '#444857' }
-            }); charts.spiTrend.render();
+                dataLabels: { enabled: true, formatter: val => val.toFixed(2), offsetY: -5, style: { fontSize: '10px' }, background: { enabled: false } }, stroke: { curve: 'smooth', width: 2 }, fill: { opacity: 0.3 }, grid: { borderColor: '#444857' }
+            });
 
             const hcOpts = { ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '11px', colors: ['#fff'] }, background: { enabled: false }, formatter: val => val > 0 ? val : "" }, xaxis: { categories: ['الإجمالي'], labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' }, formatter: val => val.toFixed(0) } }, grid: { borderColor: '#444857' }, legend: { fontSize: '10px', markers: { width: 8, height: 8 } } };
-            charts.dr = new ApexCharts(document.querySelector("#drawingsChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.dr.render();
-            charts.ir = new ApexCharts(document.querySelector("#irChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.ir.render();
-            charts.ncr = new ApexCharts(document.querySelector("#ncrChart"), { ...hcOpts, series: [], colors: ['#dc3545', '#198754'] }); charts.ncr.render();
+            renderSafe("#drawingsChart", { ...hcOpts, colors: ['#0dcaf0', '#198754', '#ffc107'] });
+            renderSafe("#irChart", { ...hcOpts, colors: ['#0dcaf0', '#198754', '#ffc107'] });
+            renderSafe("#ncrChart", { ...hcOpts, colors: ['#dc3545', '#198754'] });
 
-            charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
+            renderSafe("#radarChart", {
                 ...darkOpts, chart: { type: 'radar', ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
                 stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 4 },
                 dataLabels: { enabled: true, style: { fontSize: '11px', colors: ['#fff'] }, background: { enabled: true, foreColor: '#1e1e24', borderRadius: 2, padding: 3, borderWidth: 0 } },
                 yaxis: { show: false }, xaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, plotOptions: { radar: { polygons: { strokeColors: '#444857', connectorColors: '#444857' } } }
-            }); charts.radar.render();
+            });
         }
+
+        // ==========================================
+        // 5. الفلاتر والبيانات (Safe Data Binding)
+        // ==========================================
+        function safeUpdateChart(id, method, payload) { try { if(charts[id]) charts[id][method](payload); } catch(e){} }
+        function safeUpdateDOM(id, method, value) { let el = document.getElementById(id); if(el) { if(method==='text') el.innerText = value; else el.innerHTML = value; } }
 
         function initFilters() {
             let dates = [...new Set(rawData.map(item => item.current_data_date))].filter(Boolean).sort().reverse();
@@ -428,9 +710,7 @@
 
             let baseData = rawData.filter(item => (!fPm || item.manager_name === fPm) && (!fType || item.project_type === fType) && (!fProj || item.project_name === fProj));
             
-            // ترتيب التواريخ تصاعدياً من الأقدم للأحدث لرسم التراكمي بطريقة صحيحة
             let trendDates = [...new Set(baseData.map(item => item.current_data_date))].filter(Boolean).sort();
-            
             let trendCashFlow = { dates: [], pCum: [], aCum: [] };
             let trendSCurve = { dates: [], pCum: [], aCum: [] };
             let trendSPI = { dates: [], spi: [] };
@@ -439,45 +719,33 @@
 
             trendDates.forEach(date => {
                 let asOfData = [];
-                // اللقطة التراكمية الدقيقة: جلب أحدث تحديث لكل مشروع حتى هذا التاريخ
                 uniqueProjNames.forEach(pName => {
                     let pUpdates = baseData.filter(i => i.project_name === pName && i.current_data_date <= date);
-                    if(pUpdates.length > 0) {
-                        pUpdates.sort((a,b) => a.current_data_date > b.current_data_date ? -1 : 1);
-                        asOfData.push(pUpdates[0]);
-                    }
+                    if(pUpdates.length > 0) { pUpdates.sort((a,b) => a.current_data_date > b.current_data_date ? -1 : 1); asOfData.push(pUpdates[0]); }
                 });
 
-                // 1. حسابات التكلفة والتدفق النقدي
                 let pCostCum = asOfData.reduce((s, i) => s + (num(i.contractor_val) * num(i.plan_prog_cur)), 0);
                 let aCostCum = asOfData.reduce((s, i) => s + (num(i.contractor_val) * num(i.act_prog_cur)), 0);
+                trendCashFlow.dates.push(date); trendCashFlow.pCum.push(pCostCum); trendCashFlow.aCum.push(aCostCum);
 
-                trendCashFlow.dates.push(date); 
-                trendCashFlow.pCum.push(pCostCum); trendCashFlow.aCum.push(aCostCum);
-
-                // 2. حساب S-Curve (المتوسط البسيط الدقيق اللي كان شغال صح)
                 let pProgCum = asOfData.length ? (asOfData.reduce((s, i) => s + num(i.plan_prog_cur), 0) / asOfData.length) * 100 : 0;
                 let aProgCum = asOfData.length ? (asOfData.reduce((s, i) => s + num(i.act_prog_cur), 0) / asOfData.length) * 100 : 0;
+                trendSCurve.dates.push(date); trendSCurve.pCum.push(pProgCum); trendSCurve.aCum.push(aProgCum);
 
-                trendSCurve.dates.push(date);
-                trendSCurve.pCum.push(pProgCum); trendSCurve.aCum.push(aProgCum);
-
-                // 3. حساب SPI (متوافق مع الداشبورد القديمة)
                 let spi = pProgCum > 0 ? (aProgCum / pProgCum) : 0;
                 trendSPI.dates.push(date); trendSPI.spi.push(spi);
             });
 
-            // تحديث رسومات الاتجاهات مع ضبط الحد الأقصى للمحاور لمنع اختلاف أطوال الأعمدة
             let maxCF = Math.max(...trendCashFlow.pCum, ...trendCashFlow.aCum, 1000000);
-            charts.cashFlow.updateOptions({ xaxis: {categories: trendCashFlow.dates}, yaxis: { min: 0, max: maxCF * 1.1, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } } });
-            charts.cashFlow.updateSeries([{name:'مخطط تراكمي', type:'column', data:trendCashFlow.pCum}, {name:'فعلي تراكمي', type:'column', data:trendCashFlow.aCum}]);
+            safeUpdateChart("#cashFlowChart", 'updateOptions', { xaxis: {categories: trendCashFlow.dates}, yaxis: { min: 0, max: maxCF * 1.1, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } } });
+            safeUpdateChart("#cashFlowChart", 'updateSeries', [{name:'مخطط تراكمي', data:trendCashFlow.pCum}, {name:'فعلي تراكمي', data:trendCashFlow.aCum}]);
 
             let maxSC = Math.max(...trendSCurve.pCum, ...trendSCurve.aCum, 100);
-            charts.sCurve.updateOptions({ xaxis: {categories: trendSCurve.dates}, yaxis: { min: 0, max: maxSC, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } } });
-            charts.sCurve.updateSeries([{name:'مخطط تراكمي', type:'column', data:trendSCurve.pCum}, {name:'فعلي تراكمي', type:'column', data:trendSCurve.aCum}]);
+            safeUpdateChart("#sCurveChart", 'updateOptions', { xaxis: {categories: trendSCurve.dates}, yaxis: { min: 0, max: maxSC, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } } });
+            safeUpdateChart("#sCurveChart", 'updateSeries', [{name:'مخطط تراكمي', data:trendSCurve.pCum}, {name:'فعلي تراكمي', data:trendSCurve.aCum}]);
 
-            charts.spiTrend.updateSeries([{name:'SPI', data:trendSPI.spi}]);
-            charts.spiTrend.updateOptions({xaxis: {categories: trendSPI.dates}});
+            safeUpdateChart("#spiTrendChart", 'updateSeries', [{name:'SPI', data:trendSPI.spi}]);
+            safeUpdateChart("#spiTrendChart", 'updateOptions', {xaxis: {categories: trendSPI.dates}});
 
             let latestProjects = {};
             baseData.forEach(item => { if (!latestProjects[item.project_name] || item.current_data_date > latestProjects[item.project_name].current_data_date) latestProjects[item.project_name] = item; });
@@ -492,67 +760,59 @@
         function updateKPIs(unique, current) {
             let sumU = (key) => unique.reduce((s, d) => s + num(d[key]), 0);
             
-            let totalProj = totalUsersFromDB;
-            let updatedManagers = new Set(current.map(d => d.project_name)).size; 
-            
-            document.getElementById('kpi-total-proj').innerText = totalProj;
-            document.getElementById('kpi-updated-proj').innerText = updatedManagers;
+            safeUpdateDOM('kpi-total-proj', 'text', totalUsersFromDB);
+            safeUpdateDOM('kpi-updated-proj', 'text', new Set(current.map(d => d.manager_name)).size);
 
-            document.getElementById('kpi-cont-val').innerText = sumU('contractor_val').toLocaleString('en-US');
-            document.getElementById('kpi-cons-val').innerText = sumU('consultant_val').toLocaleString('en-US');
-            document.getElementById('kpi-cont-chg-cnt').innerText = sumU('contractor_mods_count');
-            document.getElementById('kpi-cont-chg-val').innerText = sumU('contractor_mods_val').toLocaleString('en-US');
-            document.getElementById('kpi-cons-chg-cnt').innerText = sumU('consultant_mods_count');
-            document.getElementById('kpi-cons-chg-val').innerText = sumU('consultant_mods_val').toLocaleString('en-US');
-            document.getElementById('kpi-cont-inv-cnt').innerText = sumU('cont_inv_count');
-            document.getElementById('kpi-cont-inv-val').innerText = sumU('cont_inv_val').toLocaleString('en-US');
-            document.getElementById('kpi-cons-inv-cnt').innerText = sumU('cons_inv_count');
-            document.getElementById('kpi-cons-inv-val').innerText = sumU('cons_inv_val').toLocaleString('en-US');
+            safeUpdateDOM('kpi-cont-val', 'text', sumU('contractor_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cons-val', 'text', sumU('consultant_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cont-chg-cnt', 'text', sumU('contractor_mods_count'));
+            safeUpdateDOM('kpi-cont-chg-val', 'text', sumU('contractor_mods_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cons-chg-cnt', 'text', sumU('consultant_mods_count'));
+            safeUpdateDOM('kpi-cons-chg-val', 'text', sumU('consultant_mods_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cont-inv-cnt', 'text', sumU('cont_inv_count'));
+            safeUpdateDOM('kpi-cont-inv-val', 'text', sumU('cont_inv_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cons-inv-cnt', 'text', sumU('cons_inv_count'));
+            safeUpdateDOM('kpi-cons-inv-val', 'text', sumU('cons_inv_val').toLocaleString('en-US'));
             
-            document.getElementById('kpi-ext-time-cont').innerHTML = sumU('contractor_mods_time') + ' <span class="fs-6">يوم</span>';
-            document.getElementById('kpi-ext-time-cons').innerHTML = sumU('consultant_mods_time') + ' <span class="fs-6">يوم</span>';
+            safeUpdateDOM('kpi-ext-time-cont', 'html', sumU('contractor_mods_time') + ' <span class="fs-6">يوم</span>');
+            safeUpdateDOM('kpi-ext-time-cons', 'html', sumU('consultant_mods_time') + ' <span class="fs-6">يوم</span>');
 
             let getD = (key) => unique.map(d => d[key]).filter(d => d && d.trim() !== "");
             let sC = getD('start_contractual'), eC = getD('end_contractual');
-            document.getElementById('kpi-min-start-c').innerText = sC.length ? sC.sort()[0] : '-';
-            document.getElementById('kpi-max-end-c').innerText = eC.length ? eC.sort().reverse()[0] : '-';
-            document.getElementById('kpi-min-start-a').innerText = getD('start_actual').length ? getD('start_actual').sort()[0] : '-';
-            document.getElementById('kpi-max-end-e').innerText = getD('end_expected').length ? getD('end_expected').sort().reverse()[0] : '-';
+            safeUpdateDOM('kpi-min-start-c', 'text', sC.length ? sC.sort()[0] : '-');
+            safeUpdateDOM('kpi-max-end-c', 'text', eC.length ? eC.sort().reverse()[0] : '-');
+            safeUpdateDOM('kpi-min-start-a', 'text', getD('start_actual').length ? getD('start_actual').sort()[0] : '-');
+            safeUpdateDOM('kpi-max-end-e', 'text', getD('end_expected').length ? getD('end_expected').sort().reverse()[0] : '-');
 
             if(sC.length && eC.length) {
                 let minSt = new Date(sC.sort()[0]).getTime();
                 let maxEn = new Date(eC.sort().reverse()[0]).getTime();
-                let today = new Date().getTime();
+                let elapsed = new Date().getTime() - minSt;
                 let total = maxEn - minSt;
-                let elapsed = today - minSt;
                 if(total > 0) {
                     let ePct = Math.max(0, Math.min(100, (elapsed/total)*100));
-                    let rPct = 100 - ePct;
-                    charts.elapsed.updateSeries([ePct, rPct]);
+                    safeUpdateChart("#elapsedChart", 'updateSeries', [ePct, 100 - ePct]);
                 }
             }
         }
 
-        // تم إرجاع معادلة حساب الـ SPI الصحيحة للمتوسط البسيط زي ما كانت مظبوطة معاك
         function updateRemainingCharts(data) {
             let avgA = data.reduce((s, d) => s + num(d.act_prog_cur), 0) / (data.length || 1);
             let avgP = data.reduce((s, d) => s + num(d.plan_prog_cur), 0) / (data.length || 1);
             let spi = avgP > 0 ? (avgA / avgP) : 0;
             
             let spiColor = '';
-            if (spi < 0.6) spiColor = '#dc3545'; 
-            else if (spi < 0.85) spiColor = '#fd7e14'; 
-            else spiColor = '#198754'; 
+            if (spi < 0.6) spiColor = '#dc3545'; else if (spi < 0.85) spiColor = '#fd7e14'; else spiColor = '#198754'; 
 
-            charts.spi.updateOptions({ colors: [spiColor] });
-            charts.spi.updateSeries([spi * 100]);
+            safeUpdateChart("#spiGauge", 'updateOptions', { colors: [spiColor] });
+            safeUpdateChart("#spiGauge", 'updateSeries', [spi * 100]);
 
             let ahead=0, onsch=0, behind=0;
             data.forEach(d => {
                 let s = num(d.plan_prog_cur) > 0 ? num(d.act_prog_cur)/num(d.plan_prog_cur) : 0;
                 if(s > 1) ahead++; else if(s >= 0.95 && s <= 1 && num(d.act_prog_cur) > 0) onsch++; else behind++;
             });
-            charts.timePerf.updateSeries([ahead, onsch, behind]);
+            safeUpdateChart("#timePerfChart", 'updateSeries', [ahead, onsch, behind]);
 
             let sum = (k) => data.reduce((s, d) => s + num(d[k]), 0);
             
@@ -560,37 +820,38 @@
             let irSub = sum('ir_sub'), irApp = sum('ir_app'), irRev = sum('ir_rev');
             let ncrOpen = sum('ncr_open'), ncrClosed = sum('ncr_closed');
 
-            document.getElementById('dr-total-lbl').innerText = 'الإجمالي: ' + (drSub + drApp + drRev).toLocaleString('en-US');
-            document.getElementById('ir-total-lbl').innerText = 'الإجمالي: ' + (irSub + irApp + irRev).toLocaleString('en-US');
-            document.getElementById('ncr-total-lbl').innerText = 'الإجمالي: ' + (ncrOpen + ncrClosed).toLocaleString('en-US');
+            safeUpdateDOM('dr-total-lbl', 'text', (drSub + drApp + drRev).toLocaleString('en-US'));
+            safeUpdateDOM('ir-total-lbl', 'text', (irSub + irApp + irRev).toLocaleString('en-US'));
+            safeUpdateDOM('ncr-total-lbl', 'text', (ncrOpen + ncrClosed).toLocaleString('en-US'));
 
-            charts.dr.updateSeries([{name:'مقدم', data:[drSub]}, {name:'معتمد', data:[drApp]}, {name:'دراسة', data:[drRev]}]);
-            charts.ir.updateSeries([{name:'مقدم', data:[irSub]}, {name:'معتمد', data:[irApp]}, {name:'دراسة', data:[irRev]}]);
-            charts.ncr.updateSeries([{name:'مفتوح', data:[ncrOpen]}, {name:'مغلق', data:[ncrClosed]}]);
+            safeUpdateChart("#drawingsChart", 'updateSeries', [{name:'مقدم', data:[drSub]}, {name:'معتمد', data:[drApp]}, {name:'دراسة', data:[drRev]}]);
+            safeUpdateChart("#irChart", 'updateSeries', [{name:'مقدم', data:[irSub]}, {name:'معتمد', data:[irApp]}, {name:'دراسة', data:[irRev]}]);
+            safeUpdateChart("#ncrChart", 'updateSeries', [{name:'مفتوح', data:[ncrOpen]}, {name:'مغلق', data:[ncrClosed]}]);
 
-            charts.bar.updateSeries([{ name: 'مخطط', data: data.map(d => Math.round(num(d.plan_prog_cur)*100)) }, { name: 'فعلي', data: data.map(d => Math.round(num(d.act_prog_cur)*100)) }]);
-            charts.bar.updateOptions({ xaxis: { categories: data.map(d => (d.project_name||'').substring(0,15)+'..') } });
+            safeUpdateChart("#barChart", 'updateSeries', [{ name: 'مخطط', data: data.map(d => Math.round(num(d.plan_prog_cur)*100)) }, { name: 'فعلي', data: data.map(d => Math.round(num(d.act_prog_cur)*100)) }]);
+            safeUpdateChart("#barChart", 'updateOptions', { xaxis: { categories: data.map(d => (d.project_name||'').substring(0,15)+'..') } });
 
-            if(data.length > 0) charts.radar.updateSeries([{ name: 'تقييم', data: [(sum('eval_labor')/data.length).toFixed(1), (sum('eval_equip')/data.length).toFixed(1), (sum('eval_financial')/data.length).toFixed(1), (sum('eval_hse')/data.length).toFixed(1)] }]);
-            else charts.radar.updateSeries([]);
+            if(data.length > 0) safeUpdateChart("#radarChart", 'updateSeries', [{ name: 'تقييم', data: [(sum('eval_labor')/data.length).toFixed(1), (sum('eval_equip')/data.length).toFixed(1), (sum('eval_financial')/data.length).toFixed(1), (sum('eval_hse')/data.length).toFixed(1)] }]);
+            else safeUpdateChart("#radarChart", 'updateSeries', []);
         }
 
         function updateTables(data) {
-            const pt = document.getElementById('progress-table-body'), ot = document.getElementById('obstacles-table-body');
-            pt.innerHTML = ''; ot.innerHTML = ''; let obsArr = [];
-            
+            let ptHtml = '', otHtml = '', obsArr = [];
             data.forEach(item => {
                 let pp = num(item.plan_prog_prev)*100, pc = num(item.plan_prog_cur)*100, ap = num(item.act_prog_prev)*100, ac = num(item.act_prog_cur)*100;
                 let spi = pc > 0 ? (ac/pc).toFixed(2) : '-';
-                pt.innerHTML += `<tr><td class="text-start fw-bold text-white">${item.project_name||'-'}</td><td>${pp.toFixed(1)}%</td><td>${pc.toFixed(1)}%</td><td style="color:var(--c-cyan)">+${(pc-pp).toFixed(1)}%</td><td>${ap.toFixed(1)}%</td><td>${ac.toFixed(1)}%</td><td style="color:var(--c-cyan)">+${(ac-ap).toFixed(1)}%</td><td class="${spi>=1?'text-success fw-bold':(spi>=0.95?'text-warning fw-bold':'text-danger fw-bold')}">${spi}</td></tr>`;
+                ptHtml += `<tr><td class="text-start fw-bold text-white">${item.project_name||'-'}</td><td>${pp.toFixed(1)}%</td><td>${pc.toFixed(1)}%</td><td style="color:var(--c-cyan)">+${(pc-pp).toFixed(1)}%</td><td>${ap.toFixed(1)}%</td><td>${ac.toFixed(1)}%</td><td style="color:var(--c-cyan)">+${(ac-ap).toFixed(1)}%</td><td class="${spi>=1?'text-success fw-bold':(spi>=0.95?'text-warning fw-bold':'text-danger fw-bold')}">${spi}</td></tr>`;
                 
                 if(item.obstacles_data && item.obstacles_data !== '[]') {
                     try { (typeof item.obstacles_data === 'string' ? JSON.parse(item.obstacles_data) : item.obstacles_data).forEach(o => { if(!o.closed && (o.impact==='كبير'||o.impact==='متوسط')) obsArr.push({p:item.project_name, d:o.description, i:o.impact}); }); } catch(e){}
                 }
             });
 
-            obsArr.slice(0, 10).forEach(o => ot.innerHTML += `<tr><td class="fw-bold text-white">${o.p}</td><td class="text-white">${o.d}</td><td><span class="badge badge-impact-${o.i}">${o.i}</span></td></tr>`);
-            if(!obsArr.length) ot.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات حرجة مفتوحة</td></tr>';
+            obsArr.slice(0, 10).forEach(o => otHtml += `<tr><td class="fw-bold text-white">${o.p}</td><td class="text-white">${o.d}</td><td><span class="badge badge-impact-${o.i}">${o.i}</span></td></tr>`);
+            if(!obsArr.length) otHtml = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات حرجة مفتوحة</td></tr>';
+
+            safeUpdateDOM('progress-table-body', 'html', ptHtml);
+            safeUpdateDOM('obstacles-table-body', 'html', otHtml);
         }
     </script>
 </body>
