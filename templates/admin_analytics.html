@@ -129,7 +129,7 @@
                             <div class="col-md-4">
                                 <div class="chart-box">
                                     <div class="chart-title">التدفق النقدي الأسبوعي (Cash Flow)</div>
-                                    <div id="cashFlowChart" style="min-height: 250px;"></div>
+                                    <div id="cashFlowChart"></div>
                                 </div>
                             </div>
                         </div>
@@ -153,13 +153,13 @@
                             <div class="col-md-4">
                                 <div class="chart-box">
                                     <div class="chart-title">المدة المنقضية مقابل المتبقية</div>
-                                    <div id="elapsedChart" style="min-height: 200px;"></div>
+                                    <div id="elapsedChart"></div>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="chart-box">
-                                    <div class="chart-title">أداء البرنامج الزمني (SPI)</div>
-                                    <div id="timePerfChart" style="min-height: 200px;"></div>
+                                    <div class="chart-title">أداء البرنامج الزمني</div>
+                                    <div id="timePerfChart"></div>
                                 </div>
                             </div>
                         </div>
@@ -174,19 +174,19 @@
                             <div class="col-md-8">
                                 <div class="chart-box">
                                     <div class="chart-title">المنحنى الزمني للمشروع (S-Curve الأسبوعي)</div>
-                                    <div id="sCurveChart" style="min-height: 250px;"></div>
+                                    <div id="sCurveChart"></div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="chart-box">
                                     <div class="chart-title">مؤشر SPI العام</div>
-                                    <div id="spiGauge" style="min-height: 200px;"></div>
+                                    <div id="spiGauge"></div>
                                 </div>
                             </div>
                             <div class="col-md-12">
                                 <div class="chart-box">
                                     <div class="chart-title">تطور مؤشر الأداء الزمني (SPI) أسبوعياً</div>
-                                    <div id="spiTrendChart" style="min-height: 180px;"></div>
+                                    <div id="spiTrendChart"></div>
                                 </div>
                             </div>
                         </div>
@@ -201,31 +201,31 @@
                             <div class="col-md-4">
                                 <div class="chart-box">
                                     <div class="chart-title">المخططات / الرسومات</div>
-                                    <div id="drawingsChart" style="min-height: 200px;"></div>
+                                    <div id="drawingsChart"></div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="chart-box">
                                     <div class="chart-title">طلبات الاستلام (IR)</div>
-                                    <div id="irChart" style="min-height: 200px;"></div>
+                                    <div id="irChart"></div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="chart-box">
                                     <div class="chart-title">مخالفات الجودة (NCR)</div>
-                                    <div id="ncrChart" style="min-height: 200px;"></div>
+                                    <div id="ncrChart"></div>
                                 </div>
                             </div>
                             <div class="col-md-8">
                                 <div class="chart-box">
                                     <div class="chart-title">نسب الإنجاز (المخطط مقابل الفعلي) للمشاريع</div>
-                                    <div id="barChart" style="min-height: 200px;"></div>
+                                    <div id="barChart"></div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="chart-box">
                                     <div class="chart-title">التقييم الفني للمقاولين</div>
-                                    <div id="radarChart" style="min-height: 200px;"></div>
+                                    <div id="radarChart"></div>
                                 </div>
                             </div>
                         </div>
@@ -238,7 +238,7 @@
                         <div class="slide-header">📈 تفاصيل التباين (Variance) وأبرز المعوقات</div>
                         <div class="row g-3">
                             <div class="col-md-8">
-                                <div class="chart-box p-0 overflow-auto" style="max-height: 420px;">
+                                <div class="chart-box p-0 overflow-auto" style="height: 420px;">
                                     <table class="table table-sm table-hover table-bordered text-center m-0">
                                         <thead style="position: sticky; top: 0; z-index: 1;">
                                             <tr>
@@ -257,11 +257,11 @@
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="chart-box p-0 overflow-hidden" style="max-height: 420px;">
-                                    <div class="chart-title text-danger pt-3 m-0 border-0 text-center">⚠️ أبرز المعوقات الحالية</div>
+                                <div class="chart-box p-0 overflow-auto" style="height: 420px;">
+                                    <div class="chart-title text-danger pt-3 m-0 border-0 text-center sticky-top" style="background:var(--bg-card);">⚠️ أبرز المعوقات الحالية</div>
                                     <div class="table-responsive">
                                         <table class="table table-sm table-striped m-0 text-center">
-                                            <thead><tr><th>المشروع</th><th>العائق</th><th>التأثير</th></tr></thead>
+                                            <thead class="table-light"><tr><th>المشروع</th><th>العائق</th><th>التأثير</th></tr></thead>
                                             <tbody id="obstacles-table-body"></tbody>
                                         </table>
                                     </div>
@@ -293,10 +293,20 @@
         let isCarouselPlaying = true;
 
         toggleBtn.addEventListener('click', function() {
-            if (isCarouselPlaying) { bsCarousel.pause(); toggleBtn.innerHTML = '▶️ تشغيل العرض'; toggleBtn.classList.replace('btn-outline-info', 'btn-outline-success'); isCarouselPlaying = false; } 
-            else { bsCarousel.cycle(); toggleBtn.innerHTML = '⏸ إيقاف العرض'; toggleBtn.classList.replace('btn-outline-success', 'btn-outline-info'); isCarouselPlaying = true; }
+            if (isCarouselPlaying) { 
+                bsCarousel.pause(); 
+                toggleBtn.innerHTML = '▶️ تشغيل العرض'; 
+                toggleBtn.classList.replace('btn-outline-info', 'btn-outline-success'); 
+                isCarouselPlaying = false; 
+            } else { 
+                bsCarousel.cycle(); 
+                toggleBtn.innerHTML = '⏸ إيقاف العرض'; 
+                toggleBtn.classList.replace('btn-outline-success', 'btn-outline-info'); 
+                isCarouselPlaying = true; 
+            }
         });
 
+        // لتفادي أي مشاكل في العرض عند التنقل بين الشرائح
         carouselElement.addEventListener('slid.bs.carousel', function () { window.dispatchEvent(new Event('resize')); });
 
         fetch('/api/analytics-data').then(res => res.json()).then(data => {
@@ -308,67 +318,62 @@
         function initCharts() {
             const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI' } };
             
-            // 1. Cash Flow
+            // تم تحديد الارتفاعات بالبيكسل لحل مشكلة التمدد اللانهائي نهائياً
             charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
-                ...darkOpts, chart: { type: 'bar', height: '100%', ...darkOpts.chart },
+                ...darkOpts, chart: { type: 'bar', height: 280, ...darkOpts.chart },
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } },
                 colors: ['#0dcaf0', '#ffc107'], stroke: { show: true, width: 2, colors: ['transparent'] },
                 dataLabels: { enabled: false }, grid: { borderColor: '#444857' }
             }); charts.cashFlow.render();
 
-            // 2. Elapsed vs Remaining
             charts.elapsed = new ApexCharts(document.querySelector("#elapsedChart"), {
-                ...darkOpts, chart: { type: 'donut', height: '100%', ...darkOpts.chart },
+                ...darkOpts, chart: { type: 'donut', height: 250, ...darkOpts.chart },
                 series: [], labels: ['المدة المنقضية', 'المدة المتبقية'],
-                colors: ['#0dcaf0', '#ffc107'], stroke: { show: false }, legend: { position: 'bottom' }
+                colors: ['#0dcaf0', '#ffc107'], stroke: { show: false }, legend: { position: 'bottom' },
+                dataLabels: { formatter: function (val) { return val.toFixed(1) + "%" } }
             }); charts.elapsed.render();
 
-            // 3. Time Schedule Performance
             charts.timePerf = new ApexCharts(document.querySelector("#timePerfChart"), {
-                ...darkOpts, chart: { type: 'donut', height: '100%', ...darkOpts.chart },
+                ...darkOpts, chart: { type: 'donut', height: 250, ...darkOpts.chart },
                 series: [], labels: ['متقدم', 'متوافق', 'متأخر'],
                 colors: ['#0dcaf0', '#198754', '#dc3545'], stroke: { show: false }, legend: { position: 'bottom' }
             }); charts.timePerf.render();
 
-            // 4. SPI Gauge
             charts.spi = new ApexCharts(document.querySelector("#spiGauge"), {
-                ...darkOpts, chart: { type: 'radialBar', height: '100%', ...darkOpts.chart }, series: [0],
+                ...darkOpts, chart: { type: 'radialBar', height: 280, ...darkOpts.chart }, series: [0],
                 plotOptions: { radialBar: { startAngle: -120, endAngle: 120, hollow: { size: '60%' }, track: { background: '#444857' }, dataLabels: { name: { show: false }, value: { fontSize: '30px', fontWeight: 'bold', color: '#fff', formatter: val => (val/100).toFixed(2) } } } },
                 stroke: { lineCap: 'round' }, colors: ['#fd7e14']
             }); charts.spi.render();
 
-            // 5. SPI Trend
             charts.spiTrend = new ApexCharts(document.querySelector("#spiTrendChart"), {
-                ...darkOpts, chart: { type: 'area', height: '100%', ...darkOpts.chart },
-                series: [], xaxis: { categories: [] }, colors: ['#0dcaf0'],
+                ...darkOpts, chart: { type: 'area', height: 180, ...darkOpts.chart },
+                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } }, colors: ['#0dcaf0'],
                 dataLabels: { enabled: true, formatter: val => val.toFixed(2), offsetY: -5, style: { fontSize: '10px' }, background: { enabled: false } },
                 stroke: { curve: 'smooth', width: 2 }, fill: { opacity: 0.3 }, grid: { borderColor: '#444857' }
             }); charts.spiTrend.render();
 
-            // 6. S-Curve
             charts.sCurve = new ApexCharts(document.querySelector("#sCurveChart"), {
-                ...darkOpts, chart: { type: 'line', height: '100%', ...darkOpts.chart },
-                series: [], xaxis: { categories: [] }, colors: ['#0dcaf0', '#ffc107', '#0dcaf0', '#ffc107'],
+                ...darkOpts, chart: { type: 'line', height: 280, ...darkOpts.chart },
+                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } }, colors: ['#0dcaf0', '#ffc107', '#0dcaf0', '#ffc107'],
                 stroke: { width: [0, 0, 3, 3], dashArray: [0, 0, 5, 5] },
-                dataLabels: { enabled: true, enabledOnSeries: [0, 1], formatter: val => val.toFixed(1) + "%", style: { fontSize: '9px' } }
+                dataLabels: { enabled: true, enabledOnSeries: [0, 1], formatter: val => val.toFixed(1) + "%", style: { fontSize: '9px' }, background: { enabled: false } },
+                grid: { borderColor: '#444857' }
             }); charts.sCurve.render();
 
-            // 7. QC Histograms
-            const hcOpts = { ...darkOpts, chart: { type: 'bar', height: '100%', ...darkOpts.chart }, plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '12px', colors: ['#fff'] } }, xaxis: { categories: [] } };
+            const hcOpts = { ...darkOpts, chart: { type: 'bar', height: 220, ...darkOpts.chart }, plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '12px', colors: ['#fff'] } }, xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } }, grid: { borderColor: '#444857' } };
             charts.dr = new ApexCharts(document.querySelector("#drawingsChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.dr.render();
             charts.ir = new ApexCharts(document.querySelector("#irChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.ir.render();
             charts.ncr = new ApexCharts(document.querySelector("#ncrChart"), { ...hcOpts, series: [], colors: ['#dc3545', '#198754'] }); charts.ncr.render();
 
-            // 8. Progress Bar
             charts.bar = new ApexCharts(document.querySelector("#barChart"), {
-                ...darkOpts, chart: { type: 'bar', height: '100%', ...darkOpts.chart }, series: [], xaxis: { categories: [] }, colors: ['#0dcaf0', '#198754'],
-                plotOptions: { bar: { dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, formatter: val => val + "%", style: { fontSize: '9px' } }
+                ...darkOpts, chart: { type: 'bar', height: 220, ...darkOpts.chart }, series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } }, colors: ['#0dcaf0', '#198754'],
+                plotOptions: { bar: { dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, formatter: val => val + "%", style: { fontSize: '9px' } }, grid: { borderColor: '#444857' }
             }); charts.bar.render();
 
-            // 9. Radar
             charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
-                ...darkOpts, chart: { type: 'radar', height: '100%', ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
-                stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 3 }
+                ...darkOpts, chart: { type: 'radar', height: 220, ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
+                stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 3 },
+                yaxis: { show: false }, xaxis: { labels: { style: { colors: '#adb5bd' } } }, plotOptions: { radar: { polygons: { strokeColors: '#444857', connectorColors: '#444857' } } }
             }); charts.radar.render();
         }
 
@@ -392,7 +397,7 @@
 
             let baseData = rawData.filter(item => (!fPm || item.manager_name === fPm) && (!fType || item.project_type === fType) && (!fProj || item.project_name === fProj));
             
-            // بيانات الاتجاه الزمني (كل التواريخ السابقة)
+            // بيانات الاتجاه الزمني (Cash Flow, S-Curve, SPI Trend)
             let trendDates = [...new Set(baseData.map(item => item.current_data_date))].filter(Boolean).sort();
             let trendCashFlow = { dates: [], planned: [], actual: [] };
             let trendSCurve = { dates: [], pBar: [], aBar: [], pLine: [], aLine: [] };
@@ -405,8 +410,8 @@
                 let aCost = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.act_prog_cur)), 0);
                 trendCashFlow.dates.push(date); trendCashFlow.planned.push(pCost); trendCashFlow.actual.push(aCost);
 
-                let pProg = dData.reduce((s, i) => s + num(i.plan_prog_cur), 0) / dData.length * 100;
-                let aProg = dData.reduce((s, i) => s + num(i.act_prog_cur), 0) / dData.length * 100;
+                let pProg = dData.length ? dData.reduce((s, i) => s + num(i.plan_prog_cur), 0) / dData.length * 100 : 0;
+                let aProg = dData.length ? dData.reduce((s, i) => s + num(i.act_prog_cur), 0) / dData.length * 100 : 0;
                 cumP += pProg; cumA += aProg;
                 trendSCurve.dates.push(date); trendSCurve.pBar.push(pProg); trendSCurve.aBar.push(aProg); trendSCurve.pLine.push(cumP); trendSCurve.aLine.push(cumA);
 
@@ -459,14 +464,12 @@
             document.getElementById('kpi-min-start-a').innerText = getD('start_actual').length ? getD('start_actual').sort()[0] : '-';
             document.getElementById('kpi-max-end-e').innerText = getD('end_expected').length ? getD('end_expected').sort().reverse()[0] : '-';
 
-            // Elapsed vs Remaining Calc
             if(sC.length && eC.length) {
                 let minSt = new Date(sC.sort()[0]).getTime();
                 let maxEn = new Date(eC.sort().reverse()[0]).getTime();
                 let today = new Date().getTime();
                 let total = maxEn - minSt;
                 let elapsed = today - minSt;
-                let rem = maxEn - today;
                 if(total > 0) {
                     let ePct = Math.max(0, Math.min(100, (elapsed/total)*100));
                     let rPct = 100 - ePct;
@@ -515,8 +518,8 @@
                 }
             });
 
-            obsArr.slice(0, 6).forEach(o => ot.innerHTML += `<tr><td class="fw-bold text-white">${o.p}</td><td class="text-white">${o.d}</td><td><span class="badge badge-impact-${o.i}">${o.i}</span></td></tr>`);
-            if(!obsArr.length) ot.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات</td></tr>';
+            obsArr.slice(0, 10).forEach(o => ot.innerHTML += `<tr><td class="fw-bold text-white">${o.p}</td><td class="text-white">${o.d}</td><td><span class="badge badge-impact-${o.i}">${o.i}</span></td></tr>`);
+            if(!obsArr.length) ot.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات حرجة مفتوحة</td></tr>';
         }
     </script>
 </body>
