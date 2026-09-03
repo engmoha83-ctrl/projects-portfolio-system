@@ -301,7 +301,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let rawData = [];
-        let totalUsersFromDB = 33; // القيمة المطلوبة الافتراضية من جدول Supabase Users
+        let totalUsersFromDB = 33; // القيمة الافتراضية
         let charts = {};
 
         const carouselElement = document.getElementById('dashboardCarousel');
@@ -323,7 +323,7 @@
         fetch('/api/analytics-data').then(res => res.json()).then(data => {
             if(data.success) { 
                 rawData = data.updates; 
-                if (data.total_users !== undefined) totalUsersFromDB = data.total_users; // التوافق مع أي تحديثات من الـ Backend
+                if (data.total_users !== undefined) totalUsersFromDB = data.total_users; 
                 initCharts(); initFilters(); 
             }
         });
@@ -333,6 +333,7 @@
         function initCharts() {
             const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI', width: '100%', height: '100%' } };
             
+            // 1. التدفق النقدي: أعمدة تراكمية فقط
             charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
                 ...darkOpts, chart: { type: 'bar', ...darkOpts.chart },
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
@@ -367,13 +368,7 @@
                 ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], 
                 xaxis: { 
                     categories: [], 
-                    labels: { 
-                        style: { colors: '#adb5bd', fontSize: '10px' },
-                        hideOverlappingLabels: false, 
-                        rotate: -45, 
-                        trim: true,
-                        maxHeight: 70
-                    } 
+                    labels: { style: { colors: '#adb5bd', fontSize: '10px' }, hideOverlappingLabels: false, rotate: -45, trim: true, maxHeight: 70 } 
                 }, 
                 yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, colors: ['#0dcaf0', '#198754'],
                 plotOptions: { bar: { dataLabels: { position: 'top' } } }, 
@@ -381,18 +376,14 @@
                 grid: { borderColor: '#444857' }
             }); charts.bar.render();
 
+            // 2. تعديل الـ S-Curve ليصبح أعمدة تراكمية فقط بدون أي خطوط (Curve)
             charts.sCurve = new ApexCharts(document.querySelector("#sCurveChart"), {
-                ...darkOpts, chart: { type: 'line', ...darkOpts.chart },
+                ...darkOpts, chart: { type: 'bar', ...darkOpts.chart },
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
-                yaxis: [
-                    { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } },
-                    { min: 0, show: false },
-                    { min: 0, opposite: true, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } },
-                    { min: 0, show: false }
-                ],
-                colors: ['#0dcaf0', '#ffc107', '#0dcaf0', '#ffc107'], stroke: { width: [0, 0, 3, 3], dashArray: [0, 0, 5, 5] },
+                yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } },
+                colors: ['#0dcaf0', '#ffc107'], 
                 plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
-                dataLabels: { enabled: true, enabledOnSeries: [0, 1], offsetY: -15, formatter: val => val.toFixed(1) + "%", style: { fontSize: '9px', colors: ['#fff'] }, background: { enabled: false } },
+                dataLabels: { enabled: true, offsetY: -15, formatter: val => val.toFixed(1) + "%", style: { fontSize: '9px', colors: ['#fff'] }, background: { enabled: false } },
                 grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
             }); charts.sCurve.render();
 
@@ -437,17 +428,18 @@
 
             let baseData = rawData.filter(item => (!fPm || item.manager_name === fPm) && (!fType || item.project_type === fType) && (!fProj || item.project_name === fProj));
             
+            // ترتيب التواريخ تصاعدياً من الأقدم للأحدث لرسم التراكمي بطريقة صحيحة
             let trendDates = [...new Set(baseData.map(item => item.current_data_date))].filter(Boolean).sort();
             
             let trendCashFlow = { dates: [], pCum: [], aCum: [] };
-            let trendSCurve = { dates: [], pBar: [], aBar: [], pLine: [], aLine: [] };
+            let trendSCurve = { dates: [], pCum: [], aCum: [] };
             let trendSPI = { dates: [], spi: [] };
 
-            let prevPProg = 0, prevAProg = 0;
             let uniqueProjNames = [...new Set(baseData.map(item => item.project_name))];
 
             trendDates.forEach(date => {
                 let asOfData = [];
+                // اللقطة التراكمية الدقيقة: جلب أحدث تحديث لكل مشروع حتى هذا التاريخ
                 uniqueProjNames.forEach(pName => {
                     let pUpdates = baseData.filter(i => i.project_name === pName && i.current_data_date <= date);
                     if(pUpdates.length > 0) {
@@ -456,41 +448,33 @@
                     }
                 });
 
+                // 1. حسابات التكلفة والتدفق النقدي
                 let pCostCum = asOfData.reduce((s, i) => s + (num(i.contractor_val) * num(i.plan_prog_cur)), 0);
                 let aCostCum = asOfData.reduce((s, i) => s + (num(i.contractor_val) * num(i.act_prog_cur)), 0);
 
                 trendCashFlow.dates.push(date); 
                 trendCashFlow.pCum.push(pCostCum); trendCashFlow.aCum.push(aCostCum);
 
-                let pProgCum = asOfData.length ? asOfData.reduce((s, i) => s + num(i.plan_prog_cur), 0) / asOfData.length * 100 : 0;
-                let aProgCum = asOfData.length ? asOfData.reduce((s, i) => s + num(i.act_prog_cur), 0) / asOfData.length * 100 : 0;
-
-                let pProgInc = Math.max(0, pProgCum - prevPProg);
-                let aProgInc = Math.max(0, aProgCum - prevAProg);
-
-                prevPProg = pProgCum;
-                prevAProg = aProgCum;
+                // 2. حساب S-Curve (المتوسط البسيط الدقيق اللي كان شغال صح)
+                let pProgCum = asOfData.length ? (asOfData.reduce((s, i) => s + num(i.plan_prog_cur), 0) / asOfData.length) * 100 : 0;
+                let aProgCum = asOfData.length ? (asOfData.reduce((s, i) => s + num(i.act_prog_cur), 0) / asOfData.length) * 100 : 0;
 
                 trendSCurve.dates.push(date);
-                trendSCurve.pBar.push(pProgInc); trendSCurve.aBar.push(aProgInc);
-                trendSCurve.pLine.push(pProgCum); trendSCurve.aLine.push(aProgCum);
+                trendSCurve.pCum.push(pProgCum); trendSCurve.aCum.push(aProgCum);
 
+                // 3. حساب SPI (متوافق مع الداشبورد القديمة)
                 let spi = pProgCum > 0 ? (aProgCum / pProgCum) : 0;
                 trendSPI.dates.push(date); trendSPI.spi.push(spi);
             });
 
+            // تحديث رسومات الاتجاهات مع ضبط الحد الأقصى للمحاور لمنع اختلاف أطوال الأعمدة
             let maxCF = Math.max(...trendCashFlow.pCum, ...trendCashFlow.aCum, 1000000);
-            let ycfConfig = { min: 0, max: maxCF * 1.1, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } };
-            charts.cashFlow.updateOptions({ xaxis: {categories: trendCashFlow.dates}, yaxis: ycfConfig });
-            charts.cashFlow.updateSeries([
-                {name:'مخطط تراكمي', type:'column', data:trendCashFlow.pCum}, 
-                {name:'فعلي تراكمي', type:'column', data:trendCashFlow.aCum}
-            ]);
+            charts.cashFlow.updateOptions({ xaxis: {categories: trendCashFlow.dates}, yaxis: { min: 0, max: maxCF * 1.1, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } } });
+            charts.cashFlow.updateSeries([{name:'مخطط تراكمي', type:'column', data:trendCashFlow.pCum}, {name:'فعلي تراكمي', type:'column', data:trendCashFlow.aCum}]);
 
-            let maxSC = Math.max(...trendSCurve.pLine, ...trendSCurve.aLine, 100);
-            let yscConfig = { min: 0, max: maxSC, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } };
-            charts.sCurve.updateOptions({ xaxis: {categories: trendSCurve.dates}, yaxis: [yscConfig, {show:false, ...yscConfig}, {opposite:true, ...yscConfig}, {show:false, ...yscConfig}] });
-            charts.sCurve.updateSeries([{name:'مخطط أسبوعي', type:'column', data:trendSCurve.pBar}, {name:'فعلي أسبوعي', type:'column', data:trendSCurve.aBar}, {name:'مخطط تراكمي', type:'line', data:trendSCurve.pLine}, {name:'فعلي تراكمي', type:'line', data:trendSCurve.aLine}]);
+            let maxSC = Math.max(...trendSCurve.pCum, ...trendSCurve.aCum, 100);
+            charts.sCurve.updateOptions({ xaxis: {categories: trendSCurve.dates}, yaxis: { min: 0, max: maxSC, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } } });
+            charts.sCurve.updateSeries([{name:'مخطط تراكمي', type:'column', data:trendSCurve.pCum}, {name:'فعلي تراكمي', type:'column', data:trendSCurve.aCum}]);
 
             charts.spiTrend.updateSeries([{name:'SPI', data:trendSPI.spi}]);
             charts.spiTrend.updateOptions({xaxis: {categories: trendSPI.dates}});
@@ -509,7 +493,7 @@
             let sumU = (key) => unique.reduce((s, d) => s + num(d[key]), 0);
             
             let totalProj = totalUsersFromDB;
-            let updatedManagers = new Set(current.map(d => d.project_name)).size; // تم تعديلها لتعد المشاريع المحدثة الفردية لتطابق رقم 25 بناء على طلبك
+            let updatedManagers = new Set(current.map(d => d.project_name)).size; 
             
             document.getElementById('kpi-total-proj').innerText = totalProj;
             document.getElementById('kpi-updated-proj').innerText = updatedManagers;
@@ -549,6 +533,7 @@
             }
         }
 
+        // تم إرجاع معادلة حساب الـ SPI الصحيحة للمتوسط البسيط زي ما كانت مظبوطة معاك
         function updateRemainingCharts(data) {
             let avgA = data.reduce((s, d) => s + num(d.act_prog_cur), 0) / (data.length || 1);
             let avgP = data.reduce((s, d) => s + num(d.plan_prog_cur), 0) / (data.length || 1);
