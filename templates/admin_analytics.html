@@ -301,7 +301,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let rawData = [];
-        let totalUsersFromDB = 33; // القيمة المطلوبة الافتراضية من جدول Supabase Users
+        let totalUsersFromDB = 33; // القيمة الافتراضية
         let charts = {};
 
         const carouselElement = document.getElementById('dashboardCarousel');
@@ -323,7 +323,7 @@
         fetch('/api/analytics-data').then(res => res.json()).then(data => {
             if(data.success) { 
                 rawData = data.updates; 
-                if (data.total_users !== undefined) totalUsersFromDB = data.total_users; // التوافق مع أي تحديثات من الـ Backend
+                if (data.total_users !== undefined) totalUsersFromDB = data.total_users; 
                 initCharts(); initFilters(); 
             }
         });
@@ -367,13 +367,7 @@
                 ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], 
                 xaxis: { 
                     categories: [], 
-                    labels: { 
-                        style: { colors: '#adb5bd', fontSize: '10px' },
-                        hideOverlappingLabels: false, 
-                        rotate: -45, 
-                        trim: true,
-                        maxHeight: 70
-                    } 
+                    labels: { style: { colors: '#adb5bd', fontSize: '10px' }, hideOverlappingLabels: false, rotate: -45, trim: true, maxHeight: 70 } 
                 }, 
                 yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, colors: ['#0dcaf0', '#198754'],
                 plotOptions: { bar: { dataLabels: { position: 'top' } } }, 
@@ -443,7 +437,6 @@
             let trendSCurve = { dates: [], pBar: [], aBar: [], pLine: [], aLine: [] };
             let trendSPI = { dates: [], spi: [] };
 
-            let prevPProg = 0, prevAProg = 0;
             let uniqueProjNames = [...new Set(baseData.map(item => item.project_name))];
 
             trendDates.forEach(date => {
@@ -456,20 +449,24 @@
                     }
                 });
 
+                // 1. حسابات التكلفة والتدفق النقدي
                 let pCostCum = asOfData.reduce((s, i) => s + (num(i.contractor_val) * num(i.plan_prog_cur)), 0);
                 let aCostCum = asOfData.reduce((s, i) => s + (num(i.contractor_val) * num(i.act_prog_cur)), 0);
+                let totalVal = asOfData.reduce((s, i) => s + num(i.contractor_val), 0);
 
                 trendCashFlow.dates.push(date); 
                 trendCashFlow.pCum.push(pCostCum); trendCashFlow.aCum.push(aCostCum);
 
-                let pProgCum = asOfData.length ? asOfData.reduce((s, i) => s + num(i.plan_prog_cur), 0) / asOfData.length * 100 : 0;
-                let aProgCum = asOfData.length ? asOfData.reduce((s, i) => s + num(i.act_prog_cur), 0) / asOfData.length * 100 : 0;
+                // 2. حساب المقطوع الأسبوعي المباشر من الداتابيز (تجنب خطأ أول أسبوع)
+                let exactDateData = baseData.filter(i => i.current_data_date === date);
+                let pCostInc = exactDateData.reduce((s, i) => s + (num(i.contractor_val) * Math.max(0, num(i.plan_prog_cur) - num(i.plan_prog_prev))), 0);
+                let aCostInc = exactDateData.reduce((s, i) => s + (num(i.contractor_val) * Math.max(0, num(i.act_prog_cur) - num(i.act_prog_prev))), 0);
 
-                let pProgInc = Math.max(0, pProgCum - prevPProg);
-                let aProgInc = Math.max(0, aProgCum - prevAProg);
-
-                prevPProg = pProgCum;
-                prevAProg = aProgCum;
+                // 3. حساب نسب S-Curve (Weighted Average EVM)
+                let pProgCum = totalVal > 0 ? (pCostCum / totalVal) * 100 : 0;
+                let aProgCum = totalVal > 0 ? (aCostCum / totalVal) * 100 : 0;
+                let pProgInc = totalVal > 0 ? (pCostInc / totalVal) * 100 : 0;
+                let aProgInc = totalVal > 0 ? (aCostInc / totalVal) * 100 : 0;
 
                 trendSCurve.dates.push(date);
                 trendSCurve.pBar.push(pProgInc); trendSCurve.aBar.push(aProgInc);
@@ -501,7 +498,7 @@
             let dateFilteredData = fDate === "" ? uniqueProjects : baseData.filter(item => item.current_data_date === fDate);
 
             updateKPIs(uniqueProjects, dateFilteredData);
-            updateRemainingCharts(dateFilteredData);
+            updateRemainingCharts(uniqueProjects, dateFilteredData); // نمرر الاثنين عشان التراكمي
             updateTables(dateFilteredData);
         }
 
@@ -509,7 +506,7 @@
             let sumU = (key) => unique.reduce((s, d) => s + num(d[key]), 0);
             
             let totalProj = totalUsersFromDB;
-            let updatedManagers = new Set(current.map(d => d.project_name)).size; // تم تعديلها لتعد المشاريع المحدثة الفردية لتطابق رقم 25 بناء على طلبك
+            let updatedManagers = new Set(current.map(d => d.project_name)).size; 
             
             document.getElementById('kpi-total-proj').innerText = totalProj;
             document.getElementById('kpi-updated-proj').innerText = updatedManagers;
@@ -549,10 +546,13 @@
             }
         }
 
-        function updateRemainingCharts(data) {
-            let avgA = data.reduce((s, d) => s + num(d.act_prog_cur), 0) / (data.length || 1);
-            let avgP = data.reduce((s, d) => s + num(d.plan_prog_cur), 0) / (data.length || 1);
-            let spi = avgP > 0 ? (avgA / avgP) : 0;
+        // تم تصحيح حساب SPI ليكون مرجح بالتكلفة أيضاً
+        function updateRemainingCharts(unique, current) {
+            let totalVal = unique.reduce((s, d) => s + num(d.contractor_val), 0);
+            let totalEV = unique.reduce((s, d) => s + (num(d.contractor_val) * num(d.act_prog_cur)), 0);
+            let totalPV = unique.reduce((s, d) => s + (num(d.contractor_val) * num(d.plan_prog_cur)), 0);
+            
+            let spi = totalPV > 0 ? (totalEV / totalPV) : 0;
             
             let spiColor = '';
             if (spi < 0.6) spiColor = '#dc3545'; 
@@ -563,13 +563,13 @@
             charts.spi.updateSeries([spi * 100]);
 
             let ahead=0, onsch=0, behind=0;
-            data.forEach(d => {
+            unique.forEach(d => {
                 let s = num(d.plan_prog_cur) > 0 ? num(d.act_prog_cur)/num(d.plan_prog_cur) : 0;
                 if(s > 1) ahead++; else if(s >= 0.95 && s <= 1 && num(d.act_prog_cur) > 0) onsch++; else behind++;
             });
             charts.timePerf.updateSeries([ahead, onsch, behind]);
 
-            let sum = (k) => data.reduce((s, d) => s + num(d[k]), 0);
+            let sum = (k) => current.reduce((s, d) => s + num(d[k]), 0);
             
             let drSub = sum('drawings_sub'), drApp = sum('drawings_app'), drRev = sum('drawings_rev');
             let irSub = sum('ir_sub'), irApp = sum('ir_app'), irRev = sum('ir_rev');
@@ -583,10 +583,10 @@
             charts.ir.updateSeries([{name:'مقدم', data:[irSub]}, {name:'معتمد', data:[irApp]}, {name:'دراسة', data:[irRev]}]);
             charts.ncr.updateSeries([{name:'مفتوح', data:[ncrOpen]}, {name:'مغلق', data:[ncrClosed]}]);
 
-            charts.bar.updateSeries([{ name: 'مخطط', data: data.map(d => Math.round(num(d.plan_prog_cur)*100)) }, { name: 'فعلي', data: data.map(d => Math.round(num(d.act_prog_cur)*100)) }]);
-            charts.bar.updateOptions({ xaxis: { categories: data.map(d => (d.project_name||'').substring(0,15)+'..') } });
+            charts.bar.updateSeries([{ name: 'مخطط', data: current.map(d => Math.round(num(d.plan_prog_cur)*100)) }, { name: 'فعلي', data: current.map(d => Math.round(num(d.act_prog_cur)*100)) }]);
+            charts.bar.updateOptions({ xaxis: { categories: current.map(d => (d.project_name||'').substring(0,15)+'..') } });
 
-            if(data.length > 0) charts.radar.updateSeries([{ name: 'تقييم', data: [(sum('eval_labor')/data.length).toFixed(1), (sum('eval_equip')/data.length).toFixed(1), (sum('eval_financial')/data.length).toFixed(1), (sum('eval_hse')/data.length).toFixed(1)] }]);
+            if(current.length > 0) charts.radar.updateSeries([{ name: 'تقييم', data: [(sum('eval_labor')/current.length).toFixed(1), (sum('eval_equip')/current.length).toFixed(1), (sum('eval_financial')/current.length).toFixed(1), (sum('eval_hse')/current.length).toFixed(1)] }]);
             else charts.radar.updateSeries([]);
         }
 
