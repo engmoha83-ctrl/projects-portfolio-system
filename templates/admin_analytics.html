@@ -6,209 +6,63 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <style>
-        /* المتغيرات اللونية لتطابق Power BI Dark Theme */
         :root {
-            --bg-main: #1e1e24;
-            --bg-card: #2b2d35;
-            --bg-navbar: #15161a;
-            --text-main: #f8f9fa;
-            --text-muted: #adb5bd;
-            --border-color: #444857;
-            
-            --c-cyan: #0dcaf0;
-            --c-orange: #fd7e14;
-            --c-green: #198754;
-            --c-red: #dc3545;
-            --c-blue: #0d6efd;
+            --bg-main: #1e1e24; --bg-card: #2b2d35; --bg-navbar: #15161a;
+            --text-main: #f8f9fa; --text-muted: #adb5bd; --border-color: #444857;
+            --c-cyan: #0dcaf0; --c-orange: #fd7e14; --c-green: #198754;
+            --c-red: #dc3545; --c-blue: #0d6efd; --c-yellow: #ffc107;
         }
 
-        body { 
-            background-color: var(--bg-main); 
-            color: var(--text-main); 
-            font-family: 'Segoe UI', Tahoma, sans-serif; 
-        }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; }
+        .navbar { background-color: var(--bg-navbar) !important; border-bottom: 2px solid var(--border-color); }
         
-        .navbar { 
-            background-color: var(--bg-navbar) !important; 
-            border-bottom: 2px solid var(--border-color); 
-        }
+        .filter-bar { background: var(--bg-card); border-radius: 8px; padding: 15px 25px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .form-label { color: var(--text-muted); font-weight: bold; }
+        .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .form-select:focus { background-color: var(--bg-main); color: var(--text-main); border-color: var(--c-cyan); box-shadow: 0 0 0 .25rem rgba(13, 202, 240, .25); }
         
-        /* فلاتر التحكم */
-        .filter-bar { 
-            background: var(--bg-card); 
-            border-radius: 8px; 
-            padding: 15px 25px; 
-            margin-bottom: 20px; 
-            border: 1px solid var(--border-color); 
-        }
-        .form-label { 
-            color: var(--text-muted); 
-            font-weight: bold; 
-        }
-        .form-select { 
-            background-color: var(--bg-main); 
-            color: var(--text-main); 
-            border: 1px solid var(--border-color); 
-        }
-        .form-select:focus { 
-            background-color: var(--bg-main); 
-            color: var(--text-main); 
-            border-color: var(--c-cyan); 
-            box-shadow: 0 0 0 .25rem rgba(13, 202, 240, .25); 
-        }
+        .kpi-card { background: var(--bg-card); border-radius: 8px; padding: 12px 15px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid #6c757d; }
+        .kpi-title { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; }
+        .kpi-value { font-size: 1.3rem; font-weight: bold; margin: 0; }
         
-        /* بطاقات المؤشرات (KPIs) */
-        .kpi-card { 
-            background: var(--bg-card); 
-            border-radius: 8px; 
-            padding: 15px; 
-            border: 1px solid var(--border-color); 
-            height: 100%; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between; 
-            border-top: 4px solid #6c757d; 
-        }
-        .kpi-title { 
-            font-size: 0.85rem; 
-            color: var(--text-muted); 
-            margin-bottom: 8px; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
-        }
-        .kpi-value { 
-            font-size: 1.4rem; 
-            font-weight: bold; 
-            margin: 0; 
-        }
-        .kpi-sub { 
-            font-size: 0.75rem; 
-            color: var(--text-muted); 
-        }
-        
-        /* تلوين حواف البطاقات */
-        .border-t-cyan { border-top-color: var(--c-cyan); }
-        .border-t-orange { border-top-color: var(--c-orange); }
-        .border-t-green { border-top-color: var(--c-green); }
-        .border-t-red { border-top-color: var(--c-red); }
-        .border-t-blue { border-top-color: var(--c-blue); }
+        .border-t-cyan { border-top-color: var(--c-cyan); } .border-t-orange { border-top-color: var(--c-orange); }
+        .border-t-green { border-top-color: var(--c-green); } .border-t-red { border-top-color: var(--c-red); }
+        .border-t-blue { border-top-color: var(--c-blue); } .border-t-yellow { border-top-color: var(--c-yellow); }
 
-        /* حاويات الرسوم */
-        .chart-box { 
-            background: var(--bg-card); 
-            border-radius: 8px; 
-            padding: 15px; 
-            border: 1px solid var(--border-color); 
-            height: 100%; 
-        }
-        .chart-title { 
-            font-size: 0.95rem; 
-            font-weight: bold; 
-            color: var(--text-main); 
-            border-bottom: 1px solid var(--border-color); 
-            padding-bottom: 8px; 
-            margin-bottom: 15px; 
-            text-align: center; 
-        }
+        .chart-box { background: var(--bg-card); border-radius: 8px; padding: 15px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: center; }
+        .chart-title { font-size: 0.9rem; font-weight: bold; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 10px; text-align: center; }
         
-        /* الجداول الداكنة الاحترافية */
-        .table { 
-            --bs-table-bg: transparent; 
-            --bs-table-color: var(--text-main); 
-            --bs-table-border-color: var(--border-color); 
-            margin-bottom: 0; 
-            color: var(--text-main); 
-            font-size: 0.85rem; 
-        }
-        .table thead th { 
-            background-color: #363945 !important; 
-            color: #ffffff !important; 
-            border-bottom: 2px solid var(--border-color); 
-            font-weight: bold; 
-        }
-        .table td, .table th { 
-            border-color: var(--border-color); 
-            vertical-align: middle; 
-            color: var(--text-main); 
-        }
-        .table-striped > tbody > tr:nth-of-type(odd) > * { 
-            background-color: rgba(255, 255, 255, 0.02); 
-            color: var(--text-main); 
-        }
-        .table-hover > tbody > tr:hover > * { 
-            background-color: #3f4250; 
-            color: var(--text-main); 
-        }
+        .table { --bs-table-bg: transparent; --bs-table-color: var(--text-main); --bs-table-border-color: var(--border-color); margin-bottom: 0; font-size: 0.8rem; }
+        .table thead th { background-color: #363945 !important; color: #fff !important; font-weight: bold; border-bottom: 2px solid var(--border-color); }
+        .table td, .table th { border-color: var(--border-color); vertical-align: middle; }
+        .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(255, 255, 255, 0.02); color: var(--text-main); }
+        .table-hover > tbody > tr:hover > * { background-color: #3f4250; color: var(--text-main); }
 
-        /* ضبط الـ Carousel الهيكلي */
-        .carousel-inner { 
-            min-height: 520px; 
-            padding-bottom: 30px; 
-        }
-        .slide-container { 
-            padding: 10px 80px; 
-            width: 100%; 
-        }
-        .carousel-control-prev, .carousel-control-next { 
-            width: 50px; 
-            background: rgba(255, 255, 255, 0.05); 
-            border-radius: 8px; 
-            top: 50%; 
-            transform: translateY(-50%); 
-            height: 80px; 
-            z-index: 5; 
-        }
-        .carousel-indicators { 
-            bottom: -30px; 
-        }
-        .carousel-indicators [data-bs-target] { 
-            background-color: var(--text-muted); 
-            width: 30px; 
-            height: 4px; 
-        }
-        .carousel-indicators .active { 
-            background-color: var(--c-cyan); 
-        }
+        .carousel-inner { min-height: 550px; padding-bottom: 30px; }
+        .slide-container { padding: 5px 80px; width: 100%; }
+        .carousel-control-prev, .carousel-control-next { width: 50px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; z-index: 5; }
+        .carousel-indicators { bottom: -30px; }
+        .carousel-indicators [data-bs-target] { background-color: var(--text-muted); width: 30px; height: 4px; }
+        .carousel-indicators .active { background-color: var(--c-cyan); }
         
-        .slide-header { 
-            font-size: 1.1rem; 
-            color: var(--text-main); 
-            font-weight: bold; 
-            margin-bottom: 20px; 
-            border-bottom: 1px solid var(--border-color); 
-            padding-bottom: 10px; 
-        }
-        
+        .slide-header { font-size: 1.1rem; color: var(--text-main); font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
         .badge-impact-كبير { background-color: var(--c-red); color: white; }
         .badge-impact-متوسط { background-color: var(--c-orange); color: white; }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg mb-4 shadow">
+    <nav class="navbar navbar-expand-lg mb-3 shadow">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold text-white" href="/admin-hub">إدارة المشاريع | البوابة المركزية</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar"></button>
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link text-white-50" href="/admin-dashboard">سجل التحديثات</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active text-white fw-bold" href="/admin-analytics">لوحة المؤشرات</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-white-50" href="/admin-directory">دليل المديرين</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-white-50" href="/admin-gallery">المعرض المرئي</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link text-white-50" href="/admin-dashboard">سجل التحديثات</a></li>
+                    <li class="nav-item"><a class="nav-link active text-white fw-bold" href="/admin-analytics">لوحة المؤشرات</a></li>
+                    <li class="nav-item"><a class="nav-link text-white-50" href="/admin-directory">دليل المديرين</a></li>
+                    <li class="nav-item"><a class="nav-link text-white-50" href="/admin-gallery">المعرض المرئي</a></li>
                 </ul>
-                <div class="d-flex">
-                    <a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a>
-                </div>
+                <div class="d-flex"><a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a></div>
             </div>
         </div>
     </nav>
@@ -218,39 +72,29 @@
         <div class="filter-bar">
             <div class="row align-items-end g-3">
                 <div class="col-md-3">
-                    <label class="form-label small">تاريخ دورة التحديث (Data Date):</label>
-                    <select id="flt-date" class="form-select" onchange="applyFilters()">
-                        <option value="">الكل</option>
-                    </select>
+                    <label class="form-label small">تاريخ التحديث (اللقطة الحالية):</label>
+                    <select id="flt-date" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small">مدير المشروع:</label>
-                    <select id="flt-pm" class="form-select" onchange="applyFilters()">
-                        <option value="">الكل</option>
-                    </select>
+                    <select id="flt-pm" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small">نوع المشروع:</label>
-                    <select id="flt-type" class="form-select" onchange="applyFilters()">
-                        <option value="">الكل</option>
-                    </select>
+                    <select id="flt-type" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small">المشروع:</label>
-                    <select id="flt-project" class="form-select" onchange="applyFilters()">
-                        <option value="">الكل</option>
-                    </select>
+                    <select id="flt-project" class="form-select" onchange="applyFilters()"><option value="">الكل</option></select>
                 </div>
             </div>
         </div>
 
-        <div class="d-flex justify-content-end mb-3">
-            <button id="toggleCarouselBtn" class="btn btn-outline-info btn-sm fw-bold shadow-sm">
-                ⏸ إيقاف العرض التلقائي
-            </button>
+        <div class="d-flex justify-content-end mb-2">
+            <button id="toggleCarouselBtn" class="btn btn-outline-info btn-sm fw-bold shadow-sm">⏸ إيقاف العرض التلقائي</button>
         </div>
 
-        <div id="dashboardCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="6000">
+        <div id="dashboardCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="8000">
             <div class="carousel-indicators">
                 <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="0" class="active"></button>
                 <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="1"></button>
@@ -261,206 +105,163 @@
 
             <div class="carousel-inner bg-transparent">
                 
-                <!-- الشريحة 1: الماليات -->
+                <!-- الشريحة 1: الماليات والعقود -->
                 <div class="carousel-item active">
                     <div class="slide-container">
                         <div class="slide-header">💰 الماليات والعقود (تراكمي)</div>
                         <div class="row g-3">
-                            <div class="col-md-4">
-                                <div class="kpi-card border-t-green">
-                                    <div class="kpi-title">عقود المقاولين</div>
-                                    <div class="kpi-value text-success" id="kpi-cont-val">0</div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="kpi-card border-t-green">
-                                    <div class="kpi-title">عقود الاستشاريين</div>
-                                    <div class="kpi-value text-success" id="kpi-cons-val">0</div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="kpi-card border-t-orange">
-                                    <div class="kpi-title">أوامر التغيير (عدد)</div>
-                                    <div class="kpi-value" style="color:var(--c-orange)" id="kpi-chg-count">0</div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="kpi-card border-t-orange">
-                                    <div class="kpi-title">أوامر التغيير (قيمة)</div>
-                                    <div class="kpi-value" style="color:var(--c-orange)" id="kpi-chg-val">0</div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="kpi-card border-t-cyan">
-                                    <div class="kpi-title">الفواتير (عدد)</div>
-                                    <div class="kpi-value text-info" id="kpi-inv-count">0</div>
-                                    <div class="kpi-sub">مقاول: <span id="s-cont-inv-c">0</span> | استشاري: <span id="s-cons-inv-c">0</span></div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="kpi-card border-t-cyan">
-                                    <div class="kpi-title">الفواتير (قيمة)</div>
-                                    <div class="kpi-value text-info" id="kpi-inv-val">0</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- الشريحة 2: التواريخ والتصنيف -->
-                <div class="carousel-item">
-                    <div class="slide-container">
-                        <div class="slide-header">📅 التواريخ التعاقدية والتصنيف</div>
-                        <div class="row g-3">
                             <div class="col-md-8">
                                 <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <div class="kpi-card border-t-blue">
-                                            <div class="kpi-title">أقل بداية تعاقدية</div>
-                                            <div class="kpi-value fs-4 text-white" id="kpi-min-start-c">-</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="kpi-card border-t-blue">
-                                            <div class="kpi-title">أكبر نهاية تعاقدية</div>
-                                            <div class="kpi-value fs-4 text-white" id="kpi-max-end-c">-</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="kpi-card border-t-cyan">
-                                            <div class="kpi-title">أقل بداية فعلية</div>
-                                            <div class="kpi-value fs-4 text-white" id="kpi-min-start-a">-</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="kpi-card border-t-cyan">
-                                            <div class="kpi-title">أكبر نهاية متوقعة</div>
-                                            <div class="kpi-value fs-4 text-white" id="kpi-max-end-e">-</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-12">
-                                        <div class="kpi-card border-t-red">
-                                            <div class="kpi-title">إجمالي التمديدات الزمنية (يوم)</div>
-                                            <div class="kpi-value text-danger" id="kpi-ext-time">0</div>
-                                        </div>
-                                    </div>
+                                    <div class="col-md-6"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود المقاولين</div><div class="kpi-value text-info" id="kpi-cont-val">0</div></div></div>
+                                    <div class="col-md-6"><div class="kpi-card border-t-cyan"><div class="kpi-title">عقود الاستشاريين</div><div class="kpi-value text-info" id="kpi-cons-val">0</div></div></div>
+                                    
+                                    <div class="col-md-3"><div class="kpi-card border-t-orange"><div class="kpi-title">أوامر التغيير - مقاول (قيمة)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-val">0</div></div></div>
+                                    <div class="col-md-3"><div class="kpi-card border-t-orange"><div class="kpi-title">أوامر التغيير - مقاول (عدد)</div><div class="kpi-value" style="color:var(--c-orange)" id="kpi-cont-chg-cnt">0</div></div></div>
+                                    <div class="col-md-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">أوامر التغيير - استشاري (قيمة)</div><div class="kpi-value text-warning" id="kpi-cons-chg-val">0</div></div></div>
+                                    <div class="col-md-3"><div class="kpi-card border-t-yellow"><div class="kpi-title">أوامر التغيير - استشاري (عدد)</div><div class="kpi-value text-warning" id="kpi-cons-chg-cnt">0</div></div></div>
+                                    
+                                    <div class="col-md-3"><div class="kpi-card border-t-green"><div class="kpi-title">فواتير المقاول (قيمة)</div><div class="kpi-value text-success" id="kpi-cont-inv-val">0</div></div></div>
+                                    <div class="col-md-3"><div class="kpi-card border-t-green"><div class="kpi-title">فواتير المقاول (عدد)</div><div class="kpi-value text-success" id="kpi-cont-inv-cnt">0</div></div></div>
+                                    <div class="col-md-3"><div class="kpi-card border-t-blue"><div class="kpi-title">فواتير الاستشاري (قيمة)</div><div class="kpi-value text-primary" id="kpi-cons-inv-val">0</div></div></div>
+                                    <div class="col-md-3"><div class="kpi-card border-t-blue"><div class="kpi-title">فواتير الاستشاري (عدد)</div><div class="kpi-value text-primary" id="kpi-cons-inv-cnt">0</div></div></div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="chart-box">
-                                    <div class="chart-title">تصنيف المشاريع المفلترة</div>
-                                    <div id="donutChart" style="min-height: 250px;"></div>
+                                    <div class="chart-title">التدفق النقدي الأسبوعي (Cash Flow)</div>
+                                    <div id="cashFlowChart" style="min-height: 250px;"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- الشريحة 3: الأداء والرسوم -->
+                <!-- الشريحة 2: الزمن والتصنيف -->
                 <div class="carousel-item">
                     <div class="slide-container">
-                        <div class="slide-header">📊 مؤشرات الأداء الزمني والإنجاز</div>
+                        <div class="slide-header">📅 التواريخ وأداء البرنامج الزمني</div>
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <div class="row g-2">
+                                    <div class="col-12"><div class="kpi-card border-t-blue py-2"><div class="kpi-title">أقل بداية تعاقدية</div><div class="kpi-value fs-5 text-white" id="kpi-min-start-c">-</div></div></div>
+                                    <div class="col-12"><div class="kpi-card border-t-cyan py-2"><div class="kpi-title">أكبر نهاية تعاقدية</div><div class="kpi-value fs-5 text-white" id="kpi-max-end-c">-</div></div></div>
+                                    <div class="col-6"><div class="kpi-card border-t-orange py-2"><div class="kpi-title">أقل بداية فعلية</div><div class="kpi-value fs-6 text-white" id="kpi-min-start-a">-</div></div></div>
+                                    <div class="col-6"><div class="kpi-card border-t-orange py-2"><div class="kpi-title">أكبر نهاية متوقعة</div><div class="kpi-value fs-6 text-white" id="kpi-max-end-e">-</div></div></div>
+                                    <div class="col-12"><div class="kpi-card border-t-red py-2"><div class="kpi-title">إجمالي التمديدات (يوم)</div><div class="kpi-value fs-5 text-danger" id="kpi-ext-time">0</div></div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="chart-box">
+                                    <div class="chart-title">المدة المنقضية مقابل المتبقية</div>
+                                    <div id="elapsedChart" style="min-height: 200px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="chart-box">
+                                    <div class="chart-title">أداء البرنامج الزمني (SPI)</div>
+                                    <div id="timePerfChart" style="min-height: 200px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- الشريحة 3: الإنجاز والأداء -->
+                <div class="carousel-item">
+                    <div class="slide-container">
+                        <div class="slide-header">📊 مؤشرات الإنجاز والأداء (S-Curve & SPI)</div>
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <div class="chart-box">
+                                    <div class="chart-title">المنحنى الزمني للمشروع (S-Curve الأسبوعي)</div>
+                                    <div id="sCurveChart" style="min-height: 250px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="chart-box">
+                                    <div class="chart-title">مؤشر SPI العام</div>
+                                    <div id="spiGauge" style="min-height: 200px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-12">
+                                <div class="chart-box">
+                                    <div class="chart-title">تطور مؤشر الأداء الزمني (SPI) أسبوعياً</div>
+                                    <div id="spiTrendChart" style="min-height: 180px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- الشريحة 4: الجودة والمعوقات -->
+                <div class="carousel-item">
+                    <div class="slide-container">
+                        <div class="slide-header">📂 الجودة والمستندات (QC Histograms)</div>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <div class="chart-box d-flex flex-column justify-content-center">
-                                    <div class="chart-title">مؤشر الأداء الزمني العام (SPI)</div>
-                                    <div id="spiGauge" style="min-height: 300px;"></div>
+                                <div class="chart-box">
+                                    <div class="chart-title">المخططات / الرسومات</div>
+                                    <div id="drawingsChart" style="min-height: 200px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="chart-box">
+                                    <div class="chart-title">طلبات الاستلام (IR)</div>
+                                    <div id="irChart" style="min-height: 200px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="chart-box">
+                                    <div class="chart-title">مخالفات الجودة (NCR)</div>
+                                    <div id="ncrChart" style="min-height: 200px;"></div>
                                 </div>
                             </div>
                             <div class="col-md-8">
                                 <div class="chart-box">
                                     <div class="chart-title">نسب الإنجاز (المخطط مقابل الفعلي) للمشاريع</div>
-                                    <div id="barChart" style="min-height: 300px;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- الشريحة 4: جدول التباين -->
-                <div class="carousel-item">
-                    <div class="slide-container">
-                        <div class="slide-header">📈 تفاصيل الإنجاز والتباين (Variance)</div>
-                        <div class="chart-box h-100 p-0 overflow-auto" style="max-height: 420px;">
-                            <table class="table table-sm table-hover table-bordered text-center m-0">
-                                <thead style="position: sticky; top: 0; z-index: 1;">
-                                    <tr>
-                                        <th rowspan="2">المشروع</th>
-                                        <th colspan="3">الإنجاز المخطط (%)</th>
-                                        <th colspan="3">الإنجاز الفعلي (%)</th>
-                                        <th rowspan="2" title="Schedule Performance Index">SPI</th>
-                                    </tr>
-                                    <tr>
-                                        <th>سابق</th>
-                                        <th>حالي</th>
-                                        <th>التباين</th>
-                                        <th>سابق</th>
-                                        <th>حالي</th>
-                                        <th>التباين</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="progress-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- الشريحة 5: الجودة والمعوقات -->
-                <div class="carousel-item">
-                    <div class="slide-container">
-                        <div class="slide-header">📂 الجودة، المستندات، والمعوقات</div>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <div class="row g-3">
-                                    <div class="col-12">
-                                        <div class="kpi-card border-t-blue">
-                                            <div class="kpi-title">المخططات / الرسومات</div>
-                                            <div class="d-flex justify-content-between mt-1">
-                                                <div class="text-center"><b class="text-white fs-5" id="dr-sub">0</b><span class="kpi-sub d-block">مقدمة</span></div>
-                                                <div class="text-center"><b class="text-success fs-5" id="dr-app">0</b><span class="kpi-sub d-block">معتمدة</span></div>
-                                                <div class="text-center"><b class="text-warning fs-5" id="dr-rev">0</b><span class="kpi-sub d-block">دراسة</span></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-12">
-                                        <div class="kpi-card border-t-cyan">
-                                            <div class="kpi-title">طلبات الاستلام (IR)</div>
-                                            <div class="d-flex justify-content-between mt-1">
-                                                <div class="text-center"><b class="text-white fs-5" id="ir-sub">0</b><span class="kpi-sub d-block">مقدمة</span></div>
-                                                <div class="text-center"><b class="text-success fs-5" id="ir-app">0</b><span class="kpi-sub d-block">معتمدة</span></div>
-                                                <div class="text-center"><b class="text-warning fs-5" id="ir-rev">0</b><span class="kpi-sub d-block">دراسة</span></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-12">
-                                        <div class="kpi-card border-t-red">
-                                            <div class="kpi-title">مخالفات الجودة (NCR)</div>
-                                            <div class="d-flex justify-content-around mt-1">
-                                                <div class="text-center"><b class="text-danger fs-5" id="kpi-ncr-open">0</b><span class="kpi-sub d-block">مفتوحة</span></div>
-                                                <div class="text-center"><b class="text-success fs-5" id="kpi-ncr-closed">0</b><span class="kpi-sub d-block">مغلقة</span></div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <div id="barChart" style="min-height: 200px;"></div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="chart-box">
-                                    <div class="chart-title">متوسط التقييم التقني</div>
-                                    <div id="radarChart" style="min-height: 250px; display: flex; justify-content: center;"></div>
+                                    <div class="chart-title">التقييم الفني للمقاولين</div>
+                                    <div id="radarChart" style="min-height: 200px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- الشريحة 5: التفاصيل والتباين -->
+                <div class="carousel-item">
+                    <div class="slide-container">
+                        <div class="slide-header">📈 تفاصيل التباين (Variance) وأبرز المعوقات</div>
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <div class="chart-box p-0 overflow-auto" style="max-height: 420px;">
+                                    <table class="table table-sm table-hover table-bordered text-center m-0">
+                                        <thead style="position: sticky; top: 0; z-index: 1;">
+                                            <tr>
+                                                <th rowspan="2">المشروع</th>
+                                                <th colspan="3">الإنجاز المخطط (%)</th>
+                                                <th colspan="3">الإنجاز الفعلي (%)</th>
+                                                <th rowspan="2" title="Schedule Performance Index">SPI</th>
+                                            </tr>
+                                            <tr>
+                                                <th>سابق</th><th>حالي</th><th>التباين</th>
+                                                <th>سابق</th><th>حالي</th><th>التباين</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="progress-table-body"></tbody>
+                                    </table>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="chart-box p-0 overflow-hidden">
+                                <div class="chart-box p-0 overflow-hidden" style="max-height: 420px;">
                                     <div class="chart-title text-danger pt-3 m-0 border-0 text-center">⚠️ أبرز المعوقات الحالية</div>
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-striped m-0">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th>المشروع</th>
-                                                    <th>وصف العائق</th>
-                                                    <th>التأثير</th>
-                                                </tr>
-                                            </thead>
+                                        <table class="table table-sm table-striped m-0 text-center">
+                                            <thead><tr><th>المشروع</th><th>العائق</th><th>التأثير</th></tr></thead>
                                             <tbody id="obstacles-table-body"></tbody>
                                         </table>
                                     </div>
@@ -472,7 +273,6 @@
 
             </div>
 
-            <!-- أزرار التنقل -->
             <button class="carousel-control-prev" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="prev">
                 <span class="carousel-control-prev-icon"></span>
             </button>
@@ -487,105 +287,89 @@
         let rawData = [];
         let charts = {};
 
-        // تعريف وتشغيل العرض التلقائي برمجياً لضمان الاستقرار
         const carouselElement = document.getElementById('dashboardCarousel');
-        const bsCarousel = new bootstrap.Carousel(carouselElement, {
-            interval: 6000,
-            ride: 'carousel',
-            pause: 'hover'
-        });
-
+        const bsCarousel = new bootstrap.Carousel(carouselElement, { interval: 8000, ride: 'carousel', pause: 'hover' });
         const toggleBtn = document.getElementById('toggleCarouselBtn');
         let isCarouselPlaying = true;
 
         toggleBtn.addEventListener('click', function() {
-            if (isCarouselPlaying) {
-                bsCarousel.pause();
-                toggleBtn.innerHTML = '▶️ تشغيل العرض التلقائي';
-                toggleBtn.classList.replace('btn-outline-info', 'btn-outline-success');
-                isCarouselPlaying = false;
-            } else {
-                bsCarousel.cycle();
-                toggleBtn.innerHTML = '⏸ إيقاف العرض التلقائي';
-                toggleBtn.classList.replace('btn-outline-success', 'btn-outline-info');
-                isCarouselPlaying = true;
-            }
+            if (isCarouselPlaying) { bsCarousel.pause(); toggleBtn.innerHTML = '▶️ تشغيل العرض'; toggleBtn.classList.replace('btn-outline-info', 'btn-outline-success'); isCarouselPlaying = false; } 
+            else { bsCarousel.cycle(); toggleBtn.innerHTML = '⏸ إيقاف العرض'; toggleBtn.classList.replace('btn-outline-success', 'btn-outline-info'); isCarouselPlaying = true; }
         });
 
-        carouselElement.addEventListener('slid.bs.carousel', function () {
-            window.dispatchEvent(new Event('resize'));
-        });
+        carouselElement.addEventListener('slid.bs.carousel', function () { window.dispatchEvent(new Event('resize')); });
 
-       // الكود بدون أي اختراعات أو تعديل للأسماء
-fetch('/api/analytics-data')
-    .then(res => res.json())
-    .then(data => {
-        if(data.success) { 
-            rawData = data.updates; // قراءة البيانات الخام مباشرة من الجدول
-            initCharts(); 
-            initFilters(); 
-        }
-    })
-    .catch(err => console.error("Error loading data:", err));
+        fetch('/api/analytics-data').then(res => res.json()).then(data => {
+            if(data.success) { rawData = data.updates; initCharts(); initFilters(); }
+        });
 
         function num(val) { return parseFloat(val) || 0; }
         
         function initCharts() {
-            const darkThemeOpts = {
-                theme: { mode: 'dark' },
-                chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI' }
-            };
-
-            charts.spi = new ApexCharts(document.querySelector("#spiGauge"), {
-                ...darkThemeOpts,
-                chart: { type: 'radialBar', height: 320, ...darkThemeOpts.chart },
-                series: [0],
-                plotOptions: {
-                    radialBar: {
-                        startAngle: -120, endAngle: 120, hollow: { size: '65%' },
-                        track: { background: '#444857', strokeWidth: '97%' },
-                        dataLabels: {
-                            name: { show: false },
-                            value: { fontSize: '40px', fontWeight: 'bold', color: '#fff', formatter: val => (val / 100).toFixed(2) }
-                        }
-                    }
-                },
-                stroke: { lineCap: 'round' },
-                colors: ['#fd7e14']
-            });
-            charts.spi.render();
-
-            charts.bar = new ApexCharts(document.querySelector("#barChart"), {
-                ...darkThemeOpts,
-                chart: { type: 'bar', height: 320, ...darkThemeOpts.chart },
+            const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI' } };
+            
+            // 1. Cash Flow
+            charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
+                ...darkOpts, chart: { type: 'bar', height: '100%', ...darkOpts.chart },
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } },
-                yaxis: { labels: { style: { colors: '#adb5bd' } } },
-                colors: ['#0dcaf0', '#198754'],
-                plotOptions: { bar: { borderRadius: 2, horizontal: false, dataLabels: { position: 'top' } } },
-                dataLabels: { enabled: true, formatter: val => val + "%", style: { colors: ['#fff'], fontSize: '10px' } },
-                grid: { borderColor: '#444857' }
-            });
-            charts.bar.render();
+                colors: ['#0dcaf0', '#ffc107'], stroke: { show: true, width: 2, colors: ['transparent'] },
+                dataLabels: { enabled: false }, grid: { borderColor: '#444857' }
+            }); charts.cashFlow.render();
 
-            charts.donut = new ApexCharts(document.querySelector("#donutChart"), {
-                ...darkThemeOpts,
-                chart: { type: 'donut', height: 260, ...darkThemeOpts.chart },
-                series: [], labels: [], legend: { position: 'bottom', labels: { colors: '#adb5bd' } },
-                stroke: { show: false },
-                colors: ['#0d6efd', '#fd7e14', '#198754', '#dc3545', '#0dcaf0', '#6f42c1']
-            });
-            charts.donut.render();
+            // 2. Elapsed vs Remaining
+            charts.elapsed = new ApexCharts(document.querySelector("#elapsedChart"), {
+                ...darkOpts, chart: { type: 'donut', height: '100%', ...darkOpts.chart },
+                series: [], labels: ['المدة المنقضية', 'المدة المتبقية'],
+                colors: ['#0dcaf0', '#ffc107'], stroke: { show: false }, legend: { position: 'bottom' }
+            }); charts.elapsed.render();
 
+            // 3. Time Schedule Performance
+            charts.timePerf = new ApexCharts(document.querySelector("#timePerfChart"), {
+                ...darkOpts, chart: { type: 'donut', height: '100%', ...darkOpts.chart },
+                series: [], labels: ['متقدم', 'متوافق', 'متأخر'],
+                colors: ['#0dcaf0', '#198754', '#dc3545'], stroke: { show: false }, legend: { position: 'bottom' }
+            }); charts.timePerf.render();
+
+            // 4. SPI Gauge
+            charts.spi = new ApexCharts(document.querySelector("#spiGauge"), {
+                ...darkOpts, chart: { type: 'radialBar', height: '100%', ...darkOpts.chart }, series: [0],
+                plotOptions: { radialBar: { startAngle: -120, endAngle: 120, hollow: { size: '60%' }, track: { background: '#444857' }, dataLabels: { name: { show: false }, value: { fontSize: '30px', fontWeight: 'bold', color: '#fff', formatter: val => (val/100).toFixed(2) } } } },
+                stroke: { lineCap: 'round' }, colors: ['#fd7e14']
+            }); charts.spi.render();
+
+            // 5. SPI Trend
+            charts.spiTrend = new ApexCharts(document.querySelector("#spiTrendChart"), {
+                ...darkOpts, chart: { type: 'area', height: '100%', ...darkOpts.chart },
+                series: [], xaxis: { categories: [] }, colors: ['#0dcaf0'],
+                dataLabels: { enabled: true, formatter: val => val.toFixed(2), offsetY: -5, style: { fontSize: '10px' }, background: { enabled: false } },
+                stroke: { curve: 'smooth', width: 2 }, fill: { opacity: 0.3 }, grid: { borderColor: '#444857' }
+            }); charts.spiTrend.render();
+
+            // 6. S-Curve
+            charts.sCurve = new ApexCharts(document.querySelector("#sCurveChart"), {
+                ...darkOpts, chart: { type: 'line', height: '100%', ...darkOpts.chart },
+                series: [], xaxis: { categories: [] }, colors: ['#0dcaf0', '#ffc107', '#0dcaf0', '#ffc107'],
+                stroke: { width: [0, 0, 3, 3], dashArray: [0, 0, 5, 5] },
+                dataLabels: { enabled: true, enabledOnSeries: [0, 1], formatter: val => val.toFixed(1) + "%", style: { fontSize: '9px' } }
+            }); charts.sCurve.render();
+
+            // 7. QC Histograms
+            const hcOpts = { ...darkOpts, chart: { type: 'bar', height: '100%', ...darkOpts.chart }, plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '12px', colors: ['#fff'] } }, xaxis: { categories: [] } };
+            charts.dr = new ApexCharts(document.querySelector("#drawingsChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.dr.render();
+            charts.ir = new ApexCharts(document.querySelector("#irChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.ir.render();
+            charts.ncr = new ApexCharts(document.querySelector("#ncrChart"), { ...hcOpts, series: [], colors: ['#dc3545', '#198754'] }); charts.ncr.render();
+
+            // 8. Progress Bar
+            charts.bar = new ApexCharts(document.querySelector("#barChart"), {
+                ...darkOpts, chart: { type: 'bar', height: '100%', ...darkOpts.chart }, series: [], xaxis: { categories: [] }, colors: ['#0dcaf0', '#198754'],
+                plotOptions: { bar: { dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, formatter: val => val + "%", style: { fontSize: '9px' } }
+            }); charts.bar.render();
+
+            // 9. Radar
             charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
-                ...darkThemeOpts,
-                chart: { type: 'radar', height: 260, ...darkThemeOpts.chart },
-                series: [], labels: ['العمالة', 'المعدات', 'الموقف المالي', 'السلامة'],
-                stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] },
-                markers: { size: 4, colors: ['#fff'], strokeColors: '#0dcaf0' },
-                yaxis: { show: false }, xaxis: { labels: { style: { colors: '#adb5bd' } } },
-                plotOptions: { radar: { polygons: { strokeColors: '#444857', connectorColors: '#444857' } } }
-            });
-            charts.radar.render();
+                ...darkOpts, chart: { type: 'radar', height: '100%', ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
+                stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 3 }
+            }); charts.radar.render();
         }
 
         function initFilters() {
@@ -594,26 +378,9 @@ fetch('/api/analytics-data')
             let types = [...new Set(rawData.map(item => item.project_type))].filter(Boolean).sort();
             let projects = [...new Set(rawData.map(item => item.project_name))].filter(Boolean).sort();
 
-            const populate = (id, arr) => { 
-                const el = document.getElementById(id); 
-                arr.forEach(val => {
-                    let option = document.createElement('option');
-                    option.value = val;
-                    option.text = val;
-                    el.appendChild(option);
-                }); 
-            };
-            const dateSelect = document.getElementById('flt-date');
-            dates.forEach(val => {
-                let option = document.createElement('option');
-                option.value = val;
-                option.text = val;
-                dateSelect.appendChild(option);
-            });
-            
-            populate('flt-pm', pms); 
-            populate('flt-type', types); 
-            populate('flt-project', projects);
+            const populate = (id, arr) => { const el = document.getElementById(id); arr.forEach(val => el.add(new Option(val, val))); };
+            dates.forEach(val => document.getElementById('flt-date').add(new Option(val, val)));
+            populate('flt-pm', pms); populate('flt-type', types); populate('flt-project', projects);
             applyFilters();
         }
 
@@ -623,165 +390,133 @@ fetch('/api/analytics-data')
             const fType = document.getElementById('flt-type').value;
             const fProj = document.getElementById('flt-project').value;
 
-            let independentData = rawData.filter(item => (!fPm || item.manager_name === fPm) && (!fType || item.project_type === fType) && (!fProj || item.project_name === fProj));
+            let baseData = rawData.filter(item => (!fPm || item.manager_name === fPm) && (!fType || item.project_type === fType) && (!fProj || item.project_name === fProj));
+            
+            // بيانات الاتجاه الزمني (كل التواريخ السابقة)
+            let trendDates = [...new Set(baseData.map(item => item.current_data_date))].filter(Boolean).sort();
+            let trendCashFlow = { dates: [], planned: [], actual: [] };
+            let trendSCurve = { dates: [], pBar: [], aBar: [], pLine: [], aLine: [] };
+            let trendSPI = { dates: [], spi: [] };
+            let cumP = 0, cumA = 0;
+
+            trendDates.forEach(date => {
+                let dData = baseData.filter(i => i.current_data_date === date);
+                let pCost = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.plan_prog_cur)), 0);
+                let aCost = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.act_prog_cur)), 0);
+                trendCashFlow.dates.push(date); trendCashFlow.planned.push(pCost); trendCashFlow.actual.push(aCost);
+
+                let pProg = dData.reduce((s, i) => s + num(i.plan_prog_cur), 0) / dData.length * 100;
+                let aProg = dData.reduce((s, i) => s + num(i.act_prog_cur), 0) / dData.length * 100;
+                cumP += pProg; cumA += aProg;
+                trendSCurve.dates.push(date); trendSCurve.pBar.push(pProg); trendSCurve.aBar.push(aProg); trendSCurve.pLine.push(cumP); trendSCurve.aLine.push(cumA);
+
+                let spi = pProg > 0 ? (aProg / pProg) : 0;
+                trendSPI.dates.push(date); trendSPI.spi.push(spi);
+            });
+
+            charts.cashFlow.updateSeries([{name:'مخطط', data:trendCashFlow.planned}, {name:'فعلي', data:trendCashFlow.actual}]);
+            charts.cashFlow.updateOptions({xaxis: {categories: trendCashFlow.dates}});
+            
+            charts.sCurve.updateSeries([{name:'مخطط أسبوعي', type:'column', data:trendSCurve.pBar}, {name:'فعلي أسبوعي', type:'column', data:trendSCurve.aBar}, {name:'مخطط تراكمي', type:'line', data:trendSCurve.pLine}, {name:'فعلي تراكمي', type:'line', data:trendSCurve.aLine}]);
+            charts.sCurve.updateOptions({xaxis: {categories: trendSCurve.dates}});
+
+            charts.spiTrend.updateSeries([{name:'SPI', data:trendSPI.spi}]);
+            charts.spiTrend.updateOptions({xaxis: {categories: trendSPI.dates}});
+
+            // البيانات الحالية (اللقطة)
             let latestProjects = {};
-            independentData.forEach(item => { 
-                if (!latestProjects[item.project_name] || item.current_data_date > latestProjects[item.project_name].current_data_date) {
-                    latestProjects[item.project_name] = item; 
-                }
-            });
+            baseData.forEach(item => { if (!latestProjects[item.project_name] || item.current_data_date > latestProjects[item.project_name].current_data_date) latestProjects[item.project_name] = item; });
             let uniqueProjects = Object.values(latestProjects);
-            
-            updateIndependentKPIs(uniqueProjects);
+            let dateFilteredData = fDate === "" ? uniqueProjects : baseData.filter(item => item.current_data_date === fDate);
 
-            let dateFilteredData = fDate === "" ? uniqueProjects : independentData.filter(item => item.current_data_date === fDate);
-            updateDependentKPIs(dateFilteredData);
-            updateProgressTable(dateFilteredData);
-            updateObstaclesTable(dateFilteredData);
-            updateChartsData(dateFilteredData);
+            updateKPIs(uniqueProjects, dateFilteredData);
+            updateRemainingCharts(dateFilteredData);
+            updateTables(dateFilteredData);
         }
 
-        function updateChartsData(data) {
-            let avgActual = data.reduce((s, d) => s + num(d.act_prog_cur), 0) / (data.length || 1);
-            let avgPlanned = data.reduce((s, d) => s + num(d.plan_prog_cur), 0) / (data.length || 1);
-            let spi = avgPlanned > 0 ? (avgActual / avgPlanned) : 0;
-            let spiGaugeValue = spi * 100; 
-            let spiColor = spi >= 1 ? '#198754' : (spi >= 0.9 ? '#fd7e14' : '#dc3545');
-            charts.spi.updateOptions({ colors: [spiColor] });
-            charts.spi.updateSeries([spiGaugeValue]);
+        function updateKPIs(unique, current) {
+            let sumU = (key) => unique.reduce((s, d) => s + num(d[key]), 0);
+            
+            document.getElementById('kpi-cont-val').innerText = sumU('contractor_val').toLocaleString('en-US');
+            document.getElementById('kpi-cons-val').innerText = sumU('consultant_val').toLocaleString('en-US');
+            
+            document.getElementById('kpi-cont-chg-cnt').innerText = sumU('contractor_mods_count');
+            document.getElementById('kpi-cont-chg-val').innerText = sumU('contractor_mods_val').toLocaleString('en-US');
+            document.getElementById('kpi-cons-chg-cnt').innerText = sumU('consultant_mods_count');
+            document.getElementById('kpi-cons-chg-val').innerText = sumU('consultant_mods_val').toLocaleString('en-US');
 
-            let projNames = data.map(d => (d.project_name || 'بدون اسم').substring(0, 15) + '..');
-            let planned = data.map(d => Math.round(num(d.plan_prog_cur) * 100));
-            let actual = data.map(d => Math.round(num(d.act_prog_cur) * 100));
-            charts.bar.updateSeries([{ name: 'مخطط', data: planned }, { name: 'فعلي', data: actual }]);
-            charts.bar.updateOptions({ xaxis: { categories: projNames } });
+            document.getElementById('kpi-cont-inv-cnt').innerText = sumU('cont_inv_count');
+            document.getElementById('kpi-cont-inv-val').innerText = sumU('cont_inv_val').toLocaleString('en-US');
+            document.getElementById('kpi-cons-inv-cnt').innerText = sumU('cons_inv_count');
+            document.getElementById('kpi-cons-inv-val').innerText = sumU('cons_inv_val').toLocaleString('en-US');
 
-            let typeCount = {};
-            data.forEach(d => { 
-                let type = d.project_type || 'غير محدد'; 
-                typeCount[type] = (typeCount[type] || 0) + 1; 
-            });
-            charts.donut.updateSeries(Object.values(typeCount));
-            charts.donut.updateOptions({ labels: Object.keys(typeCount) });
+            document.getElementById('kpi-ext-time').innerText = sumU('consultant_mods_time') + sumU('contractor_mods_time');
 
-            if(data.length > 0) {
-                let avgLabor = data.reduce((s, d) => s + num(d.eval_labor), 0) / data.length;
-                let avgEquip = data.reduce((s, d) => s + num(d.eval_equip), 0) / data.length;
-                let avgFin = data.reduce((s, d) => s + num(d.eval_financial), 0) / data.length;
-                let avgHse = data.reduce((s, d) => s + num(d.eval_hse), 0) / data.length;
-                charts.radar.updateSeries([{ name: 'متوسط التقييم', data: [avgLabor.toFixed(1), avgEquip.toFixed(1), avgFin.toFixed(1), avgHse.toFixed(1)] }]);
-            } else {
-                charts.radar.updateSeries([]);
+            let getD = (key) => unique.map(d => d[key]).filter(d => d && d.trim() !== "");
+            let sC = getD('start_contractual'), eC = getD('end_contractual');
+            document.getElementById('kpi-min-start-c').innerText = sC.length ? sC.sort()[0] : '-';
+            document.getElementById('kpi-max-end-c').innerText = eC.length ? eC.sort().reverse()[0] : '-';
+            document.getElementById('kpi-min-start-a').innerText = getD('start_actual').length ? getD('start_actual').sort()[0] : '-';
+            document.getElementById('kpi-max-end-e').innerText = getD('end_expected').length ? getD('end_expected').sort().reverse()[0] : '-';
+
+            // Elapsed vs Remaining Calc
+            if(sC.length && eC.length) {
+                let minSt = new Date(sC.sort()[0]).getTime();
+                let maxEn = new Date(eC.sort().reverse()[0]).getTime();
+                let today = new Date().getTime();
+                let total = maxEn - minSt;
+                let elapsed = today - minSt;
+                let rem = maxEn - today;
+                if(total > 0) {
+                    let ePct = Math.max(0, Math.min(100, (elapsed/total)*100));
+                    let rPct = 100 - ePct;
+                    charts.elapsed.updateSeries([ePct, rPct]);
+                }
             }
         }
 
-        function updateIndependentKPIs(data) {
-            let sumVal = (key) => data.reduce((s, d) => s + num(d[key]), 0);
-            
-            document.getElementById('kpi-cont-val').innerText = sumVal('contractor_val').toLocaleString('en-US');
-            document.getElementById('kpi-cons-val').innerText = sumVal('consultant_val').toLocaleString('en-US');
-            document.getElementById('kpi-chg-count').innerText = sumVal('consultant_mods_count') + sumVal('contractor_mods_count');
-            document.getElementById('kpi-chg-val').innerText = (sumVal('consultant_mods_val') + sumVal('contractor_mods_val')).toLocaleString('en-US');
-            
-            let contInv = sumVal('cont_inv_count');
-            let consInv = sumVal('cons_inv_count');
-            document.getElementById('kpi-inv-count').innerText = contInv + consInv;
-            document.getElementById('s-cont-inv-c').innerText = contInv;
-            document.getElementById('s-cons-inv-c').innerText = consInv;
-            document.getElementById('kpi-inv-val').innerText = (sumVal('cont_inv_val') + sumVal('cons_inv_val')).toLocaleString('en-US');
-            document.getElementById('kpi-ext-time').innerText = sumVal('consultant_mods_time') + sumVal('contractor_mods_time');
+        function updateRemainingCharts(data) {
+            let avgA = data.reduce((s, d) => s + num(d.act_prog_cur), 0) / (data.length || 1);
+            let avgP = data.reduce((s, d) => s + num(d.plan_prog_cur), 0) / (data.length || 1);
+            let spi = avgP > 0 ? (avgA / avgP) : 0;
+            charts.spi.updateOptions({ colors: [spi >= 1 ? '#198754' : (spi >= 0.9 ? '#fd7e14' : '#dc3545')] });
+            charts.spi.updateSeries([spi * 100]);
 
-            let getDates = (key) => data.map(d => d[key]).filter(d => d && d.trim() !== "");
-            
-            let startContractualDates = getDates('start_contractual');
-            document.getElementById('kpi-min-start-c').innerText = startContractualDates.length ? startContractualDates.sort()[0] : '-';
-            
-            let endContractualDates = getDates('end_contractual');
-            document.getElementById('kpi-max-end-c').innerText = endContractualDates.length ? endContractualDates.sort().reverse()[0] : '-';
-            
-            let startActualDates = getDates('start_actual');
-            document.getElementById('kpi-min-start-a').innerText = startActualDates.length ? startActualDates.sort()[0] : '-';
-            
-            let endExpectedDates = getDates('end_expected');
-            document.getElementById('kpi-max-end-e').innerText = endExpectedDates.length ? endExpectedDates.sort().reverse()[0] : '-';
-        }
-
-        function updateDependentKPIs(data) {
-            let sumVal = (key) => data.reduce((s, d) => s + num(d[key]), 0);
-            document.getElementById('dr-sub').innerText = sumVal('drawings_sub'); 
-            document.getElementById('dr-app').innerText = sumVal('drawings_app'); 
-            document.getElementById('dr-rev').innerText = sumVal('drawings_rev');
-            document.getElementById('ir-sub').innerText = sumVal('ir_sub'); 
-            document.getElementById('ir-app').innerText = sumVal('ir_app'); 
-            document.getElementById('ir-rev').innerText = sumVal('ir_rev');
-            document.getElementById('kpi-ncr-open').innerText = sumVal('ncr_open'); 
-            document.getElementById('kpi-ncr-closed').innerText = sumVal('ncr_closed');
-        }
-
-        function updateProgressTable(data) {
-            const tbody = document.getElementById('progress-table-body');
-            tbody.innerHTML = '';
-            
-            data.forEach(item => {
-                let pp = num(item.plan_prog_prev) * 100;
-                let pc = num(item.plan_prog_cur) * 100;
-                let ap = num(item.act_prog_prev) * 100;
-                let ac = num(item.act_prog_cur) * 100;
-                let varP = (pc - pp).toFixed(1);
-                let varA = (ac - ap).toFixed(1);
-                let spi = pc > 0 ? (ac / pc).toFixed(2) : '-';
-                let spiColor = spi >= 1 ? 'text-success fw-bold' : (spi > 0 ? 'text-danger fw-bold' : 'text-muted');
-                
-                let tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="text-start fw-bold text-white">${item.project_name || '-'}</td>
-                    <td>${pp.toFixed(1)}%</td>
-                    <td>${pc.toFixed(1)}%</td>
-                    <td style="color:var(--c-cyan)">+${varP}%</td>
-                    <td>${ap.toFixed(1)}%</td>
-                    <td>${ac.toFixed(1)}%</td>
-                    <td style="color:var(--c-cyan)">+${varA}%</td>
-                    <td class="${spiColor}">${spi}</td>
-                `;
-                tbody.appendChild(tr);
+            let ahead=0, onsch=0, behind=0;
+            data.forEach(d => {
+                let s = num(d.plan_prog_cur) > 0 ? num(d.act_prog_cur)/num(d.plan_prog_cur) : 0;
+                if(s > 1) ahead++; else if(s === 1 && num(d.act_prog_cur) > 0) onsch++; else behind++;
             });
+            charts.timePerf.updateSeries([ahead, onsch, behind]);
+
+            let sum = (k) => data.reduce((s, d) => s + num(d[k]), 0);
+            charts.dr.updateSeries([{name:'مقدم', data:[sum('drawings_sub')]}, {name:'معتمد', data:[sum('drawings_app')]}, {name:'دراسة', data:[sum('drawings_rev')]}]);
+            charts.ir.updateSeries([{name:'مقدم', data:[sum('ir_sub')]}, {name:'معتمد', data:[sum('ir_app')]}, {name:'دراسة', data:[sum('ir_rev')]}]);
+            charts.ncr.updateSeries([{name:'مفتوح', data:[sum('ncr_open')]}, {name:'مغلق', data:[sum('ncr_closed')]}]);
+
+            charts.bar.updateSeries([{ name: 'مخطط', data: data.map(d => Math.round(num(d.plan_prog_cur)*100)) }, { name: 'فعلي', data: data.map(d => Math.round(num(d.act_prog_cur)*100)) }]);
+            charts.bar.updateOptions({ xaxis: { categories: data.map(d => (d.project_name||'').substring(0,10)+'..') } });
+
+            if(data.length > 0) charts.radar.updateSeries([{ name: 'تقييم', data: [(sum('eval_labor')/data.length).toFixed(1), (sum('eval_equip')/data.length).toFixed(1), (sum('eval_financial')/data.length).toFixed(1), (sum('eval_hse')/data.length).toFixed(1)] }]);
+            else charts.radar.updateSeries([]);
         }
 
-        function updateObstaclesTable(data) {
-            const tbody = document.getElementById('obstacles-table-body');
-            tbody.innerHTML = '';
-            let allObstacles = [];
+        function updateTables(data) {
+            const pt = document.getElementById('progress-table-body'), ot = document.getElementById('obstacles-table-body');
+            pt.innerHTML = ''; ot.innerHTML = ''; let obsArr = [];
             
             data.forEach(item => {
+                let pp = num(item.plan_prog_prev)*100, pc = num(item.plan_prog_cur)*100, ap = num(item.act_prog_prev)*100, ac = num(item.act_prog_cur)*100;
+                let spi = pc > 0 ? (ac/pc).toFixed(2) : '-';
+                pt.innerHTML += `<tr><td class="text-start fw-bold text-white">${item.project_name||'-'}</td><td>${pp.toFixed(1)}%</td><td>${pc.toFixed(1)}%</td><td style="color:var(--c-cyan)">+${(pc-pp).toFixed(1)}%</td><td>${ap.toFixed(1)}%</td><td>${ac.toFixed(1)}%</td><td style="color:var(--c-cyan)">+${(ac-ap).toFixed(1)}%</td><td class="${spi>=1?'text-success fw-bold':(spi>0?'text-danger fw-bold':'')}">${spi}</td></tr>`;
+                
                 if(item.obstacles_data && item.obstacles_data !== '[]') {
-                    try { 
-                        let obsList = typeof item.obstacles_data === 'string' ? JSON.parse(item.obstacles_data) : item.obstacles_data;
-                        obsList.forEach(obs => { 
-                            if(!obs.closed && (obs.impact === 'كبير' || obs.impact === 'متوسط')) {
-                                allObstacles.push({ proj: item.project_name, desc: obs.description, impact: obs.impact }); 
-                            }
-                        }); 
-                    } catch(e) {
-                        console.error("Error parsing obstacles:", e);
-                    }
+                    try { (typeof item.obstacles_data === 'string' ? JSON.parse(item.obstacles_data) : item.obstacles_data).forEach(o => { if(!o.closed && (o.impact==='كبير'||o.impact==='متوسط')) obsArr.push({p:item.project_name, d:o.description, i:o.impact}); }); } catch(e){}
                 }
             });
-            
-            let topObstacles = allObstacles.slice(0, 6);
-            if(topObstacles.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات حرجة مفتوحة</td></tr>';
-            } else {
-                topObstacles.forEach(obs => {
-                    let badgeClass = obs.impact === 'كبير' ? 'badge-impact-كبير' : 'badge-impact-متوسط';
-                    let tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td style="width: 25%;" class="fw-bold text-white">${obs.proj}</td>
-                        <td style="width: 55%;" class="text-white">${obs.desc}</td>
-                        <td style="width: 20%;"><span class="badge ${badgeClass}">${obs.impact}</span></td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
+
+            obsArr.slice(0, 6).forEach(o => ot.innerHTML += `<tr><td class="fw-bold text-white">${o.p}</td><td class="text-white">${o.d}</td><td><span class="badge badge-impact-${o.i}">${o.i}</span></td></tr>`);
+            if(!obsArr.length) ot.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات</td></tr>';
         }
     </script>
 </body>
