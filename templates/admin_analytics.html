@@ -13,6 +13,7 @@
             --c-red: #dc3545; --c-blue: #0d6efd; --c-yellow: #ffc107;
         }
 
+        /* منع التمرير وتثبيت الأبعاد الأساسية */
         body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
         .navbar { background-color: var(--bg-navbar) !important; border-bottom: 2px solid var(--border-color); margin-bottom: 10px !important; }
         
@@ -21,10 +22,10 @@
         .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.85rem; }
         .form-select:focus { background-color: var(--bg-main); color: var(--text-main); border-color: var(--c-cyan); box-shadow: 0 0 0 .25rem rgba(13, 202, 240, .25); }
         
+        /* البطاقات والجداول */
         .kpi-card { background: var(--bg-card); border-radius: 8px; padding: 5px 10px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: center; border-top: 4px solid #6c757d; }
         .kpi-title { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; }
         .kpi-value { font-size: 1.15rem; font-weight: bold; margin: 0; }
-        
         .border-t-cyan { border-top-color: var(--c-cyan); } .border-t-orange { border-top-color: var(--c-orange); }
         .border-t-green { border-top-color: var(--c-green); } .border-t-red { border-top-color: var(--c-red); }
         .border-t-blue { border-top-color: var(--c-blue); } .border-t-yellow { border-top-color: var(--c-yellow); }
@@ -35,15 +36,16 @@
         .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(255, 255, 255, 0.02); }
         .table-hover > tbody > tr:hover > * { background-color: #3f4250; }
 
+        /* الهندسة الهيكلية للشاشات (Grid Layout) */
         .carousel-inner { height: 600px; overflow: hidden; }
         .slide-container { padding: 0 50px; height: 100%; width: 100%; }
         .slide-header { font-size: 1.1rem; color: var(--text-main); font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
-        .slide-layout { height: 500px; }
+        .slide-layout { height: 500px; } /* ارتفاع ثابت وموحد لكل الرسوم في جميع الصفحات */
         
         .chart-box { background: var(--bg-card); border-radius: 8px; padding: 10px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
         .chart-title { font-size: 0.85rem; font-weight: bold; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; margin-bottom: 5px; text-align: center; }
-        .chart-wrapper { flex: 1; min-height: 0; position: relative; }
-        .half-height { height: calc(50% - 0.5rem); }
+        .chart-wrapper { flex: 1; min-height: 0; position: relative; } /* حاوية الرسم تتمدد لتملأ المساحة المتاحة فقط */
+        .half-height { height: calc(50% - 0.5rem); } /* مقاس دقيق لصفين ليتساوى مع ارتفاع عمود كامل */
 
         .carousel-control-prev, .carousel-control-next { width: 40px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; z-index: 5; margin: 0 5px; }
         .carousel-indicators { bottom: -10px; margin-bottom: 0; }
@@ -62,6 +64,8 @@
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-dashboard">سجل التحديثات</a></li>
                     <li class="nav-item"><a class="nav-link active text-white fw-bold" href="/admin-analytics">لوحة المؤشرات</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-directory">دليل المديرين</a></li>
+                    <!-- اللينك المفقود تم إرجاعه هنا -->
+                    <li class="nav-item"><a class="nav-link text-white-50" href="/admin-gallery">المعرض المرئي</a></li>
                 </ul>
                 <div class="d-flex"><a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a></div>
             </div>
@@ -69,6 +73,7 @@
     </nav>
 
     <div class="container-fluid px-4">
+        <!-- الفلاتر -->
         <div class="filter-bar">
             <div class="row align-items-end g-2">
                 <div class="col-md-3">
@@ -137,7 +142,7 @@
                     </div>
                 </div>
 
-                <!-- الشريحة 2: التواريخ (معدلة للفصل الواضح) -->
+                <!-- الشريحة 2: التواريخ -->
                 <div class="carousel-item">
                     <div class="slide-container">
                         <div class="slide-header">📅 التواريخ وأداء البرنامج الزمني</div>
@@ -304,7 +309,6 @@
         function initCharts() {
             const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI', width: '100%', height: '100%' } };
             
-            // إضافة الأرقام لأعمدة التدفق النقدي باللون الأبيض الناصع
             charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
                 ...darkOpts, chart: { type: 'bar', ...darkOpts.chart },
                 series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } },
@@ -448,7 +452,6 @@
             document.getElementById('kpi-cons-inv-cnt').innerText = sumU('cons_inv_count');
             document.getElementById('kpi-cons-inv-val').innerText = sumU('cons_inv_val').toLocaleString('en-US');
             
-            // فصل قيم التمديدات
             document.getElementById('kpi-ext-time-cont').innerHTML = sumU('contractor_mods_time') + ' <span class="fs-6">يوم</span>';
             document.getElementById('kpi-ext-time-cons').innerHTML = sumU('consultant_mods_time') + ' <span class="fs-6">يوم</span>';
 
