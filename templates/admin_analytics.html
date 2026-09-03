@@ -13,7 +13,6 @@
             --c-red: #dc3545; --c-blue: #0d6efd; --c-yellow: #ffc107;
         }
 
-        /* منع التمرير وتثبيت الأبعاد الأساسية */
         body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
         .navbar { background-color: var(--bg-navbar) !important; border-bottom: 2px solid var(--border-color); margin-bottom: 10px !important; }
         
@@ -22,7 +21,6 @@
         .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.85rem; }
         .form-select:focus { background-color: var(--bg-main); color: var(--text-main); border-color: var(--c-cyan); box-shadow: 0 0 0 .25rem rgba(13, 202, 240, .25); }
         
-        /* البطاقات والجداول */
         .kpi-card { background: var(--bg-card); border-radius: 8px; padding: 5px 10px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: center; border-top: 4px solid #6c757d; }
         .kpi-title { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; }
         .kpi-value { font-size: 1.15rem; font-weight: bold; margin: 0; }
@@ -36,16 +34,15 @@
         .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(255, 255, 255, 0.02); }
         .table-hover > tbody > tr:hover > * { background-color: #3f4250; }
 
-        /* الهندسة الهيكلية للشاشات (Grid Layout) */
         .carousel-inner { height: 600px; overflow: hidden; }
         .slide-container { padding: 0 50px; height: 100%; width: 100%; }
         .slide-header { font-size: 1.1rem; color: var(--text-main); font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
-        .slide-layout { height: 500px; } /* ارتفاع ثابت وموحد لكل الرسوم في جميع الصفحات */
+        .slide-layout { height: 500px; } 
         
         .chart-box { background: var(--bg-card); border-radius: 8px; padding: 10px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
         .chart-title { font-size: 0.85rem; font-weight: bold; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; margin-bottom: 5px; text-align: center; }
-        .chart-wrapper { flex: 1; min-height: 0; position: relative; } /* حاوية الرسم تتمدد لتملأ المساحة المتاحة فقط */
-        .half-height { height: calc(50% - 0.5rem); } /* مقاس دقيق لصفين ليتساوى مع ارتفاع عمود كامل */
+        .chart-wrapper { flex: 1; min-height: 0; position: relative; } 
+        .half-height { height: calc(50% - 0.5rem); } 
 
         .carousel-control-prev, .carousel-control-next { width: 40px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; top: 50%; transform: translateY(-50%); height: 80px; z-index: 5; margin: 0 5px; }
         .carousel-indicators { bottom: -10px; margin-bottom: 0; }
@@ -64,7 +61,6 @@
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-dashboard">سجل التحديثات</a></li>
                     <li class="nav-item"><a class="nav-link active text-white fw-bold" href="/admin-analytics">لوحة المؤشرات</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-directory">دليل المديرين</a></li>
-                    <!-- اللينك المفقود تم إرجاعه هنا -->
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-gallery">المعرض المرئي</a></li>
                 </ul>
                 <div class="d-flex"><a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a></div>
@@ -73,7 +69,6 @@
     </nav>
 
     <div class="container-fluid px-4">
-        <!-- الفلاتر -->
         <div class="filter-bar">
             <div class="row align-items-end g-2">
                 <div class="col-md-3">
@@ -134,7 +129,7 @@
                             </div>
                             <div class="col-md-5 h-100">
                                 <div class="chart-box h-100">
-                                    <div class="chart-title">التدفق النقدي الأسبوعي (Cash Flow) للمقاولين</div>
+                                    <div class="chart-title">التدفق النقدي للمقاولين (أسبوعي مقطوع + تراكمي)</div>
                                     <div class="chart-wrapper" id="cashFlowChart"></div>
                                 </div>
                             </div>
@@ -218,16 +213,37 @@
                         <div class="slide-header">📂 الجودة والمستندات (QC)</div>
                         <div class="row g-3 slide-layout">
                             <div class="col-md-6 half-height">
-                                <div class="chart-box h-100"><div class="chart-title">المخططات / الرسومات</div><div class="chart-wrapper" id="drawingsChart"></div></div>
+                                <div class="chart-box h-100">
+                                    <div class="chart-title d-flex justify-content-between align-items-center">
+                                        <span>المخططات / الرسومات</span>
+                                        <span class="fs-6 text-warning" id="dr-total-lbl" style="font-size: 0.75rem !important;">الإجمالي: 0</span>
+                                    </div>
+                                    <div class="chart-wrapper" id="drawingsChart"></div>
+                                </div>
                             </div>
                             <div class="col-md-6 half-height">
-                                <div class="chart-box h-100"><div class="chart-title">طلبات الاستلام (IR)</div><div class="chart-wrapper" id="irChart"></div></div>
+                                <div class="chart-box h-100">
+                                    <div class="chart-title d-flex justify-content-between align-items-center">
+                                        <span>طلبات الاستلام (IR)</span>
+                                        <span class="fs-6 text-warning" id="ir-total-lbl" style="font-size: 0.75rem !important;">الإجمالي: 0</span>
+                                    </div>
+                                    <div class="chart-wrapper" id="irChart"></div>
+                                </div>
                             </div>
                             <div class="col-md-6 half-height mt-3">
-                                <div class="chart-box h-100"><div class="chart-title">مخالفات الجودة (NCR)</div><div class="chart-wrapper" id="ncrChart"></div></div>
+                                <div class="chart-box h-100">
+                                    <div class="chart-title d-flex justify-content-between align-items-center">
+                                        <span>مخالفات الجودة (NCR)</span>
+                                        <span class="fs-6 text-warning" id="ncr-total-lbl" style="font-size: 0.75rem !important;">الإجمالي: 0</span>
+                                    </div>
+                                    <div class="chart-wrapper" id="ncrChart"></div>
+                                </div>
                             </div>
                             <div class="col-md-6 half-height mt-3">
-                                <div class="chart-box h-100"><div class="chart-title">التقييم الفني للمقاولين</div><div class="chart-wrapper" id="radarChart"></div></div>
+                                <div class="chart-box h-100">
+                                    <div class="chart-title text-center">التقييم الفني للمقاولين</div>
+                                    <div class="chart-wrapper" id="radarChart"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -310,13 +326,19 @@
             const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI', width: '100%', height: '100%' } };
             
             charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
-                ...darkOpts, chart: { type: 'bar', ...darkOpts.chart },
-                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd' } } },
-                yaxis: { labels: { style: { colors: '#adb5bd' }, formatter: (val) => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } },
-                colors: ['#0dcaf0', '#ffc107'], stroke: { show: true, width: 2, colors: ['transparent'] },
-                plotOptions: { bar: { dataLabels: { position: 'top' } } },
-                dataLabels: { enabled: true, offsetY: -15, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0), style: { fontSize: '10px', colors: ['#fff'] }, background: { enabled: false } }, 
-                grid: { borderColor: '#444857' }
+                ...darkOpts, chart: { type: 'line', ...darkOpts.chart },
+                series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
+                yaxis: [
+                    { labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } },
+                    { show: false },
+                    { opposite: true, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } },
+                    { show: false }
+                ],
+                colors: ['#0dcaf0', '#ffc107', '#0dcaf0', '#ffc107'], 
+                stroke: { width: [0, 0, 3, 3], dashArray: [0, 0, 5, 5] },
+                plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
+                dataLabels: { enabled: true, enabledOnSeries: [0, 1], offsetY: -15, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0), style: { fontSize: '9px', colors: ['#fff'] }, background: { enabled: false } }, 
+                grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
             }); charts.cashFlow.render();
 
             charts.elapsed = new ApexCharts(document.querySelector("#elapsedChart"), {
@@ -371,9 +393,11 @@
             charts.ir = new ApexCharts(document.querySelector("#irChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.ir.render();
             charts.ncr = new ApexCharts(document.querySelector("#ncrChart"), { ...hcOpts, series: [], colors: ['#dc3545', '#198754'] }); charts.ncr.render();
 
+            // تفعيل DataLabels على الرادار وعمل خلفية داكنة خفيفة ليبرز الرقم
             charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
                 ...darkOpts, chart: { type: 'radar', ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
-                stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 3 },
+                stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 4 },
+                dataLabels: { enabled: true, style: { fontSize: '11px', colors: ['#fff'] }, background: { enabled: true, foreColor: '#1e1e24', borderRadius: 2, padding: 3, borderWidth: 0 } },
                 yaxis: { show: false }, xaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, plotOptions: { radar: { polygons: { strokeColors: '#444857', connectorColors: '#444857' } } }
             }); charts.radar.render();
         }
@@ -399,16 +423,23 @@
             let baseData = rawData.filter(item => (!fPm || item.manager_name === fPm) && (!fType || item.project_type === fType) && (!fProj || item.project_name === fProj));
             
             let trendDates = [...new Set(baseData.map(item => item.current_data_date))].filter(Boolean).sort();
-            let trendCashFlow = { dates: [], planned: [], actual: [] };
+            
+            let trendCashFlow = { dates: [], pInc: [], aInc: [], pCum: [], aCum: [] };
             let trendSCurve = { dates: [], pBar: [], aBar: [], pLine: [], aLine: [] };
             let trendSPI = { dates: [], spi: [] };
             let cumP = 0, cumA = 0;
 
             trendDates.forEach(date => {
                 let dData = baseData.filter(i => i.current_data_date === date);
-                let pCost = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.plan_prog_cur)), 0);
-                let aCost = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.act_prog_cur)), 0);
-                trendCashFlow.dates.push(date); trendCashFlow.planned.push(pCost); trendCashFlow.actual.push(aCost);
+                
+                let pCostCum = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.plan_prog_cur)), 0);
+                let aCostCum = dData.reduce((s, i) => s + (num(i.contractor_val) * num(i.act_prog_cur)), 0);
+                let pCostInc = dData.reduce((s, i) => s + (num(i.contractor_val) * Math.max(0, num(i.plan_prog_cur) - num(i.plan_prog_prev))), 0);
+                let aCostInc = dData.reduce((s, i) => s + (num(i.contractor_val) * Math.max(0, num(i.act_prog_cur) - num(i.act_prog_prev))), 0);
+                
+                trendCashFlow.dates.push(date); 
+                trendCashFlow.pCum.push(pCostCum); trendCashFlow.aCum.push(aCostCum);
+                trendCashFlow.pInc.push(pCostInc); trendCashFlow.aInc.push(aCostInc);
 
                 let pProg = dData.length ? dData.reduce((s, i) => s + num(i.plan_prog_cur), 0) / dData.length * 100 : 0;
                 let aProg = dData.length ? dData.reduce((s, i) => s + num(i.act_prog_cur), 0) / dData.length * 100 : 0;
@@ -419,7 +450,7 @@
                 trendSPI.dates.push(date); trendSPI.spi.push(spi);
             });
 
-            charts.cashFlow.updateSeries([{name:'مخطط', data:trendCashFlow.planned}, {name:'فعلي', data:trendCashFlow.actual}]);
+            charts.cashFlow.updateSeries([{name:'مخطط أسبوعي', type:'column', data:trendCashFlow.pInc}, {name:'فعلي أسبوعي', type:'column', data:trendCashFlow.aInc}, {name:'مخطط تراكمي', type:'line', data:trendCashFlow.pCum}, {name:'فعلي تراكمي', type:'line', data:trendCashFlow.aCum}]);
             charts.cashFlow.updateOptions({xaxis: {categories: trendCashFlow.dates}});
             
             charts.sCurve.updateSeries([{name:'مخطط أسبوعي', type:'column', data:trendSCurve.pBar}, {name:'فعلي أسبوعي', type:'column', data:trendSCurve.aBar}, {name:'مخطط تراكمي', type:'line', data:trendSCurve.pLine}, {name:'فعلي تراكمي', type:'line', data:trendSCurve.aLine}]);
@@ -496,10 +527,20 @@
             });
             charts.timePerf.updateSeries([ahead, onsch, behind]);
 
+            // تحديث قيم الجودة (QC) وإضافة الإجماليات أعلى الرسوم
             let sum = (k) => data.reduce((s, d) => s + num(d[k]), 0);
-            charts.dr.updateSeries([{name:'مقدم', data:[sum('drawings_sub')]}, {name:'معتمد', data:[sum('drawings_app')]}, {name:'دراسة', data:[sum('drawings_rev')]}]);
-            charts.ir.updateSeries([{name:'مقدم', data:[sum('ir_sub')]}, {name:'معتمد', data:[sum('ir_app')]}, {name:'دراسة', data:[sum('ir_rev')]}]);
-            charts.ncr.updateSeries([{name:'مفتوح', data:[sum('ncr_open')]}, {name:'مغلق', data:[sum('ncr_closed')]}]);
+            
+            let drSub = sum('drawings_sub'), drApp = sum('drawings_app'), drRev = sum('drawings_rev');
+            let irSub = sum('ir_sub'), irApp = sum('ir_app'), irRev = sum('ir_rev');
+            let ncrOpen = sum('ncr_open'), ncrClosed = sum('ncr_closed');
+
+            document.getElementById('dr-total-lbl').innerText = 'الإجمالي: ' + (drSub + drApp + drRev).toLocaleString('en-US');
+            document.getElementById('ir-total-lbl').innerText = 'الإجمالي: ' + (irSub + irApp + irRev).toLocaleString('en-US');
+            document.getElementById('ncr-total-lbl').innerText = 'الإجمالي: ' + (ncrOpen + ncrClosed).toLocaleString('en-US');
+
+            charts.dr.updateSeries([{name:'مقدم', data:[drSub]}, {name:'معتمد', data:[drApp]}, {name:'دراسة', data:[drRev]}]);
+            charts.ir.updateSeries([{name:'مقدم', data:[irSub]}, {name:'معتمد', data:[irApp]}, {name:'دراسة', data:[irRev]}]);
+            charts.ncr.updateSeries([{name:'مفتوح', data:[ncrOpen]}, {name:'مغلق', data:[ncrClosed]}]);
 
             charts.bar.updateSeries([{ name: 'مخطط', data: data.map(d => Math.round(num(d.plan_prog_cur)*100)) }, { name: 'فعلي', data: data.map(d => Math.round(num(d.act_prog_cur)*100)) }]);
             charts.bar.updateOptions({ xaxis: { categories: data.map(d => (d.project_name||'').substring(0,10)+'..') } });
