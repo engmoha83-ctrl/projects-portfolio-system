@@ -23,9 +23,9 @@
         .form-select { background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.8rem; padding: 4px 8px; }
         .form-select:focus { border-color: var(--c-cyan); box-shadow: none; }
 
-        /* ستايل الكروت المرن لمنع القص */
+        /* تعديل الكروت لمنع القص والسماح بالتمدد */
         .kpi-card { background: var(--bg-card); border-radius: 6px; padding: 8px; border: 1px solid var(--border-color); height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-top: 3px solid #6c757d; min-height: 0; }
-        .kpi-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; line-height: 1.2; font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .kpi-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; line-height: 1.2; font-weight: bold; width: 100%; white-space: normal; overflow: visible; }
         .kpi-value { font-size: 1.1rem; font-weight: bold; margin: 0; line-height: 1.1; }
         .border-t-cyan { border-top-color: var(--c-cyan); } .border-t-orange { border-top-color: var(--c-orange); } .border-t-green { border-top-color: var(--c-green); } .border-t-red { border-top-color: var(--c-red); } .border-t-blue { border-top-color: var(--c-blue); } .border-t-yellow { border-top-color: var(--c-yellow); }
 
@@ -33,7 +33,7 @@
         .table thead th { background-color: #363945 !important; color: #fff !important; font-weight: bold; border-bottom: 2px solid var(--border-color); padding: 4px; }
         .table td, .table th { border-color: var(--border-color); vertical-align: middle; color: var(--text-main); padding: 4px; }
 
-        /* الشرائح */
+        /* الشرائح (Carousel Mode) */
         .carousel-inner { min-height: 600px; overflow: visible; }
         .slide-container { padding: 0 40px; height: 100%; width: 100%; display: flex; flex-direction: column; }
         .slide-header { font-size: 1.1rem; color: var(--text-main); font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
@@ -49,12 +49,10 @@
         .carousel-indicators [data-bs-target] { background-color: var(--text-muted); width: 30px; height: 4px; }
         .carousel-indicators .active { background-color: var(--c-cyan); }
 
-        /* العرض المجمع */
+        /* العرض المجمع (Grid Builder Mode) */
         .grid-view-active #carousel-wrapper { display: none !important; }
         .grid-view-active #builder-wrapper { display: flex !important; }
         .grid-view-active body { overflow-y: auto; background-image: radial-gradient(circle, #444857 1px, transparent 1px); background-size: 20px 20px; }
-        
-        /* إزالة خلفية الـ chart-box لما يكون جوه الـ grid عشان الـ grid item هو اللي بياخد الخلفية */
         .grid-view-active .chart-box { border: none !important; padding: 0 !important; background: transparent !important; }
 
         #builder-wrapper { display: none; padding: 10px; gap: 15px; align-items: flex-start; }
@@ -97,6 +95,7 @@
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-directory">دليل المديرين</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50" href="/admin-gallery">المعرض المرئي</a></li>
                 </ul>
+                <div class="d-flex"><a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a></div>
             </div>
         </div>
     </nav>
@@ -166,11 +165,11 @@
                     </div>
                     <button class="btn btn-danger btn-sm w-100 mt-2" id="delete-widget-btn" onclick="deleteSelectedWidget()" style="display:none;">🗑️ حذف العنصر</button>
                 </div>
-                <div id="no-widget-msg" class="text-muted text-center mt-3" style="font-size:0.75rem;">👈 اضغط على أي عنصر لتعديله</div>
+                <div id="no-widget-msg" class="text-muted text-center mt-3" style="font-size:0.75rem;">👈 اضغط على أي عنصر لتعديله وسحبه</div>
             </div>
         </div>
 
-        <!-- الشرائح (Carousel) -->
+        <!-- الشرائح الافتراضية (Carousel) -->
         <div id="carousel-wrapper">
             <div id="dashboardCarousel" class="carousel slide">
                 <div class="carousel-indicators">
@@ -369,74 +368,55 @@
         let charts = {};
         let gridStack = null;
         let selectedWidget = null;
+        let bsCarousel = null;
 
-        // ==========================================
-        // 1. نظام التهيئة والبيانات
-        // ==========================================
-        function initApp() {
+        // 1. دورة حياة التشغيل الآمنة (DOM Lifecycle Management)
+        function startApp() {
+            let isGrid = localStorage.getItem('dashboard_view') === 'grid';
+            
+            // ترتيب التشغيل: 1. نقل الـ DOM لو إحنا في العرض المجمع -> 2. رسم الـ Charts -> 3. جلب وتطبيق البيانات
+            if (isGrid) {
+                prepareGridDOM();
+            } else {
+                bsCarousel = new bootstrap.Carousel(document.getElementById('dashboardCarousel'), { interval: 8000, pause: false });
+                bsCarousel.cycle();
+                document.getElementById('dashboardCarousel').addEventListener('slid.bs.carousel', () => window.dispatchEvent(new Event('resize')));
+            }
+
+            // الآن يمكن رسم الـ Charts بأمان لأن الـ DOM استقر في مكانه
+            initCharts();
+
             fetch('/api/analytics-data').then(res => res.json()).then(data => {
                 if(data.success) { 
                     rawData = data.updates; 
                     if (data.total_users !== undefined) totalUsersFromDB = data.total_users; 
                 }
-                startSystem();
-            }).catch(err => startSystem()); // يعمل حتى بدون سيرفر للتجربة
+                initFilters();
+            }).catch(err => initFilters()); // يعمل حتى في غياب الباك إند
         }
 
-        function startSystem() {
-            initCharts(); 
-            initFilters();
-            
-            // قراءة حالة العرض المحفوظة
-            if (localStorage.getItem('dashboard_view') === 'grid') {
-                activateGridView();
-            } else {
-                bsCarousel.cycle();
-            }
-        }
-
-        // ==========================================
-        // 2. نظام التبديل بين الشرائح والشبكة
-        // ==========================================
-        const toggleViewBtn = document.getElementById('toggleViewBtn');
-        const toggleCarouselBtn = document.getElementById('toggleCarouselBtn');
-        const carouselElement = document.getElementById('dashboardCarousel');
-        let bsCarousel = new bootstrap.Carousel(carouselElement, { interval: 8000, pause: false });
-        let isCarouselPlaying = true;
-
-        toggleCarouselBtn.addEventListener('click', function() {
-            if (isCarouselPlaying) { bsCarousel.pause(); toggleCarouselBtn.innerHTML = '▶️ تشغيل'; toggleCarouselBtn.classList.replace('btn-outline-info', 'btn-outline-success'); isCarouselPlaying = false; } 
-            else { bsCarousel.cycle(); toggleCarouselBtn.innerHTML = '⏸ إيقاف'; toggleCarouselBtn.classList.replace('btn-outline-success', 'btn-outline-info'); isCarouselPlaying = true; }
+        // أزرار التبديل
+        document.getElementById('toggleCarouselBtn').addEventListener('click', function() {
+            if(!bsCarousel) return;
+            if (this.innerHTML.includes('إيقاف')) { bsCarousel.pause(); this.innerHTML = '▶️ تشغيل'; this.classList.replace('btn-outline-info', 'btn-outline-success'); } 
+            else { bsCarousel.cycle(); this.innerHTML = '⏸ إيقاف'; this.classList.replace('btn-outline-success', 'btn-outline-info'); }
         });
 
-        // تصحيح الأبعاد عند التنقل بين الشرائح
-        carouselElement.addEventListener('slid.bs.carousel', function () { window.dispatchEvent(new Event('resize')); });
-
-        toggleViewBtn.addEventListener('click', function() {
-            let isGrid = document.body.classList.contains('grid-view-active');
-            if (isGrid) {
-                // العودة للشرائح
-                localStorage.setItem('dashboard_view', 'carousel');
-                location.reload(); // إعادة التحميل لضمان إرجاع الـ DOM لشكله الأصلي بأمان
-            } else {
-                // تفعيل العرض المجمع
-                localStorage.setItem('dashboard_view', 'grid');
-                activateGridView();
-            }
+        document.getElementById('toggleViewBtn').addEventListener('click', function() {
+            let isGrid = localStorage.getItem('dashboard_view') === 'grid';
+            localStorage.setItem('dashboard_view', isGrid ? 'carousel' : 'grid');
+            location.reload(); // إعادة تحميل نظيفة 100% لمنع تعليق الجافاسكريبت
         });
 
-        // ==========================================
-        // 3. نظام GridStack (العرض المجمع) بالنقل الفيزيائي
-        // ==========================================
-        function activateGridView() {
+        // 2. بناء شبكة العرض المجمع (Physical DOM Move)
+        function prepareGridDOM() {
             document.body.classList.add('grid-view-active');
-            toggleViewBtn.innerHTML = '🎬 العودة للشرائح';
-            toggleViewBtn.classList.replace('btn-warning', 'btn-danger');
-            bsCarousel.pause();
+            let tglBtn = document.getElementById('toggleViewBtn');
+            tglBtn.innerHTML = '🎬 العودة للشرائح';
+            tglBtn.classList.replace('btn-warning', 'btn-danger');
 
             gridStack = GridStack.init({ cellHeight: 60, margin: 10, animate: true, float: true, resizable: { handles: 'se, sw, e, w' } }, '#grid-canvas');
             
-            // حفظ تلقائي وتحديث أبعاد عند أي تغيير
             gridStack.on('change added removed', function(e, items) {
                 saveGridState();
                 if (selectedWidget && items) { let updated = items.find(i => i.el === selectedWidget); if(updated) populatePropertyPanel(updated.el); }
@@ -452,35 +432,26 @@
                         addCustomWidgetFromNode(node);
                     } else if (node.id) {
                         let widgetEl = document.getElementById(node.id);
-                        if(widgetEl) createGridItem(widgetEl, node);
+                        if(widgetEl) moveToGrid(widgetEl, node);
                     }
                 });
-                
-                // جلب أي عناصر جديدة تمت إضافتها للشرائح ولم تحفظ في الـ Grid
+                // التقاط العناصر التي لم تكن محفوظة
                 document.querySelectorAll('#carousel-wrapper .chart-box').forEach(el => {
-                    if(!el.closest('.grid-stack')) {
-                        createGridItem(el, { w: parseInt(el.getAttribute('data-gs-w')), h: parseInt(el.getAttribute('data-gs-h')), autoPosition: true });
-                    }
+                    if(!el.closest('.grid-stack')) { moveToGrid(el, { w: parseInt(el.getAttribute('data-gs-w')), h: parseInt(el.getAttribute('data-gs-h')), autoPosition: true }); }
                 });
             } else {
-                // ترتيب مبدئي لجميع العناصر
                 let cx=0, cy=0;
                 document.querySelectorAll('#carousel-wrapper .chart-box').forEach(el => {
                     let w = parseInt(el.getAttribute('data-gs-w')) || 4, h = parseInt(el.getAttribute('data-gs-h')) || 4;
                     if(cx + w > 12) { cx = 0; cy += h; }
-                    createGridItem(el, { x: cx, y: cy, w: w, h: h });
+                    moveToGrid(el, { x: cx, y: cy, w: w, h: h });
                     cx += w;
                 });
             }
-            
-            setTimeout(() => window.dispatchEvent(new Event('resize')), 300);
         }
 
-        // دالة النقل الفيزيائي للـ DOM
-        function createGridItem(widgetEl, node) {
-            // سحب العنصر من مكانه الأصلي
+        function moveToGrid(widgetEl, node) {
             widgetEl.parentNode.removeChild(widgetEl);
-            
             let gridItem = document.createElement('div');
             gridItem.className = 'grid-stack-item';
             gridItem.setAttribute('data-original-id', widgetEl.id);
@@ -506,7 +477,6 @@
             gridItem.addEventListener('click', function() { selectWidget(this); });
         }
 
-        // دالة الحفظ التلقائي
         function saveGridState() {
             if(!gridStack) return;
             let layout = [];
@@ -531,7 +501,7 @@
             if(confirm("استعادة الشكل الافتراضي المجمع؟")) { localStorage.removeItem('grid_layout_data'); location.reload(); }
         }
 
-        // --- اللوحة الجانبية (Properties) ---
+        // اللوحة الجانبية
         function selectWidget(element) {
             if(selectedWidget) selectedWidget.classList.remove('selected-widget');
             selectedWidget = element;
@@ -627,73 +597,86 @@
             return "#" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]);
         }
 
-        // ==========================================
-        // 4. الرسوم البيانية (ApexCharts) والبيانات
-        // ==========================================
+
+        // 3. تهيئة الرسوم بأمان (Safe Initialization)
         function initCharts() {
             const darkOpts = { theme: { mode: 'dark' }, chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Segoe UI', width: '100%', height: '100%' } };
             
-            charts.cashFlow = new ApexCharts(document.querySelector("#cashFlowChart"), {
+            // دالة مساعدة لعدم انهيار النظام لو المربع مش موجود
+            const renderSafe = (id, config) => {
+                let el = document.querySelector(id);
+                if(el) { charts[id] = new ApexCharts(el, config); charts[id].render(); }
+            }
+
+            renderSafe("#cashFlowChart", {
                 ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } },
                 colors: ['#0dcaf0', '#ffc107'], plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
                 dataLabels: { enabled: true, offsetY: -15, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0), style: { fontSize: '9px', colors: ['#fff'] } }, 
                 grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
-            }); charts.cashFlow.render();
+            });
 
-            charts.elapsed = new ApexCharts(document.querySelector("#elapsedChart"), {
+            renderSafe("#elapsedChart", {
                 ...darkOpts, chart: { type: 'donut', ...darkOpts.chart }, series: [], labels: ['المدة المنقضية', 'المدة المتبقية'],
                 colors: ['#0dcaf0', '#ffc107'], stroke: { show: false }, legend: { position: 'bottom' }, dataLabels: { formatter: val => val.toFixed(1) + "%" }
-            }); charts.elapsed.render();
+            });
 
-            charts.timePerf = new ApexCharts(document.querySelector("#timePerfChart"), {
+            renderSafe("#timePerfChart", {
                 ...darkOpts, chart: { type: 'donut', ...darkOpts.chart }, series: [], labels: ['متقدم', 'متوافق', 'متأخر'],
                 colors: ['#0dcaf0', '#198754', '#dc3545'], stroke: { show: false }, legend: { position: 'bottom' }, dataLabels: { formatter: val => val.toFixed(1) + "%" }
-            }); charts.timePerf.render();
+            });
 
-            charts.spi = new ApexCharts(document.querySelector("#spiGauge"), {
+            renderSafe("#spiGauge", {
                 ...darkOpts, chart: { type: 'radialBar', ...darkOpts.chart }, series: [0],
                 plotOptions: { radialBar: { startAngle: -120, endAngle: 120, hollow: { size: '65%' }, track: { background: '#444857' }, dataLabels: { name: { show: false }, value: { fontSize: '40px', fontWeight: 'bold', color: '#fff', formatter: val => (val/100).toFixed(2), offsetY: 15 } } } },
                 stroke: { lineCap: 'round' }, colors: ['#fd7e14']
-            }); charts.spi.render();
+            });
 
-            charts.bar = new ApexCharts(document.querySelector("#barChart"), {
+            renderSafe("#barChart", {
                 ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], 
                 xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '10px' }, hideOverlappingLabels: false, rotate: -45, trim: true, maxHeight: 70 } }, 
                 yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, colors: ['#0dcaf0', '#198754'],
                 plotOptions: { bar: { dataLabels: { position: 'top' } } }, 
                 dataLabels: { enabled: true, offsetY: -15, formatter: val => val + "%", style: { fontSize: '10px', colors: ['#fff'] } }, grid: { borderColor: '#444857' }
-            }); charts.bar.render();
+            });
 
-            charts.sCurve = new ApexCharts(document.querySelector("#sCurveChart"), {
+            renderSafe("#sCurveChart", {
                 ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } },
                 colors: ['#0dcaf0', '#ffc107'], plotOptions: { bar: { columnWidth: '55%', dataLabels: { position: 'top' } } },
                 dataLabels: { enabled: true, offsetY: -15, formatter: val => val.toFixed(1) + "%", style: { fontSize: '9px', colors: ['#fff'] } },
                 grid: { borderColor: '#444857' }, legend: { fontSize: '9px', position: 'bottom' }
-            }); charts.sCurve.render();
+            });
 
-            charts.spiTrend = new ApexCharts(document.querySelector("#spiTrendChart"), {
+            renderSafe("#spiTrendChart", {
                 ...darkOpts, chart: { type: 'area', ...darkOpts.chart }, series: [], xaxis: { categories: [], labels: { style: { colors: '#adb5bd', fontSize: '9px' } } },
                 yaxis: { min: 0, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(2) } }, colors: ['#0dcaf0'],
                 dataLabels: { enabled: true, formatter: val => val.toFixed(2), offsetY: -5, style: { fontSize: '10px' } }, stroke: { curve: 'smooth', width: 2 }, fill: { opacity: 0.3 }, grid: { borderColor: '#444857' }
-            }); charts.spiTrend.render();
+            });
 
-            const hcOpts = { ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '11px', colors: ['#fff'] }, formatter: val => val > 0 ? val : "" }, xaxis: { categories: ['الإجمالي'], labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' }, formatter: val => val.toFixed(0) } }, grid: { borderColor: '#444857' }, legend: { fontSize: '10px', markers: { width: 8, height: 8 } } };
-            charts.dr = new ApexCharts(document.querySelector("#drawingsChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.dr.render();
-            charts.ir = new ApexCharts(document.querySelector("#irChart"), { ...hcOpts, series: [], colors: ['#0dcaf0', '#198754', '#ffc107'] }); charts.ir.render();
-            charts.ncr = new ApexCharts(document.querySelector("#ncrChart"), { ...hcOpts, series: [], colors: ['#dc3545', '#198754'] }); charts.ncr.render();
+            const hcOpts = { ...darkOpts, chart: { type: 'bar', ...darkOpts.chart }, plotOptions: { bar: { columnWidth: '50%', dataLabels: { position: 'top' } } }, dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '11px', colors: ['#fff'] }, background: { enabled: false }, formatter: val => val > 0 ? val : "" }, xaxis: { categories: ['الإجمالي'], labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, yaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' }, formatter: val => val.toFixed(0) } }, grid: { borderColor: '#444857' }, legend: { fontSize: '10px', markers: { width: 8, height: 8 } } };
+            renderSafe("#drawingsChart", { ...hcOpts, colors: ['#0dcaf0', '#198754', '#ffc107'] });
+            renderSafe("#irChart", { ...hcOpts, colors: ['#0dcaf0', '#198754', '#ffc107'] });
+            renderSafe("#ncrChart", { ...hcOpts, colors: ['#dc3545', '#198754'] });
 
-            charts.radar = new ApexCharts(document.querySelector("#radarChart"), {
+            renderSafe("#radarChart", {
                 ...darkOpts, chart: { type: 'radar', ...darkOpts.chart }, series: [], labels: ['العمالة', 'المعدات', 'المالي', 'السلامة'],
                 stroke: { width: 2, colors: ['#0dcaf0'] }, fill: { opacity: 0.3, colors: ['#0dcaf0'] }, markers: { size: 4 },
                 dataLabels: { enabled: true, style: { fontSize: '11px', colors: ['#fff'] }, background: { enabled: true, foreColor: '#1e1e24', borderRadius: 2, padding: 3, borderWidth: 0 } },
                 yaxis: { show: false }, xaxis: { labels: { style: { colors: '#adb5bd', fontSize: '10px' } } }, plotOptions: { radar: { polygons: { strokeColors: '#444857', connectorColors: '#444857' } } }
-            }); charts.radar.render();
+            });
         }
 
-        function num(val) { return parseFloat(val) || 0; }
+        // دوال المساعدة لتحديث الدوم بأمان
+        function safeUpdateChart(id, method, payload) {
+            try { if(charts[id]) charts[id][method](payload); } catch(e){}
+        }
+        function safeUpdateDOM(id, method, value) {
+            let el = document.getElementById(id);
+            if(el) { if(method==='text') el.innerText = value; else el.innerHTML = value; }
+        }
 
+        // 4. تطبيق الفلاتر والبيانات
         function initFilters() {
             let dates = [...new Set(rawData.map(item => item.current_data_date))].filter(Boolean).sort().reverse();
             let pms = [...new Set(rawData.map(item => item.manager_name))].filter(Boolean).sort();
@@ -741,15 +724,15 @@
             });
 
             let maxCF = Math.max(...trendCashFlow.pCum, ...trendCashFlow.aCum, 1000000);
-            charts.cashFlow.updateOptions({ xaxis: {categories: trendCashFlow.dates}, yaxis: { min: 0, max: maxCF * 1.1, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } } });
-            charts.cashFlow.updateSeries([{name:'مخطط تراكمي', data:trendCashFlow.pCum}, {name:'فعلي تراكمي', data:trendCashFlow.aCum}]);
+            safeUpdateChart("#cashFlowChart", 'updateOptions', { xaxis: {categories: trendCashFlow.dates}, yaxis: { min: 0, max: maxCF * 1.1, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val >= 1e6 ? (val/1e6).toFixed(1) + 'M' : val.toFixed(0) } } });
+            safeUpdateChart("#cashFlowChart", 'updateSeries', [{name:'مخطط تراكمي', data:trendCashFlow.pCum}, {name:'فعلي تراكمي', data:trendCashFlow.aCum}]);
 
             let maxSC = Math.max(...trendSCurve.pCum, ...trendSCurve.aCum, 100);
-            charts.sCurve.updateOptions({ xaxis: {categories: trendSCurve.dates}, yaxis: { min: 0, max: maxSC, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } } });
-            charts.sCurve.updateSeries([{name:'مخطط تراكمي', data:trendSCurve.pCum}, {name:'فعلي تراكمي', data:trendSCurve.aCum}]);
+            safeUpdateChart("#sCurveChart", 'updateOptions', { xaxis: {categories: trendSCurve.dates}, yaxis: { min: 0, max: maxSC, labels: { style: { colors: '#adb5bd', fontSize: '9px' }, formatter: val => val.toFixed(1) + "%" } } });
+            safeUpdateChart("#sCurveChart", 'updateSeries', [{name:'مخطط تراكمي', data:trendSCurve.pCum}, {name:'فعلي تراكمي', data:trendSCurve.aCum}]);
 
-            charts.spiTrend.updateSeries([{name:'SPI', data:trendSPI.spi}]);
-            charts.spiTrend.updateOptions({xaxis: {categories: trendSPI.dates}});
+            safeUpdateChart("#spiTrendChart", 'updateSeries', [{name:'SPI', data:trendSPI.spi}]);
+            safeUpdateChart("#spiTrendChart", 'updateOptions', {xaxis: {categories: trendSPI.dates}});
 
             let latestProjects = {};
             baseData.forEach(item => { if (!latestProjects[item.project_name] || item.current_data_date > latestProjects[item.project_name].current_data_date) latestProjects[item.project_name] = item; });
@@ -764,39 +747,38 @@
         function updateKPIs(unique, current) {
             let sumU = (key) => unique.reduce((s, d) => s + num(d[key]), 0);
             
-            document.getElementById('kpi-total-proj').innerText = totalUsersFromDB;
-            document.getElementById('kpi-updated-proj').innerText = new Set(current.map(d => d.manager_name)).size;
+            safeUpdateDOM('kpi-total-proj', 'text', totalUsersFromDB);
+            safeUpdateDOM('kpi-updated-proj', 'text', new Set(current.map(d => d.manager_name)).size);
 
-            document.getElementById('kpi-cont-val').innerText = sumU('contractor_val').toLocaleString('en-US');
-            document.getElementById('kpi-cons-val').innerText = sumU('consultant_val').toLocaleString('en-US');
-            document.getElementById('kpi-cont-chg-cnt').innerText = sumU('contractor_mods_count');
-            document.getElementById('kpi-cont-chg-val').innerText = sumU('contractor_mods_val').toLocaleString('en-US');
-            document.getElementById('kpi-cons-chg-cnt').innerText = sumU('consultant_mods_count');
-            document.getElementById('kpi-cons-chg-val').innerText = sumU('consultant_mods_val').toLocaleString('en-US');
-            document.getElementById('kpi-cont-inv-cnt').innerText = sumU('cont_inv_count');
-            document.getElementById('kpi-cont-inv-val').innerText = sumU('cont_inv_val').toLocaleString('en-US');
-            document.getElementById('kpi-cons-inv-cnt').innerText = sumU('cons_inv_count');
-            document.getElementById('kpi-cons-inv-val').innerText = sumU('cons_inv_val').toLocaleString('en-US');
+            safeUpdateDOM('kpi-cont-val', 'text', sumU('contractor_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cons-val', 'text', sumU('consultant_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cont-chg-cnt', 'text', sumU('contractor_mods_count'));
+            safeUpdateDOM('kpi-cont-chg-val', 'text', sumU('contractor_mods_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cons-chg-cnt', 'text', sumU('consultant_mods_count'));
+            safeUpdateDOM('kpi-cons-chg-val', 'text', sumU('consultant_mods_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cont-inv-cnt', 'text', sumU('cont_inv_count'));
+            safeUpdateDOM('kpi-cont-inv-val', 'text', sumU('cont_inv_val').toLocaleString('en-US'));
+            safeUpdateDOM('kpi-cons-inv-cnt', 'text', sumU('cons_inv_count'));
+            safeUpdateDOM('kpi-cons-inv-val', 'text', sumU('cons_inv_val').toLocaleString('en-US'));
             
-            document.getElementById('kpi-ext-time-cont').innerText = sumU('contractor_mods_time');
-            document.getElementById('kpi-ext-time-cons').innerText = sumU('consultant_mods_time');
+            safeUpdateDOM('kpi-ext-time-cont', 'html', sumU('contractor_mods_time') + ' <span class="fs-6">يوم</span>');
+            safeUpdateDOM('kpi-ext-time-cons', 'html', sumU('consultant_mods_time') + ' <span class="fs-6">يوم</span>');
 
             let getD = (key) => unique.map(d => d[key]).filter(d => d && d.trim() !== "");
             let sC = getD('start_contractual'), eC = getD('end_contractual');
-            document.getElementById('kpi-min-start-c').innerText = sC.length ? sC.sort()[0] : '-';
-            document.getElementById('kpi-max-end-c').innerText = eC.length ? eC.sort().reverse()[0] : '-';
-            document.getElementById('kpi-min-start-a').innerText = getD('start_actual').length ? getD('start_actual').sort()[0] : '-';
-            document.getElementById('kpi-max-end-e').innerText = getD('end_expected').length ? getD('end_expected').sort().reverse()[0] : '-';
+            safeUpdateDOM('kpi-min-start-c', 'text', sC.length ? sC.sort()[0] : '-');
+            safeUpdateDOM('kpi-max-end-c', 'text', eC.length ? eC.sort().reverse()[0] : '-');
+            safeUpdateDOM('kpi-min-start-a', 'text', getD('start_actual').length ? getD('start_actual').sort()[0] : '-');
+            safeUpdateDOM('kpi-max-end-e', 'text', getD('end_expected').length ? getD('end_expected').sort().reverse()[0] : '-');
 
             if(sC.length && eC.length) {
                 let minSt = new Date(sC.sort()[0]).getTime();
                 let maxEn = new Date(eC.sort().reverse()[0]).getTime();
-                let today = new Date().getTime();
+                let elapsed = new Date().getTime() - minSt;
                 let total = maxEn - minSt;
-                let elapsed = today - minSt;
                 if(total > 0) {
                     let ePct = Math.max(0, Math.min(100, (elapsed/total)*100));
-                    charts.elapsed.updateSeries([ePct, 100 - ePct]);
+                    safeUpdateChart("#elapsedChart", 'updateSeries', [ePct, 100 - ePct]);
                 }
             }
         }
@@ -809,34 +791,35 @@
             let spiColor = '';
             if (spi < 0.6) spiColor = '#dc3545'; else if (spi < 0.85) spiColor = '#fd7e14'; else spiColor = '#198754'; 
 
-            charts.spi.updateOptions({ colors: [spiColor] });
-            charts.spi.updateSeries([spi * 100]);
+            safeUpdateChart("#spiGauge", 'updateOptions', { colors: [spiColor] });
+            safeUpdateChart("#spiGauge", 'updateSeries', [spi * 100]);
 
             let ahead=0, onsch=0, behind=0;
             data.forEach(d => {
                 let s = num(d.plan_prog_cur) > 0 ? num(d.act_prog_cur)/num(d.plan_prog_cur) : 0;
                 if(s > 1) ahead++; else if(s >= 0.95 && s <= 1 && num(d.act_prog_cur) > 0) onsch++; else behind++;
             });
-            charts.timePerf.updateSeries([ahead, onsch, behind]);
+            safeUpdateChart("#timePerfChart", 'updateSeries', [ahead, onsch, behind]);
 
             let sum = (k) => data.reduce((s, d) => s + num(d[k]), 0);
+            
             let drSub = sum('drawings_sub'), drApp = sum('drawings_app'), drRev = sum('drawings_rev');
             let irSub = sum('ir_sub'), irApp = sum('ir_app'), irRev = sum('ir_rev');
             let ncrOpen = sum('ncr_open'), ncrClosed = sum('ncr_closed');
 
-            document.getElementById('dr-total-lbl').innerText = (drSub + drApp + drRev).toLocaleString('en-US');
-            document.getElementById('ir-total-lbl').innerText = (irSub + irApp + irRev).toLocaleString('en-US');
-            document.getElementById('ncr-total-lbl').innerText = (ncrOpen + ncrClosed).toLocaleString('en-US');
+            safeUpdateDOM('dr-total-lbl', 'text', (drSub + drApp + drRev).toLocaleString('en-US'));
+            safeUpdateDOM('ir-total-lbl', 'text', (irSub + irApp + irRev).toLocaleString('en-US'));
+            safeUpdateDOM('ncr-total-lbl', 'text', (ncrOpen + ncrClosed).toLocaleString('en-US'));
 
-            charts.dr.updateSeries([{name:'مقدم', data:[drSub]}, {name:'معتمد', data:[drApp]}, {name:'دراسة', data:[drRev]}]);
-            charts.ir.updateSeries([{name:'مقدم', data:[irSub]}, {name:'معتمد', data:[irApp]}, {name:'دراسة', data:[irRev]}]);
-            charts.ncr.updateSeries([{name:'مفتوح', data:[ncrOpen]}, {name:'مغلق', data:[ncrClosed]}]);
+            safeUpdateChart("#drawingsChart", 'updateSeries', [{name:'مقدم', data:[drSub]}, {name:'معتمد', data:[drApp]}, {name:'دراسة', data:[drRev]}]);
+            safeUpdateChart("#irChart", 'updateSeries', [{name:'مقدم', data:[irSub]}, {name:'معتمد', data:[irApp]}, {name:'دراسة', data:[irRev]}]);
+            safeUpdateChart("#ncrChart", 'updateSeries', [{name:'مفتوح', data:[ncrOpen]}, {name:'مغلق', data:[ncrClosed]}]);
 
-            charts.bar.updateSeries([{ name: 'مخطط', data: data.map(d => Math.round(num(d.plan_prog_cur)*100)) }, { name: 'فعلي', data: data.map(d => Math.round(num(d.act_prog_cur)*100)) }]);
-            charts.bar.updateOptions({ xaxis: { categories: data.map(d => (d.project_name||'').substring(0,15)+'..') } });
+            safeUpdateChart("#barChart", 'updateSeries', [{ name: 'مخطط', data: data.map(d => Math.round(num(d.plan_prog_cur)*100)) }, { name: 'فعلي', data: data.map(d => Math.round(num(d.act_prog_cur)*100)) }]);
+            safeUpdateChart("#barChart", 'updateOptions', { xaxis: { categories: data.map(d => (d.project_name||'').substring(0,15)+'..') } });
 
-            if(data.length > 0) charts.radar.updateSeries([{ name: 'تقييم', data: [(sum('eval_labor')/data.length).toFixed(1), (sum('eval_equip')/data.length).toFixed(1), (sum('eval_financial')/data.length).toFixed(1), (sum('eval_hse')/data.length).toFixed(1)] }]);
-            else charts.radar.updateSeries([]);
+            if(data.length > 0) safeUpdateChart("#radarChart", 'updateSeries', [{ name: 'تقييم', data: [(sum('eval_labor')/data.length).toFixed(1), (sum('eval_equip')/data.length).toFixed(1), (sum('eval_financial')/data.length).toFixed(1), (sum('eval_hse')/data.length).toFixed(1)] }]);
+            else safeUpdateChart("#radarChart", 'updateSeries', []);
         }
 
         function updateTables(data) {
@@ -854,12 +837,12 @@
             obsArr.slice(0, 10).forEach(o => otHtml += `<tr><td class="fw-bold text-white">${o.p}</td><td class="text-white">${o.d}</td><td><span class="badge badge-impact-${o.i}">${o.i}</span></td></tr>`);
             if(!obsArr.length) otHtml = '<tr><td colspan="3" class="text-center text-muted py-4">لا توجد معوقات حرجة مفتوحة</td></tr>';
 
-            document.getElementById('progress-table-body').innerHTML = ptHtml;
-            document.getElementById('obstacles-table-body').innerHTML = otHtml;
+            safeUpdateDOM('progress-table-body', 'html', ptHtml);
+            safeUpdateDOM('obstacles-table-body', 'html', otHtml);
         }
 
         // إطلاق التطبيق
-        initApp();
+        startApp();
     </script>
 </body>
 </html>
