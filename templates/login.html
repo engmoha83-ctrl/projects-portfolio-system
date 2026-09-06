@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="html-tag">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="page_title">تسجيل الدخول | المعماريون السعوديون</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link id="bs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+            min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; position: relative;
+            padding: 20px;
+        }
+        .login-card {
+            background: var(--bg-card); padding: 2.75rem 2.25rem; border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg); width: 100%; max-width: 420px; text-align: center;
+        }
+        .login-badge {
+            width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 1rem;
+            background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
+            color: var(--navy-900); font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+        }
+        .login-title { color: var(--text-strong); font-weight: 800; margin-bottom: 1.75rem; }
+        .btn-login {
+            background-color: var(--navy-700); color: white; border: none; font-size: 1.05rem;
+            padding: 0.7rem; width: 100%; margin-top: 1.25rem; font-weight: 700; border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+        .btn-login:hover { background-color: var(--navy-800); color: white; transform: translateY(-1px); }
+        .error-msg { color: var(--danger); font-size: 0.9rem; margin-bottom: 1rem; font-weight: 700; background: var(--danger-bg); padding: 10px; border-radius: var(--radius-sm); }
+
+        .lang-container {
+            position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; align-items: center;
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(4px); padding: 6px 12px; border-radius: 20px;
+        }
+        .lang-container[dir="ltr"] { right: auto; left: 20px; }
+        .lang-selector { border: none; outline: none; background: transparent; font-weight: 700; color: #fff; cursor: pointer; }
+        .lang-selector option { color: #000; }
+    </style>
+</head>
+<body>
+
+    <!-- زر اختيار اللغة -->
+    <div class="lang-container" id="lang-wrapper">
+        <span class="me-2">🌐</span>
+        <select id="langSwitch" class="lang-selector" onchange="changeLanguage(this.value)">
+            <option value="ar">العربية</option>
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="es">Español</option>
+        </select>
+    </div>
+
+    <!-- بطاقة تسجيل الدخول -->
+    <div class="login-card">
+        <div class="login-badge">م س</div>
+        <h3 class="login-title">
+            <span data-i18n="nav_title">المعماريون السعوديون</span><br>
+            <small class="text-muted mt-2 d-block" style="font-size: 1.05rem;" data-i18n="nav_subtitle">بوابة تحديث المشاريع</small>
+        </h3>
+
+        <form action="/login" method="post">
+            <div class="mb-3 text-start">
+                <label class="form-label" data-i18n="f_username">اسم المستخدم</label>
+                <input type="text" class="form-control" name="username" required autocomplete="off">
+            </div>
+            <div class="mb-3 text-start">
+                <label class="form-label" data-i18n="f_password">كلمة المرور</label>
+                <input type="password" class="form-control" name="password" required>
+            </div>
+
+            {% if error %}
+            <div class="error-msg" data-i18n="error_msg">{{ error }}</div>
+            {% endif %}
+
+            <button type="submit" class="btn-login" data-i18n="btn_login">تسجيل الدخول</button>
+        </form>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. قاموس اللغات لصفحة الدخول
+        // ==========================================
+        const i18n = {
+            ar: {
+                page_title: "تسجيل الدخول | المعماريون السعوديون",
+                nav_title: "المعماريون السعوديون",
+                nav_subtitle: "بوابة تحديث المشاريع",
+                f_username: "اسم المستخدم",
+                f_password: "كلمة المرور",
+                btn_login: "تسجيل الدخول",
+                error_msg: "اسم المستخدم أو كلمة المرور غير صحيحة"
+            },
+            en: {
+                page_title: "Login | Saudi Architects",
+                nav_title: "Saudi Architects",
+                nav_subtitle: "Projects Update Portal",
+                f_username: "Username",
+                f_password: "Password",
+                btn_login: "Login",
+                error_msg: "Invalid username or password"
+            },
+            fr: {
+                page_title: "Connexion | Architectes Saoudiens",
+                nav_title: "Architectes Saoudiens",
+                nav_subtitle: "Portail de mise à jour",
+                f_username: "Nom d'utilisateur",
+                f_password: "Mot de passe",
+                btn_login: "Se connecter",
+                error_msg: "Nom d'utilisateur ou mot de passe incorrect"
+            },
+            es: {
+                page_title: "Iniciar sesión | Arquitectos Saudíes",
+                nav_title: "Arquitectos Saudíes",
+                nav_subtitle: "Portal de actualización",
+                f_username: "Usuario",
+                f_password: "Contraseña",
+                btn_login: "Iniciar sesión",
+                error_msg: "Usuario o contraseña incorrectos"
+            }
+        };
+
+        // ==========================================
+        // 2. دالة تغيير اللغة والاتجاه
+        // ==========================================
+        function changeLanguage(lang) {
+            localStorage.setItem('saudi_arch_lang', lang);
+
+            const htmlTag = document.getElementById('html-tag');
+            const bsCss = document.getElementById('bs-css');
+            const langWrapper = document.getElementById('lang-wrapper');
+
+            if (lang === 'ar') {
+                htmlTag.setAttribute('dir', 'rtl');
+                htmlTag.setAttribute('lang', 'ar');
+                langWrapper.setAttribute('dir', 'rtl');
+                bsCss.href = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css";
+            } else {
+                htmlTag.setAttribute('dir', 'ltr');
+                htmlTag.setAttribute('lang', lang);
+                langWrapper.setAttribute('dir', 'ltr');
+                bsCss.href = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css";
+            }
+
+            // تبديل النصوص بناءً على القاموس
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if(i18n[lang] && i18n[lang][key]) {
+                    el.innerHTML = i18n[lang][key];
+                }
+            });
+
+            document.getElementById('langSwitch').value = lang;
+        }
+
+        // استدعاء اللغة المحفوظة تلقائياً عند فتح الصفحة
+        window.onload = () => {
+            const savedLang = localStorage.getItem('saudi_arch_lang') || 'ar';
+            changeLanguage(savedLang);
+        };
+    </script>
+</body>
+</html>
