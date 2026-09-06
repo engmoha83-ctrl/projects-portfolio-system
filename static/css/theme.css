@@ -1,1 +1,243 @@
+/* ==========================================================================
+   نظام التصميم الموحد - المعماريون السعوديون (PMIS)
+   ملف تنسيق مشترك لكل صفحات المنصة لضمان اتساق الشكل والهوية البصرية
+   ========================================================================== */
+
+:root {
+  /* الهوية اللونية */
+  --navy-900: #0f1a2e;
+  --navy-800: #16233d;
+  --navy-700: #1a2b4c;
+  --navy-600: #223763;
+  --gold-500: #d4a373;
+  --gold-400: #e0b98d;
+  --gold-100: #faedcd;
+
+  --bg-app: #f4f6fa;
+  --bg-card: #ffffff;
+  --bg-muted: #eef1f6;
+  --border-soft: #e3e7ef;
+
+  --text-strong: #1a2b4c;
+  --text-body: #3c4657;
+  --text-muted: #6c7a91;
+  --text-on-dark: #f5f7fb;
+  --text-on-dark-muted: rgba(245, 247, 251, 0.65);
+
+  --success: #1e8e5a;
+  --success-bg: #e7f6ee;
+  --danger: #d9463f;
+  --danger-bg: #fdeceb;
+  --warning: #d99425;
+  --warning-bg: #fdf3e2;
+  --info: #2685c9;
+  --info-bg: #e8f3fb;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 2px 8px rgba(15, 26, 46, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 26, 46, 0.10);
+  --shadow-lg: 0 18px 40px rgba(15, 26, 46, 0.16);
+  --transition: all 0.2s ease;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background-color: var(--bg-app);
+  color: var(--text-body);
+  font-family: 'Tajawal', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+[lang="en"] body, [lang="fr"] body, [lang="es"] body {
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+:where(h1, h2, h3, h4, h5, h6) { color: var(--text-strong); font-weight: 700; }
+a { color: var(--navy-700); }
+small, .text-muted { color: var(--text-muted) !important; }
+
+/* ---------- شارة الهوية (تُستخدم في كل الأشرطة العلوية) ---------- */
+.brand-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
+  font-weight: 900; color: var(--navy-900); font-size: 1.05rem;
+}
+
+/* ---------- شريط التنقل الإداري الموحد ---------- */
+.pmis-navbar {
+  background: linear-gradient(180deg, var(--navy-800), var(--navy-900));
+  border-bottom: 3px solid var(--gold-500);
+  box-shadow: var(--shadow-sm);
+  padding: 0.65rem 0;
+}
+.pmis-navbar .navbar-brand {
+  color: var(--text-on-dark) !important;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: 0.2px;
+}
+.pmis-navbar .navbar-brand .brand-mark {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; color: var(--navy-900); font-size: 1.05rem;
+}
+.pmis-navbar .nav-link {
+  color: var(--text-on-dark-muted) !important;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.85rem !important;
+  transition: var(--transition);
+}
+.pmis-navbar .nav-link:hover { color: var(--text-on-dark) !important; background: rgba(255,255,255,0.06); }
+.pmis-navbar .nav-link.active { color: var(--navy-900) !important; background: var(--gold-500); }
+.btn-logout {
+  display: inline-block;
+  background: transparent; border: 1.5px solid rgba(255,255,255,0.35); color: var(--text-on-dark) !important;
+  border-radius: 999px; padding: 0.35rem 1.1rem; font-weight: 700; font-size: 0.85rem;
+  text-decoration: none; transition: var(--transition);
+}
+.btn-logout:hover { background: var(--danger); border-color: var(--danger); color: #fff !important; text-decoration: none; }
+
+/* ---------- بطاقات عامة ---------- */
+.pmis-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.pmis-card-pad { padding: 1.5rem; }
+
+.section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  transition: var(--transition);
+}
+.section-title {
+  color: var(--text-strong);
+  font-weight: 800;
+  font-size: 1.05rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--bg-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.section-title .step-badge {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--navy-700); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 800; flex-shrink: 0;
+}
+
+/* ---------- أزرار ---------- */
+.btn-brand {
+  background: var(--navy-700); border-color: var(--navy-700); color: #fff;
+  font-weight: 700; transition: var(--transition);
+}
+.btn-brand:hover { background: var(--navy-800); border-color: var(--navy-800); color: #fff; transform: translateY(-1px); }
+.btn-gold {
+  background: var(--gold-500); border-color: var(--gold-500); color: var(--navy-900);
+  font-weight: 800; transition: var(--transition);
+}
+.btn-gold:hover { background: var(--gold-400); border-color: var(--gold-400); color: var(--navy-900); transform: translateY(-1px); }
+
+/* ---------- عناصر الفورم ---------- */
+.form-label { font-weight: 700; color: var(--text-strong); font-size: 0.88rem; margin-bottom: 0.35rem; }
+.form-control, .form-select {
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-soft);
+  padding: 0.55rem 0.85rem;
+  transition: var(--transition);
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 0.2rem rgba(212, 163, 115, 0.25);
+}
+.form-control[readonly] { background-color: var(--bg-muted); }
+
+/* ---------- تنبيهات وحالات فارغة ---------- */
+.pmis-alert-info {
+  background: var(--info-bg); color: var(--navy-800); border: 1px solid rgba(38,133,201,0.2);
+  border-radius: var(--radius-md); padding: 0.9rem 1.2rem;
+}
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+.empty-state .icon { font-size: 2.75rem; margin-bottom: 0.75rem; opacity: 0.6; }
+
+/* ---------- بطاقات KPI ---------- */
+.kpi-tile {
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; justify-content: center;
+  min-height: 84px;
+}
+.kpi-tile .kpi-label { font-size: 0.78rem; opacity: 0.85; font-weight: 600; margin-bottom: 2px; }
+.kpi-tile .kpi-value { font-size: 1.6rem; font-weight: 800; }
+.kpi-navy { background: linear-gradient(135deg, var(--navy-700), var(--navy-600)); }
+.kpi-gold { background: linear-gradient(135deg, #c98d52, var(--gold-500)); }
+.kpi-green { background: linear-gradient(135deg, #167a4f, #1e8e5a); }
+.kpi-info  { background: linear-gradient(135deg, #1f6fa8, #2685c9); }
+
+/* ---------- جداول ---------- */
+.table-container { background: var(--bg-card); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: auto; }
+.table thead th { background-color: var(--navy-800); color: #fff; border: none; font-weight: 700; }
+
+/* ---------- بطاقات الهَب / اللاندنج ---------- */
+.hub-card, .card-btn {
+  background: var(--bg-card); border-radius: var(--radius-lg); padding: 2.25rem 1.25rem;
+  text-align: center; text-decoration: none; color: var(--text-strong);
+  display: block; height: 100%; border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-sm); transition: var(--transition); position: relative; overflow: hidden;
+}
+.hub-card::before, .card-btn::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; background: transparent; transition: var(--transition);
+}
+.hub-card:hover, .card-btn:hover {
+  transform: translateY(-6px); box-shadow: var(--shadow-lg); color: var(--navy-700); text-decoration: none;
+  border-color: var(--gold-500);
+}
+.hub-card:hover::before, .card-btn:hover::before { background: var(--gold-500); }
+.hub-icon, .icon { font-size: 3rem; margin-bottom: 1rem; }
+.hub-title, .card-title { font-size: 1.2rem; font-weight: 800; margin-bottom: 0.5rem; }
+.hub-desc, .card-text { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; }
+
+/* ---------- شارات الحالة ---------- */
+.badge-status { font-weight: 700; padding: 0.4em 0.8em; border-radius: 999px; font-size: 0.75rem; }
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-danger { background: var(--danger-bg); color: var(--danger); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+
+/* ---------- سكرول بار أنيق ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-muted); }
+::-webkit-scrollbar-thumb { background: #c3ccdb; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #a9b4c8; }
+
+/* ---------- استجابة للموبايل ---------- */
+@media (max-width: 767px) {
+  .section-card { padding: 1.1rem; }
+  .kpi-tile { min-height: 68px; padding: 0.75rem; }
+  .kpi-tile .kpi-value { font-size: 1.3rem; }
+  .hub-card, .card-btn { padding: 1.75rem 1rem; }
+}
+
+/* ---------- طباعة ---------- */
+@media print {
+  .pmis-navbar, .no-print { display: none !important; }
+  body { background: #fff !important; }
+  .section-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+}
 
