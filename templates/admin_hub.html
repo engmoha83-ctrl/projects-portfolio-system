@@ -2,44 +2,40 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>بوابة الإدارة المركزية | المعماريون السعوديون</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .hub-header { background: #343a40; color: white; padding: 50px 0; text-align: center; margin-bottom: 50px; border-bottom: 5px solid #d4a373; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .hub-card {
-            background: white; border-radius: 15px; padding: 40px 20px;
-            text-align: center; text-decoration: none; color: #343a40;
-            display: block; transition: all 0.3s ease;
-            border: 1px solid #dee2e6; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            height: 100%; position: relative; overflow: hidden;
+        .hub-header {
+            background: linear-gradient(120deg, var(--navy-900), var(--navy-700));
+            color: white; padding: 3.5rem 0 3rem; text-align: center; margin-bottom: 3rem;
+            border-bottom: 5px solid var(--gold-500); box-shadow: var(--shadow-md);
         }
-        .hub-card::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: transparent; transition: 0.3s;
+        .hub-header h1 { color: #fff; }
+        .hub-header .brand-badge {
+            width: 60px; height: 60px; border-radius: 16px; margin: 0 auto 1rem;
+            background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
+            color: var(--navy-900); font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
         }
-        .hub-card:hover {
-            transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); text-decoration: none; color: #0d6efd;
-        }
-        .hub-card:hover::before { background: #0d6efd; }
-        .hub-icon { font-size: 4rem; margin-bottom: 20px; transition: 0.3s; }
-        .hub-card:hover .hub-icon { transform: scale(1.1); }
-        .hub-title { font-size: 1.4rem; font-weight: bold; margin-bottom: 15px; }
-        .hub-desc { font-size: 0.95rem; color: #6c757d; line-height: 1.5; }
     </style>
 </head>
 <body>
-    
+
     <div class="hub-header">
-        <h1 class="fw-bold mb-3">بوابة الإدارة المركزية (PMIS)</h1>
-        <p class="text-white-50 fs-5">اختر النظام الذي تود الدخول إليه يا مهندس محمد</p>
-        <a href="/admin-logout" class="btn btn-outline-light px-4 mt-3 rounded-pill">تسجيل الخروج</a>
+        <div class="brand-badge">م س</div>
+        <h1 class="fw-bold mb-2">بوابة الإدارة المركزية (PMIS)</h1>
+        <p class="mb-3" style="opacity:0.85;">اختر النظام الذي تود الدخول إليه يا مهندس محمد</p>
+        <a href="/admin-logout" class="btn-logout d-inline-flex">تسجيل الخروج</a>
     </div>
 
     <div class="container mb-5">
         <div class="row justify-content-center g-4">
-            
+
             <!-- الكارت 1: متاح للجميع -->
-            <div class="col-md-6 col-lg-3">
+            <div class="col-md-6 col-lg-4">
                 <a href="/admin-dashboard" class="hub-card">
                     <div class="hub-icon">📋</div>
                     <div class="hub-title">سجل التحديثات</div>
@@ -49,8 +45,8 @@
 
             <!-- الكروت التالية تظهر لحساب الإدارة العليا فقط -->
             {% if admin_user == 'admin_mohamed' %}
-            
-            <div class="col-md-6 col-lg-3">
+
+            <div class="col-md-6 col-lg-4">
                 <a href="/admin-analytics" class="hub-card">
                     <div class="hub-icon">📊</div>
                     <div class="hub-title">لوحة المؤشرات (Dashboards)</div>
@@ -58,7 +54,15 @@
                 </a>
             </div>
 
-            <div class="col-md-6 col-lg-3">
+            <div class="col-md-6 col-lg-4">
+                <a href="/project-dashboard" class="hub-card">
+                    <div class="hub-icon">🎯</div>
+                    <div class="hub-title">داشبورد المشروع</div>
+                    <div class="hub-desc">لوحة تحكم مخصصة لعرض تفاصيل وأداء مشروع محدد بشكل مستقل تماماً.</div>
+                </a>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
                 <a href="/admin-directory" class="hub-card">
                     <div class="hub-icon">👤</div>
                     <div class="hub-title">دليل المديرين</div>
@@ -66,7 +70,7 @@
                 </a>
             </div>
 
-            <div class="col-md-6 col-lg-3">
+            <div class="col-md-6 col-lg-4">
                 <a href="/admin-gallery" class="hub-card">
                     <div class="hub-icon">🖼️</div>
                     <div class="hub-title">المعرض المرئي</div>
@@ -74,16 +78,16 @@
                 </a>
             </div>
 
-            <div class="col-md-6 col-lg-3">
-                <a href="/project-dashboard" class="hub-card">
-                    <div class="hub-icon">🎯</div>
-                    <div class="hub-title">داشبورد المشروع</div>
-                    <div class="hub-desc">لوحة تحكم مخصصة لعرض تفاصيل وأداء مشروع محدد بشكل مستقل تماماً.</div>
+            <div class="col-md-6 col-lg-4">
+                <a href="/admin-users" class="hub-card">
+                    <div class="hub-icon">🔑</div>
+                    <div class="hub-title">إدارة المستخدمين</div>
+                    <div class="hub-desc">إنشاء حسابات دخول جديدة لمديري المشاريع، وتعديلها أو إعادة تعيين كلمات المرور.</div>
                 </a>
             </div>
-            
+
             {% endif %}
-            
+
         </div>
     </div>
 

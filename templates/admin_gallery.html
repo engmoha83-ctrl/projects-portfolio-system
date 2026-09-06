@@ -3,42 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <title>لوحة التحكم | المعرض المرئي</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .gallery-container { background: white; border-radius: 10px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); min-height: 500px; }
+        .gallery-container { min-height: 500px; }
         .gallery-img { width: 100%; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; object-fit: cover; max-height: 300px; }
         .gallery-img:hover { transform: scale(1.02); }
         .large-img { max-height: 600px; object-fit: contain; background-color: #f1f1f1; }
-        .empty-state { text-align: center; padding: 50px; color: #6c757d; font-size: 1.2rem; display: none; }
-        .pdf-icon-wrapper { background-color: #f8f9fa; border: 2px dashed #dee2e6; padding: 40px; border-radius: 8px; transition: 0.3s; }
-        .pdf-icon-wrapper:hover { background-color: #e9ecef; border-color: #0d6efd; }
+        .pdf-icon-wrapper { background-color: var(--bg-muted); border: 2px dashed var(--border-soft); padding: 40px; border-radius: 8px; transition: 0.3s; }
+        .pdf-icon-wrapper:hover { background-color: #e9ecef; border-color: var(--gold-500); }
     </style>
 </head>
 <body>
-    <!-- شريط التنقل الإداري الموحد -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
-        <div class="container-fluid">
-            <!-- اللوجو الآن يرجعك للبوابة المركزية -->
-            <a class="navbar-brand fw-bold" href="/admin-hub">إدارة المشاريع | البوابة المركزية</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="adminNavbar">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="/admin-dashboard">سجل التحديثات</a></li>
-                    {% if admin_user == 'admin_mohamed' %}
-                    <li class="nav-item"><a class="nav-link" href="/admin-analytics">لوحة المؤشرات</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/admin-directory">دليل المديرين</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/admin-gallery">المعرض المرئي</a></li>
-                    {% endif %}
-                </ul>
-                <div class="d-flex">
-                    <a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    {% include "_admin_nav.html" %}
 
     <div class="container mb-5">
         <div class="row align-items-center mb-4 bg-white p-3 rounded shadow-sm">
@@ -64,7 +43,7 @@
             </div>
         </div>
 
-        <div class="gallery-container">
+        <div class="gallery-container pmis-card pmis-card-pad">
             <div id="date-badge" class="alert alert-info py-2 mb-4 text-center fw-bold" style="display: none;">
                 تاريخ إرسال هذه البيانات: <span id="latest-date"></span>
             </div>

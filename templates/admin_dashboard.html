@@ -3,71 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <title>لوحة التحكم | سجل التحديثات</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
     <!-- استدعاء مكتبة SheetJS لتصدير الإكسيل -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        
-        .table-container { 
-            background: white; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
-            overflow: auto; 
-            max-height: 70vh; 
-        }
-        
-        #updatesTable {
-            margin-bottom: 0;
-        }
+        .table-container { max-height: 70vh; }
+
+        #updatesTable { margin-bottom: 0; }
 
         /* تثبيت رأس الجدول أثناء التمرير باحترافية */
         #updatesTable thead th {
             position: sticky;
             top: 0;
-            background-color: #212529;
-            color: white;
             z-index: 999;
-            border: none;
-            box-shadow: inset 0 -2px 0 #495057; /* بديل للإطار لضمان ثباته أثناء التمرير */
+            box-shadow: inset 0 -2px 0 var(--navy-600);
             padding-top: 15px;
             padding-bottom: 15px;
         }
 
         td { cursor: pointer; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-        td:hover { background-color: #f1f3f5; }
-        .filter-section { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .kpi-card { background: linear-gradient(45deg, #0d6efd, #0dcaf0); color: white; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 10px; }
-        .kpi-number { font-size: 2rem; font-weight: bold; margin: 0; }
+        td:hover { background-color: var(--bg-muted); }
+        .filter-section { background: white; border-radius: var(--radius-md); padding: 1.1rem; box-shadow: var(--shadow-sm); margin-bottom: 1.25rem; }
     </style>
 </head>
 <body>
-    <!-- شريط التنقل الإداري الموحد -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="/admin-hub">إدارة المشاريع | البوابة المركزية</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="adminNavbar">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="/admin-dashboard">سجل التحديثات</a></li>
-                    {% if admin_user == 'admin_mohamed' %}
-                    <li class="nav-item"><a class="nav-link" href="/admin-analytics">لوحة المؤشرات</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/admin-directory">دليل المديرين</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/admin-gallery">المعرض المرئي</a></li>
-                    {% endif %}
-                </ul>
-                <div class="d-flex">
-                    <a href="/admin-logout" class="btn btn-danger btn-sm px-4">تسجيل الخروج</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    {% include "_admin_nav.html" %}
 
     <div class="container-fluid px-4 mb-5">
-        <h3 class="text-primary mb-3">سجل تحديثات المشاريع</h3>
-        
+        <h3 class="mb-3">سجل تحديثات المشاريع</h3>
+
         <!-- قسم الفلاتر ومؤشرات الأداء -->
         <div class="filter-section">
             <div class="row g-3 align-items-stretch">
@@ -100,20 +67,20 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- مربعات عدد التحديثات وزر التصدير -->
                 <div class="col-md-4 d-flex flex-column gap-2">
                     <div class="d-flex gap-2 flex-grow-1">
-                        <div class="kpi-card flex-grow-1" style="background: linear-gradient(45deg, #198754, #20c997);">
-                            <h6 class="mb-0 opacity-75 small" title="عدد المشاريع التي تم تحديثها في أحدث تاريخ بيانات مسجل">تحديثات أحدث دورة</h6>
-                            <p class="kpi-number" id="latest-count">0</p>
+                        <div class="kpi-tile kpi-green flex-grow-1">
+                            <span class="kpi-label" title="عدد المشاريع التي تم تحديثها في أحدث تاريخ بيانات مسجل">تحديثات أحدث دورة</span>
+                            <span class="kpi-value" id="latest-count">0</span>
                         </div>
-                        <div class="kpi-card flex-grow-1">
-                            <h6 class="mb-0 opacity-75 small" title="عدد التحديثات المعروضة حالياً بناءً على الفلاتر">المعروض حالياً</h6>
-                            <p class="kpi-number" id="update-count">0</p>
+                        <div class="kpi-tile kpi-info flex-grow-1">
+                            <span class="kpi-label" title="عدد التحديثات المعروضة حالياً بناءً على الفلاتر">المعروض حالياً</span>
+                            <span class="kpi-value" id="update-count">0</span>
                         </div>
                     </div>
-                    <button class="btn btn-success fw-bold shadow-sm w-100" onclick="exportToExcel()">
+                    <button class="btn btn-gold fw-bold shadow-sm w-100" onclick="exportToExcel()">
                         📥 تصدير Excel
                     </button>
                 </div>

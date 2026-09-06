@@ -4,19 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="page_title">المعماريون السعوديون | بوابة التحديث الأسبوعي</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link id="bs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
     <style>
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .navbar { background-color: #1a2b4c; border-bottom: 4px solid #d4a373; }
-        .section-card { border: none; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; padding: 20px; background: white; }
-        .section-title { color: #1a2b4c; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .btn-submit { background-color: #1a2b4c; color: white; border: none; font-size: 1.1rem; font-weight: bold; }
-        .lang-selector { background: transparent; color: white; border: 1px solid #d4a373; border-radius: 5px; padding: 2px 5px; outline: none; }
+        .portal-navbar { background: linear-gradient(180deg, var(--navy-800), var(--navy-900)); border-bottom: 4px solid var(--gold-500); }
+        .btn-submit { background-color: var(--navy-700); color: white; border: none; font-size: 1.05rem; font-weight: 800; border-radius: var(--radius-sm); transition: var(--transition); }
+        .btn-submit:hover { background-color: var(--navy-800); color: #fff; }
+        .lang-selector { background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(212,163,115,0.5); border-radius: 20px; padding: 3px 10px; outline: none; }
         .lang-selector option { color: black; }
+        .welcome-banner {
+            background: linear-gradient(120deg, var(--navy-700), var(--navy-600));
+            color: #fff; border-radius: var(--radius-md); padding: 1rem 1.5rem; margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+        }
+        .welcome-banner .badge-chip {
+            background: var(--gold-500); color: var(--navy-900); font-weight: 800; border-radius: 999px;
+            padding: 0.3rem 0.9rem; font-size: 0.85rem;
+        }
 
         @media print {
             body { background-color: white !important; font-size: 12px; }
-            .navbar, .lang-container, .alert, .btn, input[type="file"], small.text-danger { display: none !important; }
+            .portal-navbar, .lang-container, .alert, .welcome-banner, .btn, input[type="file"], small.text-danger { display: none !important; }
             .section-card { box-shadow: none !important; border: 1px solid #ddd !important; margin-bottom: 15px !important; padding: 15px !important; page-break-inside: avoid; }
             .container { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
             input, select, textarea { border: 1px solid #999 !important; background-color: transparent !important; color: black !important; }
@@ -26,11 +36,14 @@
 </head>
 <body>
 
-    <nav class="navbar navbar-dark mb-4 p-3">
+    <nav class="navbar navbar-dark portal-navbar mb-4 p-3">
         <div class="container d-flex justify-content-between align-items-center">
-            <div>
-                <h4 class="text-white mb-0" data-i18n="nav_title">المعماريون السعوديون</h4>
-                <span class="text-white-50" data-i18n="nav_subtitle">بوابة إدارة المشاريع - التحديث الأسبوعي</span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="brand-mark">م س</span>
+                <div>
+                    <h4 class="text-white mb-0" data-i18n="nav_title">المعماريون السعوديون</h4>
+                    <span class="text-white-50 small" data-i18n="nav_subtitle">بوابة إدارة المشاريع - التحديث الأسبوعي</span>
+                </div>
             </div>
             <div>
                 <span class="text-white me-2">🌐</span>
@@ -46,16 +59,19 @@
     </nav>
 
     <div class="container" style="max-width: 900px;">
-        <div class="alert alert-info text-center mb-4">
-            <span data-i18n="welcome_msg">أهلاً بك،</span> <strong>{{ manager_name }}</strong>. 
-            <span data-i18n="working_on">جاري العمل على</span> <strong>{{ project_name }}</strong>.
+        <div class="welcome-banner">
+            <span style="font-size:1.5rem;">👋</span>
+            <div>
+                <span data-i18n="welcome_msg">أهلاً بك،</span> <strong>{{ manager_name }}</strong>.
+                <span data-i18n="working_on">جاري العمل على</span> <strong>{{ project_name }}</strong>.
+            </div>
         </div>
 
         <form id="portfolioForm" action="/submit" method="post" enctype="multipart/form-data" novalidate>
             
             <!-- 1. بيانات المشروع -->
             <div class="section-card">
-                <h5 class="section-title" data-i18n="sec1_title">المعلومات الأساسية للمشروع</h5>
+                <h5 class="section-title"><span class="step-badge">1</span><span data-i18n="sec1_title">المعلومات الأساسية للمشروع</span></h5>
                 <div class="row">
                     <div class="col-md-4 mb-3"><label data-i18n="f_username">اسم المستخدم</label><input type="text" class="form-control bg-light" name="username" value="{{ username }}" readonly required></div>
                     <div class="col-md-4 mb-3"><label data-i18n="f_manager">اسم مدير المشروع</label><input type="text" class="form-control bg-light" name="manager_name" value="{{ manager_name }}" readonly required></div>
@@ -93,7 +109,7 @@
 
             <!-- 2. العقود والفواتير -->
             <div class="section-card">
-                <h5 class="section-title" data-i18n="sec2_title">البيانات التعاقدية والفواتير</h5>
+                <h5 class="section-title"><span class="step-badge">2</span><span data-i18n="sec2_title">البيانات التعاقدية والفواتير</span></h5>
                 <div class="row">
                     <div class="col-md-6 mb-3"><label data-i18n="f_cons_val">قيمة عقد الاستشاري</label><input type="text" class="form-control money-input" name="consultant_val" required></div>
                     <div class="col-md-6 mb-3"><label data-i18n="f_cont_val">قيمة عقد المقاول (إن وجدت)</label><input type="text" class="form-control money-input" name="contractor_val" required></div>
@@ -110,7 +126,7 @@
 
             <!-- 3. تعديلات عقد الاستشاري -->
             <div class="section-card">
-                <h5 class="section-title" data-i18n="sec3_title">تعديلات عقد الاستشاري (أوامر التغيير والتمديد)</h5>
+                <h5 class="section-title"><span class="step-badge">3</span><span data-i18n="sec3_title">تعديلات عقد الاستشاري (أوامر التغيير والتمديد)</span></h5>
                 <div class="row">
                     <div class="col-md-3 mb-3"><label data-i18n="f_chg_count">عدد أوامر التغيير</label><input type="number" class="form-control" name="consultant_mods_count" required></div>
                     <div class="col-md-3 mb-3"><label data-i18n="f_chg_val">قيمة أوامر التغيير</label><input type="text" class="form-control money-input" name="consultant_mods_val" required></div>
@@ -121,7 +137,7 @@
 
             <!-- 4. تعديلات عقد المقاول -->
             <div class="section-card">
-                <h5 class="section-title" data-i18n="sec4_title">تعديلات عقد المقاول (أوامر التغيير والتمديد)</h5>
+                <h5 class="section-title"><span class="step-badge">4</span><span data-i18n="sec4_title">تعديلات عقد المقاول (أوامر التغيير والتمديد)</span></h5>
                 <div class="row">
                     <div class="col-md-3 mb-3"><label data-i18n="f_chg_count">عدد أوامر التغيير</label><input type="number" class="form-control" name="contractor_mods_count" required></div>
                     <div class="col-md-3 mb-3"><label data-i18n="f_chg_val">قيمة أوامر التغيير</label><input type="text" class="form-control money-input" name="contractor_mods_val" required></div>
@@ -132,7 +148,7 @@
 
             <!-- 5. التواريخ ونسب الإنجاز -->
             <div class="section-card">
-                <h5 class="section-title" data-i18n="sec5_title">التواريخ ونسب الإنجاز الفنية</h5>
+                <h5 class="section-title"><span class="step-badge">5</span><span data-i18n="sec5_title">التواريخ ونسب الإنجاز الفنية</span></h5>
                 <div class="row">
                     <div class="col-md-3 mb-3"><label data-i18n="f_start_c">البداية التعاقدية</label><input type="date" class="form-control" name="start_contractual" required></div>
                     <div class="col-md-3 mb-3"><label data-i18n="f_end_c">النهاية التعاقدية</label><input type="date" class="form-control" name="end_contractual" required></div>
@@ -160,7 +176,7 @@
 
             <!-- 6. الموقف التنفيذي والمعوقات -->
             <div class="section-card">
-                <h5 class="section-title" data-i18n="sec6_title">الموقف التنفيذي والمعوقات</h5>
+                <h5 class="section-title"><span class="step-badge">6</span><span data-i18n="sec6_title">الموقف التنفيذي والمعوقات</span></h5>
                 <div class="mb-3"><label data-i18n="f_works_c">الأعمال المنتهية الأسبوع السابق</label><textarea class="form-control" name="works_completed" required></textarea></div>
                 <div class="mb-3"><label data-i18n="f_works_o">الأعمال الجارية الأسبوع الحالي</label><textarea class="form-control" name="works_ongoing" required></textarea></div>
                 <div class="mb-3"><label data-i18n="f_works_p">الأعمال المتوقعة الأسبوع القادم</label><textarea class="form-control" name="works_planned" required></textarea></div>
@@ -190,7 +206,7 @@
 
             <!-- 7. التقييم والمستندات الفنية -->
             <div class="section-card">
-                <h5 class="section-title" data-i18n="sec7_title">التقييم والمستندات الفنية</h5>
+                <h5 class="section-title"><span class="step-badge">7</span><span data-i18n="sec7_title">التقييم والمستندات الفنية</span></h5>
                 <div class="row">
                     <div class="col-md-3 mb-3"><label data-i18n="f_eval_1">توفر العمالة (0-10)</label><input type="number" min="0" max="10" class="form-control" name="eval_labor" required></div>
                     <div class="col-md-3 mb-3"><label data-i18n="f_eval_2">توفر المعدات (0-10)</label><input type="number" min="0" max="10" class="form-control" name="eval_equip" required></div>
@@ -214,7 +230,7 @@
 
             <!-- 8. المرفقات والأزرار -->
             <div class="section-card">
-                <h5 class="section-title"><span data-i18n="sec8_title">المرفقات الإضافية (اختياري)</span></h5>
+                <h5 class="section-title"><span class="step-badge">8</span><span data-i18n="sec8_title">المرفقات الإضافية (اختياري)</span></h5>
                 
                 <div class="row mb-3">
                     <label class="fw-bold text-primary mb-2" data-i18n="sec8_photos">رفع صور الإنجاز الأسبوعية (حتى 4 صور)</label>
