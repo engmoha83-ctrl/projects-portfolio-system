@@ -127,9 +127,14 @@ async def do_login(request: Request, background_tasks: BackgroundTasks, username
 
     if user and verify_password(password, user[2]):
         # ترقية كلمة المرور تلقائياً إلى صيغة مشفّرة إذا كانت لا تزال نصاً صريحاً
+        # (بدون try/except هنا: أي عطل في هذه الخطوة كان سيمنع تسجيل الدخول تماماً حتى لو كانت
+        #  كلمة المرور صحيحة - مثلاً لو عمود password في قاعدة البيانات أقصر من طول القيمة المشفّرة)
         if not is_hashed_password(user[2]):
-            cursor.execute("UPDATE users SET password=%s WHERE username=%s", (hash_password(password), username))
-            conn.commit()
+            try:
+                cursor.execute("UPDATE users SET password=%s WHERE username=%s", (hash_password(password), username))
+                conn.commit()
+            except Exception:
+                conn.rollback()
         conn.close()
         background_tasks.add_task(send_telegram_alert, "login", user[0], user[1])
         response = RedirectResponse(url="/update-portal", status_code=303)
