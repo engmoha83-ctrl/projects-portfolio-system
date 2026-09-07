@@ -348,7 +348,11 @@ async def admin_directory_page(request: Request):
     if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-dashboard", status_code=303)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, manager_name, project_name, phone, email, location_link, profile_image FROM pm_directory ORDER BY id ASC")
+    cursor.execute("""
+        SELECT d.id, d.username, d.manager_name, d.project_name, d.phone, d.email, d.location_link, d.profile_image,
+               (SELECT COUNT(*) FROM project_updates p WHERE p.username = d.username) as updates_count
+        FROM pm_directory d ORDER BY d.id ASC
+    """)
     pms = cursor.fetchall()
     conn.close()
     return templates.TemplateResponse(request, "admin_directory.html", {"pms": pms, "admin_user": admin_user, "active_page": "directory"})
