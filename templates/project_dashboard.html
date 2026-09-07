@@ -154,7 +154,7 @@
             records.forEach(record => {
                 let obsList = [];
                 try { 
-                    obsList = JSON.parse(record.obstacles_data || '[]'); 
+                    obsList = typeof record.obstacles_data === 'string' ? JSON.parse(record.obstacles_data || '[]') : (record.obstacles_data || []); 
                 } catch (e) { 
                     obsList = []; 
                 }
@@ -163,8 +163,8 @@
                         if(obs && obs.description) {
                             allObstacles[obs.description.trim()] = {
                                 description: obs.description.trim(),
-                                impact: obs.impact,
-                                closed: obs.closed
+                                impact: obs.impact || 'غير مؤثر',
+                                closed: obs.closed === true || obs.closed === "true" || obs.closed === "1"
                             };
                         }
                     });
@@ -178,8 +178,15 @@
                     if (a.closed === b.closed) return 0;
                     return a.closed ? 1 : -1;
                 });
-                document.getElementById('obstacles-list').innerHTML = finalObstacles.map(o => `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}"><strong>${o.description || ''}</strong><span class="float-start">${o.closed ? '✅ تم الحل' : '⏳ قائم'} — ${o.impact || ''}</span></div>`).join('');
-            } else { document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p>'; }
+                
+                document.getElementById('obstacles-list').innerHTML = finalObstacles.map(o => {
+                    let statusText = o.closed ? '✅ تم الحل' : '⏳ قائم';
+                    let impactText = o.impact || '';
+                    return `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}"><strong>${o.description || ''}</strong><span class="float-start">${statusText} — ${impactText}</span></div>`;
+                }).join('');
+            } else { 
+                document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p>'; 
+            }
         }
     </script>
 </body>
