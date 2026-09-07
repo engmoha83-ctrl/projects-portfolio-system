@@ -5,7 +5,7 @@ import string
 from urllib.parse import quote
 from datetime import datetime, timedelta, date
 from fastapi import FastAPI, Request, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import psycopg2
@@ -14,6 +14,7 @@ import cloudinary.uploader
 import requests
 import bcrypt
 from dotenv import load_dotenv
+import pdf_report
 
 # تحميل المتغيرات البيئية
 load_dotenv()
@@ -55,6 +56,35 @@ def hash_password(plain_password: str) -> str:
 def generate_temp_password(length: int = 10) -> str:
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+# ==========================================
+# 1.2 استعلام موحّد لبيانات داشبورد مشروع واحد
+# (يُستخدم في: داشبورد الإدارة، داشبورد مدير المشروع، وتصدير الـ PDF)
+# ==========================================
+PROJECT_DASHBOARD_QUERY = '''
+    SELECT current_data_date, manager_name, project_type, project_desc, project_owner, project_developer, project_contractor,
+           consultant_val, contractor_val, cons_inv_val, cont_inv_val, cons_inv_count, cont_inv_count,
+           start_contractual, end_contractual, start_actual, end_expected,
+           act_prog_cur, act_prog_prev, plan_prog_cur, plan_prog_prev, works_completed, works_ongoing, works_planned, obstacles_data,
+           eval_labor, eval_equip, eval_financial, eval_hse,
+           drawings_sub, drawings_app, drawings_rev, ir_sub, ir_app, ir_rev, ncr_open, ncr_closed,
+           consultant_mods_count, contractor_mods_count, contractor_mods_val,
+           file_link_1, file_link_2, file_link_3, file_link_4, isometric_link
+    FROM project_updates WHERE project_name = %s ORDER BY current_data_date ASC
+'''
+
+def fetch_project_records(project_name):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(PROJECT_DASHBOARD_QUERY, (project_name,))
+    cols = [desc[0] for desc in cursor.description]
+    records = [dict(zip(cols, row)) for row in cursor.fetchall()]
+    conn.close()
+    for r in records:
+        for k, v in r.items():
+            if isinstance(v, (date, datetime)):
+                r[k] = str(v)
+    return records
 
 ARABIC_COLUMNS = {
     'id': 'م', 'username': 'اسم المستخدم', 'manager_name': 'مدير المشروع', 'project_name': 'اسم المشروع',
@@ -171,35 +201,89 @@ async def project_dashboard_page(request: Request):
 @app.get("/api/project-dashboard-data")
 async def get_project_dashboard_data(project: str, request: Request):
     if not request.cookies.get("super_admin_auth"): return {"success": False, "error": "غير مصرح"}
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT current_data_date, manager_name, project_type, project_owner, project_developer, project_contractor,
-               consultant_val, contractor_val, cons_inv_val, cont_inv_val, cons_inv_count, cont_inv_count,
-               start_contractual, end_contractual, start_actual, end_expected,
-               act_prog_cur, plan_prog_cur, works_completed, works_ongoing, works_planned, obstacles_data,
-               eval_labor, eval_equip, eval_financial, eval_hse,
-               drawings_sub, drawings_app, drawings_rev, ir_sub, ir_app, ir_rev, ncr_open, ncr_closed
-        FROM project_updates WHERE project_name = %s ORDER BY current_data_date ASC
-    ''', (project,))
-    cols = [desc[0] for desc in cursor.description]
-    records = [dict(zip(cols, row)) for row in cursor.fetchall()]
-    conn.close()
-    for r in records:
-        for k, v in r.items():
-            if isinstance(v, (date, datetime)):
-                r[k] = str(v)
+    records = fetch_project_records(project)
     return {"success": True, "records": records}
 
+# ==========================================
+# 4.2 داشبورد مدير المشروع (عرض مقتصر على مشروعه فقط - صلاحيات محدودة)
+# ==========================================
+@app.get("/my-dashboard", response_class=HTMLResponse)
+async def my_dashboard_page(request: Request):
+    auth_user = request.cookies.get("auth_user")
+    if not auth_user: return RedirectResponse(url="/login", status_code=303)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT manager_name, project_name FROM users WHERE username=%s", (auth_user,))
+    user = cursor.fetchone()
+    conn.close()
+    if not user:
+        res = RedirectResponse(url="/login", status_code=303)
+        res.delete_cookie("auth_user")
+        return res
+    return templates.TemplateResponse(request, "my_dashboard.html", {
+        "username": auth_user, "manager_name": user[0], "project_name": user[1]
+    })
+
+@app.get("/api/my-dashboard-data")
+async def get_my_dashboard_data(request: Request):
+    auth_user = request.cookies.get("auth_user")
+    if not auth_user: return {"success": False, "error": "غير مصرح"}
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT project_name FROM users WHERE username=%s", (auth_user,))
+    user = cursor.fetchone()
+    conn.close()
+    if not user: return {"success": False, "error": "غير مصرح"}
+    # ملاحظة أمان: المشروع بييجي من حساب المستخدم المسجل دخوله في القاعدة، مش من أي بارامتر
+    # في الطلب - عشان مدير مشروع ميقدرش يشوف بيانات مشروع تاني غير بتاعه.
+    records = fetch_project_records(user[0])
+    return {"success": True, "records": records, "project_name": user[0]}
+
+# ==========================================
+# 4.3 تصدير تقرير المشروع كملف PDF
+# متاح للإدارة (لأي مشروع) ولمدير المشروع (لمشروعه هو بس)
+# ==========================================
+@app.get("/api/project-pdf")
+async def get_project_pdf(request: Request, project: str = None, lang: str = "ar"):
+    admin_user = request.cookies.get("super_admin_auth")
+    auth_user = request.cookies.get("auth_user")
+    lang = "en" if lang == "en" else "ar"
+
+    if admin_user:
+        target_project = project
+        if not target_project:
+            return HTMLResponse(content="<h3>يجب تحديد اسم المشروع</h3>", status_code=400)
+    elif auth_user:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT project_name FROM users WHERE username=%s", (auth_user,))
+        user = cursor.fetchone()
+        conn.close()
+        if not user:
+            return HTMLResponse(content="<h3>غير مصرح</h3>", status_code=401)
+        target_project = user[0]  # نتجاهل أي project مُرسل من العميل حماية لبيانات باقي المشاريع
+    else:
+        return HTMLResponse(content="<h3>غير مصرح، يرجى تسجيل الدخول.</h3>", status_code=401)
+
+    records = fetch_project_records(target_project)
+    pdf_buffer = pdf_report.build_project_pdf(target_project, records, lang=lang)
+    safe_name = "".join(c for c in target_project if c.isalnum() or c in (" ", "-", "_")).strip() or "project"
+    filename = f"Report_{safe_name}.pdf" if lang == "en" else f"تقرير_{safe_name}.pdf"
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"}
+    )
+
 @app.post("/admin")
-async def do_admin_login(request: Request, username: str = Form(...), password: str = Form(...)):
+async def do_admin_login(request: Request, background_tasks: BackgroundTasks, username: str = Form(...), password: str = Form(...)):
     ADMIN_ACCOUNTS = {
         "admin_mohamed": os.getenv("ADMIN_MOHAMED_PWD"),
         "admin_assistant": os.getenv("ADMIN_ASSISTANT_PWD")
     }
-    
+
     if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
-        response = RedirectResponse(url="/admin-hub", status_code=303) 
+        response = RedirectResponse(url="/admin-hub", status_code=303)
         response.set_cookie(key="super_admin_auth", value=username, max_age=86400)
         return response
         
@@ -234,7 +318,8 @@ async def admin_dashboard(request: Request):
 
 @app.post("/api/update-cell")
 async def update_cell(request: Request):
-    if not request.cookies.get("super_admin_auth"): return {"success": False, "error": "غير مصرح"}
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user: return {"success": False, "error": "غير مصرح"}
     data = await request.json()
     row_id, column, value = data.get("id"), data.get("column"), data.get("value")
 
@@ -545,7 +630,7 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         conn.commit()
         conn.close()
         background_tasks.add_task(send_telegram_alert, "submit", form_data.get("manager_name"), form_data.get("project_name"))
-        
+
         success_html = """
         <!DOCTYPE html>
         <html lang="ar" dir="rtl">
