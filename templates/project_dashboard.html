@@ -20,6 +20,12 @@
         .eval-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-500), var(--navy-700)); }
         .info-row { display: flex; justify-content: space-between; padding: 0.45rem 0; border-bottom: 1px dashed var(--border-soft); font-size: 0.9rem; }
         .info-row:last-child { border-bottom: none; }
+        .spi-gauge-widget { background: linear-gradient(160deg, var(--navy-900), #2b3958); border-radius: var(--radius-sm); padding: 1rem 1rem 1.15rem; text-align: center; }
+        .spi-gauge-badge { display: inline-block; background: #000; color: #fff; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.08em; padding: 0.22rem 1rem; border-radius: 999px; margin-bottom: 0.35rem; }
+        .spi-gauge-svg-wrap { max-width: 230px; margin: 0 auto; }
+        .spi-gauge-svg-wrap svg { width: 100%; height: auto; display: block; }
+        .spi-value-big { color: #fff; font-size: 1.9rem; font-weight: 800; margin-top: -0.5rem; line-height: 1.1; }
+        .spi-value-label { color: #a9b4c9; font-size: 0.78rem; margin-top: 0.1rem; }
     </style>
 </head>
 <body>
@@ -75,20 +81,34 @@
                 </div>
                 <div class="col-lg-4">
                     <div class="section-card h-100">
+                        <h5 class="section-title">🎯 مؤشر الأداء الجدولي (SPI)</h5>
+                        <div class="spi-gauge-widget">
+                            <div class="spi-gauge-badge">SPI</div>
+                            <div id="spi-gauge-svg-wrap" class="spi-gauge-svg-wrap"></div>
+                            <div class="spi-value-big" id="spi-value-big">-</div>
+                            <div class="spi-value-label">مؤشر الأداء الجدولي</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-3 mb-3">
+                <div class="col-lg-6">
+                    <div class="section-card h-100">
                         <h5 class="section-title">⭐ التقييم الفني</h5>
                         <div id="eval-list"></div>
                     </div>
                 </div>
-            </div>
-
-            <div class="row g-3 mb-3">
                 <div class="col-lg-6">
                     <div class="section-card h-100">
                         <h5 class="section-title">📐 المخططات وطلبات الاستلام</h5>
                         <div id="docs-chart" style="min-height:260px;"></div>
                     </div>
                 </div>
-                <div class="col-lg-6">
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-12">
                     <div class="section-card h-100">
                         <h5 class="section-title">🚧 المعوقات الحالية (مجمعة)</h5>
                         <div id="obstacles-list"><p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p></div>
@@ -152,6 +172,9 @@
             const evals = [ { label: 'توفر العمالة', val: latest.eval_labor || 0 }, { label: 'توفر المعدات', val: latest.eval_equip || 0 }, { label: 'القدرة المالية', val: latest.eval_financial || 0 }, { label: 'الالتزام بالسلامة', val: latest.eval_hse || 0 } ];
             document.getElementById('eval-list').innerHTML = evals.map(e => `<div class="mb-3"><div class="d-flex justify-content-between small mb-1"><span>${e.label}</span><strong>${e.val}/10</strong></div><div class="eval-bar"><span style="width:${e.val * 10}%"></span></div></div>`).join('');
 
+            // استدعاء دالة رسم مؤشر SPI
+            renderSpiGauge(plannedPct, actualPct);
+
             // --- تجميع ومعالجة المعوقات ---
             let allObstacles = {}; 
             records.forEach(record => {
@@ -186,16 +209,12 @@
                 });
                 
                 document.getElementById('obstacles-list').innerHTML = finalObstacles.map(o => {
-                    let statusText = o.closed ? '✅ ' + (typeof trn === 'function' ? trn('status_resolved') : 'تم الحل') : '⏳ ' + (typeof trn === 'function' ? trn('status_open') : 'قائم');
+                    let statusText = o.closed ? '✅ تم الحل' : '⏳ قائم';
                     let impactText = o.impact || '';
-                    if (typeof I18N !== 'undefined' && typeof currentLang !== 'undefined' && I18N[currentLang] && I18N[currentLang]['impact_' + o.impact]) {
-                        impactText = I18N[currentLang]['impact_' + o.impact];
-                    }
 
                     // تقسيم النص بناءً على الفواصل
                     let parts = o.description.split(/[_\/*,،\-]+/).map(p => p.trim()).filter(p => p.length > 0);
                     
-                    // إنشاء صندوق مستقل لكل مشكلة تم فصلها مع إرفاق التقييم الخاص بها
                     return parts.map(p => {
                         return `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'} d-flex justify-content-between align-items-center gap-3 mb-2">
                             <div style="line-height: 1.6; flex-grow: 1;"><strong>${p}</strong></div>
@@ -206,9 +225,61 @@
                 }).join('');
 
             } else { 
-                let noObsText = typeof trn === 'function' ? trn('no_obstacles') : 'لا توجد معوقات مسجلة.';
-                document.getElementById('obstacles-list').innerHTML = `<p class="text-muted small mb-0">${noObsText}</p>`; 
+                document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p>'; 
             }
+        }
+
+        // --- دالة رسم مؤشر SPI مع توسيع المدى إلى 1.5 ---
+        function renderSpiGauge(planCur, actCur) {
+            let spi = planCur > 0 ? (actCur / planCur) : (actCur > 0 ? 1 : 0); 
+            const maxVal = 1.5; 
+            let displaySpi = Math.max(0, Math.min(spi, maxVal));
+            
+            const cx = 100, cy = 92, r = 76, trackWidth = 15;
+            const bands = [ 
+                { lo: 0, hi: 0.8, color: '#d9463f' }, 
+                { lo: 0.8, hi: 0.9, color: '#d99425' }, 
+                { lo: 0.9, hi: maxVal, color: '#1e8e5a' } 
+            ];
+            const pt = (val, radius) => { 
+                const g = (val / maxVal) * 180; 
+                const theta = (180 - g) * Math.PI / 180; 
+                return { x: cx + radius * Math.cos(theta), y: cy - radius * Math.sin(theta) }; 
+            };
+            
+            let arcs = ''; 
+            bands.forEach(b => { 
+                const p1 = pt(b.lo, r), p2 = pt(b.hi, r); 
+                arcs += `<path d="M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${r} ${r} 0 0 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}" stroke="${b.color}" stroke-width="${trackWidth}" fill="none" />`; 
+            });
+            
+            let gaps = ''; 
+            [0.8, 0.9, 1.0].forEach(v => { 
+                const p1 = pt(v, r - trackWidth / 2 - 1), p2 = pt(v, r + trackWidth / 2 + 1); 
+                gaps += `<line x1="${p1.x.toFixed(2)}" y1="${p1.y.toFixed(2)}" x2="${p2.x.toFixed(2)}" y2="${p2.y.toFixed(2)}" stroke="#16233c" stroke-width="2.5" />`; 
+            });
+            
+            let ticks = ''; 
+            [0, 0.5, 1.0, 1.5].forEach(v => { 
+                const p1 = pt(v, r + trackWidth / 2 + 2), p2 = pt(v, r + trackWidth / 2 + 8); 
+                ticks += `<line x1="${p1.x.toFixed(2)}" y1="${p1.y.toFixed(2)}" x2="${p2.x.toFixed(2)}" y2="${p2.y.toFixed(2)}" stroke="#5b6a86" stroke-width="2" />`; 
+            });
+            
+            const needleTip = pt(displaySpi, r - trackWidth / 2 - 3);
+            const pt1 = pt(1.0, r + 15);
+            
+            const svg = `<svg viewBox="0 0 200 118" xmlns="http://www.w3.org/2000/svg">
+                ${arcs}
+                ${gaps}
+                ${ticks}
+                <text x="${(cx - r - 6).toFixed(1)}" y="${(cy + 15).toFixed(1)}" font-size="9" fill="#8b96ac" text-anchor="middle">0.0</text>
+                <text x="${pt1.x.toFixed(1)}" y="${pt1.y.toFixed(1)}" font-size="9" fill="#8b96ac" text-anchor="middle">1.0</text>
+                <text x="${(cx + r + 6).toFixed(1)}" y="${(cy + 15).toFixed(1)}" font-size="9" fill="#8b96ac" text-anchor="middle">1.5</text>
+                <line x1="${cx}" y1="${cy}" x2="${needleTip.x.toFixed(2)}" y2="${needleTip.y.toFixed(2)}" stroke="#c9d2e3" stroke-width="3.5" stroke-linecap="round" />
+                <circle cx="${cx}" cy="${cy}" r="7" fill="#d4a373" stroke="#0f1a2e" stroke-width="1.5" />
+            </svg>`;
+            document.getElementById('spi-gauge-svg-wrap').innerHTML = svg; 
+            document.getElementById('spi-value-big').innerText = spi.toFixed(2);
         }
     </script>
 </body>
