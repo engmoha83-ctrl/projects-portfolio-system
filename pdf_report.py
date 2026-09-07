@@ -465,25 +465,29 @@ def _duration_donut(elapsed_pct, remaining_pct, lang="ar"):
     return drawing
 
 def _spi_gauge(spi, lang="ar"):
-    spi_c = max(0.0, min(spi, 1.0))
+    """مؤشر أداء جدولي (SPI) على هيئة Gauge نصف دائري مع مدى يصل إلى 1.5"""
+    max_val = 1.5
+    spi_c = max(0.0, min(spi, max_val))
     width, height = 170 * mm, 46 * mm
     cx, cy, r, inner_r = 60 * mm, 4 * mm, 34 * mm, 19 * mm
     drawing = Drawing(width, height)
 
-    bands = [(0.0, 0.8, DANGER), (0.8, 0.9, WARNING), (0.9, 1.0, SUCCESS)]
+    bands = [(0.0, 0.8, DANGER), (0.8, 0.9, WARNING), (0.9, max_val, SUCCESS)]
     for lo, hi, col in bands:
-        a1 = 180 - (lo / 1.0) * 180; a2 = 180 - (hi / 1.0) * 180
+        a1 = 180 - (lo / max_val) * 180
+        a2 = 180 - (hi / max_val) * 180
         drawing.add(Wedge(cx, cy, r, a2, a1, fillColor=col, strokeColor=WHITE, strokeWidth=1))
+    
     drawing.add(Circle(cx, cy, inner_r, fillColor=WHITE, strokeColor=WHITE, strokeWidth=0))
 
-    angle = 180 - (spi_c / 1.0) * 180
+    angle = 180 - (spi_c / max_val) * 180
     rad = math.radians(angle)
     needle_len = r * 0.9
     nx, ny = cx + needle_len * math.cos(rad), cy + needle_len * math.sin(rad)
     drawing.add(Line(cx, cy, nx, ny, strokeColor=NAVY_DARK, strokeWidth=2.5))
     drawing.add(Circle(cx, cy, 3.2, fillColor=NAVY_DARK, strokeColor=NAVY_DARK))
 
-    value_color = SUCCESS if spi_c >= 0.9 else (WARNING if spi_c >= 0.8 else DANGER)
+    value_color = SUCCESS if spi >= 0.9 else (WARNING if spi >= 0.8 else DANGER)
     drawing.add(String(cx, cy + 12, f"{spi:.2f}", fontName="Arabic-Bold", fontSize=18, fillColor=value_color, textAnchor="middle"))
     drawing.add(String(cx, cy - 9, ar(t(lang, "spi_label")), fontName="Arabic", fontSize=7.5, fillColor=MUTED, textAnchor="middle"))
     return drawing
