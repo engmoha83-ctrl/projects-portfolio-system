@@ -7,4 +7,9 @@ cloudinary
 requests
 python-dotenv
 bcrypt
+reportlab
+arabic-reshaper
+python-bidi
+Pillow
+
 
