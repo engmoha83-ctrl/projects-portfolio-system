@@ -18,10 +18,10 @@
             width: 40px; height: 40px; object-fit: contain;
             background: #fff; border-radius: 10px; padding: 3px;
         }
-        .obstacle-item { border-radius: var(--radius-sm); padding: 0.6rem 0.9rem; margin-bottom: 0.5rem; font-size: 0.88rem; }
-        .obstacle-high { background: var(--danger-bg); color: var(--danger); }
-        .obstacle-medium { background: var(--warning-bg); color: var(--warning); }
-        .obstacle-low, .obstacle-none { background: var(--bg-muted); color: var(--text-body); }
+        .obstacle-item { border-radius: var(--radius-sm); padding: 0.8rem 1rem; margin-bottom: 0.75rem; font-size: 0.9rem; }
+        .obstacle-high { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(217,70,63,0.15); }
+        .obstacle-medium { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(217,148,37,0.15); }
+        .obstacle-low, .obstacle-none { background: var(--bg-muted); color: var(--text-body); border: 1px solid var(--border-soft); }
         .eval-bar { height: 7px; border-radius: 999px; background: var(--bg-muted); overflow: hidden; }
         .eval-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-500), var(--navy-700)); }
         .info-row { display: flex; justify-content: space-between; padding: 0.45rem 0; border-bottom: 1px dashed var(--border-soft); font-size: 0.9rem; }
@@ -309,150 +309,38 @@
 
         const I18N = {
             ar: {
-                lbl_manager_prefix: "مدير المشروع",
-                btn_update_portal: "بوابة التحديث",
-                btn_logout: "تسجيل الخروج",
-                msg_loading: "جاري تحميل بيانات مشروعك...",
-                msg_no_data: "لا توجد بيانات مسجلة لمشروعك بعد. قم بإرسال أول تحديث من بوابة التحديث.",
-                msg_error: "حدث خطأ أثناء تحميل البيانات. حاول تحديث الصفحة.",
-                sec_desc: "وصف المشروع",
-                no_desc: "لا يوجد وصف مسجل لهذا المشروع.",
-                sec_overview: "نظرة عامة",
-                lbl_type: "نوع المشروع",
-                lbl_owner: "المالك",
-                lbl_developer: "المطور",
-                lbl_contractor: "المقاول",
-                lbl_last_update: "آخر تحديث بيانات",
-                kpi_actual: "الإنجاز الفعلي",
-                kpi_planned: "الإنجاز المخطط",
-                kpi_contractor_val: "قيمة عقد المقاول",
-                kpi_ncr_open: "NCR مفتوحة",
-                sec_progress: "التقدم: حالي وسابق (فعلي / مخطط)",
-                cat_prev_period: "الفترة السابقة",
-                cat_cur_period: "الفترة الحالية",
-                diff_actual: "فرق الفعلي (حالي - سابق)",
-                diff_planned: "فرق المخطط (حالي - سابق)",
-                sec_duration_short: "المدة التعاقدية",
-                dur_elapsed: "منقضٍ",
-                dur_remaining: "متبقٍ",
-                lbl_total_duration: "إجمالي المدة",
-                lbl_elapsed: "المنقضي",
-                lbl_remaining: "المتبقي",
-                days_unit: "يوم",
-                sec_sd: "المخططات (SD)",
-                sec_wir: "طلبات الاستلام (WIR)",
-                sec_ncr: "مخالفات الجودة (NCR)",
-                cat_total: "الإجمالي",
-                cat_submitted: "مقدمة",
-                cat_approved: "معتمدة",
-                cat_review: "قيد المراجعة",
-                cat_closed: "مغلقة",
-                cat_open: "مفتوحة",
-                sec_eval: "التقييم الفني",
-                eval_labor: "توفر العمالة",
-                eval_equip: "توفر المعدات",
-                eval_financial: "القدرة المالية",
-                eval_hse: "الالتزام بالسلامة",
-                sec_spi: "مؤشر الأداء الجدولي (SPI)",
-                spi_label: "مؤشر الأداء الجدولي",
-                sec_mods: "أوامر التغيير (المقاول)",
-                lbl_count: "العدد",
-                lbl_value: "القيمة",
-                sec_contract_dates: "تواريخ عقد المقاول",
-                lbl_start_contractual: "بداية العقد (تعاقدي)",
-                lbl_end_contractual: "نهاية العقد (تعاقدي)",
-                lbl_start_actual: "البداية الفعلية",
-                lbl_end_expected: "النهاية المتوقعة",
-                sec_invoices: "المستخلصات (المقاول)",
-                sec_photos: "صور التقدم الأسبوعية",
-                no_photos: "لا توجد صور تقدم مسجلة في آخر تحديث.",
-                sec_iso: "المسقط الأيزومتري (3D)",
-                no_iso: "لا توجد صورة أيزومتريك مسجلة.",
-                sec_works: "الأعمال",
-                works_completed: "الأعمال المنجزة (الأسبوع السابق)",
-                works_ongoing: "الأعمال الجارية",
-                works_planned: "الأعمال المتوقعة (الأسبوع القادم)",
-                no_works: "لا يوجد.",
-                sec_obstacles_all: "المعوقات الحالية (مجمعة من كل التحديثات)",
-                no_obstacles: "لا توجد معوقات مسجلة.",
-                status_resolved: "تم الحل",
-                status_open: "قائم",
-                "impact_كبير": "كبير", "impact_متوسط": "متوسط", "impact_منخفض": "منخفض", "impact_غير مؤثر": "غير مؤثر",
-                alt_progress_photo: "صورة تقدم",
-                alt_iso: "أيزومتريك المشروع",
+                lbl_manager_prefix: "مدير المشروع", btn_update_portal: "بوابة التحديث", btn_logout: "تسجيل الخروج",
+                msg_loading: "جاري تحميل بيانات مشروعك...", msg_no_data: "لا توجد بيانات مسجلة لمشروعك بعد. قم بإرسال أول تحديث من بوابة التحديث.", msg_error: "حدث خطأ أثناء تحميل البيانات. حاول تحديث الصفحة.",
+                sec_desc: "وصف المشروع", no_desc: "لا يوجد وصف مسجل لهذا المشروع.", sec_overview: "نظرة عامة",
+                lbl_type: "نوع المشروع", lbl_owner: "المالك", lbl_developer: "المطور", lbl_contractor: "المقاول", lbl_last_update: "آخر تحديث بيانات",
+                kpi_actual: "الإنجاز الفعلي", kpi_planned: "الإنجاز المخطط", kpi_contractor_val: "قيمة عقد المقاول", kpi_ncr_open: "NCR مفتوحة",
+                sec_progress: "التقدم: حالي وسابق (فعلي / مخطط)", cat_prev_period: "الفترة السابقة", cat_cur_period: "الفترة الحالية", diff_actual: "فرق الفعلي (حالي - سابق)", diff_planned: "فرق المخطط (حالي - سابق)",
+                sec_duration_short: "المدة التعاقدية", dur_elapsed: "منقضٍ", dur_remaining: "متبقٍ", lbl_total_duration: "إجمالي المدة", lbl_elapsed: "المنقضي", lbl_remaining: "المتبقي", days_unit: "يوم",
+                sec_sd: "المخططات (SD)", sec_wir: "طلبات الاستلام (WIR)", sec_ncr: "مخالفات الجودة (NCR)", cat_total: "الإجمالي", cat_submitted: "مقدمة", cat_approved: "معتمدة", cat_review: "قيد المراجعة", cat_closed: "مغلقة", cat_open: "مفتوحة",
+                sec_eval: "التقييم الفني", eval_labor: "توفر العمالة", eval_equip: "توفر المعدات", eval_financial: "القدرة المالية", eval_hse: "الالتزام بالسلامة",
+                sec_spi: "مؤشر الأداء الجدولي (SPI)", spi_label: "مؤشر الأداء الجدولي", sec_mods: "أوامر التغيير (المقاول)", lbl_count: "العدد", lbl_value: "القيمة",
+                sec_contract_dates: "تواريخ عقد المقاول", lbl_start_contractual: "بداية العقد (تعاقدي)", lbl_end_contractual: "نهاية العقد (تعاقدي)", lbl_start_actual: "البداية الفعلية", lbl_end_expected: "النهاية المتوقعة",
+                sec_invoices: "المستخلصات (المقاول)", sec_photos: "صور التقدم الأسبوعية", no_photos: "لا توجد صور تقدم مسجلة في آخر تحديث.", sec_iso: "المسقط الأيزومتري (3D)", no_iso: "لا توجد صورة أيزومتريك مسجلة.",
+                sec_works: "الأعمال", works_completed: "الأعمال المنجزة (الأسبوع السابق)", works_ongoing: "الأعمال الجارية", works_planned: "الأعمال المتوقعة (الأسبوع القادم)", no_works: "لا يوجد.",
+                sec_obstacles_all: "المعوقات الحالية (مجمعة)", no_obstacles: "لا توجد معوقات مسجلة.", status_resolved: "تم الحل", status_open: "قائم",
+                "impact_كبير": "كبير", "impact_متوسط": "متوسط", "impact_منخفض": "منخفض", "impact_غير مؤثر": "غير مؤثر", alt_progress_photo: "صورة تقدم", alt_iso: "أيزومتريك المشروع"
             },
             en: {
-                lbl_manager_prefix: "Project Manager",
-                btn_update_portal: "Update Portal",
-                btn_logout: "Logout",
-                msg_loading: "Loading your project data...",
-                msg_no_data: "No data has been recorded for your project yet. Submit your first update from the Update Portal.",
-                msg_error: "An error occurred while loading data. Please refresh the page.",
-                sec_desc: "Project Description",
-                no_desc: "No description recorded for this project.",
-                sec_overview: "Overview",
-                lbl_type: "Project Type",
-                lbl_owner: "Owner",
-                lbl_developer: "Developer",
-                lbl_contractor: "Contractor",
-                lbl_last_update: "Last Data Update",
-                kpi_actual: "Actual Progress",
-                kpi_planned: "Planned Progress",
-                kpi_contractor_val: "Contractor Contract Value",
-                kpi_ncr_open: "Open NCRs",
-                sec_progress: "Progress: Current & Previous (Actual / Planned)",
-                cat_prev_period: "Previous Period",
-                cat_cur_period: "Current Period",
-                diff_actual: "Actual Diff (Current - Previous)",
-                diff_planned: "Planned Diff (Current - Previous)",
-                sec_duration_short: "Contract Duration",
-                dur_elapsed: "Elapsed",
-                dur_remaining: "Remaining",
-                lbl_total_duration: "Total Duration",
-                lbl_elapsed: "Elapsed",
-                lbl_remaining: "Remaining",
-                days_unit: "days",
-                sec_sd: "Shop Drawings (SD)",
-                sec_wir: "Inspection Requests (WIR)",
-                sec_ncr: "Quality Non-Conformances (NCR)",
-                cat_total: "Total",
-                cat_submitted: "Submitted",
-                cat_approved: "Approved",
-                cat_review: "Under Review",
-                cat_closed: "Closed",
-                cat_open: "Open",
-                sec_eval: "Technical Evaluation",
-                eval_labor: "Labor Availability",
-                eval_equip: "Equipment Availability",
-                eval_financial: "Financial Capability",
-                eval_hse: "HSE Compliance",
-                sec_spi: "Schedule Performance Index (SPI)",
-                spi_label: "Schedule Performance Index",
-                sec_mods: "Change Orders (Contractor)",
-                lbl_count: "Count",
-                lbl_value: "Value",
-                sec_contract_dates: "Contractor Contract Dates",
-                lbl_start_contractual: "Contract Start (Contractual)",
-                lbl_end_contractual: "Contract End (Contractual)",
-                lbl_start_actual: "Actual Start",
-                lbl_end_expected: "Expected End",
-                sec_invoices: "Certificates (Contractor)",
-                sec_photos: "Weekly Progress Photos",
-                no_photos: "No progress photos recorded in the latest update.",
-                sec_iso: "Isometric View (3D)",
-                no_iso: "No isometric image recorded.",
-                sec_works: "Works",
-                works_completed: "Completed Works (Last Week)",
-                works_ongoing: "Ongoing Works",
-                works_planned: "Planned Works (Next Week)",
-                no_works: "None.",
-                sec_obstacles_all: "Current Obstacles (Aggregated)",
-                no_obstacles: "No obstacles recorded.",
-                status_resolved: "Resolved",
-                status_open: "Open",
-                "impact_كبير": "High", "impact_متوسط": "Medium", "impact_low": "Low", "impact_غير مؤثر": "No Impact",
-                alt_progress_photo: "Progress photo",
-                alt_iso: "Project isometric view",
+                lbl_manager_prefix: "Project Manager", btn_update_portal: "Update Portal", btn_logout: "Logout",
+                msg_loading: "Loading your project data...", msg_no_data: "No data has been recorded for your project yet. Submit your first update from the Update Portal.", msg_error: "An error occurred while loading data. Please refresh the page.",
+                sec_desc: "Project Description", no_desc: "No description recorded for this project.", sec_overview: "Overview",
+                lbl_type: "Project Type", lbl_owner: "Owner", lbl_developer: "Developer", lbl_contractor: "Contractor", lbl_last_update: "Last Data Update",
+                kpi_actual: "Actual Progress", kpi_planned: "Planned Progress", kpi_contractor_val: "Contractor Contract Value", kpi_ncr_open: "Open NCRs",
+                sec_progress: "Progress: Current & Previous (Actual / Planned)", cat_prev_period: "Previous Period", cat_cur_period: "Current Period", diff_actual: "Actual Diff (Current - Previous)", diff_planned: "Planned Diff (Current - Previous)",
+                sec_duration_short: "Contract Duration", dur_elapsed: "Elapsed", dur_remaining: "Remaining", lbl_total_duration: "Total Duration", lbl_elapsed: "Elapsed", lbl_remaining: "Remaining", days_unit: "days",
+                sec_sd: "Shop Drawings (SD)", sec_wir: "Inspection Requests (WIR)", sec_ncr: "Quality Non-Conformances (NCR)", cat_total: "Total", cat_submitted: "Submitted", cat_approved: "Approved", cat_review: "Under Review", cat_closed: "Closed", cat_open: "Open",
+                sec_eval: "Technical Evaluation", eval_labor: "Labor Availability", eval_equip: "Equipment Availability", eval_financial: "Financial Capability", eval_hse: "HSE Compliance",
+                sec_spi: "Schedule Performance Index (SPI)", spi_label: "Schedule Performance Index", sec_mods: "Change Orders (Contractor)", lbl_count: "Count", lbl_value: "Value",
+                sec_contract_dates: "Contractor Contract Dates", lbl_start_contractual: "Contract Start (Contractual)", lbl_end_contractual: "Contract End (Contractual)", lbl_start_actual: "Actual Start", lbl_end_expected: "Expected End",
+                sec_invoices: "Certificates (Contractor)", sec_photos: "Weekly Progress Photos", no_photos: "No progress photos recorded in the latest update.", sec_iso: "Isometric View (3D)", no_iso: "No isometric image recorded.",
+                sec_works: "Works", works_completed: "Completed Works (Last Week)", works_ongoing: "Ongoing Works", works_planned: "Planned Works (Next Week)", no_works: "None.",
+                sec_obstacles_all: "Current Obstacles (Aggregated)", no_obstacles: "No obstacles recorded.", status_resolved: "Resolved", status_open: "Open",
+                "impact_كبير": "High", "impact_متوسط": "Medium", "impact_low": "Low", "impact_غير مؤثر": "No Impact", alt_progress_photo: "Progress photo", alt_iso: "Project isometric view"
             }
         };
         let currentLang = localStorage.getItem('pmis_dash_lang') || 'ar';
@@ -586,7 +474,7 @@
             document.getElementById('works-ongoing').innerText = latest.works_ongoing || trn('no_works');
             document.getElementById('works-planned').innerText = latest.works_planned || trn('no_works');
 
-            // --- تجميع جميع المعوقات من كل التحديثات للمشروع بدون تكرار مع تحديث الحالة ---
+            // --- تجميع ومعالجة المعوقات ---
             let allObstacles = {}; 
             records.forEach(record => {
                 let obsList = [];
@@ -595,6 +483,7 @@
                 } catch (e) { 
                     obsList = []; 
                 }
+                
                 if (Array.isArray(obsList)) {
                     obsList.forEach(obs => {
                         if(obs && obs.description) {
@@ -609,8 +498,10 @@
             });
 
             let finalObstacles = Object.values(allObstacles);
+
             if (finalObstacles.length > 0) {
                 const impactClass = { 'كبير': 'obstacle-high', 'متوسط': 'obstacle-medium', 'منخفض': 'obstacle-low', 'غير مؤثر': 'obstacle-none' };
+                
                 finalObstacles.sort((a, b) => {
                     if (a.closed === b.closed) return 0;
                     return a.closed ? 1 : -1;
@@ -622,8 +513,25 @@
                     if (typeof I18N !== 'undefined' && typeof currentLang !== 'undefined' && I18N[currentLang] && I18N[currentLang]['impact_' + o.impact]) {
                         impactText = I18N[currentLang]['impact_' + o.impact];
                     }
-                    return `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}"><strong>${o.description || ''}</strong><span class="float-start">${statusText} — ${impactText}</span></div>`;
+
+                    // تقسيم النص بناءً على الفواصل 
+                    let parts = o.description.split(/[_\/*,،\-]+/).map(p => p.trim()).filter(p => p.length > 0);
+                    let formattedDesc = '';
+                    
+                    if (parts.length > 1) {
+                        // إذا تم تقسيم النص لعدة أجزاء، اعرضها كنقاط متسلسلة
+                        formattedDesc = '<ul class="mb-0 ps-3 mt-1" style="list-style-type: circle;">' + parts.map(p => `<li style="margin-bottom: 3px;">${p}</li>`).join('') + '</ul>';
+                    } else {
+                        // إذا كانت المشكلة جزءاً واحداً فقط
+                        formattedDesc = parts[0] || o.description;
+                    }
+
+                    return `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'} d-flex justify-content-between align-items-start gap-3">
+                        <div style="line-height: 1.6; flex-grow: 1;"><strong>${formattedDesc}</strong></div>
+                        <span class="badge bg-white text-dark border opacity-75 text-wrap text-center" style="min-width: 85px; font-size:0.75rem;">${statusText}<br>${impactText}</span>
+                    </div>`;
                 }).join('');
+
             } else { 
                 let noObsText = typeof trn === 'function' ? trn('no_obstacles') : 'لا توجد معوقات مسجلة.';
                 document.getElementById('obstacles-list').innerHTML = `<p class="text-muted small mb-0">${noObsText}</p>`; 
