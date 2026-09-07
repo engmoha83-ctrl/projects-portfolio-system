@@ -44,8 +44,6 @@
         </div>
 
         <div id="dashboard-content" style="display:none;">
-
-            <!-- معلومات أساسية -->
             <div class="row g-3 mb-3">
                 <div class="col-lg-8">
                     <div class="section-card h-100">
@@ -60,8 +58,8 @@
                 </div>
                 <div class="col-lg-4">
                     <div class="row g-3 h-100">
-                        <div class="col-6"><div class="kpi-tile kpi-navy h-100"><span class="kpi-label">الإنجاز الفعلي</span><span class="kpi-value" id="kpi-actual">0%</span></div></div>
-                        <div class="col-6"><div class="kpi-tile kpi-gold h-100"><span class="kpi-label">الإنجاز المخطط</span><span class="kpi-value" id="kpi-planned">0%</span></div></div>
+                        <div class="col-6"><div class="kpi-tile kpi-navy h-100"><span class="kpi-label">الإنجاز الفعلي</span><span class="kpi-value" id="kpi-actual">0.0%</span></div></div>
+                        <div class="col-6"><div class="kpi-tile kpi-gold h-100"><span class="kpi-label">الإنجاز المخطط</span><span class="kpi-value" id="kpi-planned">0.0%</span></div></div>
                         <div class="col-6"><div class="kpi-tile kpi-green h-100"><span class="kpi-label">قيمة عقد المقاول</span><span class="kpi-value" id="kpi-contract" style="font-size:1.1rem;">0</span></div></div>
                         <div class="col-6"><div class="kpi-tile kpi-info h-100"><span class="kpi-label">NCR مفتوحة</span><span class="kpi-value" id="kpi-ncr">0</span></div></div>
                     </div>
@@ -92,46 +90,32 @@
                 </div>
                 <div class="col-lg-6">
                     <div class="section-card h-100">
-                        <h5 class="section-title">🚧 المعوقات الحالية (آخر تحديث)</h5>
+                        <h5 class="section-title">🚧 المعوقات الحالية (مجمعة)</h5>
                         <div id="obstacles-list"><p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p></div>
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let progressChart = null, docsChart = null;
-
-        function fmtNum(v) {
-            const n = Number(v || 0);
-            return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-        }
-
+        function fmtNum(v) { return Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
         function loadProject() {
             const project = document.getElementById('projectSelect').value;
             if (!project) return;
-
-            fetch(`/api/project-dashboard-data?project=${encodeURIComponent(project)}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success || !data.records || data.records.length === 0) {
-                        document.getElementById('initial-msg').innerHTML = '<div class="icon">🚫</div>لا توجد بيانات مسجلة لهذا المشروع بعد.';
-                        document.getElementById('initial-msg').style.display = 'block';
-                        document.getElementById('dashboard-content').style.display = 'none';
-                        return;
-                    }
-                    renderDashboard(data.records);
-                    document.getElementById('initial-msg').style.display = 'none';
-                    document.getElementById('dashboard-content').style.display = 'block';
-                });
+            fetch(`/api/project-dashboard-data?project=${encodeURIComponent(project)}`).then(r => r.json()).then(data => {
+                if (!data.success || !data.records || data.records.length === 0) {
+                    document.getElementById('initial-msg').innerHTML = '<div class="icon">🚫</div>لا توجد بيانات مسجلة لهذا المشروع بعد.';
+                    document.getElementById('initial-msg').style.display = 'block'; document.getElementById('dashboard-content').style.display = 'none'; return;
+                }
+                renderDashboard(data.records);
+                document.getElementById('initial-msg').style.display = 'none'; document.getElementById('dashboard-content').style.display = 'block';
+            });
         }
-
         function renderDashboard(records) {
             const latest = records[records.length - 1];
-
             document.getElementById('info-manager').innerText = latest.manager_name || '-';
             document.getElementById('info-type').innerText = latest.project_type || '-';
             document.getElementById('info-owner').innerText = latest.project_owner || '-';
@@ -139,82 +123,63 @@
             document.getElementById('info-contractor').innerText = latest.project_contractor || '-';
             document.getElementById('info-date').innerText = latest.current_data_date || '-';
 
-            const actualPct = Math.round((latest.act_prog_cur || 0) * 100);
-            const plannedPct = Math.round((latest.plan_prog_cur || 0) * 100);
-            document.getElementById('kpi-actual').innerText = actualPct + '%';
-            document.getElementById('kpi-planned').innerText = plannedPct + '%';
+            const actualPct = parseFloat(((latest.act_prog_cur || 0) * 100).toFixed(1));
+            const plannedPct = parseFloat(((latest.plan_prog_cur || 0) * 100).toFixed(1));
+            document.getElementById('kpi-actual').innerText = actualPct.toFixed(1) + '%';
+            document.getElementById('kpi-planned').innerText = plannedPct.toFixed(1) + '%';
             document.getElementById('kpi-contract').innerText = fmtNum(latest.contractor_val);
             document.getElementById('kpi-ncr').innerText = fmtNum(latest.ncr_open);
 
-            // مسار الإنجاز
             const dates = records.map(r => r.current_data_date);
-            const actualSeries = records.map(r => Math.round((r.act_prog_cur || 0) * 100));
-            const plannedSeries = records.map(r => Math.round((r.plan_prog_cur || 0) * 100));
+            const actualSeries = records.map(r => parseFloat(((r.act_prog_cur || 0) * 100).toFixed(1)));
+            const plannedSeries = records.map(r => parseFloat(((r.plan_prog_cur || 0) * 100).toFixed(1)));
 
             const chartOptions = {
                 chart: { type: 'line', height: 300, toolbar: { show: false }, fontFamily: 'Tajawal' },
-                series: [
-                    { name: 'الإنجاز الفعلي', data: actualSeries },
-                    { name: 'الإنجاز المخطط', data: plannedSeries }
-                ],
+                series: [ { name: 'الإنجاز الفعلي', data: actualSeries }, { name: 'الإنجاز المخطط', data: plannedSeries } ],
                 xaxis: { categories: dates, labels: { rotate: -35 } },
-                yaxis: { max: 100, labels: { formatter: v => v + '%' } },
-                colors: ['#1a2b4c', '#d4a373'],
-                stroke: { width: 3, curve: 'smooth' },
-                legend: { position: 'top' },
-                dataLabels: { enabled: false }
+                yaxis: { max: 100, labels: { formatter: v => Number(v).toFixed(1) + '%' } },
+                colors: ['#1a2b4c', '#d4a373'], stroke: { width: 3, curve: 'smooth' }, legend: { position: 'top' }, dataLabels: { enabled: false }
             };
-            if (progressChart) progressChart.destroy();
-            progressChart = new ApexCharts(document.querySelector('#progress-chart'), chartOptions);
-            progressChart.render();
+            if (progressChart) progressChart.destroy(); progressChart = new ApexCharts(document.querySelector('#progress-chart'), chartOptions); progressChart.render();
 
-            // المخططات وطلبات الاستلام
-            const docsOptions = {
-                chart: { type: 'bar', height: 260, toolbar: { show: false }, fontFamily: 'Tajawal' },
-                series: [{
-                    name: 'العدد',
-                    data: [
-                        latest.drawings_sub || 0, latest.drawings_app || 0, latest.drawings_rev || 0,
-                        latest.ir_sub || 0, latest.ir_app || 0, latest.ir_rev || 0
-                    ]
-                }],
-                xaxis: { categories: ['مخططات مقدمة', 'مخططات معتمدة', 'مخططات مراجعة', 'IR مقدمة', 'IR معتمدة', 'IR مراجعة'] },
-                colors: ['#1a2b4c'],
-                plotOptions: { bar: { borderRadius: 4, horizontal: true } },
-                dataLabels: { enabled: true }
-            };
-            if (docsChart) docsChart.destroy();
-            docsChart = new ApexCharts(document.querySelector('#docs-chart'), docsOptions);
-            docsChart.render();
+            const docsOptions = { chart: { type: 'bar', height: 260, toolbar: { show: false }, fontFamily: 'Tajawal' }, series: [{ name: 'العدد', data: [ latest.drawings_sub || 0, latest.drawings_app || 0, latest.drawings_rev || 0, latest.ir_sub || 0, latest.ir_app || 0, latest.ir_rev || 0 ] }], xaxis: { categories: ['مخططات مقدمة', 'مخططات معتمدة', 'مخططات مراجعة', 'IR مقدمة', 'IR معتمدة', 'IR مراجعة'] }, colors: ['#1a2b4c'], plotOptions: { bar: { borderRadius: 4, horizontal: true } }, dataLabels: { enabled: true } };
+            if (docsChart) docsChart.destroy(); docsChart = new ApexCharts(document.querySelector('#docs-chart'), docsOptions); docsChart.render();
 
-            // التقييم الفني
-            const evals = [
-                { label: 'توفر العمالة', val: latest.eval_labor || 0 },
-                { label: 'توفر المعدات', val: latest.eval_equip || 0 },
-                { label: 'القدرة المالية', val: latest.eval_financial || 0 },
-                { label: 'الالتزام بالسلامة', val: latest.eval_hse || 0 }
-            ];
-            document.getElementById('eval-list').innerHTML = evals.map(e => `
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between small mb-1"><span>${e.label}</span><strong>${e.val}/10</strong></div>
-                    <div class="eval-bar"><span style="width:${e.val * 10}%"></span></div>
-                </div>
-            `).join('');
+            const evals = [ { label: 'توفر العمالة', val: latest.eval_labor || 0 }, { label: 'توفر المعدات', val: latest.eval_equip || 0 }, { label: 'القدرة المالية', val: latest.eval_financial || 0 }, { label: 'الالتزام بالسلامة', val: latest.eval_hse || 0 } ];
+            document.getElementById('eval-list').innerHTML = evals.map(e => `<div class="mb-3"><div class="d-flex justify-content-between small mb-1"><span>${e.label}</span><strong>${e.val}/10</strong></div><div class="eval-bar"><span style="width:${e.val * 10}%"></span></div></div>`).join('');
 
-            // المعوقات
-            let obstacles = [];
-            try { obstacles = JSON.parse(latest.obstacles_data || '[]'); } catch (e) { obstacles = []; }
-            if (Array.isArray(obstacles) && obstacles.length > 0) {
+            // --- تجميع جميع المعوقات من كل التحديثات للمشروع بدون تكرار مع تحديث الحالة ---
+            let allObstacles = {}; 
+            records.forEach(record => {
+                let obsList = [];
+                try { 
+                    obsList = JSON.parse(record.obstacles_data || '[]'); 
+                } catch (e) { 
+                    obsList = []; 
+                }
+                if (Array.isArray(obsList)) {
+                    obsList.forEach(obs => {
+                        if(obs && obs.description) {
+                            allObstacles[obs.description.trim()] = {
+                                description: obs.description.trim(),
+                                impact: obs.impact,
+                                closed: obs.closed
+                            };
+                        }
+                    });
+                }
+            });
+
+            let finalObstacles = Object.values(allObstacles);
+            if (finalObstacles.length > 0) {
                 const impactClass = { 'كبير': 'obstacle-high', 'متوسط': 'obstacle-medium', 'منخفض': 'obstacle-low', 'غير مؤثر': 'obstacle-none' };
-                document.getElementById('obstacles-list').innerHTML = obstacles.map(o => `
-                    <div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}">
-                        <strong>${o.description || ''}</strong>
-                        <span class="float-start">${o.closed ? '✅ تم الحل' : '⏳ قائم'} — ${o.impact || ''}</span>
-                    </div>
-                `).join('');
-            } else {
-                document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">لا توجد معوقات مسجلة في آخر تحديث.</p>';
-            }
+                finalObstacles.sort((a, b) => {
+                    if (a.closed === b.closed) return 0;
+                    return a.closed ? 1 : -1;
+                });
+                document.getElementById('obstacles-list').innerHTML = finalObstacles.map(o => `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}"><strong>${o.description || ''}</strong><span class="float-start">${o.closed ? '✅ تم الحل' : '⏳ قائم'} — ${o.impact || ''}</span></div>`).join('');
+            } else { document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p>'; }
         }
     </script>
 </body>
