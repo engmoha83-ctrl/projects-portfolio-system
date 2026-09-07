@@ -540,19 +540,21 @@
             document.getElementById('info-contractor').innerText = latest.project_contractor || '-';
             document.getElementById('info-date').innerText = latest.current_data_date || '-';
 
-            const actCur = Math.round((latest.act_prog_cur || 0) * 100);
-            const actPrev = Math.round((latest.act_prog_prev || 0) * 100);
-            const planCur = Math.round((latest.plan_prog_cur || 0) * 100);
-            const planPrev = Math.round((latest.plan_prog_prev || 0) * 100);
+            // التعديل هنا: استخدام toFixed(1) للحفاظ على كسر عشري واحد
+            const actCur = parseFloat(((latest.act_prog_cur || 0) * 100).toFixed(1));
+            const actPrev = parseFloat(((latest.act_prog_prev || 0) * 100).toFixed(1));
+            const planCur = parseFloat(((latest.plan_prog_cur || 0) * 100).toFixed(1));
+            const planPrev = parseFloat(((latest.plan_prog_prev || 0) * 100).toFixed(1));
 
-            document.getElementById('kpi-actual').innerText = actCur + '%';
-            document.getElementById('kpi-planned').innerText = planCur + '%';
+            // تعديل عرض النسب لتشمل الكسر العشري
+            document.getElementById('kpi-actual').innerText = actCur.toFixed(1) + '%';
+            document.getElementById('kpi-planned').innerText = planCur.toFixed(1) + '%';
             document.getElementById('kpi-contract').innerText = fmtNum(latest.contractor_val);
             document.getElementById('kpi-ncr').innerText = fmtNum(latest.ncr_open);
 
             // ===== 1) التقدم الحالي/السابق (فعلي ومخطط) + الفرق - Cluster Columns =====
-            const diffActual = actCur - actPrev;
-            const diffPlanned = planCur - planPrev;
+            const diffActual = (actCur - actPrev).toFixed(1);
+            const diffPlanned = (planCur - planPrev).toFixed(1);
             const setDiffPill = (elId, valId, diff) => {
                 const el = document.getElementById(elId);
                 el.classList.remove('diff-up', 'diff-down', 'diff-flat');
@@ -569,10 +571,10 @@
                     { name: trn('kpi_planned'), data: [planPrev, planCur] }
                 ],
                 xaxis: { categories: [trn('cat_prev_period'), trn('cat_cur_period')] },
-                yaxis: { max: 100, labels: { formatter: v => v + '%' } },
+                yaxis: { max: 100, labels: { formatter: v => Number(v).toFixed(1) + '%' } },
                 colors: ['#1a2b4c', '#d4a373'],
                 plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
-                dataLabels: { enabled: true, formatter: v => v + '%' },
+                dataLabels: { enabled: true, formatter: v => Number(v).toFixed(1) + '%' },
                 legend: { position: 'top' }
             };
             if (progressClusterChart) progressClusterChart.destroy();
