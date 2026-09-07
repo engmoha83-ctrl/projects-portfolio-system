@@ -25,6 +25,7 @@
                         <th>الصورة</th>
                         <th>اسم المدير</th>
                         <th>المشروع</th>
+                        <th>عدد التحديثات</th>
                         <th>رقم الهاتف</th>
                         <th>البريد الإلكتروني</th>
                         <th>الموقع (اللوكيشن)</th>
@@ -43,6 +44,9 @@
                         </td>
                         <td class="fw-bold">{{ pm[2] }}</td>
                         <td>{{ pm[3] }}</td>
+                        <td>
+                            <span class="badge bg-info text-dark px-3 py-2" style="font-size: 14px;">{{ pm[8] }}</span>
+                        </td>
                         <td>
                             {% if pm[4] %}<a href="tel:{{ pm[4] }}" class="text-decoration-none">{{ pm[4] }}</a>{% else %}-{% endif %}
                         </td>
