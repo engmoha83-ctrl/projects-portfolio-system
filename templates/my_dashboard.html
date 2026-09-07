@@ -675,19 +675,52 @@
             document.getElementById('works-ongoing').innerText = latest.works_ongoing || trn('no_works');
             document.getElementById('works-planned').innerText = latest.works_planned || trn('no_works');
 
-            // المعوقات
-            let obstacles = [];
-            try { obstacles = JSON.parse(latest.obstacles_data || '[]'); } catch (e) { obstacles = []; }
-            if (Array.isArray(obstacles) && obstacles.length > 0) {
+            // --- تجميع جميع المعوقات من كل التحديثات للمشروع ---
+            let allObstacles = {}; 
+            
+            // المرور على جميع السجلات من الأقدم للأحدث لتحديث حالة المعوقات
+            records.forEach(record => {
+                let obsList = [];
+                try { 
+                    obsList = JSON.parse(record.obstacles_data || '[]'); 
+                } catch (e) { 
+                    obsList = []; 
+                }
+                
+                if (Array.isArray(obsList)) {
+                    obsList.forEach(obs => {
+                        if(obs && obs.description) {
+                            // استخدام الوصف كمفتاح لعدم التكرار. 
+                            // إذا ظهر المعوق في تحديث لاحق، سيتم تحديث حالته (impact, closed)
+                            allObstacles[obs.description.trim()] = {
+                                description: obs.description.trim(),
+                                impact: obs.impact,
+                                closed: obs.closed
+                            };
+                        }
+                    });
+                }
+            });
+
+            // تحويل الكائن إلى مصفوفة لعرضها
+            let finalObstacles = Object.values(allObstacles);
+
+            if (finalObstacles.length > 0) {
                 const impactClass = { 'كبير': 'obstacle-high', 'متوسط': 'obstacle-medium', 'منخفض': 'obstacle-low', 'غير مؤثر': 'obstacle-none' };
-                document.getElementById('obstacles-list').innerHTML = obstacles.map(o => `
-                    <div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}">
-                        <strong>${o.description || ''}</strong>
-                        <span class="float-start">${o.closed ? '✅ ' + trn('status_resolved') : '⏳ ' + trn('status_open')} — ${(I18N[currentLang] && I18N[currentLang]['impact_' + o.impact]) || o.impact || ''}</span>
-                    </div>
-                `).join('');
-            } else {
-                document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">' + trn('no_obstacles_latest') + '</p>';
+                
+                // ترتيب المعوقات: المفتوحة أولاً ثم المغلقة
+                finalObstacles.sort((a, b) => {
+                    if (a.closed === b.closed) return 0;
+                    return a.closed ? 1 : -1;
+                });
+
+                document.getElementById('obstacles-list').innerHTML = finalObstacles.map(o => `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}"><strong>${o.description || ''}</strong><span class="float-start">${o.closed ? '✅ ' + trn('status_resolved') : '⏳ ' + trn('status_open')} — ${(I18N[currentLang] && I18N[currentLang]['impact_' + o.impact]) || o.impact || ''}</span></div>`).join('');
+                
+                // تحديث العنوان ليعكس أنه يعرض جميع المعوقات
+                document.querySelector('h5.section-title:last-of-type span').innerText = 'المعوقات الحالية (مجمعة)';
+
+            } else { 
+                document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">' + trn('no_obstacles') + '</p>'; 
             }
         }
 
