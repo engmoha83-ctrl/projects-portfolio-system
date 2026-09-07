@@ -1,0 +1,26 @@
+{# شريط التنقل الإداري الموحد - يُستخدم في كل صفحات لوحة الإدارة #}
+<nav class="navbar navbar-expand-lg navbar-dark pmis-navbar mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin-hub">
+            <span class="brand-mark">م س</span>
+            <span>إدارة المشاريع | البوابة المركزية</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="adminNavbar">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link {{ 'active' if active_page == 'dashboard' else '' }}" href="/admin-dashboard">📋 سجل التحديثات</a></li>
+                {% if admin_user == 'admin_mohamed' %}
+                <li class="nav-item"><a class="nav-link {{ 'active' if active_page == 'analytics' else '' }}" href="/admin-analytics">📊 لوحة المؤشرات</a></li>
+                <li class="nav-item"><a class="nav-link {{ 'active' if active_page == 'directory' else '' }}" href="/admin-directory">👤 دليل المديرين</a></li>
+                <li class="nav-item"><a class="nav-link {{ 'active' if active_page == 'gallery' else '' }}" href="/admin-gallery">🖼️ المعرض المرئي</a></li>
+                <li class="nav-item"><a class="nav-link {{ 'active' if active_page == 'users' else '' }}" href="/admin-users">🔑 إدارة المستخدمين</a></li>
+                {% endif %}
+            </ul>
+            <div class="d-flex">
+                <a href="/admin-logout" class="btn-logout">تسجيل الخروج</a>
+            </div>
+        </div>
+    </div>
+</nav>

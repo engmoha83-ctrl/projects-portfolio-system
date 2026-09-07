@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد المشروع | المعماريون السعوديون</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        .picker-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .picker-bar select { min-width: 280px; }
+        .obstacle-item { border-radius: var(--radius-sm); padding: 0.6rem 0.9rem; margin-bottom: 0.5rem; font-size: 0.88rem; }
+        .obstacle-high { background: var(--danger-bg); color: var(--danger); }
+        .obstacle-medium { background: var(--warning-bg); color: var(--warning); }
+        .obstacle-low, .obstacle-none { background: var(--bg-muted); color: var(--text-body); }
+        .eval-bar { height: 8px; border-radius: 999px; background: var(--bg-muted); overflow: hidden; }
+        .eval-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-500), var(--navy-700)); }
+        .info-row { display: flex; justify-content: space-between; padding: 0.45rem 0; border-bottom: 1px dashed var(--border-soft); font-size: 0.9rem; }
+        .info-row:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    {% include "_admin_nav.html" %}
+
+    <div class="container-fluid px-4 mb-5">
+        <div class="pmis-card pmis-card-pad mb-4">
+            <div class="picker-bar">
+                <h3 class="mb-0 me-3">🎯 داشبورد المشروع</h3>
+                <select id="projectSelect" class="form-select" onchange="loadProject()">
+                    <option value="" selected disabled>-- اختر مشروعاً لعرض بياناته --</option>
+                    {% for proj in projects %}
+                        <option value="{{ proj }}">{{ proj }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div id="initial-msg" class="empty-state">
+            <div class="icon">🎯</div>
+            الرجاء اختيار مشروع من القائمة أعلاه لعرض لوحة بياناته.
+        </div>
+
+        <div id="dashboard-content" style="display:none;">
+
+            <!-- معلومات أساسية -->
+            <div class="row g-3 mb-3">
+                <div class="col-lg-8">
+                    <div class="section-card h-100">
+                        <h5 class="section-title">📌 نظرة عامة</h5>
+                        <div class="info-row"><span class="text-muted">مدير المشروع</span><strong id="info-manager">-</strong></div>
+                        <div class="info-row"><span class="text-muted">نوع المشروع</span><strong id="info-type">-</strong></div>
+                        <div class="info-row"><span class="text-muted">المالك</span><strong id="info-owner">-</strong></div>
+                        <div class="info-row"><span class="text-muted">المطور</span><strong id="info-developer">-</strong></div>
+                        <div class="info-row"><span class="text-muted">المقاول</span><strong id="info-contractor">-</strong></div>
+                        <div class="info-row"><span class="text-muted">آخر تحديث بيانات</span><strong id="info-date">-</strong></div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="row g-3 h-100">
+                        <div class="col-6"><div class="kpi-tile kpi-navy h-100"><span class="kpi-label">الإنجاز الفعلي</span><span class="kpi-value" id="kpi-actual">0%</span></div></div>
+                        <div class="col-6"><div class="kpi-tile kpi-gold h-100"><span class="kpi-label">الإنجاز المخطط</span><span class="kpi-value" id="kpi-planned">0%</span></div></div>
+                        <div class="col-6"><div class="kpi-tile kpi-green h-100"><span class="kpi-label">قيمة عقد المقاول</span><span class="kpi-value" id="kpi-contract" style="font-size:1.1rem;">0</span></div></div>
+                        <div class="col-6"><div class="kpi-tile kpi-info h-100"><span class="kpi-label">NCR مفتوحة</span><span class="kpi-value" id="kpi-ncr">0</span></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-lg-8">
+                    <div class="section-card h-100">
+                        <h5 class="section-title">📈 مسار الإنجاز الفعلي مقابل المخطط</h5>
+                        <div id="progress-chart" style="min-height:300px;"></div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="section-card h-100">
+                        <h5 class="section-title">⭐ التقييم الفني</h5>
+                        <div id="eval-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-lg-6">
+                    <div class="section-card h-100">
+                        <h5 class="section-title">📐 المخططات وطلبات الاستلام</h5>
+                        <div id="docs-chart" style="min-height:260px;"></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="section-card h-100">
+                        <h5 class="section-title">🚧 المعوقات الحالية (آخر تحديث)</h5>
+                        <div id="obstacles-list"><p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let progressChart = null, docsChart = null;
+
+        function fmtNum(v) {
+            const n = Number(v || 0);
+            return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        }
+
+        function loadProject() {
+            const project = document.getElementById('projectSelect').value;
+            if (!project) return;
+
+            fetch(`/api/project-dashboard-data?project=${encodeURIComponent(project)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success || !data.records || data.records.length === 0) {
+                        document.getElementById('initial-msg').innerHTML = '<div class="icon">🚫</div>لا توجد بيانات مسجلة لهذا المشروع بعد.';
+                        document.getElementById('initial-msg').style.display = 'block';
+                        document.getElementById('dashboard-content').style.display = 'none';
+                        return;
+                    }
+                    renderDashboard(data.records);
+                    document.getElementById('initial-msg').style.display = 'none';
+                    document.getElementById('dashboard-content').style.display = 'block';
+                });
+        }
+
+        function renderDashboard(records) {
+            const latest = records[records.length - 1];
+
+            document.getElementById('info-manager').innerText = latest.manager_name || '-';
+            document.getElementById('info-type').innerText = latest.project_type || '-';
+            document.getElementById('info-owner').innerText = latest.project_owner || '-';
+            document.getElementById('info-developer').innerText = latest.project_developer || '-';
+            document.getElementById('info-contractor').innerText = latest.project_contractor || '-';
+            document.getElementById('info-date').innerText = latest.current_data_date || '-';
+
+            const actualPct = Math.round((latest.act_prog_cur || 0) * 100);
+            const plannedPct = Math.round((latest.plan_prog_cur || 0) * 100);
+            document.getElementById('kpi-actual').innerText = actualPct + '%';
+            document.getElementById('kpi-planned').innerText = plannedPct + '%';
+            document.getElementById('kpi-contract').innerText = fmtNum(latest.contractor_val);
+            document.getElementById('kpi-ncr').innerText = fmtNum(latest.ncr_open);
+
+            // مسار الإنجاز
+            const dates = records.map(r => r.current_data_date);
+            const actualSeries = records.map(r => Math.round((r.act_prog_cur || 0) * 100));
+            const plannedSeries = records.map(r => Math.round((r.plan_prog_cur || 0) * 100));
+
+            const chartOptions = {
+                chart: { type: 'line', height: 300, toolbar: { show: false }, fontFamily: 'Tajawal' },
+                series: [
+                    { name: 'الإنجاز الفعلي', data: actualSeries },
+                    { name: 'الإنجاز المخطط', data: plannedSeries }
+                ],
+                xaxis: { categories: dates, labels: { rotate: -35 } },
+                yaxis: { max: 100, labels: { formatter: v => v + '%' } },
+                colors: ['#1a2b4c', '#d4a373'],
+                stroke: { width: 3, curve: 'smooth' },
+                legend: { position: 'top' },
+                dataLabels: { enabled: false }
+            };
+            if (progressChart) progressChart.destroy();
+            progressChart = new ApexCharts(document.querySelector('#progress-chart'), chartOptions);
+            progressChart.render();
+
+            // المخططات وطلبات الاستلام
+            const docsOptions = {
+                chart: { type: 'bar', height: 260, toolbar: { show: false }, fontFamily: 'Tajawal' },
+                series: [{
+                    name: 'العدد',
+                    data: [
+                        latest.drawings_sub || 0, latest.drawings_app || 0, latest.drawings_rev || 0,
+                        latest.ir_sub || 0, latest.ir_app || 0, latest.ir_rev || 0
+                    ]
+                }],
+                xaxis: { categories: ['مخططات مقدمة', 'مخططات معتمدة', 'مخططات مراجعة', 'IR مقدمة', 'IR معتمدة', 'IR مراجعة'] },
+                colors: ['#1a2b4c'],
+                plotOptions: { bar: { borderRadius: 4, horizontal: true } },
+                dataLabels: { enabled: true }
+            };
+            if (docsChart) docsChart.destroy();
+            docsChart = new ApexCharts(document.querySelector('#docs-chart'), docsOptions);
+            docsChart.render();
+
+            // التقييم الفني
+            const evals = [
+                { label: 'توفر العمالة', val: latest.eval_labor || 0 },
+                { label: 'توفر المعدات', val: latest.eval_equip || 0 },
+                { label: 'القدرة المالية', val: latest.eval_financial || 0 },
+                { label: 'الالتزام بالسلامة', val: latest.eval_hse || 0 }
+            ];
+            document.getElementById('eval-list').innerHTML = evals.map(e => `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1"><span>${e.label}</span><strong>${e.val}/10</strong></div>
+                    <div class="eval-bar"><span style="width:${e.val * 10}%"></span></div>
+                </div>
+            `).join('');
+
+            // المعوقات
+            let obstacles = [];
+            try { obstacles = JSON.parse(latest.obstacles_data || '[]'); } catch (e) { obstacles = []; }
+            if (Array.isArray(obstacles) && obstacles.length > 0) {
+                const impactClass = { 'كبير': 'obstacle-high', 'متوسط': 'obstacle-medium', 'منخفض': 'obstacle-low', 'غير مؤثر': 'obstacle-none' };
+                document.getElementById('obstacles-list').innerHTML = obstacles.map(o => `
+                    <div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}">
+                        <strong>${o.description || ''}</strong>
+                        <span class="float-start">${o.closed ? '✅ تم الحل' : '⏳ قائم'} — ${o.impact || ''}</span>
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">لا توجد معوقات مسجلة في آخر تحديث.</p>';
+            }
+        }
+    </script>
+</body>
+</html>
