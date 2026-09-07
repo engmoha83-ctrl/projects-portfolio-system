@@ -20,7 +20,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -178,11 +178,12 @@ TXT = {
         "series_sd": "SD (المخططات)",
         "series_wir": "WIR (طلبات الاستلام)",
         "series_ncr": "NCR",
-        "sec_eval_spi": "التقييم الفني ومؤشر الأداء الجدولي",
+        "sec_eval": "التقييم الفني",
         "eval_labor": "توفر العمالة",
         "eval_equip": "توفر المعدات",
         "eval_financial": "القدرة المالية",
         "eval_hse": "الالتزام بالسلامة",
+        "sec_spi": "مؤشر الأداء الجدولي (SPI)",
         "spi_label": "SPI - مؤشر الأداء الجدولي",
         "sec_financial": "البيانات المالية والتعاقدية (المقاول)",
         "lbl_mods_count": "أوامر التغيير (العدد)",
@@ -257,11 +258,12 @@ TXT = {
         "series_sd": "SD (Shop Drawings)",
         "series_wir": "WIR (Inspection Requests)",
         "series_ncr": "NCR",
-        "sec_eval_spi": "Technical Evaluation & Schedule Performance",
+        "sec_eval": "Technical Evaluation",
         "eval_labor": "Labor Availability",
         "eval_equip": "Equipment Availability",
         "eval_financial": "Financial Capability",
         "eval_hse": "HSE Compliance",
+        "sec_spi": "Schedule Performance Index (SPI)",
         "spi_label": "SPI - Schedule Performance Index",
         "sec_financial": "Financial & Contractual Data (Contractor)",
         "lbl_mods_count": "Change Orders (Count)",
@@ -685,23 +687,27 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
         return buf
 
     # ---------- 11) وصف المشروع (أول عنصر في التقرير) ----------
-    story.append(_section_title(t(lang, "sec_desc"), align=align))
-    story.append(Spacer(1, 2 * mm))
     desc = latest.get("project_desc") or t(lang, "no_desc")
-    story.append(P(desc, size=9.5, color=colors.HexColor("#3c4657"), align=TA_RIGHT))
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_desc"), align=align),
+        Spacer(1, 2 * mm),
+        P(desc, size=9.5, color=colors.HexColor("#3c4657"), align=TA_RIGHT),
+    ]))
     story.append(Spacer(1, 6 * mm))
 
     # ---------- نظرة عامة ----------
-    story.append(_section_title(t(lang, "sec_overview"), align=align))
-    story.append(Spacer(1, 2 * mm))
-    story.append(_kv_table([
-        (t(lang, "lbl_manager"), latest.get("manager_name") or "-"),
-        (t(lang, "lbl_type"), latest.get("project_type") or "-"),
-        (t(lang, "lbl_owner"), latest.get("project_owner") or "-"),
-        (t(lang, "lbl_developer"), latest.get("project_developer") or "-"),
-        (t(lang, "lbl_contractor"), latest.get("project_contractor") or "-"),
-        (t(lang, "lbl_last_update"), safe_date(latest.get("current_data_date"))),
-    ], align=align))
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_overview"), align=align),
+        Spacer(1, 2 * mm),
+        _kv_table([
+            (t(lang, "lbl_manager"), latest.get("manager_name") or "-"),
+            (t(lang, "lbl_type"), latest.get("project_type") or "-"),
+            (t(lang, "lbl_owner"), latest.get("project_owner") or "-"),
+            (t(lang, "lbl_developer"), latest.get("project_developer") or "-"),
+            (t(lang, "lbl_contractor"), latest.get("project_contractor") or "-"),
+            (t(lang, "lbl_last_update"), safe_date(latest.get("current_data_date"))),
+        ], align=align),
+    ]))
     story.append(Spacer(1, 5 * mm))
 
     # ---------- مؤشرات رئيسية ----------
@@ -719,24 +725,33 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     plan_cur = round(float(latest.get("plan_prog_cur") or 0) * 100)
     plan_prev = round(float(latest.get("plan_prog_prev") or 0) * 100)
 
-    story.append(_section_title(t(lang, "sec_progress"), align=align))
-    story.append(Spacer(1, 3 * mm))
-    story.append(_cluster_bar_chart(
-        categories=[t(lang, "cat_prev_period"), t(lang, "cat_cur_period")],
-        series=[[act_prev, act_cur], [plan_prev, plan_cur]],
-        series_names=[t(lang, "kpi_actual"), t(lang, "kpi_planned")],
-        palette=[NAVY, GOLD],
-        val_max=100,
-        bar_label_fmt="%d%%",
-    ))
-    story.append(_legend_row([(NAVY, t(lang, "kpi_actual")), (GOLD, t(lang, "kpi_planned"))], align=align))
-    story.append(Spacer(1, 2 * mm))
-    story.append(_diff_pill_row(act_cur - act_prev, plan_cur - plan_prev, lang=lang))
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_progress"), align=align),
+        Spacer(1, 3 * mm),
+        _cluster_bar_chart(
+            categories=[t(lang, "cat_prev_period"), t(lang, "cat_cur_period")],
+            series=[[act_prev, act_cur], [plan_prev, plan_cur]],
+            series_names=[t(lang, "kpi_actual"), t(lang, "kpi_planned")],
+            palette=[NAVY, GOLD],
+            val_max=100,
+            bar_label_fmt="%d%%",
+        ),
+        _legend_row([(NAVY, t(lang, "kpi_actual")), (GOLD, t(lang, "kpi_planned"))], align=align),
+        Spacer(1, 2 * mm),
+        _diff_pill_row(act_cur - act_prev, plan_cur - plan_prev, lang=lang),
+    ]))
+    story.append(Spacer(1, 6 * mm))
+
+    # ---------- 1-ب) مؤشر الأداء الجدولي (SPI) - جنب التقدم مباشرة لأنه بيعبّر عن نفس الموضوع ----------
+    spi_val = (act_cur / plan_cur) if plan_cur > 0 else (1.0 if act_cur > 0 else 0)
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_spi"), align=align),
+        Spacer(1, 3 * mm),
+        _spi_gauge(spi_val, lang=lang),
+    ]))
     story.append(Spacer(1, 6 * mm))
 
     # ---------- 2) المدة التعاقدية المنقضية/المتبقية - Donut ----------
-    story.append(_section_title(t(lang, "sec_duration"), align=align))
-    story.append(Spacer(1, 3 * mm))
     elapsed_pct, remaining_pct = 0, 100
     dur_total_lbl = dur_elapsed_lbl = dur_remaining_lbl = "-"
     days_unit = t(lang, "days_unit")
@@ -753,13 +768,17 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
             dur_remaining_lbl = f"{remaining_days} {days_unit} ({remaining_pct}%)"
     except Exception:
         pass
-    story.append(_duration_donut(elapsed_pct, remaining_pct, lang=lang))
-    story.append(Spacer(1, 2 * mm))
-    story.append(_kv_table([
-        (t(lang, "lbl_total_duration"), dur_total_lbl),
-        (t(lang, "lbl_elapsed"), dur_elapsed_lbl),
-        (t(lang, "lbl_remaining"), dur_remaining_lbl),
-    ], align=align))
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_duration"), align=align),
+        Spacer(1, 3 * mm),
+        _duration_donut(elapsed_pct, remaining_pct, lang=lang),
+        Spacer(1, 2 * mm),
+        _kv_table([
+            (t(lang, "lbl_total_duration"), dur_total_lbl),
+            (t(lang, "lbl_elapsed"), dur_elapsed_lbl),
+            (t(lang, "lbl_remaining"), dur_remaining_lbl),
+        ], align=align),
+    ]))
     story.append(Spacer(1, 6 * mm))
 
     # ---------- 3) بيانات الجودة (SD / WIR / NCR) - Cluster Columns ----------
@@ -770,80 +789,89 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ncr_open, ncr_closed = num(latest.get("ncr_open")), num(latest.get("ncr_closed"))
     ncr_total = ncr_open + ncr_closed
 
-    story.append(_section_title(t(lang, "sec_quality"), align=align))
-    story.append(Spacer(1, 3 * mm))
     qcats = [t(lang, "cat_submitted"), t(lang, "cat_approved"), t(lang, "cat_review")]
     qcolors = [INFO, SUCCESS, GOLD]
-    story.append(P(t(lang, "sec_sd"), size=9.5, bold=True, color=NAVY, align=align))
-    story.append(_metric_with_total(
-        t(lang, "cat_total"), sd_total,
-        _distributed_bar_chart(qcats, [sd_sub, sd_app, sd_rev], qcolors, width=142 * mm, height=42 * mm),
-    ))
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_quality"), align=align),
+        Spacer(1, 3 * mm),
+        P(t(lang, "sec_sd"), size=9.5, bold=True, color=NAVY, align=align),
+        _metric_with_total(
+            t(lang, "cat_total"), sd_total,
+            _distributed_bar_chart(qcats, [sd_sub, sd_app, sd_rev], qcolors, width=142 * mm, height=42 * mm),
+        ),
+    ]))
     story.append(Spacer(1, 3 * mm))
-    story.append(P(t(lang, "sec_wir"), size=9.5, bold=True, color=NAVY, align=align))
-    story.append(_metric_with_total(
-        t(lang, "cat_total"), wir_total,
-        _distributed_bar_chart(qcats, [wir_sub, wir_app, wir_rev], qcolors, width=142 * mm, height=42 * mm),
-    ))
+    story.append(KeepTogether([
+        P(t(lang, "sec_wir"), size=9.5, bold=True, color=NAVY, align=align),
+        _metric_with_total(
+            t(lang, "cat_total"), wir_total,
+            _distributed_bar_chart(qcats, [wir_sub, wir_app, wir_rev], qcolors, width=142 * mm, height=42 * mm),
+        ),
+    ]))
     story.append(Spacer(1, 3 * mm))
-    story.append(P(t(lang, "sec_ncr"), size=9.5, bold=True, color=NAVY, align=align))
-    story.append(_metric_with_total(
-        t(lang, "cat_total"), ncr_total,
-        _distributed_bar_chart([t(lang, "cat_closed"), t(lang, "cat_open")], [ncr_closed, ncr_open],
-                                [SUCCESS, DANGER], width=142 * mm, height=42 * mm),
-    ))
+    story.append(KeepTogether([
+        P(t(lang, "sec_ncr"), size=9.5, bold=True, color=NAVY, align=align),
+        _metric_with_total(
+            t(lang, "cat_total"), ncr_total,
+            _distributed_bar_chart([t(lang, "cat_closed"), t(lang, "cat_open")], [ncr_closed, ncr_open],
+                                    [SUCCESS, DANGER], width=142 * mm, height=42 * mm),
+        ),
+    ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 4) التقييم الفني (مصغّر) + 8) مؤشر الأداء الجدولي SPI (Gauge) ----------
-    eval_tbl = _kv_table([
-        (t(lang, "eval_labor"), f"{fmt_num(latest.get('eval_labor'))}/10"),
-        (t(lang, "eval_equip"), f"{fmt_num(latest.get('eval_equip'))}/10"),
-        (t(lang, "eval_financial"), f"{fmt_num(latest.get('eval_financial'))}/10"),
-        (t(lang, "eval_hse"), f"{fmt_num(latest.get('eval_hse'))}/10"),
-    ], col_widths=(30 * mm, 30 * mm), align=align)
-    spi_val = (act_cur / plan_cur) if plan_cur > 0 else (1.0 if act_cur > 0 else 0)
-
-    story.append(_section_title(t(lang, "sec_eval_spi"), align=align))
-    story.append(Spacer(1, 3 * mm))
-    combo = Table([[eval_tbl, _spi_gauge(spi_val, lang=lang)]], colWidths=[65 * mm, 105 * mm])
-    combo.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-    story.append(combo)
+    # ---------- 4) التقييم الفني (قسم مستقل) ----------
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_eval"), align=align),
+        Spacer(1, 3 * mm),
+        _kv_table([
+            (t(lang, "eval_labor"), f"{fmt_num(latest.get('eval_labor'))}/10"),
+            (t(lang, "eval_equip"), f"{fmt_num(latest.get('eval_equip'))}/10"),
+            (t(lang, "eval_financial"), f"{fmt_num(latest.get('eval_financial'))}/10"),
+            (t(lang, "eval_hse"), f"{fmt_num(latest.get('eval_hse'))}/10"),
+        ], align=align),
+    ]))
     story.append(Spacer(1, 6 * mm))
 
     # ---------- 5) أوامر تغيير المقاول + 6) تواريخ عقد المقاول + 7) مستخلصات المقاول ----------
-    story.append(_section_title(t(lang, "sec_financial"), align=align))
-    story.append(Spacer(1, 2 * mm))
-    story.append(_kv_table([
-        (t(lang, "kpi_contractor_val"), fmt_num(latest.get("contractor_val"))),
-        (t(lang, "lbl_mods_count"), fmt_num(latest.get("contractor_mods_count"))),
-        (t(lang, "lbl_mods_val"), fmt_num(latest.get("contractor_mods_val"))),
-        (t(lang, "lbl_inv_count"), fmt_num(latest.get("cont_inv_count"))),
-        (t(lang, "lbl_inv_val"), fmt_num(latest.get("cont_inv_val"))),
-        (t(lang, "lbl_start_contractual"), safe_date(latest.get("start_contractual"))),
-        (t(lang, "lbl_end_contractual"), safe_date(latest.get("end_contractual"))),
-        (t(lang, "lbl_start_actual"), safe_date(latest.get("start_actual"))),
-        (t(lang, "lbl_end_expected"), safe_date(latest.get("end_expected"))),
-    ], align=align))
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_financial"), align=align),
+        Spacer(1, 2 * mm),
+        _kv_table([
+            (t(lang, "kpi_contractor_val"), fmt_num(latest.get("contractor_val"))),
+            (t(lang, "lbl_mods_count"), fmt_num(latest.get("contractor_mods_count"))),
+            (t(lang, "lbl_mods_val"), fmt_num(latest.get("contractor_mods_val"))),
+            (t(lang, "lbl_inv_count"), fmt_num(latest.get("cont_inv_count"))),
+            (t(lang, "lbl_inv_val"), fmt_num(latest.get("cont_inv_val"))),
+            (t(lang, "lbl_start_contractual"), safe_date(latest.get("start_contractual"))),
+            (t(lang, "lbl_end_contractual"), safe_date(latest.get("end_contractual"))),
+            (t(lang, "lbl_start_actual"), safe_date(latest.get("start_actual"))),
+            (t(lang, "lbl_end_expected"), safe_date(latest.get("end_expected"))),
+        ], align=align),
+    ]))
     story.append(Spacer(1, 6 * mm))
 
     # ---------- 9) صور التقدم الأسبوعية ----------
     photo_urls = [latest.get("file_link_1"), latest.get("file_link_2"), latest.get("file_link_3"), latest.get("file_link_4")]
-    story.append(_section_title(t(lang, "sec_photos"), align=align))
-    story.append(Spacer(1, 3 * mm))
-    story.append(_image_grid(photo_urls, cols=2, cell_w=80 * mm, cell_h=55 * mm,
-                              empty_text=t(lang, "no_photos")))
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_photos"), align=align),
+        Spacer(1, 3 * mm),
+        _image_grid(photo_urls, cols=2, cell_w=80 * mm, cell_h=55 * mm, empty_text=t(lang, "no_photos")),
+    ]))
     story.append(Spacer(1, 6 * mm))
 
     # ---------- 10) المسقط الأيزومتري ----------
-    story.append(_section_title(t(lang, "sec_iso"), align=align))
-    story.append(Spacer(1, 3 * mm))
     iso_img = _fetch_image_flowable(latest.get("isometric_link"), 165 * mm, 90 * mm)
     if iso_img:
-        wrap = Table([[iso_img]], colWidths=[170 * mm])
-        wrap.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
-        story.append(wrap)
+        iso_wrap = Table([[iso_img]], colWidths=[170 * mm])
+        iso_wrap.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
+        iso_content = iso_wrap
     else:
-        story.append(P(t(lang, "no_iso"), size=9, color=MUTED, align=align))
+        iso_content = P(t(lang, "no_iso"), size=9, color=MUTED, align=align)
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_iso"), align=align),
+        Spacer(1, 3 * mm),
+        iso_content,
+    ]))
     story.append(Spacer(1, 6 * mm))
 
     # ---------- الأعمال المنجزة/الجارية/المخططة ----------
@@ -853,14 +881,14 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
         (t(lang, "works_planned"), "works_planned"),
     ]
     if any(latest.get(key) and str(latest.get(key)).strip() for _, key in works_items):
-        story.append(_section_title(t(lang, "sec_works"), align=align))
-        story.append(Spacer(1, 2 * mm))
+        works_block = [_section_title(t(lang, "sec_works"), align=align), Spacer(1, 2 * mm)]
         for label, key in works_items:
             val = latest.get(key)
             if val and str(val).strip():
-                story.append(P(label, size=9.5, bold=True, color=NAVY, align=align))
-                story.append(P(str(val), size=9, color=colors.HexColor("#3c4657"), align=TA_RIGHT))
-                story.append(Spacer(1, 3 * mm))
+                works_block.append(P(label, size=9.5, bold=True, color=NAVY, align=align))
+                works_block.append(P(str(val), size=9, color=colors.HexColor("#3c4657"), align=TA_RIGHT))
+                works_block.append(Spacer(1, 3 * mm))
+        story.append(KeepTogether(works_block))
         story.append(Spacer(1, 3 * mm))
 
     # ---------- المعوقات ----------
@@ -871,8 +899,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     except Exception:
         obstacles = []
 
-    story.append(_section_title(t(lang, "sec_obstacles"), align=align))
-    story.append(Spacer(1, 2 * mm))
     if obstacles:
         rows = [[P(t(lang, "col_desc"), size=9, bold=True, color=WHITE, align=align),
                  P(t(lang, "col_impact"), size=9, bold=True, color=WHITE, align=TA_CENTER),
@@ -899,9 +925,15 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
         for i, bg in enumerate(row_bgs, start=1):
             style_cmds.append(("BACKGROUND", (0, i), (-1, i), bg))
         tbl.setStyle(TableStyle(style_cmds))
-        story.append(tbl)
+        obstacles_content = tbl
     else:
-        story.append(P(t(lang, "no_obstacles"), size=9, color=MUTED, align=align))
+        obstacles_content = P(t(lang, "no_obstacles"), size=9, color=MUTED, align=align)
+
+    story.append(KeepTogether([
+        _section_title(t(lang, "sec_obstacles"), align=align),
+        Spacer(1, 2 * mm),
+        obstacles_content,
+    ]))
 
     story.append(Spacer(1, 8 * mm))
     story.append(P(t(lang, "footer"), size=7.5, color=MUTED, align=TA_CENTER))
