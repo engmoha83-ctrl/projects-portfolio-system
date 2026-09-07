@@ -231,9 +231,12 @@
 
         // --- دالة رسم مؤشر SPI مع توسيع المدى إلى 1.5 ---
         function renderSpiGauge(planCur, actCur) {
-            let spi = planCur > 0 ? (actCur / planCur) : (actCur > 0 ? 1 : 0); 
-            const maxVal = 1.5; 
-            let displaySpi = Math.max(0, Math.min(spi, maxVal));
+            // حساب النسبة الحقيقية
+            let actualSpi = planCur > 0 ? (actCur / planCur) : (actCur > 0 ? 1 : 0);
+            
+            const maxVal = 1.0; 
+            // إبرة المؤشر تقف عند 1.0 كحد أقصى بصرياً
+            let needleSpi = Math.max(0, Math.min(actualSpi, maxVal));
             
             const cx = 100, cy = 92, r = 76, trackWidth = 15;
             const bands = [ 
@@ -241,6 +244,7 @@
                 { lo: 0.8, hi: 0.9, color: '#d99425' }, 
                 { lo: 0.9, hi: maxVal, color: '#1e8e5a' } 
             ];
+            
             const pt = (val, radius) => { 
                 const g = (val / maxVal) * 180; 
                 const theta = (180 - g) * Math.PI / 180; 
@@ -254,32 +258,33 @@
             });
             
             let gaps = ''; 
-            [0.8, 0.9, 1.0].forEach(v => { 
+            [0.8, 0.9].forEach(v => { 
                 const p1 = pt(v, r - trackWidth / 2 - 1), p2 = pt(v, r + trackWidth / 2 + 1); 
                 gaps += `<line x1="${p1.x.toFixed(2)}" y1="${p1.y.toFixed(2)}" x2="${p2.x.toFixed(2)}" y2="${p2.y.toFixed(2)}" stroke="#16233c" stroke-width="2.5" />`; 
             });
             
             let ticks = ''; 
-            [0, 0.5, 1.0, 1.5].forEach(v => { 
+            [0, 0.5, 1.0].forEach(v => { 
                 const p1 = pt(v, r + trackWidth / 2 + 2), p2 = pt(v, r + trackWidth / 2 + 8); 
                 ticks += `<line x1="${p1.x.toFixed(2)}" y1="${p1.y.toFixed(2)}" x2="${p2.x.toFixed(2)}" y2="${p2.y.toFixed(2)}" stroke="#5b6a86" stroke-width="2" />`; 
             });
             
-            const needleTip = pt(displaySpi, r - trackWidth / 2 - 3);
-            const pt1 = pt(1.0, r + 15);
+            const needleTip = pt(needleSpi, r - trackWidth / 2 - 3);
             
             const svg = `<svg viewBox="0 0 200 118" xmlns="http://www.w3.org/2000/svg">
                 ${arcs}
                 ${gaps}
                 ${ticks}
                 <text x="${(cx - r - 6).toFixed(1)}" y="${(cy + 15).toFixed(1)}" font-size="9" fill="#8b96ac" text-anchor="middle">0.0</text>
-                <text x="${pt1.x.toFixed(1)}" y="${pt1.y.toFixed(1)}" font-size="9" fill="#8b96ac" text-anchor="middle">1.0</text>
-                <text x="${(cx + r + 6).toFixed(1)}" y="${(cy + 15).toFixed(1)}" font-size="9" fill="#8b96ac" text-anchor="middle">1.5</text>
+                <text x="${(cx + r + 6).toFixed(1)}" y="${(cy + 15).toFixed(1)}" font-size="9" fill="#8b96ac" text-anchor="middle">1.0</text>
                 <line x1="${cx}" y1="${cy}" x2="${needleTip.x.toFixed(2)}" y2="${needleTip.y.toFixed(2)}" stroke="#c9d2e3" stroke-width="3.5" stroke-linecap="round" />
                 <circle cx="${cx}" cy="${cy}" r="7" fill="#d4a373" stroke="#0f1a2e" stroke-width="1.5" />
             </svg>`;
+            
             document.getElementById('spi-gauge-svg-wrap').innerHTML = svg; 
-            document.getElementById('spi-value-big').innerText = spi.toFixed(2);
+            
+            // الرقم المكتوب يقرأ النسبة الحقيقية (بدون حدود)
+            document.getElementById('spi-value-big').innerText = actualSpi.toFixed(2);
         }
     </script>
 </body>
