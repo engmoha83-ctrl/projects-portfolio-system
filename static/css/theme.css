@@ -167,6 +167,32 @@ small, .text-muted { color: var(--text-muted) !important; }
 }
 .form-control[readonly] { background-color: var(--bg-muted); }
 
+/* ---------- إصلاح تعارض سهم القوائم المنسدلة مع النص (خاص باللغة العربية RTL) ----------
+   المشكلة: بعض الصفحات تستخدم نسخة Bootstrap الخاصة بـ LTR بينما الصفحة نفسها RTL،
+   فيظهر سهم القائمة المنسدلة فوق النص بدل ما يبقى في الطرف الصحيح.
+   الحل: نتحكم في شكل السهم ومكانه يدوياً بشكل موحّد لكل الصفحات، بغض النظر عن نسخة Bootstrap المُحمّلة. */
+select.form-select,
+select.form-control {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236c7a91' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-size: 16px 12px !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+html:not([dir="ltr"]) select.form-select,
+html:not([dir="ltr"]) select.form-control {
+  background-position: left 0.75rem center !important;
+  padding-left: 2.25rem !important;
+  padding-right: 0.85rem !important;
+}
+html[dir="ltr"] select.form-select,
+html[dir="ltr"] select.form-control {
+  background-position: right 0.75rem center !important;
+  padding-right: 2.25rem !important;
+  padding-left: 0.85rem !important;
+}
+
 /* ---------- تنبيهات وحالات فارغة ---------- */
 .pmis-alert-info {
   background: var(--info-bg); color: var(--navy-800); border: 1px solid rgba(38,133,201,0.2);
@@ -240,3 +266,4 @@ small, .text-muted { color: var(--text-muted) !important; }
   body { background: #fff !important; }
   .section-card { box-shadow: none !important; border: 1px solid #ddd !important; }
 }
+
