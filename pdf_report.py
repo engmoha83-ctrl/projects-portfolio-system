@@ -30,14 +30,13 @@ from reportlab.graphics.charts.piecharts import Pie
 from reportlab.graphics.charts.legends import Legend
 
 # --------------------------------------------------------------------------
-# تسجيل خط Amiri (يدعم كل أشكال الحروف العربية المنفصلة داخل الـ PDF،
-# بعكس خط Tajawal بتاع الموقع اللي ناقصه بعض الأشكال المنعزلة)
+# تسجيل خط Amiri
 # --------------------------------------------------------------------------
 FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 pdfmetrics.registerFont(TTFont("Arabic", os.path.join(FONT_DIR, "Amiri-Regular.ttf")))
 pdfmetrics.registerFont(TTFont("Arabic-Bold", os.path.join(FONT_DIR, "Amiri-Bold.ttf")))
 
-# ألوان الهوية (نفس متغيرات theme.css)
+# ألوان الهوية
 NAVY = colors.HexColor("#1a2b4c")
 NAVY_DARK = colors.HexColor("#0f1a2e")
 GOLD = colors.HexColor("#d4a373")
@@ -52,16 +51,9 @@ INFO = colors.HexColor("#2685c9")
 
 LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "img", "logo.png")
 
-
 _ARABIC_CHAR_RE = re.compile(r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]")
 
-
 def ar(text):
-    """يعالج النص العربي عشان يتشكّل ويتعرض صح جوه الـ PDF (RTL).
-
-    ملحوظة: لو النص مفيهوش أي حروف عربية أصلاً (زي نصوص التقرير بالإنجليزي)، بنرجّعه
-    زي ما هو من غير ما نعديه على reshape/bidi - لأن تمرير نص إنجليزي بحت على
-    arabic_reshaper بيعمل تشويه لبعض علامات الترقيم (مثلاً "." بتتحول لـ "۔")."""
     if text is None:
         return ""
     text = str(text)
@@ -75,7 +67,6 @@ def ar(text):
     except Exception:
         return text
 
-
 def _style(size=10, bold=False, color=NAVY, align=TA_RIGHT, leading=None):
     return ParagraphStyle(
         name=f"s{size}{bold}{align}",
@@ -86,20 +77,14 @@ def _style(size=10, bold=False, color=NAVY, align=TA_RIGHT, leading=None):
         leading=leading or size * 1.45,
     )
 
-
 def P(text, size=10, bold=False, color=NAVY, align=TA_RIGHT):
     return Paragraph(ar(text), _style(size=size, bold=bold, color=color, align=align))
 
-
 def num(val):
-    """يحوّل القيمة إلى float عادي بأمان - القيم الرقمية القادمة من psycopg2 (أعمدة numeric)
-    بترجع كـ decimal.Decimal، ومكتبة الرسوم البيانية في reportlab بتعمل عمليات حسابية
-    مع float مباشرة فبتنهار (TypeError) لو فضلنا الأرقام Decimal."""
     try:
         return float(val or 0)
     except (TypeError, ValueError):
         return 0.0
-
 
 def fmt_num(val):
     try:
@@ -108,19 +93,16 @@ def fmt_num(val):
     except (TypeError, ValueError):
         return "0"
 
-
 def fmt_pct(val):
     try:
         return f"{round(float(val or 0) * 100)}%"
     except (TypeError, ValueError):
         return "0%"
 
-
 def safe_date(val):
     if val is None or str(val).strip() == "":
         return "-"
     return str(val)
-
 
 IMPACT_COLORS = {
     "كبير": (DANGER, colors.HexColor("#fdeceb")),
@@ -129,11 +111,6 @@ IMPACT_COLORS = {
     "غير مؤثر": (MUTED, BG_MUTED),
 }
 
-# ==========================================================================
-# دعم لغتين للتقرير (عربي / إنجليزي) - نصوص الواجهة فقط (عناوين، تسميات، أزرار).
-# بيانات المشروع الحرة اللي بيكتبها مدير المشروع بنفسه (الوصف، المعوقات، الأعمال)
-# بتفضل زي ما هي بالعربي في الحالتين، حسب طلب العميل.
-# ==========================================================================
 TXT = {
     "ar": {
         "header_company": "المعماريون السعوديون",
@@ -202,8 +179,8 @@ TXT = {
         "works_completed": "الأعمال المنجزة",
         "works_ongoing": "الأعمال الجارية",
         "works_planned": "الأعمال المخططة",
-        "sec_obstacles": "المعوقات الحالية",
-        "no_obstacles": "لا توجد معوقات مسجلة في آخر تحديث.",
+        "sec_obstacles": "المعوقات الحالية (مجمعة)",
+        "no_obstacles": "لا توجد معوقات مسجلة.",
         "col_desc": "الوصف",
         "col_impact": "التأثير",
         "col_status": "الحالة",
@@ -282,8 +259,8 @@ TXT = {
         "works_completed": "Completed Works (Last Week)",
         "works_ongoing": "Ongoing Works",
         "works_planned": "Planned Works (Next Week)",
-        "sec_obstacles": "Current Obstacles",
-        "no_obstacles": "No obstacles recorded in the latest update.",
+        "sec_obstacles": "Current Obstacles (Aggregated)",
+        "no_obstacles": "No obstacles recorded.",
         "col_desc": "Description",
         "col_impact": "Impact",
         "col_status": "Status",
@@ -297,15 +274,9 @@ TXT = {
     },
 }
 
-
 def t(lang, key):
-    """يرجّع نص الواجهة المترجم حسب اللغة المطلوبة (نصوص ثابتة فقط - العناوين والتسميات)."""
     return TXT.get(lang, TXT["ar"]).get(key, TXT["ar"].get(key, key))
 
-
-# ==========================================================================
-# مكوّنات مرئية عامة
-# ==========================================================================
 def _section_title(text, align=TA_RIGHT):
     tbl = Table([[P(text, size=12, bold=True, color=WHITE, align=align)]], colWidths=[170 * mm])
     tbl.setStyle(TableStyle([
@@ -317,9 +288,7 @@ def _section_title(text, align=TA_RIGHT):
     ]))
     return tbl
 
-
 def _kv_table(pairs, col_widths=(42 * mm, 43 * mm), align=TA_RIGHT):
-    """جدول (تسمية: قيمة) بعمودين، متكرر بشكل صفين لكل صف (زوجين من التسميات)."""
     rows = []
     for i in range(0, len(pairs), 2):
         chunk = pairs[i:i + 2]
@@ -343,9 +312,7 @@ def _kv_table(pairs, col_widths=(42 * mm, 43 * mm), align=TA_RIGHT):
     ]))
     return tbl
 
-
 def _kpi_row(items, col_width=42.5 * mm):
-    """صف من مربعات KPI ملونة (زي كروت الداشبورد)."""
     cells = []
     palette = [NAVY, GOLD, SUCCESS, INFO]
     for idx, (label, value) in enumerate(items):
@@ -368,9 +335,7 @@ def _kpi_row(items, col_width=42.5 * mm):
     ]))
     return row
 
-
 def _diff_pill_row(diff_actual, diff_planned, lang="ar"):
-    """صفّان صغيران يوضحان الفرق بين الفترة الحالية والسابقة (فعلي/مخطط)."""
     def pill(label, diff):
         color = SUCCESS if diff > 0 else (DANGER if diff < 0 else MUTED)
         bg = colors.HexColor("#e7f6ee") if diff > 0 else (colors.HexColor("#fdeceb") if diff < 0 else BG_MUTED)
@@ -387,17 +352,13 @@ def _diff_pill_row(diff_actual, diff_planned, lang="ar"):
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ]))
         return cell
-
     row = Table([[pill(t(lang, "diff_actual"), diff_actual), pill(t(lang, "diff_planned"), diff_planned)]],
                 colWidths=[76 * mm, 76 * mm])
     row.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 2), ("RIGHTPADDING", (0, 0), (-1, -1), 2)]))
     return row
 
-
-def _cluster_bar_chart(categories, series, series_names, palette, width=170 * mm, height=62 * mm,
-                        val_max=None, bar_label_fmt="%d"):
-    """رسم أعمدة متجمّعة (Clustered Columns) - يُستخدم للتقدم وبيانات الجودة."""
-    bottom_margin = 15 * mm  # مساحة كافية أسفل الرسم لتسميات المحور (Category Axis) عشان متتقطعش
+def _cluster_bar_chart(categories, series, series_names, palette, width=170 * mm, height=62 * mm, val_max=None, bar_label_fmt="%d"):
+    bottom_margin = 15 * mm 
     chart_h = height - bottom_margin - (6 * mm)
     drawing = Drawing(width, height)
     bc = VerticalBarChart()
@@ -410,8 +371,7 @@ def _cluster_bar_chart(categories, series, series_names, palette, width=170 * mm
     bc.categoryAxis.labels.fontName = "Arabic"
     bc.categoryAxis.labels.fontSize = 7.5
     bc.valueAxis.valueMin = 0
-    if val_max:
-        bc.valueAxis.valueMax = val_max
+    if val_max: bc.valueAxis.valueMax = val_max
     bc.valueAxis.labels.fontName = "Arabic"
     bc.valueAxis.labels.fontSize = 7
     bc.groupSpacing = 12
@@ -421,19 +381,12 @@ def _cluster_bar_chart(categories, series, series_names, palette, width=170 * mm
     bc.barLabels.fontSize = 6.5
     bc.barLabels.nudge = 7
     for i, col in enumerate(palette):
-        try:
-            bc.bars[i].fillColor = col
-        except Exception:
-            pass
+        try: bc.bars[i].fillColor = col
+        except: pass
     drawing.add(bc)
     return drawing
 
-
-def _distributed_bar_chart(categories, values, colors_list, width=170 * mm, height=58 * mm,
-                            val_max=None, bar_label_fmt="%d"):
-    """رسم أعمدة لسلسلة واحدة، لكن كل عمود بلون مستقل (زي distributed:true في ApexCharts) -
-    بيُستخدم لعرض تفصيلة مقياس واحد (SD أو WIR كل واحد لوحده) بأعمدة ملوّنة بجانب بعض
-    (إجمالي/مقدمة/معتمدة/قيد المراجعة) بدل تجميع مقياسين في نفس الرسم."""
+def _distributed_bar_chart(categories, values, colors_list, width=170 * mm, height=58 * mm, val_max=None, bar_label_fmt="%d"):
     bottom_margin = 14 * mm
     chart_h = height - bottom_margin - (6 * mm)
     drawing = Drawing(width, height)
@@ -447,8 +400,7 @@ def _distributed_bar_chart(categories, values, colors_list, width=170 * mm, heig
     bc.categoryAxis.labels.fontName = "Arabic"
     bc.categoryAxis.labels.fontSize = 7.5
     bc.valueAxis.valueMin = 0
-    if val_max:
-        bc.valueAxis.valueMax = val_max
+    if val_max: bc.valueAxis.valueMax = val_max
     bc.valueAxis.labels.fontName = "Arabic"
     bc.valueAxis.labels.fontSize = 7
     bc.groupSpacing = 10
@@ -458,35 +410,23 @@ def _distributed_bar_chart(categories, values, colors_list, width=170 * mm, heig
     bc.barLabels.fontSize = 7
     bc.barLabels.nudge = 7
     for i, col in enumerate(colors_list):
-        try:
-            bc.bars[(0, i)].fillColor = col
-        except Exception:
-            pass
+        try: bc.bars[(0, i)].fillColor = col
+        except: pass
     drawing.add(bc)
     return drawing
 
-
 def _metric_with_total(label_total, total_val, chart, total_w=28 * mm, chart_w=142 * mm):
-    """يجمع صندوق (الإجمالي: رقم) بجانب رسم بياني في صف واحد - بيُستخدم لعرض مقياس واحد
-    (SD أو WIR أو NCR) مع إجماليه كرقم مكتوب بدل ما يبقى عمود منفصل في الرسم."""
     total_box = Table(
         [[P(fmt_num(total_val), size=15, bold=True, color=GOLD, align=TA_CENTER)],
          [P(label_total, size=7.5, color=MUTED, align=TA_CENTER)]],
         colWidths=[total_w],
     )
-    total_box.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("TOPPADDING", (0, 0), (-1, -1), 1),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-    ]))
+    total_box.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER"), ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1)]))
     row = Table([[total_box, chart]], colWidths=[total_w, chart_w])
     row.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("ALIGN", (0, 0), (0, 0), "CENTER")]))
     return row
 
-
 def _legend_row(pairs, swatch=3.2 * mm, label_w=45 * mm, align=TA_RIGHT):
-    """صف بسيط لدلالات الألوان (Legend) أسفل الرسم البياني - مربعات ملوّنة + تسمية،
-    مبني بجدول عادي عشان نتجنّب مشاكل تموضع أداة Legend الجاهزة في reportlab."""
     cells, widths = [], []
     for color, label in pairs:
         sw = Table([[""]], colWidths=[swatch], rowHeights=[swatch])
@@ -496,61 +436,35 @@ def _legend_row(pairs, swatch=3.2 * mm, label_w=45 * mm, align=TA_RIGHT):
         cells.append(P(label, size=8, color=NAVY, align=align))
         widths.append(label_w)
     row = Table([cells], colWidths=widths)
-    row.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
+    row.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("ALIGN", (0, 0), (-1, -1), "CENTER"), ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
     return row
 
-
 def _duration_donut(elapsed_pct, remaining_pct, lang="ar"):
-    """دونات المدة المنقضية/المتبقية (تعتمد على التواريخ التعاقدية)."""
     size = 42 * mm
     drawing = Drawing(170 * mm, 50 * mm)
     cx, cy = 27 * mm, 4 * mm + size / 2
 
     pie = Pie()
-    pie.x = 5
-    pie.y = 4
-    pie.width = size
-    pie.height = size
+    pie.x = 5; pie.y = 4; pie.width = size; pie.height = size
     pie.data = [max(elapsed_pct, 0.0001), max(remaining_pct, 0.0001)]
     pie.labels = None
-    pie.slices.strokeWidth = 1
-    pie.slices.strokeColor = WHITE
-    pie.slices[0].fillColor = NAVY
-    pie.slices[1].fillColor = GOLD
+    pie.slices.strokeWidth = 1; pie.slices.strokeColor = WHITE
+    pie.slices[0].fillColor = NAVY; pie.slices[1].fillColor = GOLD
     drawing.add(pie)
 
     hole_r = size * 0.30
     drawing.add(Circle(cx, cy, hole_r, fillColor=WHITE, strokeColor=WHITE, strokeWidth=0))
-    drawing.add(String(cx, cy + 2, f"{round(elapsed_pct)}%", fontName="Arabic-Bold", fontSize=13,
-                        fillColor=NAVY, textAnchor="middle"))
+    drawing.add(String(cx, cy + 2, f"{round(elapsed_pct)}%", fontName="Arabic-Bold", fontSize=13, fillColor=NAVY, textAnchor="middle"))
     drawing.add(String(cx, cy - 9, ar(t(lang, "dur_elapsed")), fontName="Arabic", fontSize=7, fillColor=MUTED, textAnchor="middle"))
 
     leg = Legend()
-    leg.x = 75 * mm
-    leg.y = cy + 6
-    leg.dx = 7
-    leg.dy = 7
-    leg.fontName = "Arabic"
-    leg.fontSize = 8.5
-    leg.deltay = 11
+    leg.x = 75 * mm; leg.y = cy + 6; leg.dx = 7; leg.dy = 7
+    leg.fontName = "Arabic"; leg.fontSize = 8.5; leg.deltay = 11
     leg.colorNamePairs = [(NAVY, ar(t(lang, "dur_elapsed"))), (GOLD, ar(t(lang, "dur_remaining")))]
     drawing.add(leg)
     return drawing
 
-
 def _spi_gauge(spi, lang="ar"):
-    """مؤشر أداء جدولي (SPI) على هيئة Gauge نصف دائري بثلاث مناطق لونية وإبرة تأشير.
-
-    ملاحظة تنفيذية: أداة Wedge بخاصية annular+radius1 في reportlab بترجع شكل متقطّع/غير
-    صحيح بدل حلقة نظيفة، فبدل ما نعتمد عليها بنرسم قطاعات دائرية كاملة (Pie slices عادية)
-    ثم نغطي المنتصف بدائرة بيضاء فوقها عشان يطلع شكل الـ Gauge الحلقي المطلوب."""
     spi_c = max(0.0, min(spi, 1.0))
     width, height = 170 * mm, 46 * mm
     cx, cy, r, inner_r = 60 * mm, 4 * mm, 34 * mm, 19 * mm
@@ -558,8 +472,7 @@ def _spi_gauge(spi, lang="ar"):
 
     bands = [(0.0, 0.8, DANGER), (0.8, 0.9, WARNING), (0.9, 1.0, SUCCESS)]
     for lo, hi, col in bands:
-        a1 = 180 - (lo / 1.0) * 180
-        a2 = 180 - (hi / 1.0) * 180
+        a1 = 180 - (lo / 1.0) * 180; a2 = 180 - (hi / 1.0) * 180
         drawing.add(Wedge(cx, cy, r, a2, a1, fillColor=col, strokeColor=WHITE, strokeWidth=1))
     drawing.add(Circle(cx, cy, inner_r, fillColor=WHITE, strokeColor=WHITE, strokeWidth=0))
 
@@ -571,16 +484,12 @@ def _spi_gauge(spi, lang="ar"):
     drawing.add(Circle(cx, cy, 3.2, fillColor=NAVY_DARK, strokeColor=NAVY_DARK))
 
     value_color = SUCCESS if spi_c >= 0.9 else (WARNING if spi_c >= 0.8 else DANGER)
-    drawing.add(String(cx, cy + 12, f"{spi:.2f}", fontName="Arabic-Bold", fontSize=18,
-                        fillColor=value_color, textAnchor="middle"))
-    drawing.add(String(cx, cy - 9, ar(t(lang, "spi_label")), fontName="Arabic", fontSize=7.5,
-                        fillColor=MUTED, textAnchor="middle"))
+    drawing.add(String(cx, cy + 12, f"{spi:.2f}", fontName="Arabic-Bold", fontSize=18, fillColor=value_color, textAnchor="middle"))
+    drawing.add(String(cx, cy - 9, ar(t(lang, "spi_label")), fontName="Arabic", fontSize=7.5, fillColor=MUTED, textAnchor="middle"))
     return drawing
 
-
 def _fetch_image_flowable(url, max_w, max_h):
-    """يحمّل صورة من رابط (Cloudinary) ويرجّعها كعنصر Image جاهز للتقرير، بأبعاد متناسبة."""
-    if not url or not str(url).strip():
+    if not url or not str(url).strip() or url == "لا يوجد مرفق":
         return None
     try:
         resp = requests.get(url, timeout=10)
@@ -588,60 +497,34 @@ def _fetch_image_flowable(url, max_w, max_h):
         img_bytes = io.BytesIO(resp.content)
         img = Image(img_bytes)
         iw, ih = img.imageWidth, img.imageHeight
-        if not iw or not ih:
-            return None
+        if not iw or not ih: return None
         scale = min(max_w / iw, max_h / ih)
-        img.drawWidth = iw * scale
-        img.drawHeight = ih * scale
+        img.drawWidth = iw * scale; img.drawHeight = ih * scale
         return img
     except Exception:
         return None
 
-
 def _image_grid(urls, cols=2, cell_w=80 * mm, cell_h=55 * mm, empty_text="لا توجد صور مسجلة."):
-    """شبكة صور (لصور التقدم الأسبوعية)."""
-    flowables = [_fetch_image_flowable(u, cell_w - 4 * mm, cell_h - 4 * mm) for u in urls if u and str(u).strip()]
+    flowables = [_fetch_image_flowable(u, cell_w - 4 * mm, cell_h - 4 * mm) for u in urls if u and str(u).strip() and u != "لا يوجد مرفق"]
     flowables = [f for f in flowables if f is not None]
-    if not flowables:
-        return P(empty_text, size=9, color=MUTED, align=TA_RIGHT)
+    if not flowables: return P(empty_text, size=9, color=MUTED, align=TA_RIGHT)
 
     rows = []
     for i in range(0, len(flowables), cols):
         chunk = flowables[i:i + cols]
-        while len(chunk) < cols:
-            chunk.append("")
+        while len(chunk) < cols: chunk.append("")
         rows.append(chunk)
     tbl = Table(rows, colWidths=[cell_w] * cols, rowHeights=[cell_h] * len(rows))
-    tbl.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
+    tbl.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("GRID", (0, 0), (-1, -1), 0.5, BORDER), ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
     return tbl
-
 
 def _days_between(d1, d2):
     def parse(d):
-        if isinstance(d, (date, datetime)):
-            return d if isinstance(d, date) else d.date()
+        if isinstance(d, (date, datetime)): return d if isinstance(d, date) else d.date()
         return datetime.strptime(str(d)[:10], "%Y-%m-%d").date()
     return (parse(d2) - parse(d1)).days
 
-
-# ==========================================================================
-# البناء الرئيسي للتقرير
-# ==========================================================================
 def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
-    """
-    يبني تقرير PDF لمشروع واحد بناءً على سجلات project_updates (نفس شكل بيانات
-    /api/project-dashboard-data)، ويرجّع BytesIO جاهز للتنزيل.
-
-    lang: 'ar' (افتراضي) أو 'en' - بيتحكم في لغة نصوص الواجهة فقط (العناوين والتسميات
-    والأزرار)، أما البيانات الحرة اللي بيكتبها مدير المشروع بنفسه (الوصف، المعوقات،
-    الأعمال) فبتفضل زي ما هي بالعربي في الحالتين.
-    """
     lang = lang if lang in TXT else "ar"
     align = TA_LEFT if lang == "en" else TA_RIGHT
 
@@ -655,7 +538,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     story = []
     latest = records[-1] if records else {}
 
-    # ---------- ترويسة التقرير ----------
     header_cells = []
     if os.path.exists(LOGO_PATH):
         try:
@@ -686,7 +568,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
         buf.seek(0)
         return buf
 
-    # ---------- 11) وصف المشروع (أول عنصر في التقرير) ----------
     desc = latest.get("project_desc") or t(lang, "no_desc")
     story.append(KeepTogether([
         _section_title(t(lang, "sec_desc"), align=align),
@@ -695,7 +576,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- نظرة عامة ----------
     story.append(KeepTogether([
         _section_title(t(lang, "sec_overview"), align=align),
         Spacer(1, 2 * mm),
@@ -710,7 +590,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 5 * mm))
 
-    # ---------- مؤشرات رئيسية ----------
     story.append(_kpi_row([
         (t(lang, "kpi_actual"), fmt_pct(latest.get("act_prog_cur"))),
         (t(lang, "kpi_planned"), fmt_pct(latest.get("plan_prog_cur"))),
@@ -719,7 +598,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 1) التقدم الحالي/السابق (فعلي ومخطط) والفرق بينهما - Cluster Columns ----------
     act_cur = round(float(latest.get("act_prog_cur") or 0) * 100)
     act_prev = round(float(latest.get("act_prog_prev") or 0) * 100)
     plan_cur = round(float(latest.get("plan_prog_cur") or 0) * 100)
@@ -732,9 +610,7 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
             categories=[t(lang, "cat_prev_period"), t(lang, "cat_cur_period")],
             series=[[act_prev, act_cur], [plan_prev, plan_cur]],
             series_names=[t(lang, "kpi_actual"), t(lang, "kpi_planned")],
-            palette=[NAVY, GOLD],
-            val_max=100,
-            bar_label_fmt="%d%%",
+            palette=[NAVY, GOLD], val_max=100, bar_label_fmt="%d%%",
         ),
         _legend_row([(NAVY, t(lang, "kpi_actual")), (GOLD, t(lang, "kpi_planned"))], align=align),
         Spacer(1, 2 * mm),
@@ -742,7 +618,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 1-ب) مؤشر الأداء الجدولي (SPI) - جنب التقدم مباشرة لأنه بيعبّر عن نفس الموضوع ----------
     spi_val = (act_cur / plan_cur) if plan_cur > 0 else (1.0 if act_cur > 0 else 0)
     story.append(KeepTogether([
         _section_title(t(lang, "sec_spi"), align=align),
@@ -751,7 +626,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 2) المدة التعاقدية المنقضية/المتبقية - Donut ----------
     elapsed_pct, remaining_pct = 0, 100
     dur_total_lbl = dur_elapsed_lbl = dur_remaining_lbl = "-"
     days_unit = t(lang, "days_unit")
@@ -781,7 +655,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 3) بيانات الجودة (SD / WIR / NCR) - Cluster Columns ----------
     sd_sub, sd_app, sd_rev = num(latest.get("drawings_sub")), num(latest.get("drawings_app")), num(latest.get("drawings_rev"))
     sd_total = sd_sub + sd_app + sd_rev
     wir_sub, wir_app, wir_rev = num(latest.get("ir_sub")), num(latest.get("ir_app")), num(latest.get("ir_rev"))
@@ -819,7 +692,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 4) التقييم الفني (قسم مستقل) ----------
     story.append(KeepTogether([
         _section_title(t(lang, "sec_eval"), align=align),
         Spacer(1, 3 * mm),
@@ -832,7 +704,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 5) أوامر تغيير المقاول + 6) تواريخ عقد المقاول + 7) مستخلصات المقاول ----------
     story.append(KeepTogether([
         _section_title(t(lang, "sec_financial"), align=align),
         Spacer(1, 2 * mm),
@@ -850,7 +721,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 9) صور التقدم الأسبوعية ----------
     photo_urls = [latest.get("file_link_1"), latest.get("file_link_2"), latest.get("file_link_3"), latest.get("file_link_4")]
     story.append(KeepTogether([
         _section_title(t(lang, "sec_photos"), align=align),
@@ -859,7 +729,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- 10) المسقط الأيزومتري ----------
     iso_img = _fetch_image_flowable(latest.get("isometric_link"), 165 * mm, 90 * mm)
     if iso_img:
         iso_wrap = Table([[iso_img]], colWidths=[170 * mm])
@@ -874,7 +743,6 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     ]))
     story.append(Spacer(1, 6 * mm))
 
-    # ---------- الأعمال المنجزة/الجارية/المخططة ----------
     works_items = [
         (t(lang, "works_completed"), "works_completed"),
         (t(lang, "works_ongoing"), "works_ongoing"),
@@ -891,29 +759,56 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
         story.append(KeepTogether(works_block))
         story.append(Spacer(1, 3 * mm))
 
-    # ---------- المعوقات ----------
-    obstacles = []
-    try:
-        raw = latest.get("obstacles_data")
-        obstacles = json.loads(raw) if raw else []
-    except Exception:
-        obstacles = []
+    # ---------- المعوقات المجمعة مع التقسيم التلقائي ----------
+    all_obstacles = {}
+    for rec in records:
+        raw_obs = rec.get("obstacles_data")
+        try:
+            obs_list = json.loads(raw_obs) if isinstance(raw_obs, str) else (raw_obs or [])
+            if isinstance(obs_list, list):
+                for o in obs_list:
+                    if o and o.get("description"):
+                        desc = o.get("description").strip()
+                        all_obstacles[desc] = {
+                            "description": desc,
+                            "impact": o.get("impact") or "غير مؤثر",
+                            "closed": str(o.get("closed")).lower() in ['true', '1']
+                        }
+        except Exception:
+            pass
 
-    if obstacles:
+    final_obstacles = list(all_obstacles.values())
+    final_obstacles.sort(key=lambda x: x["closed"])
+
+    if final_obstacles:
         rows = [[P(t(lang, "col_desc"), size=9, bold=True, color=WHITE, align=align),
                  P(t(lang, "col_impact"), size=9, bold=True, color=WHITE, align=TA_CENTER),
                  P(t(lang, "col_status"), size=9, bold=True, color=WHITE, align=TA_CENTER)]]
         row_bgs = []
-        for o in obstacles:
+        for o in final_obstacles:
             impact = o.get("impact", "-")
             impact_label = t(lang, f"impact_{impact}") if f"impact_{impact}" in TXT.get(lang, {}) else impact
             status_label = t(lang, "status_resolved") if o.get("closed") else t(lang, "status_open")
+            
+            # تقسيم النص بناءً على الفواصل المختلفة
+            desc_text = o.get("description", "-")
+            parts = [p.strip() for p in re.split(r'[_\/*,،\-]+', desc_text) if p.strip()]
+            
+            # إنشاء فقرة لكل نقطة مفصولة داخل خلية الجدول
+            desc_flowables = []
+            if len(parts) > 1:
+                for p in parts:
+                    desc_flowables.append(P(f"• {p}", size=8.5, align=TA_RIGHT))
+            else:
+                desc_flowables.append(P(parts[0] if parts else desc_text, size=8.5, align=TA_RIGHT))
+
             rows.append([
-                P(o.get("description", "-"), size=8.5, align=TA_RIGHT),
+                desc_flowables,
                 P(impact_label, size=8.5, align=TA_CENTER),
                 P(status_label, size=8.5, align=TA_CENTER),
             ])
             row_bgs.append(IMPACT_COLORS.get(impact, (MUTED, BG_MUTED))[1])
+        
         tbl = Table(rows, colWidths=[95 * mm, 35 * mm, 35 * mm])
         style_cmds = [
             ("BACKGROUND", (0, 0), (-1, 0), NAVY),
@@ -929,8 +824,10 @@ def build_project_pdf(project_name, records, generated_by=None, lang="ar"):
     else:
         obstacles_content = P(t(lang, "no_obstacles"), size=9, color=MUTED, align=align)
 
+    # استخدام التسمية الجديدة "المعوقات الحالية (مجمعة)" إذا كانت متوفرة في القاموس
+    sec_obs_title = t(lang, "sec_obstacles")
     story.append(KeepTogether([
-        _section_title(t(lang, "sec_obstacles"), align=align),
+        _section_title(sec_obs_title, align=align),
         Spacer(1, 2 * mm),
         obstacles_content,
     ]))
