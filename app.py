@@ -249,11 +249,10 @@ async def get_project_pdf(request: Request, project: str = None, lang: str = "ar
     auth_user = request.cookies.get("auth_user")
     lang = "en" if lang == "en" else "ar"
 
-    if admin_user:
-        target_project = project
-        if not target_project:
-            return HTMLResponse(content="<h3>يجب تحديد اسم المشروع</h3>", status_code=400)
-    elif auth_user:
+    # بنبدأ بفحص جلسة مدير المشروع (auth_user) قبل جلسة الأدمن، عشان لو المتصفح
+    # فيه كوكيز الاتنين مع بعض (سبق دخل أدمن قبل كده)، زرار تحميل الـ PDF بتاع
+    # my_dashboard.html (اللي بيعتمد على auth_user وما بيبعتش project أبداً) يفضل شغال صح.
+    if auth_user:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT project_name FROM users WHERE username=%s", (auth_user,))
@@ -262,6 +261,10 @@ async def get_project_pdf(request: Request, project: str = None, lang: str = "ar
         if not user:
             return HTMLResponse(content="<h3>غير مصرح</h3>", status_code=401)
         target_project = user[0]  # نتجاهل أي project مُرسل من العميل حماية لبيانات باقي المشاريع
+    elif admin_user:
+        target_project = project
+        if not target_project:
+            return HTMLResponse(content="<h3>يجب تحديد اسم المشروع</h3>", status_code=400)
     else:
         return HTMLResponse(content="<h3>غير مصرح، يرجى تسجيل الدخول.</h3>", status_code=401)
 
