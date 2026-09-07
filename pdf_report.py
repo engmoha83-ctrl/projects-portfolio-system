@@ -465,8 +465,8 @@ def _duration_donut(elapsed_pct, remaining_pct, lang="ar"):
     return drawing
 
 def _spi_gauge(spi, lang="ar"):
-    """مؤشر أداء جدولي (SPI) على هيئة Gauge نصف دائري مع مدى يصل إلى 1.5"""
-    max_val = 1.5
+    max_val = 1.0
+    # إبرة المؤشر تقف عند 1 كحد أقصى بصرياً
     spi_c = max(0.0, min(spi, max_val))
     width, height = 170 * mm, 46 * mm
     cx, cy, r, inner_r = 60 * mm, 4 * mm, 34 * mm, 19 * mm
@@ -488,6 +488,8 @@ def _spi_gauge(spi, lang="ar"):
     drawing.add(Circle(cx, cy, 3.2, fillColor=NAVY_DARK, strokeColor=NAVY_DARK))
 
     value_color = SUCCESS if spi >= 0.9 else (WARNING if spi >= 0.8 else DANGER)
+    
+    # كتابة الرقم الحقيقي مهما زاد عن 1
     drawing.add(String(cx, cy + 12, f"{spi:.2f}", fontName="Arabic-Bold", fontSize=18, fillColor=value_color, textAnchor="middle"))
     drawing.add(String(cx, cy - 9, ar(t(lang, "spi_label")), fontName="Arabic", fontSize=7.5, fillColor=MUTED, textAnchor="middle"))
     return drawing
