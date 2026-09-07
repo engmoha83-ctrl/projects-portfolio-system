@@ -17,15 +17,14 @@
         .hub-header h1 { color: #fff; }
         .hub-header .brand-badge {
             width: 60px; height: 60px; border-radius: 16px; margin: 0 auto 1rem;
-            background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
-            color: var(--navy-900); font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+            background: #fff; padding: 5px; object-fit: contain; box-shadow: var(--shadow-sm);
         }
     </style>
 </head>
 <body>
 
     <div class="hub-header">
-        <div class="brand-badge">م س</div>
+        <img src="/static/img/logo.png" alt="المعماريون السعوديون" class="brand-badge">
         <h1 class="fw-bold mb-2">بوابة الإدارة المركزية (PMIS)</h1>
         <p class="mb-3" style="opacity:0.85;">اختر النظام الذي تود الدخول إليه يا مهندس محمد</p>
         <a href="/admin-logout" class="btn-logout d-inline-flex">تسجيل الخروج</a>
@@ -34,7 +33,6 @@
     <div class="container mb-5">
         <div class="row justify-content-center g-4">
 
-            <!-- الكارت 1: متاح للجميع -->
             <div class="col-md-6 col-lg-4">
                 <a href="/admin-dashboard" class="hub-card">
                     <div class="hub-icon">📋</div>
@@ -43,9 +41,7 @@
                 </a>
             </div>
 
-            <!-- الكروت التالية تظهر لحساب الإدارة العليا فقط -->
             {% if admin_user == 'admin_mohamed' %}
-
             <div class="col-md-6 col-lg-4">
                 <a href="/admin-analytics" class="hub-card">
                     <div class="hub-icon">📊</div>
@@ -85,8 +81,6 @@
                     <div class="hub-desc">إنشاء حسابات دخول جديدة لمديري المشاريع، وتعديلها أو إعادة تعيين كلمات المرور.</div>
                 </a>
             </div>
-
-
             {% endif %}
 
         </div>
