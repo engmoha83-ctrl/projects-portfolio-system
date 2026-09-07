@@ -186,27 +186,28 @@
                 });
                 
                 document.getElementById('obstacles-list').innerHTML = finalObstacles.map(o => {
-                    let statusText = o.closed ? '✅ تم الحل' : '⏳ قائم';
+                    let statusText = o.closed ? '✅ ' + (typeof trn === 'function' ? trn('status_resolved') : 'تم الحل') : '⏳ ' + (typeof trn === 'function' ? trn('status_open') : 'قائم');
                     let impactText = o.impact || '';
+                    if (typeof I18N !== 'undefined' && typeof currentLang !== 'undefined' && I18N[currentLang] && I18N[currentLang]['impact_' + o.impact]) {
+                        impactText = I18N[currentLang]['impact_' + o.impact];
+                    }
 
                     // تقسيم النص بناءً على الفواصل
                     let parts = o.description.split(/[_\/*,،\-]+/).map(p => p.trim()).filter(p => p.length > 0);
-                    let formattedDesc = '';
                     
-                    if (parts.length > 1) {
-                        formattedDesc = '<ul class="mb-0 ps-3 mt-1" style="list-style-type: circle;">' + parts.map(p => `<li style="margin-bottom: 3px;">${p}</li>`).join('') + '</ul>';
-                    } else {
-                        formattedDesc = parts[0] || o.description;
-                    }
+                    // إنشاء صندوق مستقل لكل مشكلة تم فصلها مع إرفاق التقييم الخاص بها
+                    return parts.map(p => {
+                        return `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'} d-flex justify-content-between align-items-center gap-3 mb-2">
+                            <div style="line-height: 1.6; flex-grow: 1;"><strong>${p}</strong></div>
+                            <span class="badge bg-white text-dark border opacity-75 text-wrap text-center" style="min-width: 85px; font-size:0.75rem;">${statusText}<br>${impactText}</span>
+                        </div>`;
+                    }).join('');
 
-                    return `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'} d-flex justify-content-between align-items-start gap-3">
-                        <div style="line-height: 1.6; flex-grow: 1;"><strong>${formattedDesc}</strong></div>
-                        <span class="badge bg-white text-dark border opacity-75 text-wrap text-center" style="min-width: 85px; font-size:0.75rem;">${statusText}<br>${impactText}</span>
-                    </div>`;
                 }).join('');
 
             } else { 
-                document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p>'; 
+                let noObsText = typeof trn === 'function' ? trn('no_obstacles') : 'لا توجد معوقات مسجلة.';
+                document.getElementById('obstacles-list').innerHTML = `<p class="text-muted small mb-0">${noObsText}</p>`; 
             }
         }
     </script>
