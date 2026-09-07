@@ -12,10 +12,10 @@
     <style>
         .picker-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
         .picker-bar select { min-width: 280px; }
-        .obstacle-item { border-radius: var(--radius-sm); padding: 0.6rem 0.9rem; margin-bottom: 0.5rem; font-size: 0.88rem; }
-        .obstacle-high { background: var(--danger-bg); color: var(--danger); }
-        .obstacle-medium { background: var(--warning-bg); color: var(--warning); }
-        .obstacle-low, .obstacle-none { background: var(--bg-muted); color: var(--text-body); }
+        .obstacle-item { border-radius: var(--radius-sm); padding: 0.8rem 1rem; margin-bottom: 0.75rem; font-size: 0.9rem; }
+        .obstacle-high { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(217,70,63,0.15); }
+        .obstacle-medium { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(217,148,37,0.15); }
+        .obstacle-low, .obstacle-none { background: var(--bg-muted); color: var(--text-body); border: 1px solid var(--border-soft); }
         .eval-bar { height: 8px; border-radius: 999px; background: var(--bg-muted); overflow: hidden; }
         .eval-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-500), var(--navy-700)); }
         .info-row { display: flex; justify-content: space-between; padding: 0.45rem 0; border-bottom: 1px dashed var(--border-soft); font-size: 0.9rem; }
@@ -102,6 +102,7 @@
     <script>
         let progressChart = null, docsChart = null;
         function fmtNum(v) { return Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
+        
         function loadProject() {
             const project = document.getElementById('projectSelect').value;
             if (!project) return;
@@ -114,8 +115,10 @@
                 document.getElementById('initial-msg').style.display = 'none'; document.getElementById('dashboard-content').style.display = 'block';
             });
         }
+        
         function renderDashboard(records) {
             const latest = records[records.length - 1];
+            
             document.getElementById('info-manager').innerText = latest.manager_name || '-';
             document.getElementById('info-type').innerText = latest.project_type || '-';
             document.getElementById('info-owner').innerText = latest.project_owner || '-';
@@ -149,7 +152,7 @@
             const evals = [ { label: 'توفر العمالة', val: latest.eval_labor || 0 }, { label: 'توفر المعدات', val: latest.eval_equip || 0 }, { label: 'القدرة المالية', val: latest.eval_financial || 0 }, { label: 'الالتزام بالسلامة', val: latest.eval_hse || 0 } ];
             document.getElementById('eval-list').innerHTML = evals.map(e => `<div class="mb-3"><div class="d-flex justify-content-between small mb-1"><span>${e.label}</span><strong>${e.val}/10</strong></div><div class="eval-bar"><span style="width:${e.val * 10}%"></span></div></div>`).join('');
 
-            // --- تجميع جميع المعوقات من كل التحديثات للمشروع بدون تكرار مع تحديث الحالة ---
+            // --- تجميع ومعالجة المعوقات ---
             let allObstacles = {}; 
             records.forEach(record => {
                 let obsList = [];
@@ -158,6 +161,7 @@
                 } catch (e) { 
                     obsList = []; 
                 }
+                
                 if (Array.isArray(obsList)) {
                     obsList.forEach(obs => {
                         if(obs && obs.description) {
@@ -172,8 +176,10 @@
             });
 
             let finalObstacles = Object.values(allObstacles);
+
             if (finalObstacles.length > 0) {
                 const impactClass = { 'كبير': 'obstacle-high', 'متوسط': 'obstacle-medium', 'منخفض': 'obstacle-low', 'غير مؤثر': 'obstacle-none' };
+                
                 finalObstacles.sort((a, b) => {
                     if (a.closed === b.closed) return 0;
                     return a.closed ? 1 : -1;
@@ -182,8 +188,23 @@
                 document.getElementById('obstacles-list').innerHTML = finalObstacles.map(o => {
                     let statusText = o.closed ? '✅ تم الحل' : '⏳ قائم';
                     let impactText = o.impact || '';
-                    return `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'}"><strong>${o.description || ''}</strong><span class="float-start">${statusText} — ${impactText}</span></div>`;
+
+                    // تقسيم النص بناءً على الفواصل
+                    let parts = o.description.split(/[_\/*,،\-]+/).map(p => p.trim()).filter(p => p.length > 0);
+                    let formattedDesc = '';
+                    
+                    if (parts.length > 1) {
+                        formattedDesc = '<ul class="mb-0 ps-3 mt-1" style="list-style-type: circle;">' + parts.map(p => `<li style="margin-bottom: 3px;">${p}</li>`).join('') + '</ul>';
+                    } else {
+                        formattedDesc = parts[0] || o.description;
+                    }
+
+                    return `<div class="obstacle-item ${impactClass[o.impact] || 'obstacle-none'} d-flex justify-content-between align-items-start gap-3">
+                        <div style="line-height: 1.6; flex-grow: 1;"><strong>${formattedDesc}</strong></div>
+                        <span class="badge bg-white text-dark border opacity-75 text-wrap text-center" style="min-width: 85px; font-size:0.75rem;">${statusText}<br>${impactText}</span>
+                    </div>`;
                 }).join('');
+
             } else { 
                 document.getElementById('obstacles-list').innerHTML = '<p class="text-muted small mb-0">لا توجد معوقات مسجلة.</p>'; 
             }
