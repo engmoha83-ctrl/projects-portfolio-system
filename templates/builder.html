@@ -99,7 +99,8 @@ button{font-family:inherit;}
   position:absolute; z-index:1; display:flex; flex-direction:column; overflow:visible;
   background:#fff; transition:box-shadow .12s;
 }
-.bw.selected{outline:2px solid var(--ui-accent); outline-offset:1px; z-index:5;}
+.bw.selected{outline:2px dashed #74b3e0; outline-offset:1px; z-index:5;}
+.bw.selected.primary{outline:2px solid var(--ui-accent);}
 .bw-title{
   flex:0 0 auto; padding:7px 10px; font-weight:700; line-height:1.35; overflow:hidden;
   text-overflow:ellipsis; white-space:nowrap;
@@ -110,7 +111,7 @@ button{font-family:inherit;}
 .bw-tools{
   position:absolute; top:-30px; inset-inline-start:0; display:none; gap:4px; z-index:20;
 }
-.bw.selected .bw-tools{display:flex;}
+.bw.primary .bw-tools{display:flex;}
 .bw-tools button{
   background:var(--ui-bar); color:#fff; border:none; border-radius:6px; width:26px; height:26px;
   font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
@@ -119,7 +120,7 @@ button{font-family:inherit;}
 .bw-tools button.del:hover{background:var(--ui-danger);}
 .hnd{position:absolute; width:10px; height:10px; background:#fff; border:2px solid var(--ui-accent);
      border-radius:2px; z-index:10; display:none;}
-.bw.selected .hnd{display:block;}
+.bw.primary .hnd{display:block;}
 /* مقابض التحجيم بإحداثيات فيزيائية (يسار/يمين) حتى لا تنعكس مع اتجاه الصفحة RTL */
 .hnd[data-d="nw"]{top:-5px; left:-5px; cursor:nwse-resize;}
 .hnd[data-d="ne"]{top:-5px; right:-5px; cursor:nesw-resize;}
@@ -141,6 +142,8 @@ button{font-family:inherit;}
 }
 .txt-placeholder{opacity:.45;}
 
+.marquee{position:absolute; border:1.5px dashed var(--ui-accent); background:rgba(38,133,201,.10);
+         z-index:60; pointer-events:none; border-radius:3px;}
 .guide{position:absolute; background:#ff2d78; z-index:50; pointer-events:none;}
 .guide.v{width:1px; top:0; bottom:0;}
 .guide.h{height:1px; left:0; right:0;}
@@ -245,7 +248,8 @@ input[type=range]{width:100%;}
   margin-bottom:5px; font-size:.76rem; cursor:pointer; background:#fff;
 }
 .layer:hover{border-color:var(--ui-accent);}
-.layer.on{background:#eef5fb; border-color:var(--ui-accent); font-weight:700;}
+.layer.on{background:#eef5fb; border-color:#74b3e0; font-weight:700;}
+.layer.on.pri{border-color:var(--ui-accent); box-shadow:0 0 0 1px var(--ui-accent);}
 .layer .lyr-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
 /* ============ نافذة منبثقة ============ */
@@ -283,6 +287,7 @@ input[type=range]{width:100%;}
   <div class="sep"></div>
   <select class="tb-select" id="projectSel" title="المشروع">
     <option value="">— اختر المشروع —</option>
+    <option value="__ALL__">🌐 كل المشاريع (مجمّع)</option>
     {% for p in projects %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
   </select>
   <input class="tb-input" id="layoutName" placeholder="اسم القالب" value="قالب جديد">
@@ -400,11 +405,12 @@ const PAGE_PRESETS = {
 
 /* ---------------- الحالة ---------------- */
 const S = {
-  project:'', records:[], latest:null, pm:null,
+  project:'', mode:'single', records:[], latest:null, pm:null,
+  projLatest:[], projNames:[],
   layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
   page:{preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
         theme:'navy', grid:10, snap:true, showGrid:true, noOverlap:false},
-  widgets:[], selected:null, zoom:1, seq:1,
+  widgets:[], selected:null, multi:[], zoom:1, seq:1,
   charts:{}, undo:[], redo:[], dirty:false
 };
 
@@ -453,6 +459,74 @@ function fmtValue(v, type, o){
 }
 function pct(v){ let n = num(v); if(Math.abs(n) <= 1.0001) n *= 100; return +n.toFixed(2); }
 
+/* ---------------- تجميع بيانات كل المشاريع ---------------- */
+const ALL_PROJECTS = '__ALL__';
+
+function aggregate(rows){
+  if(!rows || !rows.length) return null;
+  const out = {};
+  const wts  = rows.map(r => num(r.contractor_val) || 0);
+  const wsum = wts.reduce((a, b) => a + b, 0);
+
+  FIELD_META.forEach(f => {
+    const k = f.key, t = f.type;
+    if(t === 'percent'){
+      const vals = rows.map(r => pct(r[k]));
+      const avg = wsum > 0
+        ? vals.reduce((a, v, i) => a + v * wts[i], 0) / wsum      // متوسط مرجّح بقيمة العقد
+        : vals.reduce((a, v) => a + v, 0) / vals.length;
+      out[k] = avg / 100;                                          // نفس تخزين قاعدة البيانات (0–1)
+    }else if(t === 'currency' || t === 'number'){
+      out[k] = rows.reduce((a, r) => a + num(r[k]), 0);            // مجموع
+    }else if(t === 'days'){
+      out[k] = Math.round(rows.reduce((a, r) => a + num(r[k]), 0) / rows.length);  // متوسط
+    }else if(t === 'date'){
+      const ds = rows.map(r => r[k]).filter(Boolean).sort();
+      if(ds.length) out[k] = /^(start|current)/.test(k) ? ds[0] : ds[ds.length - 1];
+      else out[k] = null;
+    }else if(t === 'image'){ out[k] = ''; }
+  });
+
+  // المعوقات: تُدمج مع اسم المشروع
+  let obs = [];
+  rows.forEach(r => {
+    let l = r.obstacles_data;
+    if(typeof l === 'string'){ try{ l = JSON.parse(l || '[]'); }catch(e){ l = []; } }
+    if(Array.isArray(l)) l.forEach(o => {
+      if(o && (o.description || o.obstacle))
+        obs.push(Object.assign({}, o, {description:`[${r.project_name}] ${o.description || o.obstacle}`}));
+    });
+  });
+  out.obstacles_data = obs;
+
+  const names = Array.from(new Set(rows.map(r => r.project_name).filter(Boolean)));
+  out.project_name  = `كل المشاريع (${names.length})`;
+  out.project_desc  = 'ملخص مجمّع لكل المشاريع المسجَّلة في النظام';
+  out.project_type  = '—'; out.manager_name = `${names.length} مدير مشروع`;
+  out.project_owner = '—'; out.project_developer = '—'; out.project_contractor = '—';
+  out.works_completed = out.works_ongoing = out.works_planned = '—';
+  return out;
+}
+
+/* آخر تحديث لكل مشروع */
+function latestPerProject(rows){
+  const m = {};
+  rows.forEach(r => {
+    const k = r.project_name; if(!k) return;
+    if(!m[k] || String(r.current_data_date || '') >= String(m[k].current_data_date || '')) m[k] = r;
+  });
+  return Object.keys(m).sort().map(k => m[k]);
+}
+
+/* خط زمني مجمّع: تجميع كل المشاريع في كل تاريخ */
+function aggregateTimeline(rows){
+  const byDate = {};
+  rows.forEach(r => { const d = r.current_data_date || ''; (byDate[d] = byDate[d] || []).push(r); });
+  return Object.keys(byDate).sort().map(d => {
+    const a = aggregate(byDate[d]); a.current_data_date = d; return a;
+  });
+}
+
 /* ---------------- سجل التراجع ---------------- */
 function snapshot(){
   S.undo.push(JSON.stringify({widgets:S.widgets, page:S.page}));
@@ -463,7 +537,8 @@ function applyState(str){
   const prev = S.selected;
   const st = JSON.parse(str);
   S.widgets = st.widgets; S.page = st.page;
-  S.selected = S.widgets.some(w => w.id === prev) ? prev : null;   // حافظ على العنصر المحدد
+  S.multi = (S.multi || []).filter(id => S.widgets.some(w => w.id === id));
+  S.selected = S.widgets.some(w => w.id === prev) ? prev : (S.multi[0] || null);   // حافظ على التحديد
   renderAll(); buildPageTab(); buildPropsTab();
 }
 function doUndo(){
@@ -793,13 +868,19 @@ const VISUALS = {
   },
   radar_eval:{
     name:'التقييم الفني', icon:'🕸️', w:360, h:310,
-    opts:{showValues:true, dl:Object.assign({}, DL_DEFAULT, {show:true, size:11})},
+    opts:{numMode:'axis', showValues:false,
+          dl:Object.assign({}, DL_DEFAULT, {show:true, size:11, bg:true, bgColor:'#ffffff'})},
     title:'التقييم الفني للمشروع',
     render(body, w){
       if(!S.latest) return empty(body);
       const fields = ['eval_labor','eval_equip','eval_financial','eval_hse'];
-      const names = ['العمالة','المعدات','المالي','السلامة'];
-      const data = fields.map(f => num(S.latest[f]));
+      const names  = ['العمالة','المعدات','المالي','السلامة'];
+      const data   = fields.map(f => num(S.latest[f]));
+      const mode   = w.opts.numMode || 'axis';
+
+      // الأرقام مع أسماء المحاور: لا تتداخل أبداً مع النص
+      const cats = (mode === 'axis') ? names.map((n, i) => `${n}: ${data[i]}`) : names;
+
       const strip = w.opts.showValues
         ? `<div class="gauge-vals" style="font-size:${Math.max(10, wSize(w) - 1)}px">` +
           names.map((n, i) => `<span><i style="background:${theme().palette[0]}"></i>${n}: <b>${data[i]}</b></span>`).join('') +
@@ -807,11 +888,16 @@ const VISUALS = {
       body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${strip}</div>`;
       const reserve = measureStrip(body);
       const avail = Math.min(w.w - 20, w.h - (w.title.show ? 38 : 0) - 14 - reserve);
-      const rsize = Math.max(50, Math.round(avail / 2) - 42);   // مجال كافٍ لتسميات المحاور
+      // مساحة إضافية للرؤوس عندما تُرسم الأرقام على الرسم نفسه
+      const inset = (mode === 'chart') ? 62 : 42;
+      const rsize = Math.max(45, Math.round(avail / 2) - inset);
+
       mkChart(body, w, {
         chart:{type:'radar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
-        series:[{name:'التقييم', data}], labels:names, colors:[theme().palette[0]],
-        dataLabels:dlOpts(w, theme().text, v => num(v).toLocaleString('en-US')),
+        series:[{name:'التقييم', data}], labels:cats, colors:[theme().palette[0]],
+        dataLabels:(mode === 'chart')
+          ? dlOpts(w, theme().text, v => num(v).toLocaleString('en-US'))
+          : {enabled:false},
         markers:{size:4}, yaxis:{show:false},
         plotOptions:{radar:{size:rsize,
           polygons:{strokeColors:'rgba(125,125,125,.25)', connectorColors:'rgba(125,125,125,.25)'}}},
@@ -830,6 +916,67 @@ const VISUALS = {
         return `<tr><td>${m.label}</td><td>${fmtValue(S.latest[f], m.type, {})}</td></tr>`;
       }).join('');
       body.innerHTML = `<table class="tbl">${rows}</table>`;
+    }
+  },
+  projects_compare:{
+    name:'مقارنة المشاريع', icon:'🏗️', w:540, h:330,
+    opts:{field:'act_prog_cur', sort:'desc', topN:0, horizontal:true, showAvg:true,
+          dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
+    title:'مقارنة المشاريع',
+    render(body, w){
+      if(S.mode !== 'all' || !S.projLatest.length){
+        body.innerHTML = `<div class="empty-note">هذا القالب يعمل في وضع «🌐 كل المشاريع» —
+          اختره من قائمة المشروع في الشريط العلوي.</div>`;
+        return;
+      }
+      const f = w.opts.field, t = (FIELD_MAP[f] || {}).type || 'number';
+      let items = S.projLatest.map(r => ({
+        n:r.project_name || '—',
+        v:t === 'percent' ? pct(r[f]) : num(r[f])
+      }));
+      if(w.opts.sort === 'desc') items.sort((a, b) => b.v - a.v);
+      if(w.opts.sort === 'asc')  items.sort((a, b) => a.v - b.v);
+      if(w.opts.topN > 0) items = items.slice(0, w.opts.topN);
+
+      const fmt = fmtByType(t === 'percent' ? 'percent' : t);
+      const avg = items.reduce((a, i) => a + i.v, 0) / (items.length || 1);
+      const hz = !!w.opts.horizontal;
+      const axFont = {colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'};
+      const numFmt = t === 'percent' ? (v => Math.round(v) + '%')
+                   : (t === 'currency' ? (v => compactNum(num(v))) : (v => Math.round(num(v)).toLocaleString('en-US')));
+      const catAxis = {trim:true, maxHeight:76, style:axFont,
+                       rotate:(!hz && items.length > 4) ? -35 : 0, rotateAlways:(!hz && items.length > 4)};
+      if(hz){ catAxis.maxWidth = Math.max(90, Math.round(w.w * 0.34)); catAxis.align = 'right'; }
+      const valAxis = {formatter:numFmt, style:axFont};
+
+      let hostEl = null;
+      if(hz){
+        body.innerHTML = '<div style="width:100%;height:100%;direction:ltr"></div>';
+        hostEl = body.firstChild;
+      }
+      mkChart(body, w, {
+        chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
+        series:[{name:lbl(f), data:items.map(i => i.v)}], colors:theme().palette,
+        plotOptions:{bar:{horizontal:hz, distributed:true, borderRadius:5,
+                          columnWidth:'60%', barHeight:'62%'}},
+        dataLabels:dlOpts(w, '#ffffff', (v, o) => {
+          const i = o && o.dataPointIndex;
+          return fmt((i !== undefined && i !== null && items[i]) ? items[i].v : v);
+        }),
+        xaxis:{categories:items.map(i => i.n), labels:hz ? valAxis : catAxis},
+        yaxis:{labels:hz ? catAxis : valAxis},
+        annotations:w.opts.showAvg ? (hz
+          ? {xaxis:[{x:avg, borderColor:'#6c7a91', strokeDashArray:4,
+                     label:{text:'المتوسط ' + fmt(+avg.toFixed(1)), orientation:'horizontal',
+                            position:'top', offsetY:-4,
+                            style:{fontSize:'10px', background:'#6c7a91', color:'#fff'}}}]}
+          : {yaxis:[{y:avg, borderColor:'#6c7a91', strokeDashArray:4,
+                     label:{text:'المتوسط ' + fmt(+avg.toFixed(1)),
+                            style:{fontSize:'10px', background:'#6c7a91', color:'#fff'}}}]}) : {},
+        grid:{borderColor:'rgba(125,125,125,.18)'},
+        legend:{show:false},
+        tooltip:{y:{formatter:v => fmt(v)}}
+      }, {host:hostEl});
     }
   },
   obstacles:{
@@ -984,7 +1131,7 @@ function addWidget(type){
     opts:clone(t.opts)
   };
   S.widgets.push(w);
-  drawWidget(w); select(w.id);
+  drawWidget(w); select(w.id);   // تحديد مفرد للعنصر الجديد
   switchTab('props');
   if(type === 'text'){                          // ابدأ الكتابة فوراً في مربع النص الجديد
     setTimeout(() => {
@@ -993,13 +1140,45 @@ function addWidget(type){
     }, 60);
   }
 }
+function removeSelected(){
+  if(!S.multi.length) return;
+  snapshot();
+  S.multi.slice().forEach(id => {
+    if(S.charts[id]){ try{ S.charts[id].destroy(); }catch(e){} delete S.charts[id]; }
+    const el = document.getElementById(id); if(el) el.remove();
+  });
+  S.widgets = S.widgets.filter(w => S.multi.indexOf(w.id) < 0);
+  S.multi = []; S.selected = null;
+  buildPropsTab(); buildLayersList();
+}
+function duplicateSelected(){
+  const ws = selWidgets(); if(!ws.length) return;
+  snapshot();
+  const ids = [];
+  ws.forEach(src => {
+    const c = clone(src); c.id = uid(); c.x = snap(src.x + 20); c.y = snap(src.y + 20);
+    S.widgets.push(c); drawWidget(c); ids.push(c.id);
+  });
+  S.multi = ids; S.selected = ids[ids.length - 1];
+  paintSelection(); buildPropsTab(); buildLayersList();
+}
+function nudgeSelected(dx, dy){
+  const ws = selWidgets(); if(!ws.length) return;
+  ws.forEach(w => {
+    w.x = Math.max(0, Math.min(S.page.w - w.w, w.x + dx));
+    w.y = Math.max(0, Math.min(S.page.h - w.h, w.y + dy));
+    drawWidget(w);
+  });
+  buildPropsTab();
+}
 function removeWidget(id){
   snapshot();
   if(S.charts[id]){ try{ S.charts[id].destroy(); }catch(e){} delete S.charts[id]; }
   S.widgets = S.widgets.filter(w => w.id !== id);
   const el = document.getElementById(id); if(el) el.remove();
-  if(S.selected === id) S.selected = null;
-  buildPropsTab();
+  S.multi = S.multi.filter(x => x !== id);
+  if(S.selected === id) S.selected = S.multi[S.multi.length - 1] || null;
+  buildPropsTab(); buildLayersList();
 }
 function duplicateWidget(id){
   const src = S.widgets.find(w => w.id === id); if(!src) return;
@@ -1036,7 +1215,10 @@ function drawWidget(w){
       else if(a === 'front'){ snapshot(); page.appendChild(el); reorderModel(w.id, 1); }
       else if(a === 'back'){ snapshot(); page.insertBefore(el, page.firstChild); reorderModel(w.id, -1); }
     }));
-    el.addEventListener('mousedown', () => select(w.id));
+    el.addEventListener('mousedown', ev => {
+      if(ev.target.closest('.bw-drag, .hnd, .bw-tools')) return;   // تُعالَج في مكانها
+      smartSelect(w.id, ev);
+    });
     el.addEventListener('dblclick', function(ev){
       if(el.classList.contains('editing')) return;
       var titleEl = el.querySelector('.bw-title');
@@ -1136,13 +1318,45 @@ function renderAll(){
   S.charts = {}; page.innerHTML = '';
   applyPageStyle();
   S.widgets.forEach(drawWidget);
-  if(S.selected) select(S.selected);
+  S.multi = S.multi.filter(id => S.widgets.some(w => w.id === id));
+  if(S.selected && S.multi.indexOf(S.selected) < 0) S.selected = S.multi[S.multi.length - 1] || null;
+  paintSelection();
   buildLayersList();
 }
-function select(id){
-  S.selected = id;
-  document.querySelectorAll('.bw').forEach(e => e.classList.toggle('selected', e.id === id));
-  buildPropsTab(); buildLayersList();
+function paintSelection(){
+  document.querySelectorAll('.bw').forEach(e => {
+    e.classList.toggle('selected', S.multi.indexOf(e.id) >= 0);
+    e.classList.toggle('primary', e.id === S.selected);
+  });
+}
+function selWidgets(){ return S.widgets.filter(w => S.multi.indexOf(w.id) >= 0); }
+function selBounds(){
+  const ws = selWidgets();
+  if(!ws.length) return null;
+  return {
+    x1:Math.min(...ws.map(w => w.x)), y1:Math.min(...ws.map(w => w.y)),
+    x2:Math.max(...ws.map(w => w.x + w.w)), y2:Math.max(...ws.map(w => w.y + w.h))
+  };
+}
+function select(id, additive){
+  if(!id){ S.multi = []; S.selected = null; }
+  else if(additive){
+    const i = S.multi.indexOf(id);
+    if(i >= 0){
+      if(S.multi.length > 1){ S.multi.splice(i, 1); S.selected = S.multi[S.multi.length - 1] || null; }
+      else S.selected = id;
+    }else{ S.multi.push(id); S.selected = id; }
+  }else{ S.multi = [id]; S.selected = id; }
+  paintSelection(); buildPropsTab(); buildLayersList();
+}
+/* اختيار ذكي عند الضغط: لا يكسر التحديد الجماعي عند بدء سحب المجموعة */
+function smartSelect(id, e){
+  const add = e && (e.ctrlKey || e.metaKey || e.shiftKey);
+  if(add){ select(id, true); return; }
+  if(S.multi.indexOf(id) >= 0 && S.multi.length > 1){
+    S.selected = id; paintSelection(); buildPropsTab(); buildLayersList(); return;
+  }
+  select(id);
 }
 
 /* =====================================================================
@@ -1172,10 +1386,15 @@ function magnet(val, targets, tol){
 
 function startDrag(e, id){
   if(e.button !== 0) return;
-  e.preventDefault(); select(id);
+  e.preventDefault(); smartSelect(id, e);
   const w = getW(id), el = document.getElementById(id);
   const sx = e.clientX, sy = e.clientY, ox = w.x, oy = w.y;
   const {vs, hs} = alignTargets(id);
+  const group = selWidgets().filter(o => o.id !== id).map(o => ({w:o, ox:o.x, oy:o.y}));
+  // حدود الحركة حتى لا يخرج أي عنصر من الصفحة
+  const all = [{w, ox, oy}].concat(group);
+  const dxMin = Math.max(...all.map(o => -o.ox)), dxMax = Math.min(...all.map(o => S.page.w - o.w.w - o.ox));
+  const dyMin = Math.max(...all.map(o => -o.oy)), dyMax = Math.min(...all.map(o => S.page.h - o.w.h - o.oy));
   let moved = false;
   function mv(ev){
     if(!moved){ snapshot(); moved = true; }
@@ -1195,21 +1414,29 @@ function startDrag(e, id){
       else if(mB !== null){ ny = mB - w.h; addGuide('h', mB); }
       else ny = snap(ny);
     }
-    w.x = Math.max(0, Math.min(S.page.w - w.w, Math.round(nx)));
-    w.y = Math.max(0, Math.min(S.page.h - w.h, Math.round(ny)));
+    let dx = Math.round(nx) - ox, dy = Math.round(ny) - oy;
+    dx = Math.max(dxMin, Math.min(dxMax, dx));
+    dy = Math.max(dyMin, Math.min(dyMax, dy));
+    w.x = ox + dx; w.y = oy + dy;
     el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
+    group.forEach(o => {                       // نفس الإزاحة لباقي العناصر المحددة
+      o.w.x = o.ox + dx; o.w.y = o.oy + dy;
+      const e2 = document.getElementById(o.w.id);
+      if(e2){ e2.style.left = o.w.x + 'px'; e2.style.top = o.w.y + 'px'; }
+    });
   }
   function up(){
     document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
     clearGuides();
-    if(moved && S.page.noOverlap) resolveOverlap(w);
-    drawWidget(w); buildPropsTab();
+    if(moved && S.page.noOverlap && !group.length) resolveOverlap(w);
+    drawWidget(w); group.forEach(o => drawWidget(o.w)); buildPropsTab();
   }
   document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
 }
 
 function startResize(e, id, dir){
-  e.preventDefault(); e.stopPropagation(); select(id);
+  e.preventDefault(); e.stopPropagation();
+  if(S.multi.indexOf(id) < 0 || S.multi.length === 1) select(id); else { S.selected = id; paintSelection(); }
   const w = getW(id), el = document.getElementById(id);
   const sx = e.clientX, sy = e.clientY;
   const o = {x:w.x, y:w.y, w:w.w, h:w.h};
@@ -1254,15 +1481,54 @@ function resolveOverlap(w){
   }
 }
 function alignSelected(mode){
-  const w = getW(S.selected); if(!w) return;
+  const ws = selWidgets(); if(!ws.length) return;
   snapshot();
-  if(mode === 'start')  w.x = 0;
-  if(mode === 'hcenter')w.x = Math.round((S.page.w - w.w) / 2);
-  if(mode === 'end')    w.x = S.page.w - w.w;
-  if(mode === 'top')    w.y = 0;
-  if(mode === 'vcenter')w.y = Math.round((S.page.h - w.h) / 2);
-  if(mode === 'bottom') w.y = S.page.h - w.h;
-  drawWidget(w); buildPropsTab();
+  // عنصر واحد => المحاذاة بالنسبة للصفحة، أكثر من عنصر => بالنسبة لحدود المجموعة
+  const b = (ws.length > 1) ? selBounds() : {x1:0, y1:0, x2:S.page.w, y2:S.page.h};
+  ws.forEach(w => {
+    if(mode === 'start')   w.x = b.x1;
+    if(mode === 'hcenter') w.x = Math.round((b.x1 + b.x2 - w.w) / 2);
+    if(mode === 'end')     w.x = b.x2 - w.w;
+    if(mode === 'top')     w.y = b.y1;
+    if(mode === 'vcenter') w.y = Math.round((b.y1 + b.y2 - w.h) / 2);
+    if(mode === 'bottom')  w.y = b.y2 - w.h;
+    w.x = Math.max(0, Math.min(S.page.w - w.w, w.x));
+    w.y = Math.max(0, Math.min(S.page.h - w.h, w.y));
+    drawWidget(w);
+  });
+  buildPropsTab();
+}
+function distributeSelected(axis){
+  const ws = selWidgets(); if(ws.length < 3) { toast('التوزيع يحتاج ٣ عناصر على الأقل', true); return; }
+  snapshot();
+  const key = axis === 'h' ? 'x' : 'y', size = axis === 'h' ? 'w' : 'h';
+  const sorted = ws.slice().sort((a, b) => a[key] - b[key]);
+  const first = sorted[0], last = sorted[sorted.length - 1];
+  const span = (last[key] + last[size]) - first[key];
+  const totalSize = sorted.reduce((t, w) => t + w[size], 0);
+  const gap = (span - totalSize) / (sorted.length - 1);
+  let pos = first[key];
+  sorted.forEach(w => { w[key] = Math.round(pos); pos += w[size] + gap; drawWidget(w); });
+  buildPropsTab();
+}
+function sameSizeSelected(what){
+  const ws = selWidgets(); const p = getW(S.selected);
+  if(ws.length < 2 || !p) return;
+  snapshot();
+  ws.forEach(w => {
+    if(what !== 'h') w.w = p.w;
+    if(what !== 'w') w.h = p.h;
+    w.x = Math.min(w.x, S.page.w - w.w); w.y = Math.min(w.y, S.page.h - w.h);
+    drawWidget(w);
+  });
+  buildPropsTab();
+}
+/* تطبيق تعديل تنسيق على كل العناصر المحددة بلقطة تراجع واحدة */
+function applyToSel(fn, snap){
+  const ws = selWidgets(); if(!ws.length) return;
+  if(snap !== false) snapshot();
+  ws.forEach(w => { fn(w); drawWidget(w); });
+  buildLayersList();
 }
 function autoArrange(){
   if(!S.widgets.length) return;
@@ -1343,7 +1609,7 @@ function buildTemplatesTab(){
   $('#btnClear').addEventListener('click', () => {
     if(!S.widgets.length) return;
     if(confirm('هل تريد مسح كل العناصر من الصفحة؟')){
-      snapshot(); S.widgets = []; S.selected = null; renderAll(); buildPropsTab();
+      snapshot(); S.widgets = []; S.selected = null; S.multi = []; renderAll(); buildPropsTab();
     }
   });
   buildLayersList();
@@ -1352,12 +1618,12 @@ function buildLayersList(){
   const box = $('#layersList'); if(!box) return;
   if(!S.widgets.length){ box.innerHTML = '<div class="hint">لا توجد عناصر بعد.</div>'; return; }
   box.innerHTML = S.widgets.map(w =>
-    `<div class="layer ${w.id === S.selected ? 'on' : ''}" data-id="${w.id}">
+    `<div class="layer ${S.multi.indexOf(w.id) >= 0 ? 'on' : ''}${w.id === S.selected ? ' pri' : ''}" data-id="${w.id}">
        <span>${VISUALS[w.type].icon}</span>
        <span class="lyr-name">${w.title.show && w.title.text ? w.title.text : VISUALS[w.type].name}</span>
      </div>`).join('');
-  box.querySelectorAll('.layer').forEach(l => l.addEventListener('click', () => {
-    select(l.dataset.id); switchTab('props');
+  box.querySelectorAll('.layer').forEach(l => l.addEventListener('click', ev => {
+    select(l.dataset.id, ev.ctrlKey || ev.metaKey || ev.shiftKey); switchTab('props');
   }));
 }
 
@@ -1372,9 +1638,12 @@ function ctlColor(label, val, cb, id){
 }
 function buildPropsTab(){
   const el = $('#tab-props');
+  if(S.multi.length > 1){ buildMultiProps(el); return; }
   const w = getW(S.selected);
   if(!w){
-    el.innerHTML = '<div class="hint">اختر عنصراً من الصفحة (أو من قائمة العناصر) لعرض خصائصه هنا.</div>';
+    el.innerHTML = `<div class="hint">اختر عنصراً من الصفحة (أو من قائمة العناصر) لعرض خصائصه هنا.
+      <br><br>لتحديد أكثر من عنصر: اسحب بالماوس على مساحة فارغة، أو اضغط <b>Ctrl</b> مع الضغط على العناصر،
+      أو <b>Ctrl+A</b> لتحديد الكل.</div>`;
     return;
   }
   const t = VISUALS[w.type];
@@ -1463,9 +1732,10 @@ function buildPropsTab(){
   bindProps(el, w);
 }
 
-const DL_TYPES = ['gauge','spi','progress_line','bars','radar_eval'];
+const DL_TYPES = ['gauge','spi','progress_line','bars','radar_eval','projects_compare'];
 function dataLabelsHtml(w){
   if(!DL_TYPES.includes(w.type)) return '';
+  if(w.type === 'radar_eval' && (w.opts.numMode || 'axis') !== 'chart') return '';
   const d = dlOf(w);
   return `
     <div class="grp">
@@ -1483,6 +1753,105 @@ function dataLabelsHtml(w){
       <label class="chk"><input type="checkbox" data-p="opts.dl.bg" ${d.bg ? 'checked' : ''}> خلفية خلف الأرقام (لو غير واضحة)</label>
       ${ctlColor('لون الخلفية', d.bgColor || '#1a2b4c', null, 'opts.dl.bgColor')}
     </div>`;
+}
+
+function buildMultiProps(el){
+  const ws = selWidgets(), n = ws.length;
+  const p = getW(S.selected) || ws[0];
+  el.innerHTML = `
+    <div class="grp">
+      <div class="grp-h">🧩 ${n} عناصر محددة</div>
+      <div class="btn-row" style="margin-bottom:8px;">
+        <button class="sbtn" data-mact="dup">تكرار الكل</button>
+        <button class="sbtn danger" data-mact="del">حذف الكل</button>
+      </div>
+      <div class="hint">اسحب أي عنصر منها لتحريك المجموعة كلها. Esc لإلغاء التحديد.</div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">المحاذاة (داخل حدود المجموعة)</div>
+      <div class="btn-row" style="margin-bottom:6px;">
+        <button class="sbtn" data-al="start">يمين</button>
+        <button class="sbtn" data-al="hcenter">وسط أفقي</button>
+        <button class="sbtn" data-al="end">يسار</button>
+      </div>
+      <div class="btn-row" style="margin-bottom:6px;">
+        <button class="sbtn" data-al="top">أعلى</button>
+        <button class="sbtn" data-al="vcenter">وسط رأسي</button>
+        <button class="sbtn" data-al="bottom">أسفل</button>
+      </div>
+      <div class="grp-h" style="margin-top:10px;">توزيع متساوٍ</div>
+      <div class="btn-row" style="margin-bottom:6px;">
+        <button class="sbtn" data-dist="h">أفقياً</button>
+        <button class="sbtn" data-dist="v">رأسياً</button>
+      </div>
+      <div class="grp-h" style="margin-top:10px;">توحيد المقاس (حسب العنصر الأخير المحدد)</div>
+      <div class="btn-row">
+        <button class="sbtn" data-size="w">نفس العرض</button>
+        <button class="sbtn" data-size="h">نفس الارتفاع</button>
+        <button class="sbtn" data-size="wh">الاثنين</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">تنسيق مشترك (يُطبَّق على الكل)</div>
+      ${ctlColor('لون الخلفية', p.style.bg, null, 'style.bg')}
+      ${ctlColor('لون النص', p.style.color || theme().text, null, 'style.color')}
+      <div class="row"><label>خط القالب</label><div class="ctl"><select data-m="style.font">
+        ${FONTS.map(f => `<option value="${f.v}" ${(p.style.font || FONTS[0].v) === f.v ? 'selected' : ''}>${f.n}</option>`).join('')}
+      </select></div></div>
+      <div class="row2">
+        <div class="mini"><span>حجم النص</span><input type="number" min="8" max="30" data-m="style.fontSize" value="${p.style.fontSize || 13}"></div>
+        <div class="mini"><span>الاستدارة</span><input type="number" min="0" max="30" data-m="style.radius" value="${p.style.radius}"></div>
+      </div>
+      <label class="chk"><input type="checkbox" data-m="style.shadow" ${p.style.shadow ? 'checked' : ''}> ظل خفيف</label>
+      <label class="chk"><input type="checkbox" data-m="style.border.show" ${p.style.border.show ? 'checked' : ''}> إطار</label>
+      <div class="row"><label>سماكة الإطار</label><div class="ctl">
+        <input type="range" min="0" max="8" step="1" data-m="style.border.width" value="${p.style.border.width}"></div></div>
+      ${ctlColor('لون الإطار', p.style.border.color, null, 'style.border.color')}
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">شريط العنوان (للكل)</div>
+      <label class="chk"><input type="checkbox" data-m="title.show" ${p.title.show ? 'checked' : ''}> إظهار شريط العنوان</label>
+      <div class="row"><label>الخط</label><div class="ctl"><select data-m="title.font">
+        ${FONTS.map(f => `<option value="${f.v}" ${p.title.font === f.v ? 'selected' : ''}>${f.n}</option>`).join('')}
+      </select></div></div>
+      <div class="row"><label>الحجم</label><div class="ctl">
+        <input type="number" min="8" max="40" data-m="title.size" value="${p.title.size}"></div></div>
+      ${ctlColor('لون الخط', p.title.color, null, 'title.color')}
+      ${ctlColor('خلفية العنوان', p.title.bg, null, 'title.bg')}
+    </div>`;
+
+  el.querySelectorAll('[data-mact]').forEach(b => b.addEventListener('click', () => {
+    if(b.dataset.mact === 'del') removeSelected(); else duplicateSelected();
+  }));
+  el.querySelectorAll('[data-al]').forEach(b => b.addEventListener('click', () => alignSelected(b.dataset.al)));
+  el.querySelectorAll('[data-dist]').forEach(b => b.addEventListener('click', () => distributeSelected(b.dataset.dist)));
+  el.querySelectorAll('[data-size]').forEach(b => b.addEventListener('click', () => sameSizeSelected(b.dataset.size)));
+
+  el.querySelectorAll('[data-m]').forEach(inp => {
+    const live = (inp.type === 'range');
+    let pending = true;
+    function apply(){
+      let v = inp.type === 'checkbox' ? inp.checked : inp.value;
+      if(inp.type === 'number' || inp.type === 'range') v = parseFloat(v) || 0;
+      applyToSel(w => setPath(w, inp.dataset.m, v), pending);
+      pending = false;
+    }
+    inp.addEventListener('focus', () => { pending = true; });
+    if(live) inp.addEventListener('input', apply);
+    inp.addEventListener('change', () => { apply(); pending = true; });
+  });
+  // منتقيات الألوان تُطبَّق على الكل أيضاً
+  el.querySelectorAll('[data-cb]').forEach(inp => {
+    inp.addEventListener('input', () => applyToSel(w => setPath(w, inp.dataset.cb, inp.value), false));
+    inp.addEventListener('change', () => { snapshot(); });
+  });
+  el.querySelectorAll('[data-sw]').forEach(sw => sw.addEventListener('click', () => {
+    applyToSel(w => setPath(w, sw.dataset.sw, sw.dataset.c));
+    buildPropsTab();
+  }));
 }
 
 function optionsHtml(w){
@@ -1570,8 +1939,33 @@ function optionsHtml(w){
       وللعناوين الطويلة جرّب «أعمدة أفقية» (المقياس اللوغاريتمي لا يعمل معها).</div>`;
   }
   if(w.type === 'radar_eval'){
-    return `<label class="chk"><input type="checkbox" data-p="opts.showValues" ${o.showValues?'checked':''}> إظهار قائمة القيم أسفل الرسم</label>
-      <div class="hint">لإظهار الأرقام على الرسم نفسه استخدم قسم Data Labels بالأسفل.</div>`;
+    return `
+      <div class="row"><label>مكان الأرقام</label><div class="ctl"><select data-p="opts.numMode">
+        <option value="axis"  ${(o.numMode||'axis') === 'axis'  ? 'selected' : ''}>مع أسماء المحاور (بدون تداخل)</option>
+        <option value="chart" ${o.numMode === 'chart' ? 'selected' : ''}>على رؤوس الرسم</option>
+        <option value="off"   ${o.numMode === 'off'   ? 'selected' : ''}>بدون أرقام</option>
+      </select></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.showValues" ${o.showValues?'checked':''}> إظهار قائمة القيم أسفل الرسم</label>
+      <div class="hint">«مع أسماء المحاور» هو الخيار الآمن — الأرقام تظهر بجانب الاسم فلا تغطّيه.
+      «على رؤوس الرسم» يضع الأرقام على الرؤوس، ويُفضَّل معه تفعيل خلفية الأرقام من قسم Data Labels
+      حتى تُقرأ فوق أسماء المحاور.</div>`;
+  }
+  if(w.type === 'projects_compare'){
+    const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
+    return `
+      <div class="row"><label>الحقل</label><div class="ctl"><select data-p="opts.field">
+        ${nums.map(f => `<option value="${f.key}" ${o.field === f.key ? 'selected' : ''}>${f.label}</option>`).join('')}
+      </select></div></div>
+      <div class="row"><label>الترتيب</label><div class="ctl"><select data-p="opts.sort">
+        <option value="desc" ${o.sort === 'desc' ? 'selected' : ''}>من الأكبر للأصغر</option>
+        <option value="asc"  ${o.sort === 'asc'  ? 'selected' : ''}>من الأصغر للأكبر</option>
+        <option value="none" ${o.sort === 'none' ? 'selected' : ''}>أبجدي</option>
+      </select></div></div>
+      <div class="row"><label>أفضل عدد</label><div class="ctl">
+        <input type="number" min="0" max="50" data-p="opts.topN" value="${o.topN}"></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal ? 'checked' : ''}> أعمدة أفقية</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showAvg" ${o.showAvg ? 'checked' : ''}> خط المتوسط</label>
+      <div class="hint">٠ في «أفضل عدد» = عرض كل المشاريع. يعمل فقط في وضع «كل المشاريع».</div>`;
   }
   if(w.type === 'obstacles'){
     return `
@@ -1684,7 +2078,7 @@ function bindProps(el, w){
       setPath(w, inp.dataset.p, v);
       if(['x','y','w','h'].includes(inp.dataset.p)) w[inp.dataset.p] = Math.round(v);
       drawWidget(w); buildLayersList();
-      if(['opts.pair','opts.src','opts.mode','opts.group'].includes(inp.dataset.p)) buildPropsTab();
+      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode'].includes(inp.dataset.p)) buildPropsTab();
     }
 
     inp.addEventListener('focus', () => { pending = true; });
@@ -1826,17 +2220,31 @@ function buildPageTab(){
 async function loadProject(name, opts){
   opts = opts || {};
   S.project = name;
-  if(!name){ S.records = []; S.latest = null; S.pm = null; renderAll(); updateScopeUI(); return; }
+  if(!name){ S.records = []; S.latest = null; S.pm = null; S.mode = 'single';
+             S.projLatest = []; S.projNames = []; renderAll(); updateScopeUI(); return; }
   try{
     const r = await fetch('/api/builder/data?project=' + encodeURIComponent(name));
     const j = await r.json();
     if(!j.success){ toast(j.error || 'تعذر تحميل البيانات', true); return; }
-    S.records = j.records || [];
-    S.latest = S.records.length ? S.records[S.records.length - 1] : null;
-    S.pm = j.pm || null;
+    S.mode = j.mode || 'single';
+    if(S.mode === 'all'){
+      const raw = j.records || [];
+      S.projNames  = j.projects || [];
+      S.projLatest = latestPerProject(raw);
+      S.records    = aggregateTimeline(raw);
+      S.latest     = aggregate(S.projLatest);
+      S.pm = null;
+    }else{
+      S.records = j.records || [];
+      S.latest = S.records.length ? S.records[S.records.length - 1] : null;
+      S.projLatest = []; S.projNames = [];
+      S.pm = j.pm || null;
+    }
     if(opts.resolve !== false) await resolveLayout(name);
     renderAll(); updateScopeUI();
-    toast(`تم تحميل ${S.records.length} تحديث للمشروع`);
+    toast(S.mode === 'all'
+      ? `تم تجميع ${S.projLatest.length} مشروع عبر ${S.records.length} تاريخ تحديث`
+      : `تم تحميل ${S.records.length} تحديث للمشروع`);
   }catch(e){ toast('خطأ في الاتصال: ' + e.message, true); }
 }
 
@@ -1857,7 +2265,7 @@ async function resolveLayout(name){
     S.page = Object.assign(S.page, d.page || {});
     S.widgets = d.widgets || [];
     S.seq = d.seq || (S.widgets.length + 1);
-    S.selected = null; S.undo.length = 0; S.redo.length = 0; S.dirty = false;
+    S.selected = null; S.multi = []; S.undo.length = 0; S.redo.length = 0; S.dirty = false;
     buildPageTab(); buildPropsTab();
   }catch(e){ /* تجاهل: الصفحة تفضل بالتصميم الحالي */ }
 }
@@ -1867,7 +2275,8 @@ function updateScopeUI(){
   sel.value = S.scope;
   const custom = (S.scope === 'project');
   chip.classList.toggle('custom', custom);
-  if(!S.project && custom) chip.textContent = 'اختر مشروعاً أولاً';
+  if(S.project === ALL_PROJECTS && !custom) chip.textContent = 'يظهر لكل المشاريع';
+  else if(!S.project && custom) chip.textContent = 'اختر مشروعاً أولاً';
   else if(custom)          chip.textContent = 'مخصص لهذا المشروع';
   else                     chip.textContent = 'يظهر لكل المشاريع';
   unlink.hidden = !(S.source === 'project' && S.layoutId);
@@ -1935,7 +2344,7 @@ async function loadLayout(id){
     S.page = Object.assign(S.page, d.page || {});
     S.widgets = d.widgets || [];
     S.seq = d.seq || (S.widgets.length + 1);
-    S.selected = null; S.undo.length = 0; S.redo.length = 0;
+    S.selected = null; S.multi = []; S.undo.length = 0; S.redo.length = 0;
     $('#modalBack').classList.remove('open');
     if(L.project_name){
       $('#projectSel').value = L.project_name;
@@ -1947,7 +2356,7 @@ async function loadLayout(id){
 }
 function newLayout(){
   if(S.widgets.length && !confirm('سيتم بدء قالب جديد فارغ. هل تريد المتابعة؟')) return;
-  S.layoutId = null; S.source = 'none'; S.widgets = []; S.selected = null;
+  S.layoutId = null; S.source = 'none'; S.widgets = []; S.selected = null; S.multi = [];
   S.undo.length = 0; S.redo.length = 0; S.dirty = false;
   $('#layoutName').value = 'قالب جديد';
   renderAll(); buildPropsTab(); updateScopeUI(); toast('قالب جديد');
@@ -2011,11 +2420,40 @@ $('#btnZoomFit').addEventListener('click', zoomFit);
 $('#layoutName').addEventListener('change', e => S.layoutName = e.target.value);
 
 $('#canvasArea').addEventListener('mousedown', e => {
-  if(e.target.id === 'canvasArea' || e.target.id === 'page' || e.target.id === 'pageShell'){
-    S.selected = null;
-    document.querySelectorAll('.bw').forEach(el => el.classList.remove('selected'));
-    buildPropsTab(); buildLayersList();
+  if(!(e.target.id === 'canvasArea' || e.target.id === 'page' || e.target.id === 'pageShell')) return;
+  if(e.button !== 0) return;
+  const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+  if(!additive) select(null);
+
+  const rect = page.getBoundingClientRect();
+  const sx = (e.clientX - rect.left) / S.zoom, sy = (e.clientY - rect.top) / S.zoom;
+  const box = document.createElement('div'); box.className = 'marquee';
+  page.appendChild(box);
+  let dragged = false;
+
+  function mv(ev){
+    const cx = (ev.clientX - rect.left) / S.zoom, cy = (ev.clientY - rect.top) / S.zoom;
+    const x1 = Math.min(sx, cx), y1 = Math.min(sy, cy);
+    const x2 = Math.max(sx, cx), y2 = Math.max(sy, cy);
+    if(x2 - x1 > 4 || y2 - y1 > 4) dragged = true;
+    box.style.left = x1 + 'px'; box.style.top = y1 + 'px';
+    box.style.width = (x2 - x1) + 'px'; box.style.height = (y2 - y1) + 'px';
   }
+  function up(ev){
+    document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
+    const cx = (ev.clientX - rect.left) / S.zoom, cy = (ev.clientY - rect.top) / S.zoom;
+    const x1 = Math.min(sx, cx), y1 = Math.min(sy, cy);
+    const x2 = Math.max(sx, cx), y2 = Math.max(sy, cy);
+    box.remove();
+    if(!dragged){ if(!additive) select(null); return; }
+    const hits = S.widgets.filter(w =>
+      !(w.x + w.w < x1 || w.x > x2 || w.y + w.h < y1 || w.y > y2)).map(w => w.id);
+    if(!hits.length){ if(!additive) select(null); return; }
+    S.multi = additive ? Array.from(new Set(S.multi.concat(hits))) : hits;
+    S.selected = S.multi[S.multi.length - 1];
+    paintSelection(); buildPropsTab(); buildLayersList();
+  }
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
 });
 
 document.addEventListener('keydown', e => {
@@ -2025,23 +2463,23 @@ document.addEventListener('keydown', e => {
   if(e.ctrlKey && e.key.toLowerCase() === 'z'){ e.preventDefault(); doUndo(); return; }
   if(e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); doRedo(); return; }
   if(e.ctrlKey && e.key.toLowerCase() === 's'){ e.preventDefault(); saveLayout(); return; }
-  if(e.ctrlKey && e.key.toLowerCase() === 'd'){ e.preventDefault(); if(S.selected) duplicateWidget(S.selected); return; }
-  if(!S.selected) return;
-  const w = getW(S.selected); if(!w) return;
-  if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); removeWidget(S.selected); return; }
-  const step = e.shiftKey ? S.page.grid : 1;
-  let moved = true;
-  if(e.key === 'ArrowLeft')      w.x -= step;
-  else if(e.key === 'ArrowRight')w.x += step;
-  else if(e.key === 'ArrowUp')   w.y -= step;
-  else if(e.key === 'ArrowDown') w.y += step;
-  else moved = false;
-  if(moved){
+  if(e.ctrlKey && e.key.toLowerCase() === 'd'){ e.preventDefault(); duplicateSelected(); return; }
+  if(e.ctrlKey && e.key.toLowerCase() === 'a'){      // تحديد الكل
     e.preventDefault();
-    w.x = Math.max(0, Math.min(S.page.w - w.w, w.x));
-    w.y = Math.max(0, Math.min(S.page.h - w.h, w.y));
-    drawWidget(w); buildPropsTab();
+    if(!S.widgets.length) return;
+    S.multi = S.widgets.map(w => w.id); S.selected = S.multi[S.multi.length - 1];
+    paintSelection(); buildPropsTab(); buildLayersList(); return;
   }
+  if(e.key === 'Escape'){ select(null); return; }
+  if(!S.multi.length) return;
+  if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); removeSelected(); return; }
+  const step = e.shiftKey ? S.page.grid : 1;
+  let dx = 0, dy = 0;
+  if(e.key === 'ArrowLeft')      dx = -step;
+  else if(e.key === 'ArrowRight')dx =  step;
+  else if(e.key === 'ArrowUp')   dy = -step;
+  else if(e.key === 'ArrowDown') dy =  step;
+  if(dx || dy){ e.preventDefault(); snapshot(); nudgeSelected(dx, dy); }
 });
 window.addEventListener('beforeunload', e => {
   if(S.dirty){ e.preventDefault(); e.returnValue = ''; }
