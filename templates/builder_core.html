@@ -1,1 +1,541 @@
 
+<!-- =========================================================
+     نظام بناء الداشبورد التفاعلي (Dashboard Builder Engine)
+     ========================================================= -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/9.2.2/gridstack.min.css" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/9.2.2/gridstack-all.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+    :root {
+        --bg-canvas: #f4f7fa;
+        --sidebar-bg: #ffffff;
+        --border-color: #e2e8f0;
+        --text-main: #1e293b;
+        --primary: #0f172a;
+        --accent: #d4a373;
+    }
+    body.dark-theme {
+        --bg-canvas: #0f172a;
+        --sidebar-bg: #1e293b;
+        --border-color: #334155;
+        --text-main: #f8fafc;
+        --primary: #38bdf8;
+        --accent: #f59e0b;
+    }
+    body { background: var(--bg-canvas); color: var(--text-main); font-family: 'Tajawal', sans-serif; transition: background 0.3s; margin:0; padding:0; height: 100vh; overflow: hidden; }
+    
+    /* Layout */
+    .builder-wrapper { display: flex; height: calc(100vh - 60px); }
+    .builder-sidebar { width: 350px; background: var(--sidebar-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; box-shadow: -2px 0 10px rgba(0,0,0,0.05); }
+    .builder-canvas { flex-grow: 1; overflow-y: auto; padding: 2rem; position: relative; }
+    
+    /* Sidebar Tabs */
+    .nav-tabs .nav-link { color: var(--text-main); font-size: 0.9rem; padding: 0.5rem 0.8rem; }
+    .nav-tabs .nav-link.active { font-weight: bold; color: var(--accent); border-bottom: 2px solid var(--accent); }
+    .tab-content { overflow-y: auto; flex-grow: 1; padding: 1rem; }
+    
+    /* Widgets Tools */
+    .widget-tool { background: var(--bg-canvas); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 10px; cursor: grab; text-align: center; font-weight: bold; font-size: 0.9rem; transition: all 0.2s; }
+    .widget-tool:hover { border-color: var(--accent); background: rgba(212, 163, 115, 0.1); }
+    
+    /* GridStack Overrides */
+    .grid-stack-item-content { background: var(--sidebar-bg); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden !important; border: 1px solid transparent; }
+    .grid-stack-item.ui-draggable-dragging .grid-stack-item-content { box-shadow: 0 10px 20px rgba(0,0,0,0.15); opacity: 0.9; }
+    .selected-widget > .grid-stack-item-content { border: 2px dashed var(--accent); }
+    
+    .widget-header { padding: 8px 12px; font-weight: bold; font-size: 1rem; cursor: move; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+    .widget-body { flex-grow: 1; padding: 10px; overflow: hidden; position: relative; }
+    
+    /* Data Pills */
+    .data-pill { display: inline-block; background: var(--primary); color: white; border-radius: 999px; padding: 4px 12px; font-size: 0.8rem; cursor: grab; margin: 4px; }
+    
+    /* Form Inputs */
+    .form-label { font-size: 0.85rem; font-weight: bold; margin-top: 10px; margin-bottom: 4px; color: var(--text-main); }
+    .form-control, .form-select { font-size: 0.85rem; background: var(--bg-canvas); color: var(--text-main); border: 1px solid var(--border-color); }
+    
+    /* Toolbar & Buttons */
+    .top-toolbar { background: var(--primary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px;}
+    .top-toolbar h4 { margin: 0; font-weight: 800; font-size: 1.2rem; }
+    .top-toolbar .btn { font-size: 0.85rem; font-weight: bold; }
+
+    /* حل مشكلة قائمة اللغات (الخلفية والنص) */
+    .lang-dropdown {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-weight: 700;
+        cursor: pointer;
+        outline: none;
+    }
+    .lang-dropdown option {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+    }
+
+    /* Custom Dashboard Title */
+    #dash-main-title { padding: 15px; margin-bottom: 15px; border-radius: 12px; font-weight: bold; text-align: center; font-size: 1.8rem; border: 1px solid transparent; }
+    .remove-btn { color: red; cursor: pointer; font-size: 1.2rem; line-height: 1; }
+</style>
+
+<!-- شريط الأدوات العلوي المحدث -->
+<div class="top-toolbar">
+    <div class="d-flex align-items-center gap-3">
+        <h4 id="app-title">🏗️ باني اللوحات التفاعلي</h4>
+        <div id="project-selector-container"></div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <!-- تم إضافة قائمة اللغات وحل مشكلة الألوان -->
+        <span class="fs-5">🌐</span>
+        <select id="langSwitch" class="lang-dropdown me-2" onchange="changeLang(this.value)">
+            <option value="ar">العربية</option>
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="es">Español</option>
+        </select>
+        
+        <!-- الأزرار المربوطة بالدوال الصحيحة -->
+        <button class="btn btn-light btn-sm" onclick="alignGrid()">✨ محاذاة تلقائية</button>
+        <button class="btn btn-warning btn-sm text-dark" onclick="exportToPDF()">📄 تصدير PDF</button>
+        <button class="btn btn-success btn-sm" onclick="saveLayoutToDB()">💾 حفظ التصميم</button>
+        <a href="/admin-hub" class="btn btn-danger btn-sm">خروج</a>
+    </div>
+</div>
+
+<div class="builder-wrapper">
+    <!-- الشريط الجانبي (كما هو في الكود السابق) -->
+    <div class="builder-sidebar">
+        <ul class="nav nav-tabs" id="sidebarTabs">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-add" id="t-tab-add">➕ القوالب</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-props" id="t-tab-props">⚙️ الخصائص</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-data" id="t-tab-data">💾 البيانات</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-global" id="t-tab-global">🎨 الإعدادات</a></li>
+        </ul>
+        
+        <div class="tab-content">
+            <!-- Add Widgets Tab -->
+            <div class="tab-pane fade show active" id="tab-add">
+                <div class="widget-tool" onclick="addWidget('kpi')">📊 مؤشر رقمي (KPI)</div>
+                <div class="widget-tool" onclick="addWidget('line')">📈 رسم بياني خطي</div>
+                <div class="widget-tool" onclick="addWidget('bar')">📊 رسم بياني شريطي</div>
+                <div class="widget-tool" onclick="addWidget('text')">📝 مساحة نصية متقدمة</div>
+                <div class="widget-tool" onclick="addWidget('image')">🖼️ صورة / شعار</div>
+                <div class="widget-tool" onclick="addWidget('obstacles')">🚧 المعوقات الحالية</div>
+            </div>
+            
+            <!-- Properties Tab -->
+            <div class="tab-pane fade" id="tab-props">
+                <div id="no-selection-msg" class="text-muted small text-center mt-4">قم بتحديد عنصر من الشاشة لتعديل خصائصه.</div>
+                <div id="props-form" style="display:none;">
+                    <button class="btn btn-sm btn-outline-danger w-100 mb-3" onclick="deleteSelected()">🗑️ حذف العنصر المحدد</button>
+                    <label class="form-label">العنوان (Title)</label>
+                    <input type="text" id="prop-title" class="form-control" oninput="updateProp('title', this.value)">
+                    <label class="form-label">لون العنوان</label>
+                    <input type="color" id="prop-title-color" class="form-control form-control-color w-100" oninput="updateProp('titleColor', this.value)">
+                    <label class="form-label">نوع الخط</label>
+                    <select id="prop-font" class="form-select" onchange="updateProp('font', this.value)">
+                        <option value="Tajawal">Tajawal</option>
+                        <option value="Cairo">Cairo</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                    </select>
+                    <label class="form-label">لون الخلفية</label>
+                    <input type="color" id="prop-bg" class="form-control form-control-color w-100" oninput="updateProp('bg', this.value)">
+                    <label class="form-label">لون الإطار (Border)</label>
+                    <input type="color" id="prop-border-color" class="form-control form-control-color w-100" oninput="updateProp('borderColor', this.value)">
+                    <label class="form-label">سماكة الإطار (px)</label>
+                    <input type="number" id="prop-border-width" class="form-control" oninput="updateProp('borderWidth', this.value)">
+                    <hr>
+                    <h6 class="fw-bold mt-3">الأبعاد والموقع (Grid)</h6>
+                    <div class="row g-2">
+                        <div class="col-6"><label class="form-label">العرض (W)</label><input type="number" id="prop-w" class="form-control" onchange="updateGridProp('w', this.value)"></div>
+                        <div class="col-6"><label class="form-label">الارتفاع (H)</label><input type="number" id="prop-h" class="form-control" onchange="updateGridProp('h', this.value)"></div>
+                        <div class="col-6"><label class="form-label">موضع X</label><input type="number" id="prop-x" class="form-control" onchange="updateGridProp('x', this.value)"></div>
+                        <div class="col-6"><label class="form-label">موضع Y</label><input type="number" id="prop-y" class="form-control" onchange="updateGridProp('y', this.value)"></div>
+                    </div>
+                    <div id="extra-props"></div>
+                </div>
+            </div>
+            
+            <!-- Data Fields Tab -->
+            <div class="tab-pane fade" id="tab-data">
+                <p class="small text-muted mb-2">اسحب البيانات وأفلتها داخل العناصر النصية:</p>
+                <div id="data-pills-container"></div>
+            </div>
+            
+            <!-- Global Settings Tab -->
+            <div class="tab-pane fade" id="tab-global">
+                <label class="form-label">عنوان الداشبورد الرئيسي</label>
+                <input type="text" class="form-control" id="g-title" value="تقرير أداء المشروع" oninput="document.getElementById('dash-main-title').innerText = this.value">
+                <label class="form-label">خلفية العنوان الرئيسي</label>
+                <input type="color" class="form-control form-control-color w-100" value="#0f172a" oninput="document.getElementById('dash-main-title').style.backgroundColor = this.value; document.getElementById('dash-main-title').style.color = '#fff';">
+                <label class="form-label">لون خلفية الصفحة (Canvas)</label>
+                <input type="color" class="form-control form-control-color w-100" id="g-canvas-bg" value="#f4f7fa" oninput="document.documentElement.style.setProperty('--bg-canvas', this.value)">
+                <label class="form-label">الثيم العام</label>
+                <select class="form-select" onchange="document.body.className = this.value">
+                    <option value="light-theme">فاتح (Light)</option>
+                    <option value="dark-theme">داكن (Dark)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="builder-canvas" id="print-area">
+        <div id="dash-main-title" style="background:#0f172a; color:#fff;">تقرير أداء المشروع</div>
+        <div class="grid-stack"></div>
+    </div>
+</div>
+
+<script>
+    // --- 1. إصلاح دوال الأزرار العلوية (المحاذاة، الحفظ، PDF، الترجمة) ---
+    
+    // دالة محاذاة الشبكة التلقائية
+    function alignGrid() {
+        if(grid) {
+            grid.compact();
+            alert("تمت محاذاة العناصر تلقائياً!");
+        }
+    }
+
+    // دالة حفظ التصميم في الباك إند
+    function saveLayoutToDB() {
+        if(!grid) return;
+        let layoutData = grid.save();
+        let globalSettings = {
+            title: document.getElementById('dash-main-title').innerText,
+            canvasBg: document.documentElement.style.getPropertyValue('--bg-canvas') || '#f4f7fa'
+        };
+        
+        // إظهار تنبيه بصري أثناء الحفظ
+        const btn = document.querySelector('.btn-success');
+        const oldText = btn.innerText;
+        btn.innerText = "جاري الحفظ...";
+        
+        fetch('/api/save-dashboard-layout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ layout: layoutData, settings: globalSettings })
+        })
+        .then(response => response.json())
+        .then(data => {
+            btn.innerText = oldText;
+            if(data.success) {
+                alert("تم حفظ التصميم بنجاح في قاعدة البيانات!");
+            } else {
+                alert("تعذر الحفظ: " + data.message);
+            }
+        })
+        .catch(err => {
+            btn.innerText = oldText;
+            alert("حدث خطأ في الاتصال بالخادم أثناء الحفظ.");
+            console.error(err);
+        });
+    }
+
+    // إعدادات اللغات المحدثة لتعمل مع القائمة المنسدلة (Dropdown)
+    const I18N = {
+        ar: { app_title: "🏗️ باني اللوحات التفاعلي", t_add: "➕ القوالب", t_props: "⚙️ الخصائص", t_data: "💾 البيانات", t_global: "🎨 الإعدادات" },
+        en: { app_title: "🏗️ Dashboard Builder", t_add: "➕ Widgets", t_props: "⚙️ Properties", t_data: "💾 Data", t_global: "🎨 Settings" },
+        fr: { app_title: "🏗️ Constructeur de Tableau", t_add: "➕ Widgets", t_props: "⚙️ Propriétés", t_data: "💾 Données", t_global: "🎨 Paramètres" },
+        es: { app_title: "🏗️ Constructor de Dashboard", t_add: "➕ Widgets", t_props: "⚙️ Propiedades", t_data: "💾 Datos", t_global: "🎨 Ajustes" }
+    };
+    
+    function changeLang(lang) {
+        document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+        document.getElementById('app-title').innerText = I18N[lang].app_title;
+        document.getElementById('t-tab-add').innerText = I18N[lang].t_add;
+        document.getElementById('t-tab-props').innerText = I18N[lang].t_props;
+        document.getElementById('t-tab-data').innerText = I18N[lang].t_data;
+        document.getElementById('t-tab-global').innerText = I18N[lang].t_global;
+    }
+
+    // --- 2. GridStack و دوال الداشبورد الأساسية ---
+    let grid = GridStack.init({
+        cellHeight: 80,
+        margin: 10,
+        float: true,
+        rtl: 'auto',
+        animate: true,
+        resizable: { handles: 'e, se, s, sw, w' }
+    });
+
+    let activeWidget = null;
+    let widgetCounter = 0;
+    let projectData = {}; 
+    let allCharts = {};
+
+    function uid() { return 'w_' + (++widgetCounter) + '_' + Math.random().toString(36).substr(2, 5); }
+
+    function addWidget(type) {
+        const id = uid();
+        let w = 4, h = 4, title = "عنصر جديد";
+        if (type === 'kpi') { w = 3; h = 2; title = "مؤشر الأداء"; }
+        if (type === 'text') { w = 4; h = 3; title = "نص حر"; }
+        if (type === 'image') { w = 3; h = 3; title = "صورة"; }
+
+        const widgetEl = document.createElement('div');
+        widgetEl.className = 'grid-stack-item';
+        widgetEl.id = id;
+        widgetEl.setAttribute('gs-w', w);
+        widgetEl.setAttribute('gs-h', h);
+        
+        widgetEl.dataset.type = type;
+        widgetEl.dataset.title = title;
+        widgetEl.dataset.titleColor = '#1e293b';
+        widgetEl.dataset.font = 'Tajawal';
+        widgetEl.dataset.bg = '#ffffff';
+        widgetEl.dataset.borderColor = 'transparent';
+        widgetEl.dataset.borderWidth = '1';
+        widgetEl.dataset.dataLabel = 'true';
+        widgetEl.dataset.numFormat = 'general';
+
+        const content = `
+            <div class="grid-stack-item-content" onclick="selectWidget('${id}')">
+                <div class="widget-header">
+                    <span class="w-title" style="font-family: Tajawal;">${title}</span>
+                    <span class="remove-btn" onclick="removeWidget(event, '${id}')">×</span>
+                </div>
+                <div class="widget-body" id="body_${id}">
+                    ${getWidgetInnerTemplate(type, id)}
+                </div>
+            </div>
+        `;
+        widgetEl.innerHTML = content;
+        grid.addWidget(widgetEl);
+        
+        initVisual(type, id);
+        selectWidget(id);
+    }
+
+    function getWidgetInnerTemplate(type, id) {
+        if (type === 'kpi') return `<div class="d-flex h-100 align-items-center justify-content-center"><h2 id="val_${id}" style="font-weight:800; font-size:2.5rem; margin:0;">0</h2></div>`;
+        if (type === 'text') return `<div id="val_${id}" contenteditable="true" class="h-100 w-100 p-2" style="outline:none; overflow-y:auto;" ondragover="event.preventDefault()" ondrop="handleDrop(event, '${id}')">اكتب هنا أو اسحب البيانات...</div>`;
+        if (type === 'image') return `<div class="h-100 w-100 d-flex align-items-center justify-content-center"><img id="val_${id}" src="/static/img/logo.png" style="max-width:100%; max-height:100%; object-fit:contain;"></div>`;
+        if (type === 'line' || type === 'bar') return `<div id="chart_${id}" style="height: 100%; width: 100%;"></div>`;
+        if (type === 'obstacles') return `<div id="val_${id}" style="overflow-y:auto; height:100%; font-size:0.85rem;">لا توجد معوقات.</div>`;
+        return '';
+    }
+
+    function selectWidget(id) {
+        document.querySelectorAll('.grid-stack-item').forEach(el => el.classList.remove('selected-widget'));
+        activeWidget = document.getElementById(id);
+        if(!activeWidget) return;
+        activeWidget.classList.add('selected-widget');
+        
+        document.getElementById('no-selection-msg').style.display = 'none';
+        document.getElementById('props-form').style.display = 'block';
+        
+        document.getElementById('prop-title').value = activeWidget.dataset.title;
+        document.getElementById('prop-title-color').value = activeWidget.dataset.titleColor;
+        document.getElementById('prop-font').value = activeWidget.dataset.font;
+        document.getElementById('prop-bg').value = activeWidget.dataset.bg;
+        document.getElementById('prop-border-color').value = activeWidget.dataset.borderColor;
+        document.getElementById('prop-border-width').value = activeWidget.dataset.borderWidth;
+        
+        document.getElementById('prop-w').value = activeWidget.getAttribute('gs-w');
+        document.getElementById('prop-h').value = activeWidget.getAttribute('gs-h');
+        document.getElementById('prop-x').value = activeWidget.getAttribute('gs-x') || 0;
+        document.getElementById('prop-y').value = activeWidget.getAttribute('gs-y') || 0;
+
+        const type = activeWidget.dataset.type;
+        let extraHtml = '';
+        if (type === 'kpi') {
+            extraHtml = `
+                <hr><h6 class="fw-bold mt-3">تنسيق الرقم</h6>
+                <select class="form-select" onchange="updateProp('numFormat', this.value); reformatKPI('${id}');">
+                    <option value="general" ${activeWidget.dataset.numFormat==='general'?'selected':''}>عام</option>
+                    <option value="percent" ${activeWidget.dataset.numFormat==='percent'?'selected':''}>نسبة مئوية (%)</option>
+                    <option value="currency" ${activeWidget.dataset.numFormat==='currency'?'selected':''}>عملة</option>
+                </select>
+                <label class="form-label mt-2">اختيار حقل البيانات</label>
+                <select class="form-select" onchange="bindDataToWidget('${id}', this.value)">
+                    <option value="">-- اختر --</option>
+                    <option value="act_prog_cur">الإنجاز الفعلي</option>
+                    <option value="plan_prog_cur">الإنجاز المخطط</option>
+                    <option value="contractor_val">قيمة العقد</option>
+                    <option value="ncr_open">NCR مفتوحة</option>
+                </select>
+            `;
+        } else if (type === 'line' || type === 'bar') {
+            extraHtml = `
+                <hr><h6 class="fw-bold mt-3">إعدادات الرسم</h6>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="prop-datalabels" ${activeWidget.dataset.dataLabel==='true'?'checked':''} onchange="updateProp('dataLabel', this.checked?'true':'false'); reRenderChart('${id}');">
+                    <label class="form-check-label">إظهار القيم (Data Labels)</label>
+                </div>
+            `;
+        } else if (type === 'image') {
+            extraHtml = `<hr><label class="form-label">رابط الصورة أو الشعار</label><input type="text" class="form-control" oninput="document.getElementById('val_${id}').src = this.value">`;
+        }
+        document.getElementById('extra-props').innerHTML = extraHtml;
+    }
+    
+    function deleteSelected() {
+        if(!activeWidget) return;
+        removeWidget({stopPropagation:()=>{}}, activeWidget.id);
+    }
+
+    function removeWidget(e, id) {
+        e.stopPropagation();
+        grid.removeWidget(document.getElementById(id));
+        if (activeWidget && activeWidget.id === id) {
+            activeWidget = null;
+            document.getElementById('no-selection-msg').style.display = 'block';
+            document.getElementById('props-form').style.display = 'none';
+        }
+        if (allCharts[id]) { allCharts[id].destroy(); delete allCharts[id]; }
+    }
+
+    function updateProp(key, value) {
+        if(!activeWidget) return;
+        activeWidget.dataset[key] = value;
+        const content = activeWidget.querySelector('.grid-stack-item-content');
+        const header = activeWidget.querySelector('.w-title');
+        
+        if(key === 'title') header.innerText = value;
+        if(key === 'titleColor') header.style.color = value;
+        if(key === 'font') {
+            content.style.fontFamily = value;
+            header.style.fontFamily = value;
+        }
+        if(key === 'bg') content.style.backgroundColor = value;
+        if(key === 'borderColor') content.style.borderColor = value;
+        if(key === 'borderWidth') content.style.borderWidth = value + 'px';
+    }
+
+    function updateGridProp(key, value) {
+        if(!activeWidget) return;
+        let x = parseInt(document.getElementById('prop-x').value);
+        let y = parseInt(document.getElementById('prop-y').value);
+        let w = parseInt(document.getElementById('prop-w').value);
+        let h = parseInt(document.getElementById('prop-h').value);
+        grid.update(activeWidget, {x, y, w, h});
+    }
+
+    grid.on('change', function(event, items) {
+        items.forEach(item => {
+            if (activeWidget && item.el.id === activeWidget.id) {
+                document.getElementById('prop-x').value = item.x;
+                document.getElementById('prop-y').value = item.y;
+                document.getElementById('prop-w').value = item.w;
+                document.getElementById('prop-h').value = item.h;
+            }
+            if (allCharts[item.el.id]) setTimeout(() => allCharts[item.el.id].resize(), 100);
+        });
+    });
+
+    function setupDataPills(latestRecord) {
+        projectData = latestRecord || {};
+        const fields = [
+            { k: 'project_name', l: 'اسم المشروع' }, { k: 'manager_name', l: 'مدير المشروع' },
+            { k: 'project_contractor', l: 'المقاول' }, { k: 'start_contractual', l: 'تاريخ البداية' },
+            { k: 'end_contractual', l: 'تاريخ النهاية' }, { k: 'act_prog_cur', l: 'الإنجاز الحالي'}
+        ];
+        const cont = document.getElementById('data-pills-container');
+        cont.innerHTML = fields.map(f => `<div class="data-pill" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${projectData[f.k] || '-'}')">${f.l}</div>`).join('');
+    }
+
+    function handleDrop(e, id) {
+        e.preventDefault();
+        const data = e.dataTransfer.getData('text/plain');
+        if (data) document.getElementById('val_'+id).innerHTML += ' ' + data;
+    }
+
+    function bindDataToWidget(id, fieldKey) {
+        if(!fieldKey) return;
+        const rawVal = projectData[fieldKey] || 0;
+        activeWidget.dataset.rawValue = rawVal;
+        reformatKPI(id);
+    }
+
+    function reformatKPI(id) {
+        const w = document.getElementById(id);
+        if(!w) return;
+        let val = parseFloat(w.dataset.rawValue || 0);
+        let fmt = w.dataset.numFormat;
+        let display = val;
+        if(fmt === 'percent') display = (val * 100).toFixed(1) + '%';
+        else if(fmt === 'currency') display = val.toLocaleString('en-US') + ' SAR';
+        else display = val.toLocaleString('en-US');
+        document.getElementById('val_'+id).innerText = display;
+    }
+
+    function initVisual(type, id) {
+        if (type !== 'line' && type !== 'bar') return;
+        reRenderChart(id);
+    }
+
+    function reRenderChart(id) {
+        const w = document.getElementById(id);
+        if(!w) return;
+        if (allCharts[id]) { allCharts[id].destroy(); }
+        
+        const type = w.dataset.type;
+        const showLabel = w.dataset.dataLabel === 'true';
+        
+        let act = parseFloat(((projectData.act_prog_cur||0)*100).toFixed(1));
+        let plan = parseFloat(((projectData.plan_prog_cur||0)*100).toFixed(1));
+        
+        const options = {
+            chart: { type: type, height: '100%', width: '100%', toolbar: {show: false}, parentHeightOffset: 0 },
+            series: [{ name: 'الفعلي', data: [act-5, act] }, { name: 'المخطط', data: [plan-5, plan] }],
+            xaxis: { categories: ['السابق', 'الحالي'] },
+            colors: ['#0ea5e9', '#d4a373'],
+            dataLabels: { enabled: showLabel },
+            stroke: { curve: 'smooth' }
+        };
+        
+        let chart = new ApexCharts(document.querySelector(`#chart_${id}`), options);
+        chart.render();
+        allCharts[id] = chart;
+    }
+
+    // دالة الطباعة وتصدير الـ PDF
+    function exportToPDF() {
+        const element = document.getElementById('print-area');
+        
+        document.querySelectorAll('.remove-btn').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.selected-widget > .grid-stack-item-content').forEach(el => el.style.border = 'none');
+        
+        const oldH = element.style.height;
+        element.style.height = 'auto';
+        element.style.overflow = 'visible';
+
+        const opt = {
+            margin:       5,
+            filename:     'dashboard_custom_report.pdf',
+            image:        { type: 'jpeg', quality: 1 },
+            html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
+            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } 
+        };
+        
+        html2pdf().set(opt).from(element).save().then(() => {
+            document.querySelectorAll('.remove-btn').forEach(el => el.style.display = 'block');
+            element.style.height = oldH;
+            element.style.overflow = 'auto';
+            if (activeWidget) activeWidget.classList.add('selected-widget');
+        });
+    }
+
+    function loadContextData(apiUrl, isMyDash=false) {
+        fetch(apiUrl).then(r=>r.json()).then(data => {
+            if(data.success && data.records && data.records.length > 0) {
+                const latest = data.records[data.records.length-1];
+                setupDataPills(latest);
+                if(isMyDash) {
+                    document.getElementById('dash-main-title').innerText = "تقرير أداء: " + (latest.project_name || "");
+                }
+            }
+        }).catch(() => {
+            setupDataPills({project_name: "مشروع تجريبي", manager_name: "مدير 1", act_prog_cur: 0.85, plan_prog_cur: 0.90, contractor_val: 1500000});
+        });
+    }
+</script>
