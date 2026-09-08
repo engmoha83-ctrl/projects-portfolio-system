@@ -5,10 +5,11 @@ import string
 from urllib.parse import quote
 from datetime import datetime, timedelta, date
 from fastapi import FastAPI, Request, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import psycopg2
+import psycopg2.extras
 import cloudinary
 import cloudinary.uploader
 import requests
@@ -16,16 +17,12 @@ import bcrypt
 from dotenv import load_dotenv
 import pdf_report
 
-# تحميل المتغيرات البيئية
 load_dotenv()
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ==========================================
-# 1. الإعدادات الأساسية 
-# ==========================================
 DB_URL = os.getenv("DATABASE_URL")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -33,9 +30,6 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 def get_db_connection():
     return psycopg2.connect(DB_URL)
 
-# ==========================================
-# 1.1 أدوات كلمات المرور (تشفير آمن + توافق مع الحسابات القديمة)
-# ==========================================
 def is_hashed_password(value: str) -> bool:
     return bool(value) and value.startswith(("$2a$", "$2b$", "$2y$"))
 
@@ -47,7 +41,6 @@ def verify_password(plain_password: str, stored_password: str) -> bool:
             return bcrypt.checkpw(plain_password.encode("utf-8"), stored_password.encode("utf-8"))
         except (ValueError, TypeError):
             return False
-    # حساب قديم بكلمة مرور غير مشفّرة (نص صريح)
     return plain_password == stored_password
 
 def hash_password(plain_password: str) -> str:
@@ -57,10 +50,26 @@ def generate_temp_password(length: int = 10) -> str:
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
-# ==========================================
-# 1.2 استعلام موحّد لبيانات داشبورد مشروع واحد
-# (يُستخدم في: داشبورد الإدارة، داشبورد مدير المشروع، وتصدير الـ PDF)
-# ==========================================
+def log_audit(actor: str, action: str, details: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO audit_log (actor, action, details, created_at) VALUES (%s, %s, %s, NOW())", (actor, action, details))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print("Audit Log Error:", e)
+
+def create_notification(message: str, link: str = "#"):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO notifications (message, link, is_read, created_at) VALUES (%s, %s, FALSE, NOW())", (message, link))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print("Notification Error:", e)
+
 PROJECT_DASHBOARD_QUERY = '''
     SELECT current_data_date, manager_name, project_type, project_desc, project_owner, project_developer, project_contractor,
            consultant_val, contractor_val, cons_inv_val, cont_inv_val, cons_inv_count, cont_inv_count,
@@ -109,9 +118,6 @@ ARABIC_COLUMNS = {
     'master_plan_link': 'المخطط العام', 'isometric_link': 'أيزومتريك', 'submission_date': 'تاريخ الإرسال', 'submission_time': 'وقت الإرسال'
 }
 
-# ==========================================
-# 2. إشعارات التليجرام و Cloudinary
-# ==========================================
 def send_telegram_alert(action_type, manager, project):
     try:
         ksa_time = datetime.utcnow() + timedelta(hours=3)
@@ -124,11 +130,7 @@ def send_telegram_alert(action_type, manager, project):
     except:
         pass
 
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
-)
+cloudinary.config(cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"), api_key=os.getenv("CLOUDINARY_API_KEY"), api_secret=os.getenv("CLOUDINARY_API_SECRET"))
 def upload_to_cloudinary(file: UploadFile):
     try:
         if file.content_type and file.content_type.startswith("image/"):
@@ -137,9 +139,6 @@ def upload_to_cloudinary(file: UploadFile):
     except:
         return None
 
-# ==========================================
-# 3. تسجيل الدخول
-# ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def main_landing_page(request: Request):
     return templates.TemplateResponse(request, "landing.html", {})
@@ -156,9 +155,6 @@ async def do_login(request: Request, background_tasks: BackgroundTasks, username
     user = cursor.fetchone()
 
     if user and verify_password(password, user[2]):
-        # ترقية كلمة المرور تلقائياً إلى صيغة مشفّرة إذا كانت لا تزال نصاً صريحاً
-        # (بدون try/except هنا: أي عطل في هذه الخطوة كان سيمنع تسجيل الدخول تماماً حتى لو كانت
-        #  كلمة المرور صحيحة - مثلاً لو عمود password في قاعدة البيانات أقصر من طول القيمة المشفّرة)
         if not is_hashed_password(user[2]):
             try:
                 cursor.execute("UPDATE users SET password=%s WHERE username=%s", (hash_password(password), username))
@@ -167,6 +163,7 @@ async def do_login(request: Request, background_tasks: BackgroundTasks, username
                 conn.rollback()
         conn.close()
         background_tasks.add_task(send_telegram_alert, "login", user[0], user[1])
+        background_tasks.add_task(log_audit, username, "تسجيل دخول", "تم تسجيل دخول مدير المشروع")
         response = RedirectResponse(url="/update-portal", status_code=303)
         response.set_cookie(key="auth_user", value=username, httponly=True, samesite="lax")
         return response
@@ -180,12 +177,53 @@ async def logout():
     response.delete_cookie("auth_user")
     return response
 
-# ==========================================
-# 4. لوحات الإدارة
-# ==========================================
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_login_page(request: Request, error: str = None):
     return templates.TemplateResponse(request, "admin_login.html", {"error": error})
+
+@app.post("/admin")
+async def do_admin_login(request: Request, background_tasks: BackgroundTasks, username: str = Form(...), password: str = Form(...)):
+    ADMIN_ACCOUNTS = {
+        "admin_mohamed": os.getenv("ADMIN_MOHAMED_PWD"),
+        "admin_assistant": os.getenv("ADMIN_ASSISTANT_PWD")
+    }
+    if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
+        background_tasks.add_task(log_audit, username, "تسجيل دخول إداري", f"دخول حساب {username}")
+        response = RedirectResponse(url="/admin-hub", status_code=303)
+        response.set_cookie(key="super_admin_auth", value=username, httponly=True, max_age=86400)
+        return response
+    return templates.TemplateResponse(request, "admin_login.html", {"error": "بيانات الدخول غير صحيحة"})
+
+@app.get("/admin-logout")
+async def admin_logout():
+    response = RedirectResponse(url="/admin", status_code=303)
+    response.delete_cookie("super_admin_auth")
+    return response
+
+@app.get("/admin-hub", response_class=HTMLResponse)
+async def admin_hub_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
+    return templates.TemplateResponse(request, "admin_hub.html", {"admin_user": admin_user})
+
+@app.get("/admin-dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM project_updates ORDER BY submission_date DESC, id DESC")
+    original_columns = [desc[0] for desc in cursor.description]
+    raw_rows = cursor.fetchall()
+    conn.close()
+    translated_columns = [ARABIC_COLUMNS.get(col, col) for col in original_columns]
+    rows = []
+    for row in raw_rows:
+        row_list = list(row)
+        for i, col in enumerate(original_columns):
+            if col == 'obstacles_data' and row_list[i]: row_list[i] = json.dumps(row_list[i], ensure_ascii=False)
+        rows.append(row_list)
+    return templates.TemplateResponse(request, "admin_dashboard.html", {"original_columns": original_columns, "translated_columns": translated_columns, "rows": rows, "admin_user": admin_user, "active_page": "dashboard"})
 
 @app.get("/project-dashboard", response_class=HTMLResponse)
 async def project_dashboard_page(request: Request):
@@ -204,9 +242,6 @@ async def get_project_dashboard_data(project: str, request: Request):
     records = fetch_project_records(project)
     return {"success": True, "records": records}
 
-# ==========================================
-# 4.2 داشبورد مدير المشروع (عرض مقتصر على مشروعه فقط - صلاحيات محدودة)
-# ==========================================
 @app.get("/my-dashboard", response_class=HTMLResponse)
 async def my_dashboard_page(request: Request):
     auth_user = request.cookies.get("auth_user")
@@ -220,9 +255,7 @@ async def my_dashboard_page(request: Request):
         res = RedirectResponse(url="/login", status_code=303)
         res.delete_cookie("auth_user")
         return res
-    return templates.TemplateResponse(request, "my_dashboard.html", {
-        "username": auth_user, "manager_name": user[0], "project_name": user[1]
-    })
+    return templates.TemplateResponse(request, "my_dashboard.html", {"username": auth_user, "manager_name": user[0], "project_name": user[1]})
 
 @app.get("/api/my-dashboard-data")
 async def get_my_dashboard_data(request: Request):
@@ -234,37 +267,47 @@ async def get_my_dashboard_data(request: Request):
     user = cursor.fetchone()
     conn.close()
     if not user: return {"success": False, "error": "غير مصرح"}
-    # ملاحظة أمان: المشروع بييجي من حساب المستخدم المسجل دخوله في القاعدة، مش من أي بارامتر
-    # في الطلب - عشان مدير مشروع ميقدرش يشوف بيانات مشروع تاني غير بتاعه.
     records = fetch_project_records(user[0])
     return {"success": True, "records": records, "project_name": user[0]}
 
-# ==========================================
-# 4.3 تصدير تقرير المشروع كملف PDF
-# متاح للإدارة (لأي مشروع) ولمدير المشروع (لمشروعه هو بس)
-# ==========================================
+@app.post("/api/save-dashboard-layout")
+async def save_dashboard_layout(request: Request, background_tasks: BackgroundTasks):
+    try:
+        data = await request.json()
+        layout_data = data.get("layout")
+        global_settings = data.get("settings")
+        username = request.cookies.get("auth_user")
+        if not username:
+            return JSONResponse({"success": False, "message": "غير مصرح لك"})
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE pm_directory SET custom_dashboard_layout = %s WHERE username = %s", (json.dumps({"layout": layout_data, "settings": global_settings}), username))
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(log_audit, username, "تعديل واجهة الداشبورد", "تم حفظ تصميم جديد للداشبورد التفاعلي")
+        return JSONResponse({"success": True, "message": "تم حفظ التصميم بنجاح"})
+    except Exception as e:
+        return JSONResponse({"success": False, "message": str(e)})
+
 @app.get("/api/project-pdf")
-async def get_project_pdf(request: Request, project: str = None, lang: str = "ar"):
+async def get_project_pdf(request: Request, background_tasks: BackgroundTasks, project: str = None, lang: str = "ar"):
     admin_user = request.cookies.get("super_admin_auth")
     auth_user = request.cookies.get("auth_user")
     lang = "en" if lang == "en" else "ar"
 
-    # بنبدأ بفحص جلسة مدير المشروع (auth_user) قبل جلسة الأدمن، عشان لو المتصفح
-    # فيه كوكيز الاتنين مع بعض (سبق دخل أدمن قبل كده)، زرار تحميل الـ PDF بتاع
-    # my_dashboard.html (اللي بيعتمد على auth_user وما بيبعتش project أبداً) يفضل شغال صح.
     if auth_user:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT project_name FROM users WHERE username=%s", (auth_user,))
         user = cursor.fetchone()
         conn.close()
-        if not user:
-            return HTMLResponse(content="<h3>غير مصرح</h3>", status_code=401)
-        target_project = user[0]  # نتجاهل أي project مُرسل من العميل حماية لبيانات باقي المشاريع
+        if not user: return HTMLResponse(content="<h3>غير مصرح</h3>", status_code=401)
+        target_project = user[0] 
+        actor = auth_user
     elif admin_user:
         target_project = project
-        if not target_project:
-            return HTMLResponse(content="<h3>يجب تحديد اسم المشروع</h3>", status_code=400)
+        if not target_project: return HTMLResponse(content="<h3>يجب تحديد اسم المشروع</h3>", status_code=400)
+        actor = admin_user
     else:
         return HTMLResponse(content="<h3>غير مصرح، يرجى تسجيل الدخول.</h3>", status_code=401)
 
@@ -272,65 +315,18 @@ async def get_project_pdf(request: Request, project: str = None, lang: str = "ar
     pdf_buffer = pdf_report.build_project_pdf(target_project, records, lang=lang)
     safe_name = "".join(c for c in target_project if c.isalnum() or c in (" ", "-", "_")).strip() or "project"
     filename = f"Report_{safe_name}.pdf" if lang == "en" else f"تقرير_{safe_name}.pdf"
-    return StreamingResponse(
-        pdf_buffer,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"}
-    )
-
-@app.post("/admin")
-async def do_admin_login(request: Request, background_tasks: BackgroundTasks, username: str = Form(...), password: str = Form(...)):
-    ADMIN_ACCOUNTS = {
-        "admin_mohamed": os.getenv("ADMIN_MOHAMED_PWD"),
-        "admin_assistant": os.getenv("ADMIN_ASSISTANT_PWD")
-    }
-
-    if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
-        response = RedirectResponse(url="/admin-hub", status_code=303)
-        response.set_cookie(key="super_admin_auth", value=username, max_age=86400)
-        return response
-        
-    return templates.TemplateResponse(request, "admin_login.html", {"error": "بيانات الدخول غير صحيحة"})
     
-@app.get("/admin-hub", response_class=HTMLResponse)
-async def admin_hub_page(request: Request):
-    admin_user = request.cookies.get("super_admin_auth")
-    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
-    return templates.TemplateResponse(request, "admin_hub.html", {"admin_user": admin_user})
-
-@app.get("/admin-dashboard", response_class=HTMLResponse)
-async def admin_dashboard(request: Request):
-    admin_user = request.cookies.get("super_admin_auth")
-    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM project_updates ORDER BY submission_date DESC, id DESC")
-    original_columns = [desc[0] for desc in cursor.description]
-    raw_rows = cursor.fetchall()
-    conn.close()
-    
-    translated_columns = [ARABIC_COLUMNS.get(col, col) for col in original_columns]
-    rows = []
-    for row in raw_rows:
-        row_list = list(row)
-        for i, col in enumerate(original_columns):
-            if col == 'obstacles_data' and row_list[i]: row_list[i] = json.dumps(row_list[i], ensure_ascii=False)
-        rows.append(row_list)
-    return templates.TemplateResponse(request, "admin_dashboard.html", {"original_columns": original_columns, "translated_columns": translated_columns, "rows": rows, "admin_user": admin_user, "active_page": "dashboard"})
+    background_tasks.add_task(log_audit, actor, "تصدير PDF", f"تصدير تقرير مشروع {target_project}")
+    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
 
 @app.post("/api/update-cell")
-async def update_cell(request: Request):
+async def update_cell(request: Request, background_tasks: BackgroundTasks):
     admin_user = request.cookies.get("super_admin_auth")
     if not admin_user: return {"success": False, "error": "غير مصرح"}
     data = await request.json()
     row_id, column, value = data.get("id"), data.get("column"), data.get("value")
-
-    # حماية من SQL Injection: لا يُسمح إلا بأسماء أعمدة موجودة فعلياً في الجدول
     allowed_columns = set(ARABIC_COLUMNS.keys()) - {"id"}
-    if column not in allowed_columns:
-        return {"success": False, "error": "اسم عمود غير مسموح به"}
-
+    if column not in allowed_columns: return {"success": False, "error": "اسم عمود غير مسموح به"}
     if column == 'obstacles_data' and str(value).strip() == "": value = "[]"
     try:
         conn = get_db_connection()
@@ -338,6 +334,7 @@ async def update_cell(request: Request):
         cursor.execute(f"UPDATE project_updates SET {column} = %s WHERE id = %s", (value, row_id))
         conn.commit()
         conn.close()
+        background_tasks.add_task(log_audit, admin_user, "تعديل خلية", f"تعديل {column} للسجل {row_id}")
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -358,7 +355,7 @@ async def admin_directory_page(request: Request):
     return templates.TemplateResponse(request, "admin_directory.html", {"pms": pms, "admin_user": admin_user, "active_page": "directory"})
 
 @app.post("/admin-update-pm")
-async def admin_update_pm(request: Request, pm_id: int = Form(...), phone: str = Form(""), email: str = Form(""), location_link: str = Form(""), profile_image: UploadFile = File(None)):
+async def admin_update_pm(request: Request, background_tasks: BackgroundTasks, pm_id: int = Form(...), phone: str = Form(""), email: str = Form(""), location_link: str = Form(""), profile_image: UploadFile = File(None)):
     admin_user = request.cookies.get("super_admin_auth")
     if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-dashboard", status_code=303)
     update_query, params = "UPDATE pm_directory SET phone=%s, email=%s, location_link=%s", [phone, email, location_link]
@@ -374,11 +371,9 @@ async def admin_update_pm(request: Request, pm_id: int = Form(...), phone: str =
     cursor.execute(update_query, tuple(params))
     conn.commit()
     conn.close()
+    background_tasks.add_task(log_audit, admin_user, "تحديث دليل المديرين", f"تعديل بيانات المدير رقم {pm_id}")
     return RedirectResponse(url="/admin-directory", status_code=303)
 
-# ==========================================
-# 4.1 إدارة حسابات دخول مديري المشاريع (users)
-# ==========================================
 @app.get("/admin-users", response_class=HTMLResponse)
 async def admin_users_page(request: Request, notice: str = None):
     admin_user = request.cookies.get("super_admin_auth")
@@ -391,20 +386,18 @@ async def admin_users_page(request: Request, notice: str = None):
     return templates.TemplateResponse(request, "admin_users.html", {"users": users, "admin_user": admin_user, "notice": notice, "active_page": "users"})
 
 @app.post("/admin-add-user")
-async def admin_add_user(request: Request, username: str = Form(...), password: str = Form(""), manager_name: str = Form(...), project_name: str = Form(...)):
+async def admin_add_user(request: Request, background_tasks: BackgroundTasks, username: str = Form(...), password: str = Form(""), manager_name: str = Form(...), project_name: str = Form(...)):
     admin_user = request.cookies.get("super_admin_auth")
     if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-dashboard", status_code=303)
-
     final_password = password.strip() if password.strip() else generate_temp_password()
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO users (username, password, manager_name, project_name) VALUES (%s, %s, %s, %s)",
-            (username.strip(), hash_password(final_password), manager_name.strip(), project_name.strip())
-        )
+        cursor.execute("INSERT INTO users (username, password, manager_name, project_name) VALUES (%s, %s, %s, %s)", (username.strip(), hash_password(final_password), manager_name.strip(), project_name.strip()))
         conn.commit()
         notice = f"تم إنشاء الحساب بنجاح. اسم المستخدم: {username.strip()} — كلمة المرور: {final_password} (يرجى تسليمها للمدير وحفظها فورًا، لن تظهر مرة أخرى)"
+        background_tasks.add_task(create_notification, f"تم إنشاء حساب جديد: {username.strip()}")
+        background_tasks.add_task(log_audit, admin_user, "إنشاء مستخدم", f"إنشاء حساب لـ {username.strip()}")
     except Exception as e:
         conn.rollback()
         notice = f"خطأ: تعذر إنشاء الحساب ({str(e)})"
@@ -413,7 +406,7 @@ async def admin_add_user(request: Request, username: str = Form(...), password: 
     return RedirectResponse(url=f"/admin-users?notice={quote(notice)}", status_code=303)
 
 @app.post("/admin-update-user")
-async def admin_update_user(request: Request, user_id: int = Form(...), manager_name: str = Form(...), project_name: str = Form(...)):
+async def admin_update_user(request: Request, background_tasks: BackgroundTasks, user_id: int = Form(...), manager_name: str = Form(...), project_name: str = Form(...)):
     admin_user = request.cookies.get("super_admin_auth")
     if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-dashboard", status_code=303)
     conn = get_db_connection()
@@ -421,10 +414,11 @@ async def admin_update_user(request: Request, user_id: int = Form(...), manager_
     cursor.execute("UPDATE users SET manager_name=%s, project_name=%s WHERE id=%s", (manager_name.strip(), project_name.strip(), user_id))
     conn.commit()
     conn.close()
+    background_tasks.add_task(log_audit, admin_user, "تحديث مستخدم", f"تحديث حساب رقم {user_id}")
     return RedirectResponse(url="/admin-users?notice=تم تحديث بيانات الحساب بنجاح", status_code=303)
 
 @app.post("/admin-reset-password")
-async def admin_reset_password(request: Request, user_id: int = Form(...), new_password: str = Form("")):
+async def admin_reset_password(request: Request, background_tasks: BackgroundTasks, user_id: int = Form(...), new_password: str = Form("")):
     admin_user = request.cookies.get("super_admin_auth")
     if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-dashboard", status_code=303)
     final_password = new_password.strip() if new_password.strip() else generate_temp_password()
@@ -433,11 +427,12 @@ async def admin_reset_password(request: Request, user_id: int = Form(...), new_p
     cursor.execute("UPDATE users SET password=%s WHERE id=%s", (hash_password(final_password), user_id))
     conn.commit()
     conn.close()
+    background_tasks.add_task(log_audit, admin_user, "إعادة تعيين كلمة مرور", f"لحساب رقم {user_id}")
     notice = f"تم إعادة تعيين كلمة المرور بنجاح. كلمة المرور الجديدة: {final_password} (يرجى تسليمها للمدير فورًا)"
     return RedirectResponse(url=f"/admin-users?notice={quote(notice)}", status_code=303)
 
 @app.post("/admin-delete-user")
-async def admin_delete_user(request: Request, user_id: int = Form(...)):
+async def admin_delete_user(request: Request, background_tasks: BackgroundTasks, user_id: int = Form(...)):
     admin_user = request.cookies.get("super_admin_auth")
     if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-dashboard", status_code=303)
     conn = get_db_connection()
@@ -445,22 +440,50 @@ async def admin_delete_user(request: Request, user_id: int = Form(...)):
     cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
     conn.commit()
     conn.close()
+    background_tasks.add_task(log_audit, admin_user, "حذف مستخدم", f"حذف حساب رقم {user_id}")
     return RedirectResponse(url="/admin-users?notice=تم حذف الحساب بنجاح", status_code=303)
 
-@app.get("/admin-logout")
-async def admin_logout():
-    response = RedirectResponse(url="/admin", status_code=303)
-    response.delete_cookie("super_admin_auth")
-    return response
+@app.get("/admin-audit-log", response_class=HTMLResponse)
+async def admin_audit_log_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-hub")
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 500")
+    logs = cursor.fetchall()
+    conn.close()
+    return templates.TemplateResponse(request, "admin_audit_log.html", {"logs": logs, "admin_user": admin_user, "active_page": "audit"})
 
-# ==========================================
-# 5. المعرض المرئي للمشاريع (Gallery)
-# ==========================================
+@app.get("/api/notifications")
+async def get_notifications():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 20")
+        notifs = cursor.fetchall()
+        cursor.execute("SELECT COUNT(*) FROM notifications WHERE is_read = FALSE")
+        unread_count = cursor.fetchone()[0]
+        conn.close()
+        return JSONResponse({"success": True, "notifications": [dict(n) for n in notifs], "unread_count": unread_count})
+    except Exception as e:
+        return JSONResponse({"success": False, "message": str(e)})
+
+@app.post("/api/notifications/mark-read")
+async def mark_notifications_read():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE notifications SET is_read = TRUE WHERE is_read = FALSE")
+        conn.commit()
+        conn.close()
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return JSONResponse({"success": False, "message": str(e)})
+
 @app.get("/admin-gallery", response_class=HTMLResponse)
 async def admin_gallery_page(request: Request):
     admin_user = request.cookies.get("super_admin_auth")
     if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-dashboard", status_code=303)
-    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT project_name FROM project_updates WHERE project_name IS NOT NULL ORDER BY project_name")
@@ -497,9 +520,6 @@ async def get_gallery_data(project: str, date: str, request: Request):
         }
     return {"success": False}
 
-# ==========================================
-# 6. بوابة التحديث والاستبدال الذكي 
-# ==========================================
 @app.get("/update-portal", response_class=HTMLResponse)
 async def update_portal_page(request: Request):
     auth_user = request.cookies.get("auth_user")
@@ -524,7 +544,6 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
     form_data = await request.form()
     username = form_data.get("username")
 
-    # حساب الـ Data Date ووقت الإرسال
     ksa_time = datetime.utcnow() + timedelta(hours=3)
     sub_date = ksa_time.strftime("%Y-%m-%d")
     sub_time = ksa_time.strftime("%I:%M %p") 
@@ -545,11 +564,9 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # جلب السجل الحالي لنفس دورة التحديث
         cursor.execute("SELECT id, file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link FROM project_updates WHERE username=%s AND current_data_date=%s", (username, calculated_data_date))
         existing_record = cursor.fetchone()
 
-        # جلب أحدث سجل للمشروع عموماً (لنقل الروابط القديمة إذا تم استرجاع مسودة)
         cursor.execute("SELECT file_link_1, file_link_2, file_link_3, file_link_4, master_plan_link, isometric_link FROM project_updates WHERE username=%s AND project_name=%s ORDER BY current_data_date DESC LIMIT 1", (username, form_data.get("project_name")))
         previous_record = cursor.fetchone()
 
@@ -559,8 +576,6 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         for i in range(4):
             flag_val = form_data.get(f"flag_attachment_{i+1}")
             file_obj = attachments[i]
-            
-            # منع التكرار وإعادة رفع الصور باستخدام الختم البرمجي (Flag)
             if flag_val == "true" and existing_record and existing_record[i+1] and existing_record[i+1] != "لا يوجد مرفق":
                 links[i] = existing_record[i+1]
             elif flag_val == "true" and previous_record and previous_record[i] and previous_record[i] != "لا يوجد مرفق":
@@ -592,7 +607,6 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         else:
             isometric_link = existing_record[6] if existing_record and existing_record[6] else "لا يوجد مرفق"
 
-        # فلاتر تنظيف البيانات
         def clean_num(val):
             if val is None or str(val).strip() == "": return 0
             try: return float(val)
@@ -637,6 +651,8 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         conn.commit()
         conn.close()
         background_tasks.add_task(send_telegram_alert, "submit", form_data.get("manager_name"), form_data.get("project_name"))
+        background_tasks.add_task(create_notification, f"تم رفع تحديث جديد لمشروع {form_data.get('project_name')}")
+        background_tasks.add_task(log_audit, username, "تحديث أسبوعي", f"تم إرسال تحديث لمشروع {form_data.get('project_name')}")
 
         success_html = """
         <!DOCTYPE html>
@@ -684,9 +700,6 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         """
         return HTMLResponse(content=error_html, status_code=500)
 
-# ==========================================
-# 7. لوحة المؤشرات التفاعلية (Analytics Dashboard)
-# ==========================================
 @app.get("/admin-analytics", response_class=HTMLResponse)
 async def admin_analytics_page(request: Request):
     admin_user = request.cookies.get("super_admin_auth")
@@ -734,3 +747,7 @@ async def powerbi_feed():
     rows = cursor.fetchall()
     conn.close()
     return [dict(zip(columns, row)) for row in rows]
+
+if __name__ == "__main__":
+    import uvicorn
+    # uvicorn.run(app, host="0.0.0.0", port=8000)
