@@ -400,21 +400,31 @@ async def admin_delete_user(request: Request, background_tasks: BackgroundTasks,
     return RedirectResponse(url="/admin-users?notice=تم حذف الحساب بنجاح", status_code=303)
 
 @app.get("/api/notifications")
-async def get_notifications():
+async def get_notifications(request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "message": "غير مصرح"}, status_code=403)
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 20")
-        notifs = cursor.fetchall()
+        notifs = []
+        for row in cursor.fetchall():
+            item = dict(row)
+            for k, v in item.items():
+                if isinstance(v, (date, datetime)):
+                    item[k] = v.isoformat()
+            notifs.append(item)
         cursor.execute("SELECT COUNT(*) FROM notifications WHERE is_read = FALSE")
         unread_count = cursor.fetchone()[0]
         conn.close()
-        return JSONResponse({"success": True, "notifications": [dict(n) for n in notifs], "unread_count": unread_count})
+        return JSONResponse({"success": True, "notifications": notifs, "unread_count": unread_count})
     except Exception as e:
         return JSONResponse({"success": False, "message": str(e)})
 
 @app.post("/api/notifications/mark-read")
-async def mark_notifications_read():
+async def mark_notifications_read(request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "message": "غير مصرح"}, status_code=403)
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
