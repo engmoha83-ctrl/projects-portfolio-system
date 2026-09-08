@@ -226,25 +226,6 @@ async def admin_dashboard(request: Request):
         rows.append(row_list)
     return templates.TemplateResponse(request, "admin_dashboard.html", {"original_columns": original_columns, "translated_columns": translated_columns, "rows": rows, "admin_user": admin_user, "active_page": "dashboard"})
 
-@app.post("/api/save-dashboard-layout")
-async def save_dashboard_layout(request: Request, background_tasks: BackgroundTasks):
-    try:
-        data = await request.json()
-        layout_data = data.get("layout")
-        global_settings = data.get("settings")
-        username = request.cookies.get("auth_user")
-        if not username:
-            return JSONResponse({"success": False, "message": "غير مصرح لك"})
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE pm_directory SET custom_dashboard_layout = %s WHERE username = %s", (json.dumps({"layout": layout_data, "settings": global_settings}), username))
-        conn.commit()
-        conn.close()
-        background_tasks.add_task(log_audit, username, "تعديل واجهة الداشبورد", "تم حفظ تصميم جديد للداشبورد التفاعلي")
-        return JSONResponse({"success": True, "message": "تم حفظ التصميم بنجاح"})
-    except Exception as e:
-        return JSONResponse({"success": False, "message": str(e)})
-
 @app.get("/api/project-pdf")
 async def get_project_pdf(request: Request, background_tasks: BackgroundTasks, project: str = None, lang: str = "ar"):
     admin_user = request.cookies.get("super_admin_auth")
@@ -527,11 +508,13 @@ async def builder_list_layouts(request: Request):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, project_name, share_token, updated_at FROM dashboard_layouts ORDER BY updated_at DESC")
+        cursor.execute("""SELECT id, name, project_name, share_token, updated_at, is_default FROM dashboard_layouts
+                          ORDER BY is_default DESC, updated_at DESC""")
         rows = cursor.fetchall()
         conn.close()
         return {"success": True, "layouts": [
-            {"id": r[0], "name": r[1], "project_name": r[2], "share_token": r[3], "updated_at": str(r[4])} for r in rows
+            {"id": r[0], "name": r[1], "project_name": r[2], "share_token": r[3],
+             "updated_at": str(r[4]), "is_default": r[5]} for r in rows
         ]}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
@@ -544,7 +527,8 @@ async def builder_get_layout(layout_id: int, request: Request):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, project_name, layout, share_token FROM dashboard_layouts WHERE id = %s", (layout_id,))
+        cursor.execute("""SELECT id, name, project_name, layout, share_token, is_default
+                          FROM dashboard_layouts WHERE id = %s""", (layout_id,))
         row = cursor.fetchone()
         conn.close()
         if not row:
@@ -553,7 +537,7 @@ async def builder_get_layout(layout_id: int, request: Request):
         if isinstance(layout, str):
             layout = json.loads(layout)
         return {"success": True, "layout": {"id": row[0], "name": row[1], "project_name": row[2],
-                                            "data": layout, "share_token": row[4]}}
+                                            "data": layout, "share_token": row[4], "is_default": row[5]}}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
@@ -567,24 +551,81 @@ async def builder_save_layout(request: Request, background_tasks: BackgroundTask
         body = await request.json()
         layout_id = body.get("id")
         name = (body.get("name") or "").strip() or "قالب بدون اسم"
+        scope = body.get("scope") or "project"          # "default" = قالب عام لكل المشاريع
         project_name = body.get("project_name") or None
         data = body.get("data") or {}
+        payload = json.dumps(data, ensure_ascii=False)
+
+        if scope == "default":
+            project_name = None                          # القالب العام غير مرتبط بمشروع
+        elif not project_name:
+            return JSONResponse({"success": False, "error": "لا بد من اختيار مشروع لحفظ قالب مخصص"}, status_code=400)
 
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # لكل مشروع قالب مخصص واحد فقط، وقالب عام واحد فقط على مستوى النظام
+        if not layout_id:
+            if scope == "default":
+                cursor.execute("SELECT id FROM dashboard_layouts WHERE is_default = TRUE LIMIT 1")
+            else:
+                cursor.execute("SELECT id FROM dashboard_layouts WHERE project_name = %s AND is_default = FALSE LIMIT 1",
+                               (project_name,))
+            found = cursor.fetchone()
+            if found: layout_id = found[0]
+
         if layout_id:
-            cursor.execute("""UPDATE dashboard_layouts SET name=%s, project_name=%s, layout=%s, updated_at=NOW()
+            cursor.execute("""UPDATE dashboard_layouts
+                              SET name=%s, project_name=%s, layout=%s, is_default=%s, updated_at=NOW()
                               WHERE id=%s RETURNING id, share_token""",
-                           (name, project_name, json.dumps(data, ensure_ascii=False), layout_id))
+                           (name, project_name, payload, scope == "default", layout_id))
         else:
-            cursor.execute("""INSERT INTO dashboard_layouts (name, project_name, layout, share_token, created_by)
-                              VALUES (%s, %s, %s, %s, %s) RETURNING id, share_token""",
-                           (name, project_name, json.dumps(data, ensure_ascii=False), secrets.token_urlsafe(16), admin_user))
+            cursor.execute("""INSERT INTO dashboard_layouts (name, project_name, layout, is_default, share_token, created_by)
+                              VALUES (%s, %s, %s, %s, %s, %s) RETURNING id, share_token""",
+                           (name, project_name, payload, scope == "default",
+                            secrets.token_urlsafe(16), admin_user))
         row = cursor.fetchone()
+
+        if scope == "default":                            # قالب عام واحد فقط
+            cursor.execute("UPDATE dashboard_layouts SET is_default = FALSE WHERE id <> %s", (row[0],))
+
         conn.commit()
         conn.close()
-        background_tasks.add_task(log_audit, admin_user, "حفظ قالب داشبورد", f"القالب: {name}")
-        return {"success": True, "id": row[0], "share_token": row[1]}
+        background_tasks.add_task(log_audit, admin_user, "حفظ قالب داشبورد",
+                                  f"{'قالب عام' if scope == 'default' else 'قالب مشروع ' + str(project_name)}: {name}")
+        return {"success": True, "id": row[0], "share_token": row[1],
+                "scope": scope, "project_name": project_name}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/builder/resolve")
+async def builder_resolve_layout(request: Request, project: str = None):
+    """يرجّع القالب المطبَّق على مشروع معيّن: المخصص له إن وُجد، وإلا القالب العام."""
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        row, source = None, "none"
+        if project:
+            cursor.execute("""SELECT id, name, project_name, layout, share_token FROM dashboard_layouts
+                              WHERE project_name = %s AND is_default = FALSE LIMIT 1""", (project,))
+            row = cursor.fetchone()
+            if row: source = "project"
+        if not row:
+            cursor.execute("""SELECT id, name, project_name, layout, share_token FROM dashboard_layouts
+                              WHERE is_default = TRUE LIMIT 1""")
+            row = cursor.fetchone()
+            if row: source = "default"
+        conn.close()
+        if not row:
+            return {"success": True, "source": "none", "layout": None}
+        data = row[3]
+        if isinstance(data, str): data = json.loads(data)
+        return {"success": True, "source": source,
+                "layout": {"id": row[0], "name": row[1], "project_name": row[2],
+                           "data": data, "share_token": row[4]}}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
