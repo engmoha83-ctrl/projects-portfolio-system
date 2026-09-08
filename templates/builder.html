@@ -51,6 +51,9 @@ button{font-family:inherit;}
   background:rgba(212,163,115,.18); color:var(--ui-gold); border:1px solid rgba(212,163,115,.45);
 }
 .scope-chip.custom{background:rgba(38,133,201,.20); color:#8ecbff; border-color:rgba(38,133,201,.5);}
+.theme-prev{display:flex; gap:4px; margin:6px 0 9px; align-items:center;}
+.theme-prev .tp-page{width:26px; height:22px; border-radius:6px; border:1px solid var(--ui-line);}
+.theme-prev .tp-c{width:15px; height:22px; border-radius:4px;}
 .lay-badge{
   font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:20px; margin-inline-start:6px;
   background:#f4ead9; color:#8a6134; border:1px solid #e5d3b6;
@@ -153,6 +156,40 @@ button{font-family:inherit;}
 .tbl td:first-child{color:inherit; opacity:.72; font-weight:700; white-space:nowrap; width:42%;}
 .tbl tr:last-child td{border-bottom:none;}
 .txt-visual{height:100%; overflow:auto; white-space:pre-wrap; word-break:break-word;}
+.gauge-wrap{height:100%; display:flex; flex-direction:column; min-height:0;}
+.gauge-chart{flex:1 1 auto; min-height:0; overflow:hidden;}
+.gauge-vals{
+  flex:0 0 auto; overflow:hidden; display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:center;
+  padding:4px 2px 2px; line-height:1.5;
+}
+.gauge-vals span{display:inline-flex; align-items:center; gap:4px; white-space:nowrap;}
+.gauge-vals i{width:9px; height:9px; border-radius:3px; display:inline-block;}
+.spi-card{height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; text-align:center;}
+.spi-val{font-weight:900; line-height:1;}
+.spi-status{color:#fff; font-weight:700; font-size:.78rem; padding:3px 12px; border-radius:20px;}
+.spi-base{opacity:.75; text-align:center; padding-top:2px;}
+.obs-wrap{height:100%; display:flex; flex-direction:column; min-height:0; gap:5px;}
+.obs-scroll{flex:1 1 auto; min-height:0; overflow-y:auto;}
+.obs-sum{flex:0 0 auto; display:flex; gap:12px; flex-wrap:wrap; padding-bottom:4px;
+         border-bottom:1px solid rgba(128,128,128,.22);}
+.obs-sum .o-open{color:#d9463f;} .obs-sum .o-closed{color:#1e8e5a;}
+.obs-tbl td{vertical-align:middle;}
+.obs-tbl td.obs-desc{width:auto; color:inherit; opacity:1; font-weight:500; white-space:normal;}
+.obs-tbl td.obs-chips{width:1%; white-space:nowrap; text-align:end;}
+.obs-chip{
+  display:inline-block; font-size:.68rem; font-weight:700; padding:2px 8px; border-radius:20px;
+  margin-inline-start:4px; white-space:nowrap; color:#fff;
+}
+.imp-high{background:#d9463f;} .imp-mid{background:#d99425;}
+.imp-low{background:#2685c9;}  .imp-none{background:#8a94a6;}
+.st-open{background:#f0e2e1; color:#a3352f;} .st-closed{background:#e2f2ea; color:#186b45;}
+.obs-cards{flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:6px;}
+.obs-card{border:1px solid rgba(128,128,128,.25); border-radius:9px; padding:7px 9px;
+          display:flex; align-items:center; justify-content:space-between; gap:8px;}
+.obs-card .obs-desc{flex:1; font-weight:600; line-height:1.5;}
+.img-wrap{height:100%; display:flex; flex-direction:column; min-height:0;}
+.img-wrap img{flex:1 1 auto; min-height:0; width:100%; display:block;}
+.img-cap{flex:0 0 auto; text-align:center; opacity:.75; padding-top:5px;}
 .empty-note{
   height:100%; display:flex; align-items:center; justify-content:center; text-align:center;
   color:var(--ui-muted); font-size:.8rem; padding:8px;
@@ -309,18 +346,42 @@ FIELD_META.forEach(f => FIELD_MAP[f.key] = f);
 
 /* ---------------- الثيمات ---------------- */
 const THEMES = {
-  navy:  {name:'كحلي وذهبي', pageBg:'#ffffff', widgetBg:'#ffffff', titleBg:'#1a2b4c', titleColor:'#ffffff',
-          text:'#1a2b4c', border:'#e3e7ef',
-          palette:['#1a2b4c','#d4a373','#2685c9','#1e8e5a','#d9463f','#7b5ea7','#d99425','#6c7a91']},
-  light: {name:'فاتح هادئ', pageBg:'#f7f9fc', widgetBg:'#ffffff', titleBg:'#eef2f8', titleColor:'#1a2b4c',
-          text:'#3c4657', border:'#e3e7ef',
-          palette:['#2685c9','#1e8e5a','#d99425','#d9463f','#7b5ea7','#0f9b8e','#6c7a91','#c2547f']},
-  dark:  {name:'داكن', pageBg:'#1e1e24', widgetBg:'#2b2d35', titleBg:'#15161a', titleColor:'#f8f9fa',
-          text:'#f0f2f6', border:'#444857',
-          palette:['#0dcaf0','#fd7e14','#20c997','#dc3545','#ffc107','#a78bfa','#4dabf7','#adb5bd']},
-  sand:  {name:'رملي', pageBg:'#faf6ef', widgetBg:'#ffffff', titleBg:'#d4a373', titleColor:'#22160a',
-          text:'#4a3b2a', border:'#e8dcc8',
-          palette:['#a9714b','#d4a373','#7d8471','#b25f4a','#42604f','#8a6d3b','#5c4033','#c9a66b']}
+  navy:   {name:'كحلي وذهبي', pageBg:'#ffffff', widgetBg:'#ffffff', titleBg:'#1a2b4c', titleColor:'#ffffff',
+           text:'#1a2b4c', border:'#e3e7ef',
+           palette:['#1a2b4c','#d4a373','#2685c9','#1e8e5a','#d9463f','#7b5ea7','#d99425','#6c7a91']},
+  light:  {name:'فاتح هادئ', pageBg:'#f7f9fc', widgetBg:'#ffffff', titleBg:'#eef2f8', titleColor:'#1a2b4c',
+           text:'#3c4657', border:'#e3e7ef',
+           palette:['#2685c9','#1e8e5a','#d99425','#d9463f','#7b5ea7','#0f9b8e','#6c7a91','#c2547f']},
+  dark:   {name:'داكن', pageBg:'#1e1e24', widgetBg:'#2b2d35', titleBg:'#15161a', titleColor:'#f8f9fa',
+           text:'#f0f2f6', border:'#444857',
+           palette:['#0dcaf0','#fd7e14','#20c997','#dc3545','#ffc107','#a78bfa','#4dabf7','#adb5bd']},
+  midnight:{name:'أزرق ليلي', pageBg:'#0f1a2e', widgetBg:'#16233d', titleBg:'#0a1220', titleColor:'#e8c9a0',
+           text:'#e6ecf5', border:'#26365a',
+           palette:['#d4a373','#5aa9e6','#3ddc97','#ff6b6b','#ffd166','#9d8df1','#7bdff2','#a9b4c9']},
+  sand:   {name:'رملي', pageBg:'#faf6ef', widgetBg:'#ffffff', titleBg:'#d4a373', titleColor:'#22160a',
+           text:'#4a3b2a', border:'#e8dcc8',
+           palette:['#a9714b','#d4a373','#7d8471','#b25f4a','#42604f','#8a6d3b','#5c4033','#c9a66b']},
+  emerald:{name:'أخضر زمردي', pageBg:'#f4faf7', widgetBg:'#ffffff', titleBg:'#0f5c43', titleColor:'#ffffff',
+           text:'#123f31', border:'#d5e8df',
+           palette:['#0f5c43','#3fa27e','#87c9a9','#c8a34a','#2d6ea8','#b4553f','#6b7f76','#d9c47a']},
+  ocean:  {name:'أزرق بحري', pageBg:'#f2f8fc', widgetBg:'#ffffff', titleBg:'#0b4f6c', titleColor:'#ffffff',
+           text:'#12384d', border:'#d6e8f2',
+           palette:['#0b4f6c','#2e8bc0','#7fc6e0','#f4a259','#3fa27e','#b45f6d','#6c7a91','#f0c05a']},
+  royal:  {name:'بنفسجي ملكي', pageBg:'#f8f6fd', widgetBg:'#ffffff', titleBg:'#3d2a6d', titleColor:'#ffffff',
+           text:'#2f2350', border:'#e4dcf5',
+           palette:['#3d2a6d','#7b5ea7','#b39ddb','#d4a373','#2685c9','#1e8e5a','#d9463f','#8a94a6']},
+  crimson:{name:'نبيذي', pageBg:'#fdf6f5', widgetBg:'#ffffff', titleBg:'#7a2233', titleColor:'#ffffff',
+           text:'#4a1c26', border:'#f0dcdc',
+           palette:['#7a2233','#b8556b','#e0a3ae','#c8a34a','#2f6e8f','#4a7c59','#8a6d3b','#9aa0a6']},
+  slate:  {name:'رمادي احترافي', pageBg:'#f5f6f8', widgetBg:'#ffffff', titleBg:'#3a4250', titleColor:'#ffffff',
+           text:'#2f3542', border:'#e1e4ea',
+           palette:['#3a4250','#5f6b7d','#8e9aad','#2685c9','#1e8e5a','#d99425','#d9463f','#7b5ea7']},
+  teal:   {name:'فيروزي', pageBg:'#f1fafa', widgetBg:'#ffffff', titleBg:'#0f6b6b', titleColor:'#ffffff',
+           text:'#124a4a', border:'#d3ecec',
+           palette:['#0f6b6b','#2ea3a3','#8ed4d4','#e08b3e','#3f6fa3','#a8546b','#6f8080','#d8c168']},
+  mono:   {name:'أبيض وأسود (طباعة)', pageBg:'#ffffff', widgetBg:'#ffffff', titleBg:'#1c1c1c', titleColor:'#ffffff',
+           text:'#1c1c1c', border:'#cfcfcf',
+           palette:['#1c1c1c','#4d4d4d','#7a7a7a','#a6a6a6','#c9c9c9','#3d3d3d','#8c8c8c','#616161']}
 };
 const FONTS = [
   {v:"'Tajawal',sans-serif", n:'تجوال'},
@@ -414,14 +475,81 @@ function doRedo(){
 /* =====================================================================
    قوالب الـ Visuals
    ===================================================================== */
+function dayDiff(a, b){
+  if(!a || !b) return 0;
+  const d1 = new Date(a), d2 = new Date(b);
+  if(isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
+  return Math.round((d2 - d1) / 86400000);
+}
+function lbl(f){ return (FIELD_MAP[f] || {}).label || f; }
+
 const BAR_GROUPS = {
-  drawings:{n:'المخططات', fields:['drawings_sub','drawings_app','drawings_rev'], type:'number'},
-  ir:      {n:'طلبات الاستلام IR', fields:['ir_sub','ir_app','ir_rev'], type:'number'},
-  ncr:     {n:'مخالفات NCR', fields:['ncr_open','ncr_closed'], type:'number'},
-  invoices:{n:'الفواتير', fields:['cons_inv_val','cont_inv_val'], type:'currency'},
-  contracts:{n:'قيم العقود', fields:['consultant_val','contractor_val'], type:'currency'},
-  mods:    {n:'أوامر التغيير', fields:['consultant_mods_count','contractor_mods_count'], type:'number'}
+  progress:  {n:'نسب الإنجاز (فعلي/مخطط)', type:'percent',
+              compute:r => ({labels:['الإنجاز الفعلي','الإنجاز المخطط'],
+                             data:[pct(r.act_prog_cur), pct(r.plan_prog_cur)]})},
+  progress4: {n:'نسب الإنجاز (حالي/سابق)', type:'percent',
+              compute:r => ({labels:['فعلي حالي','فعلي سابق','مخطط حالي','مخطط سابق'],
+                             data:[pct(r.act_prog_cur), pct(r.act_prog_prev),
+                                   pct(r.plan_prog_cur), pct(r.plan_prog_prev)]})},
+  durations: {n:'مدة العقد الأصلية والممددة', type:'days',
+              compute(r){
+                const base = dayDiff(r.start_contractual, r.end_contractual);
+                const extEnd = r.contractor_mods_end_date || r.consultant_mods_end_date || null;
+                let ext = extEnd ? dayDiff(r.start_contractual, extEnd) : 0;
+                const modTime = num(r.contractor_mods_time) || num(r.consultant_mods_time) || 0;
+                if(!ext) ext = base + modTime;
+                return {labels:['المدة التعاقدية','المدة بعد التمديد','فرق التمديد'],
+                        data:[base, ext, Math.max(0, ext - base)]};
+              }},
+  mods_val:  {n:'قيم أوامر التغيير', fields:['consultant_mods_val','contractor_mods_val'], type:'currency'},
+  mods:      {n:'أوامر التغيير (عدد)', fields:['consultant_mods_count','contractor_mods_count'], type:'number'},
+  mods_time: {n:'مدد التمديد (يوم)', fields:['consultant_mods_time','contractor_mods_time'], type:'days'},
+  drawings:  {n:'المخططات', fields:['drawings_sub','drawings_app','drawings_rev'], type:'number'},
+  ir:        {n:'طلبات الاستلام IR', fields:['ir_sub','ir_app','ir_rev'], type:'number'},
+  ncr:       {n:'مخالفات NCR', fields:['ncr_open','ncr_closed'], type:'number'},
+  invoices:  {n:'الفواتير', fields:['cons_inv_val','cont_inv_val'], type:'currency'},
+  contracts: {n:'قيم العقود', fields:['consultant_val','contractor_val'], type:'currency'}
 };
+
+/* أزواج المقارنة للمؤشر الدائري */
+const GAUGE_PAIRS = {
+  progress:     {n:'الإنجاز الفعلي مقابل المخطط', kind:'percent', a:'act_prog_cur', b:'plan_prog_cur'},
+  progress_prev:{n:'الإنجاز الفعلي: حالي مقابل سابق', kind:'percent', a:'act_prog_cur', b:'act_prog_prev'},
+  plan_prev:    {n:'الإنجاز المخطط: حالي مقابل سابق', kind:'percent', a:'plan_prog_cur', b:'plan_prog_prev'},
+  drawings:     {n:'المخططات: معتمدة من مقدمة', kind:'ratio', a:'drawings_app', b:'drawings_sub'},
+  drawings_rev: {n:'المخططات: قيد المراجعة من مقدمة', kind:'ratio', a:'drawings_rev', b:'drawings_sub'},
+  ir:           {n:'طلبات الاستلام: معتمدة من مقدمة', kind:'ratio', a:'ir_app', b:'ir_sub'},
+  ncr:          {n:'المخالفات: مغلقة من الإجمالي', kind:'ratio_sum', a:'ncr_closed', b:'ncr_open'},
+  inv_cont:     {n:'فواتير المقاول من قيمة عقده', kind:'ratio', a:'cont_inv_val', b:'contractor_val'},
+  inv_cons:     {n:'فواتير الاستشاري من قيمة عقده', kind:'ratio', a:'cons_inv_val', b:'consultant_val'},
+  mods_cont:    {n:'أوامر تغيير المقاول من قيمة عقده', kind:'ratio', a:'contractor_mods_val', b:'contractor_val'},
+  custom:       {n:'مقارنة مخصصة (اختر حقلين)', kind:'custom'}
+};
+
+/* تنسيق موحّد لـ Data Labels (حجم/لون/خلفية) */
+const DL_DEFAULT = {show:true, size:11, weight:700, color:'', bg:false, bgColor:'#1a2b4c'};
+function dlOf(w){ return Object.assign({}, DL_DEFAULT, w.opts.dl || {}); }
+function dlOpts(w, fallbackColor, formatter){
+  const d = dlOf(w);
+  const o = {
+    enabled: d.show !== false,
+    style:{fontSize:(d.size || 11) + 'px', fontWeight:d.weight || 700,
+           fontFamily:w.style.font || FONTS[0].v,
+           colors:[d.color || fallbackColor || theme().text]},
+    background:{enabled: !!d.bg, foreColor: d.bgColor || '#1a2b4c',
+                borderRadius:4, padding:4, borderWidth:0, opacity:0.92, dropShadow:{enabled:false}}
+  };
+  if(formatter) o.formatter = formatter;
+  return o;
+}
+function fmtByType(type){
+  if(type === 'percent')  return v => v + '%';
+  if(type === 'days')     return v => num(v).toLocaleString('en-US') + ' يوم';
+  if(type === 'currency') return v => compactNum(num(v));
+  return v => num(v).toLocaleString('en-US');
+}
+function wFont(w){ return (w.style && w.style.font) || FONTS[0].v; }
+function wSize(w){ return (w.style && w.style.fontSize) || 13; }
 
 const VISUALS = {
   kpi:{
@@ -451,28 +579,120 @@ const VISUALS = {
     }
   },
   gauge:{
-    name:'مؤشر دائري', icon:'🎯', w:300, h:280,
-    opts:{mode:'both', dataLabels:true},
+    name:'مؤشر دائري', icon:'🎯', w:320, h:300,
+    opts:{pair:'progress', fieldA:'act_prog_cur', fieldB:'plan_prog_cur', showValues:true,
+          dl:Object.assign({}, DL_DEFAULT)},
     title:'نسبة الإنجاز',
     render(body, w){
       if(!S.latest) return empty(body);
-      const series = [], labels = [];
-      if(w.opts.mode === 'both' || w.opts.mode === 'actual'){ series.push(pct(S.latest.act_prog_cur)); labels.push('الفعلي'); }
-      if(w.opts.mode === 'both' || w.opts.mode === 'planned'){ series.push(pct(S.latest.plan_prog_cur)); labels.push('المخطط'); }
+      const P = GAUGE_PAIRS[w.opts.pair] || GAUGE_PAIRS.progress;
+      const fa = P.a || w.opts.fieldA, fb = P.b || w.opts.fieldB;
+      const ta = (FIELD_MAP[fa] || {}).type || 'number';
+      const tb = (FIELD_MAP[fb] || {}).type || 'number';
+      const rawA = S.latest[fa], rawB = S.latest[fb];
+      const kind = (P.kind === 'custom') ? (ta === 'percent' && tb === 'percent' ? 'percent' : 'ratio') : P.kind;
+
+      let series, labels;
+      if(kind === 'percent'){
+        series = [pct(rawA), pct(rawB)]; labels = [lbl(fa), lbl(fb)];
+      }else{
+        const denom = (kind === 'ratio_sum') ? (num(rawA) + num(rawB)) : num(rawB);
+        series = [denom ? +(num(rawA) / denom * 100).toFixed(1) : 0];
+        labels = [lbl(fa)];
+      }
+
+      const d = dlOf(w);
+      const vals = [{f:fa, t:ta, v:rawA}, {f:fb, t:tb, v:rawB}];
+      const strip = w.opts.showValues
+        ? `<div class="gauge-vals" style="font-size:${Math.max(10, wSize(w) - 1)}px">` +
+          vals.map((x, i) => `<span><i style="background:${theme().palette[i] || theme().palette[0]}"></i>
+             ${lbl(x.f)}: <b>${fmtValue(x.v, x.t, {compact:true})}</b></span>`).join('') + `</div>`
+        : '';
+      body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${strip}</div>`;
+      const host = body.querySelector('.gauge-chart');
+      const reserve = measureStrip(body);
+      const longName = (labels[0] || '').length > 14;
+
       mkChart(body, w, {
-        chart:{type:'radialBar', fontFamily:w.title.font, background:'transparent'},
-        series, labels, colors:theme().palette.slice(0,2),
-        plotOptions:{radialBar:{hollow:{size:'44%'}, track:{background:'rgba(125,125,125,.15)'},
-          dataLabels:{show:w.opts.dataLabels, name:{fontSize:'13px', color:theme().text},
-            value:{fontSize:'19px', fontWeight:700, color:theme().text, formatter:v=>v+'%'},
-            total:{show:series.length>1, label:labels[0], color:theme().text, formatter:()=>series[0]+'%'}}}},
-        legend:{show:series.length>1, position:'bottom', labels:{colors:theme().text}}
-      });
+        chart:{type:'radialBar', fontFamily:wFont(w), background:'transparent'},
+        series, labels, colors:theme().palette.slice(0, series.length),
+        plotOptions:{radialBar:{hollow:{size:series.length > 1 ? '42%' : '55%'},
+          track:{background:'rgba(125,125,125,.15)'},
+          dataLabels:{show:d.show !== false,
+            name:{show:!(longName && w.opts.showValues), fontSize:Math.max(10, d.size - 1) + 'px',
+                  offsetY:-6, color:d.color || theme().text},
+            value:{fontSize:(Math.max(11, d.size) + 7) + 'px', fontWeight:900, offsetY:longName ? -2 : 4,
+                   color:d.color || theme().text, formatter:v => v + '%'},
+            total:{show:series.length > 1, label:labels[0], color:d.color || theme().text,
+                   formatter:() => series[0] + '%'}}}},
+        legend:{show:series.length > 1 && !w.opts.showValues, position:'bottom',
+                fontSize:wSize(w) + 'px', labels:{colors:theme().text}}
+      }, {host, reserve});
+    }
+  },
+  spi:{
+    name:'مؤشر الأداء SPI', icon:'⏱️', w:330, h:300,
+    opts:{mode:'card', decimals:2, showBase:true, good:1, warn:0.95,
+          dl:Object.assign({}, DL_DEFAULT, {color:''})},
+    title:'مؤشر أداء الجدول الزمني (SPI)',
+    render(body, w){
+      if(!S.latest) return empty(body);
+      const spiOf = r => {
+        const plan = pct(r.plan_prog_cur);
+        return plan > 0 ? +(pct(r.act_prog_cur) / plan).toFixed(4) : 0;
+      };
+      const val = spiOf(S.latest);
+      const good = num(w.opts.good) || 1, warn = num(w.opts.warn) || 0.95;
+      const color = val >= good ? '#1e8e5a' : (val >= warn ? '#d99425' : '#d9463f');
+      const status = val >= good ? 'متقدم على البرنامج' : (val >= warn ? 'مطابق تقريباً للبرنامج' : 'متأخر عن البرنامج');
+      const shown = val.toFixed(w.opts.decimals);
+      const base = w.opts.showBase
+        ? `<div class="spi-base" style="font-size:${Math.max(10, wSize(w) - 1)}px">
+             الفعلي <b>${pct(S.latest.act_prog_cur).toFixed(1)}%</b> ÷
+             المخطط <b>${pct(S.latest.plan_prog_cur).toFixed(1)}%</b></div>` : '';
+
+      if(w.opts.mode === 'trend'){
+        const d = dlOf(w);
+        body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${base}</div>`;
+        mkChart(body, w, {
+          chart:{type:'line', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
+          series:[{name:'SPI', data:S.records.map(spiOf)}],
+          colors:[color], stroke:{curve:'smooth', width:3}, markers:{size:4},
+          dataLabels:dlOpts(w, color, v => num(v).toFixed(2)),
+          xaxis:{categories:S.records.map(r => r.current_data_date || ''),
+                 labels:{style:{colors:theme().text, fontSize:'10px'}}},
+          yaxis:{labels:{formatter:v => num(v).toFixed(2), style:{colors:theme().text, fontSize:'10px'}}},
+          annotations:{yaxis:[{y:1, borderColor:'#6c7a91', strokeDashArray:4,
+                               label:{text:'الهدف 1.00', style:{fontSize:'10px', background:'#6c7a91', color:'#fff'}}}]},
+          grid:{borderColor:'rgba(125,125,125,.18)'},
+          legend:{show:false}
+        }, {host:body.querySelector('.gauge-chart'), reserve:measureSpiBase(body)});
+        return;
+      }
+      if(w.opts.mode === 'gauge'){
+        const d = dlOf(w);
+        body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${base}</div>`;
+        mkChart(body, w, {
+          chart:{type:'radialBar', fontFamily:wFont(w), background:'transparent'},
+          series:[Math.min(100, +(val / 1.5 * 100).toFixed(1))], labels:['SPI'], colors:[color],
+          plotOptions:{radialBar:{hollow:{size:'58%'}, track:{background:'rgba(125,125,125,.15)'},
+            dataLabels:{show:d.show !== false,
+              name:{fontSize:Math.max(11, d.size) + 'px', color:d.color || theme().text},
+              value:{fontSize:(Math.max(11, d.size) + 12) + 'px', fontWeight:900,
+                     color:d.color || color, formatter:() => shown}}}},
+          legend:{show:false}
+        }, {host:body.querySelector('.gauge-chart'), reserve:measureSpiBase(body)});
+        return;
+      }
+      const d = dlOf(w);
+      body.innerHTML = `<div class="spi-card">
+          <div class="spi-val" style="color:${d.color || color};font-size:${Math.max(24, d.size * 3)}px">${shown}</div>
+          <div class="spi-status" style="background:${color}">${status}</div>${base}</div>`;
     }
   },
   progress_line:{
     name:'مسار الإنجاز', icon:'📈', w:520, h:290,
-    opts:{chartType:'line', dataLabels:false, smooth:true, showPlanned:true},
+    opts:{chartType:'line', smooth:true, showPlanned:true, dl:Object.assign({}, DL_DEFAULT, {show:false})},
     title:'مسار الإنجاز الفعلي مقابل المخطط',
     render(body, w){
       if(!S.records.length) return empty(body);
@@ -480,63 +700,77 @@ const VISUALS = {
       const series = [{name:'الفعلي', data:S.records.map(r => pct(r.act_prog_cur))}];
       if(w.opts.showPlanned) series.push({name:'المخطط', data:S.records.map(r => pct(r.plan_prog_cur))});
       mkChart(body, w, {
-        chart:{type:w.opts.chartType, fontFamily:w.title.font, background:'transparent', toolbar:{show:false}},
-        series, colors:theme().palette.slice(0,2),
-        stroke:{curve:w.opts.smooth?'smooth':'straight', width:w.opts.chartType==='bar'?0:3},
-        fill:w.opts.chartType==='area'?{type:'gradient', gradient:{opacityFrom:.45, opacityTo:.05}}:{opacity:1},
-        dataLabels:{enabled:w.opts.dataLabels, formatter:v=>v+'%', style:{fontSize:'10px'}},
-        markers:{size:w.opts.chartType==='line'?4:0},
-        xaxis:{categories:cats, labels:{style:{colors:theme().text, fontSize:'10px'}}},
+        chart:{type:w.opts.chartType, fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
+        series, colors:theme().palette.slice(0, 2),
+        stroke:{curve:w.opts.smooth ? 'smooth' : 'straight', width:w.opts.chartType === 'bar' ? 0 : 3},
+        fill:w.opts.chartType === 'area' ? {type:'gradient', gradient:{opacityFrom:.45, opacityTo:.05}} : {opacity:1},
+        dataLabels:dlOpts(w, theme().text, v => v + '%'),
+        markers:{size:w.opts.chartType === 'line' ? 4 : 0},
+        xaxis:{categories:cats, labels:{style:{colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'}}},
         yaxis:{max:100, min:0, tickAmount:5, decimalsInFloat:0,
-               labels:{formatter:v=>Math.round(v)+'%', style:{colors:theme().text, fontSize:'10px'}}},
+               labels:{formatter:v => Math.round(v) + '%',
+                       style:{colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'}}},
         grid:{borderColor:'rgba(125,125,125,.18)'},
-        legend:{position:'top', horizontalAlign:'center', labels:{colors:theme().text}},
-        tooltip:{y:{formatter:v=>v+'%'}}
+        legend:{position:'top', horizontalAlign:'center', fontSize:wSize(w) + 'px', labels:{colors:theme().text}},
+        tooltip:{y:{formatter:v => v + '%'}}
       });
     }
   },
   bars:{
-    name:'أعمدة مقارنة', icon:'📊', w:420, h:270,
-    opts:{group:'drawings', dataLabels:true, horizontal:false},
-    title:'المخططات',
+    name:'أعمدة مقارنة', icon:'📊', w:430, h:280,
+    opts:{group:'progress', horizontal:false, dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
+    title:'مقارنة',
     render(body, w){
       if(!S.latest) return empty(body);
-      const g = BAR_GROUPS[w.opts.group] || BAR_GROUPS.drawings;
-      const cats = g.fields.map(f => (FIELD_MAP[f] || {}).label || f);
-      const data = g.fields.map(f => num(S.latest[f]));
+      const g = BAR_GROUPS[w.opts.group] || BAR_GROUPS.progress;
+      let cats, data;
+      if(g.compute){ const r = g.compute(S.latest); cats = r.labels; data = r.data; }
+      else{
+        cats = g.fields.map(lbl);
+        data = g.fields.map(f => g.type === 'percent' ? pct(S.latest[f]) : num(S.latest[f]));
+      }
+      const fmt = fmtByType(g.type);
       mkChart(body, w, {
-        chart:{type:'bar', fontFamily:w.title.font, background:'transparent', toolbar:{show:false}},
+        chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
         series:[{name:g.n, data}], colors:theme().palette,
-        plotOptions:{bar:{horizontal:w.opts.horizontal, distributed:true, borderRadius:5, columnWidth:'55%'}},
-        dataLabels:{enabled:w.opts.dataLabels,
-          formatter:v => g.type==='currency' ? num(v).toLocaleString('en-US') : v,
-          style:{fontSize:'11px', fontWeight:700}},
-        xaxis:{categories:cats, labels:{style:{colors:theme().text, fontSize:'10px'}}},
-        yaxis:{labels:{style:{colors:theme().text, fontSize:'10px'}}},
+        plotOptions:{bar:{horizontal:w.opts.horizontal, distributed:true, borderRadius:5, columnWidth:'58%'}},
+        dataLabels:dlOpts(w, '#ffffff', fmt),
+        xaxis:{categories:cats, labels:{style:{colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'}}},
+        yaxis:{labels:{formatter:g.type === 'percent' ? (v => Math.round(v) + '%')
+                       : (g.type === 'currency' ? (v => compactNum(num(v))) : (v => Math.round(num(v)).toLocaleString('en-US'))),
+                       style:{colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'}}},
         grid:{borderColor:'rgba(125,125,125,.18)'},
         legend:{show:false},
-        tooltip:{y:{formatter:v => fmtValue(v, g.type, {})}}
+        tooltip:{y:{formatter:v => fmt(v)}}
       });
     }
   },
   radar_eval:{
-    name:'التقييم الفني', icon:'🕸️', w:340, h:300,
-    opts:{dataLabels:false},
+    name:'التقييم الفني', icon:'🕸️', w:360, h:310,
+    opts:{showValues:true, dl:Object.assign({}, DL_DEFAULT, {show:true, size:11})},
     title:'التقييم الفني للمشروع',
     render(body, w){
       if(!S.latest) return empty(body);
       const fields = ['eval_labor','eval_equip','eval_financial','eval_hse'];
+      const names = ['العمالة','المعدات','المالي','السلامة'];
+      const data = fields.map(f => num(S.latest[f]));
+      const strip = w.opts.showValues
+        ? `<div class="gauge-vals" style="font-size:${Math.max(10, wSize(w) - 1)}px">` +
+          names.map((n, i) => `<span><i style="background:${theme().palette[0]}"></i>${n}: <b>${data[i]}</b></span>`).join('') +
+          `</div>` : '';
+      body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${strip}</div>`;
+      const reserve = measureStrip(body);
+      const avail = Math.min(w.w - 20, w.h - (w.title.show ? 38 : 0) - 14 - reserve);
+      const rsize = Math.max(50, Math.round(avail / 2) - 42);   // مجال كافٍ لتسميات المحاور
       mkChart(body, w, {
-        chart:{type:'radar', fontFamily:w.title.font, background:'transparent', toolbar:{show:false}},
-        series:[{name:'التقييم', data:fields.map(f => num(S.latest[f]))}],
-        labels:['العمالة','المعدات','المالي','السلامة'],
-        colors:[theme().palette[0]],
-        dataLabels:{enabled:w.opts.dataLabels, style:{fontSize:'10px'}},
-        markers:{size:4},
-        yaxis:{show:false},
-        plotOptions:{radar:{polygons:{strokeColors:'rgba(125,125,125,.25)', connectorColors:'rgba(125,125,125,.25)'}}},
-        xaxis:{labels:{style:{colors:Array(4).fill(theme().text), fontSize:'11px'}}}
-      });
+        chart:{type:'radar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
+        series:[{name:'التقييم', data}], labels:names, colors:[theme().palette[0]],
+        dataLabels:dlOpts(w, theme().text, v => num(v).toLocaleString('en-US')),
+        markers:{size:4}, yaxis:{show:false},
+        plotOptions:{radar:{size:rsize,
+          polygons:{strokeColors:'rgba(125,125,125,.25)', connectorColors:'rgba(125,125,125,.25)'}}},
+        xaxis:{labels:{style:{colors:Array(4).fill(theme().text), fontSize:Math.max(9, wSize(w) - 2) + 'px'}}}
+      }, {host:body.querySelector('.gauge-chart'), reserve});
     }
   },
   info_table:{
@@ -550,6 +784,90 @@ const VISUALS = {
         return `<tr><td>${m.label}</td><td>${fmtValue(S.latest[f], m.type, {})}</td></tr>`;
       }).join('');
       body.innerHTML = `<table class="tbl">${rows}</table>`;
+    }
+  },
+  obstacles:{
+    name:'معوقات المشروع', icon:'⚠️', w:430, h:290,
+    opts:{mode:'table', filter:'all', maxRows:0, showImpact:true, showStatus:true, showSummary:true},
+    title:'المعوقات الحالية',
+    render(body, w){
+      if(!S.latest) return empty(body);
+      let list = S.latest.obstacles_data;
+      if(typeof list === 'string'){ try{ list = JSON.parse(list || '[]'); }catch(e){ list = []; } }
+      if(!Array.isArray(list)) list = [];
+      list = list.filter(o => o && (o.description || o.obstacle));
+
+      if(w.opts.filter === 'open')   list = list.filter(o => !o.closed);
+      if(w.opts.filter === 'closed') list = list.filter(o =>  o.closed);
+
+      const total  = list.length;
+      const closed = list.filter(o => o.closed).length;
+      const open   = total - closed;
+
+      if(!total){
+        body.innerHTML = `<div class="empty-note">لا توجد معوقات مسجّلة في آخر تحديث ✅</div>`;
+        return;
+      }
+      const rows = w.opts.maxRows > 0 ? list.slice(0, w.opts.maxRows) : list;
+      const summary = w.opts.showSummary
+        ? `<div class="obs-sum" style="font-size:${Math.max(10, wSize(w) - 2)}px">
+             <span>الإجمالي: <b>${total}</b></span>
+             <span class="o-open">مفتوح: <b>${open}</b></span>
+             <span class="o-closed">تم الحل: <b>${closed}</b></span>
+           </div>` : '';
+
+      const cell = o => {
+        const desc = String(o.description || o.obstacle || '')
+          .replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+        const imp = String(o.impact || '').trim();
+        const impChip = w.opts.showImpact && imp
+          ? `<span class="obs-chip ${impactClass(imp)}">${imp}</span>` : '';
+        const stChip = w.opts.showStatus
+          ? `<span class="obs-chip ${o.closed ? 'st-closed' : 'st-open'}">${o.closed ? 'تم الحل' : 'قائم'}</span>` : '';
+        return {desc, impChip, stChip};
+      };
+
+      if(w.opts.mode === 'cards'){
+        body.innerHTML = `<div class="obs-wrap">${summary}<div class="obs-cards">` +
+          rows.map(o => { const c = cell(o);
+            return `<div class="obs-card"><div class="obs-desc">${c.desc}</div>
+                    <div class="obs-chips">${c.impChip}${c.stChip}</div></div>`; }).join('') +
+          `</div></div>`;
+        return;
+      }
+      body.innerHTML = `<div class="obs-wrap">${summary}
+        <div class="obs-scroll"><table class="tbl obs-tbl">` +
+        rows.map(o => { const c = cell(o);
+          return `<tr><td class="obs-desc">${c.desc}</td>
+                  <td class="obs-chips">${c.impChip}${c.stChip}</td></tr>`; }).join('') +
+        `</table></div></div>`;
+    }
+  },
+  image:{
+    name:'صورة / لوجو', icon:'🖼️', w:300, h:220,
+    opts:{src:'field', field:'master_plan_link', url:'', fit:'contain', pos:'center',
+          caption:'', captionShow:false, imgOpacity:1, grayscale:false},
+    title:'صورة', titleShow:false,
+    render(body, w){
+      let url = '';
+      if(w.opts.src === 'field'){
+        url = S.latest ? (S.latest[w.opts.field] || '') : '';
+        if(url === 'لا يوجد مرفق' || url === 'لا يوجد') url = '';
+      }else url = (w.opts.url || '').trim();
+
+      if(!url){
+        body.innerHTML = `<div class="empty-note">لا توجد صورة — اختر مرفقاً من المشروع أو ارفع لوجو من الشريط الجانبي</div>`;
+        return;
+      }
+      const cap = (w.opts.captionShow && w.opts.caption)
+        ? `<div class="img-cap" style="font-size:${Math.max(10, wSize(w) - 2)}px">${
+            String(w.opts.caption).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>` : '';
+      body.innerHTML = `<div class="img-wrap">
+          <img src="${String(url).replace(/"/g, '&quot;')}" alt=""
+               style="object-fit:${w.opts.fit};object-position:${w.opts.pos};
+                      opacity:${w.opts.imgOpacity};filter:${w.opts.grayscale ? 'grayscale(1)' : 'none'}"
+               onerror="this.parentNode.innerHTML='<div class=\\'empty-note\\'>تعذر تحميل الصورة من الرابط</div>'">
+          ${cap}</div>`;
     }
   },
   text:{
@@ -567,17 +885,36 @@ const VISUALS = {
   }
 };
 
+function impactClass(imp){
+  if(/كبير|عالي|high/i.test(imp))   return 'imp-high';
+  if(/متوسط|medium/i.test(imp))     return 'imp-mid';
+  if(/منخفض|low/i.test(imp))        return 'imp-low';
+  return 'imp-none';
+}
 function empty(body){
   body.innerHTML = '<div class="empty-note">اختر مشروعاً من الشريط العلوي لعرض البيانات</div>';
 }
-function mkChart(body, w, opt){
+/* الارتفاع الفعلي لشريط القيم أسفل الرسم حتى لا يُقص */
+function measureSpiBase(body){
+  const el = body.querySelector('.spi-base');
+  return el ? el.offsetHeight + 6 : 0;
+}
+function measureStrip(body){
+  const el = body.querySelector('.gauge-vals');
+  return el ? el.offsetHeight + 6 : 0;
+}
+function mkChart(body, w, opt, extra){
+  extra = extra || {};
   if(typeof ApexCharts === 'undefined'){
     body.innerHTML = '<div class="empty-note">تعذر تحميل مكتبة الرسوم البيانية — تأكد من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</div>';
     return;
   }
-  body.innerHTML = '<div style="width:100%;height:100%"></div>';
-  const host = body.firstChild;
-  const h = Math.max(60, w.h - (w.title.show ? 38 : 0) - 14);
+  let host = extra.host;
+  if(!host){
+    body.innerHTML = '<div style="width:100%;height:100%"></div>';
+    host = body.firstChild;
+  }
+  const h = Math.max(60, w.h - (w.title.show ? 38 : 0) - 14 - (extra.reserve || 0));
   opt.chart = Object.assign({height:h, width:'100%'}, opt.chart);
   if(S.charts[w.id]){ try{ S.charts[w.id].destroy(); }catch(e){} }
   const c = new ApexCharts(host, opt); c.render(); S.charts[w.id] = c;
@@ -595,7 +932,8 @@ function addWidget(type){
     w:t.w, h:t.h,
     title:{show:t.titleShow !== false, text:t.title || t.name, font:FONTS[0].v, size:14, weight:700,
            color:theme().titleColor, bg:theme().titleBg, align:'start'},
-    style:{bg:theme().widgetBg, color:theme().text, opacity:1, radius:10, shadow:true,
+    style:{bg:theme().widgetBg, color:theme().text, font:FONTS[0].v, fontSize:13,
+           opacity:1, radius:10, shadow:true,
            border:{show:true, color:theme().border, width:1}},
     opts:clone(t.opts)
   };
@@ -670,6 +1008,8 @@ function drawWidget(w){
   el.style.width = w.w + 'px'; el.style.height = w.h + 'px';
   el.style.background = w.style.bg;
   el.style.color = w.style.color || theme().text;
+  el.style.fontFamily = w.style.font || FONTS[0].v;
+  el.style.fontSize = (w.style.fontSize || 13) + 'px';
   el.style.opacity = w.style.opacity;
   el.style.borderRadius = w.style.radius + 'px';
   el.style.boxShadow = w.style.shadow ? '0 4px 14px rgba(15,26,46,.10)' : 'none';
@@ -1029,6 +1369,11 @@ function buildPropsTab(){
       <div class="grp-h">مظهر الـ Visual</div>
       ${ctlColor('لون الخلفية', w.style.bg, null, 'style.bg')}
       ${ctlColor('لون النص', w.style.color || theme().text, null, 'style.color')}
+      <div class="row"><label>خط القالب</label><div class="ctl"><select data-p="style.font">
+        ${FONTS.map(f => `<option value="${f.v}" ${(w.style.font || FONTS[0].v) === f.v ? 'selected' : ''}>${f.n}</option>`).join('')}
+      </select></div></div>
+      <div class="row"><label>حجم النص</label><div class="ctl">
+        <input type="number" min="8" max="30" data-p="style.fontSize" value="${w.style.fontSize || 13}"></div></div>
       <div class="row"><label>الشفافية</label><div class="ctl">
         <input type="range" min="0.2" max="1" step="0.05" data-p="style.opacity" value="${w.style.opacity}"></div></div>
       <div class="row"><label>الاستدارة</label><div class="ctl">
@@ -1066,9 +1411,32 @@ function buildPropsTab(){
     <div class="grp">
       <div class="grp-h">خيارات القالب</div>
       ${optionsHtml(w)}
-    </div>`;
+    </div>
+    ${dataLabelsHtml(w)}`;
 
   bindProps(el, w);
+}
+
+const DL_TYPES = ['gauge','spi','progress_line','bars','radar_eval'];
+function dataLabelsHtml(w){
+  if(!DL_TYPES.includes(w.type)) return '';
+  const d = dlOf(w);
+  return `
+    <div class="grp">
+      <div class="grp-h">🔖 Data Labels (الأرقام على الرسم)</div>
+      <label class="chk"><input type="checkbox" data-p="opts.dl.show" ${d.show !== false ? 'checked' : ''}> إظهار الأرقام</label>
+      <div class="row2">
+        <div class="mini"><span>حجم الخط</span><input type="number" min="7" max="40" data-p="opts.dl.size" value="${d.size}"></div>
+        <div class="mini"><span>السماكة</span><select data-p="opts.dl.weight">
+          <option value="400" ${d.weight == 400 ? 'selected' : ''}>عادي</option>
+          <option value="700" ${d.weight == 700 ? 'selected' : ''}>عريض</option>
+          <option value="900" ${d.weight == 900 ? 'selected' : ''}>عريض جداً</option>
+        </select></div>
+      </div>
+      ${ctlColor('لون الأرقام', d.color || theme().text, null, 'opts.dl.color')}
+      <label class="chk"><input type="checkbox" data-p="opts.dl.bg" ${d.bg ? 'checked' : ''}> خلفية خلف الأرقام (لو غير واضحة)</label>
+      ${ctlColor('لون الخلفية', d.bgColor || '#1a2b4c', null, 'opts.dl.bgColor')}
+    </div>`;
 }
 
 function optionsHtml(w){
@@ -1090,13 +1458,39 @@ function optionsHtml(w){
       ${ctlColor('لون الرقم', o.valueColor || theme().palette[0], null, 'opts.valueColor')}`;
   }
   if(w.type === 'gauge'){
-    return `
-      <div class="row"><label>المحتوى</label><div class="ctl"><select data-p="opts.mode">
-        <option value="both" ${o.mode==='both'?'selected':''}>الفعلي والمخطط</option>
-        <option value="actual" ${o.mode==='actual'?'selected':''}>الفعلي فقط</option>
-        <option value="planned" ${o.mode==='planned'?'selected':''}>المخطط فقط</option>
+    const P = GAUGE_PAIRS[o.pair] || GAUGE_PAIRS.progress;
+    const nums = FIELD_META.filter(f => ['number','percent','currency'].includes(f.type));
+    const customHtml = (o.pair === 'custom') ? `
+      <div class="row"><label>الحقل الأول</label><div class="ctl"><select data-p="opts.fieldA">
+        ${nums.map(f => `<option value="${f.key}" ${o.fieldA === f.key ? 'selected' : ''}>${f.label}</option>`).join('')}
       </select></div></div>
-      <label class="chk"><input type="checkbox" data-p="opts.dataLabels" ${o.dataLabels?'checked':''}> إظهار Data Labels</label>`;
+      <div class="row"><label>الحقل الثاني</label><div class="ctl"><select data-p="opts.fieldB">
+        ${nums.map(f => `<option value="${f.key}" ${o.fieldB === f.key ? 'selected' : ''}>${f.label}</option>`).join('')}
+      </select></div></div>
+      <div class="hint">لو الحقلان نسبة مئوية سيُرسم حلقتان، وغير ذلك ستُرسم نسبة الأول من الثاني.</div>` : '';
+    return `
+      <div class="row"><label>المقارنة</label><div class="ctl"><select data-p="opts.pair">
+        ${Object.keys(GAUGE_PAIRS).map(k => `<option value="${k}" ${o.pair === k ? 'selected' : ''}>${GAUGE_PAIRS[k].n}</option>`).join('')}
+      </select></div></div>
+      ${customHtml}
+      <label class="chk"><input type="checkbox" data-p="opts.showValues" ${o.showValues ? 'checked' : ''}> إظهار الأرقام الفعلية أسفل الرسم</label>`;
+  }
+  if(w.type === 'spi'){
+    return `
+      <div class="row"><label>الشكل</label><div class="ctl"><select data-p="opts.mode">
+        <option value="card"  ${o.mode === 'card'  ? 'selected' : ''}>بطاقة رقم كبير</option>
+        <option value="gauge" ${o.mode === 'gauge' ? 'selected' : ''}>مؤشر دائري</option>
+        <option value="trend" ${o.mode === 'trend' ? 'selected' : ''}>مسار زمني</option>
+      </select></div></div>
+      <div class="row2">
+        <div class="mini"><span>خانات عشرية</span><input type="number" min="0" max="3" data-p="opts.decimals" value="${o.decimals}"></div>
+        <div class="mini"><span>حد التقدم</span><input type="number" step="0.01" data-p="opts.good" value="${o.good}"></div>
+      </div>
+      <div class="row"><label>حد التحذير</label><div class="ctl">
+        <input type="number" step="0.01" data-p="opts.warn" value="${o.warn}"></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.showBase" ${o.showBase ? 'checked' : ''}> إظهار النسب المستخدمة في الحساب</label>
+      <div class="hint">SPI = الإنجاز الفعلي ÷ الإنجاز المخطط. أكبر من ١ يعني تقدماً على البرنامج،
+      وأقل من ١ يعني تأخراً. الألوان تتغير تلقائياً حسب الحدّين أعلاه.</div>`;
   }
   if(w.type === 'progress_line'){
     return `
@@ -1106,19 +1500,71 @@ function optionsHtml(w){
         <option value="bar"  ${o.chartType==='bar'?'selected':''}>أعمدة</option>
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned?'checked':''}> إظهار المخطط</label>
-      <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>
-      <label class="chk"><input type="checkbox" data-p="opts.dataLabels" ${o.dataLabels?'checked':''}> إظهار Data Labels</label>`;
+      <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>`;
   }
   if(w.type === 'bars'){
     return `
       <div class="row"><label>المجموعة</label><div class="ctl"><select data-p="opts.group">
         ${Object.keys(BAR_GROUPS).map(k => `<option value="${k}" ${o.group===k?'selected':''}>${BAR_GROUPS[k].n}</option>`).join('')}
       </select></div></div>
-      <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>
-      <label class="chk"><input type="checkbox" data-p="opts.dataLabels" ${o.dataLabels?'checked':''}> إظهار Data Labels</label>`;
+      <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>`;
   }
   if(w.type === 'radar_eval'){
-    return `<label class="chk"><input type="checkbox" data-p="opts.dataLabels" ${o.dataLabels?'checked':''}> إظهار Data Labels</label>`;
+    return `<label class="chk"><input type="checkbox" data-p="opts.showValues" ${o.showValues?'checked':''}> إظهار قائمة القيم أسفل الرسم</label>
+      <div class="hint">لإظهار الأرقام على الرسم نفسه استخدم قسم Data Labels بالأسفل.</div>`;
+  }
+  if(w.type === 'obstacles'){
+    return `
+      <div class="row"><label>الشكل</label><div class="ctl"><select data-p="opts.mode">
+        <option value="table" ${o.mode === 'table' ? 'selected' : ''}>جدول</option>
+        <option value="cards" ${o.mode === 'cards' ? 'selected' : ''}>بطاقات</option>
+      </select></div></div>
+      <div class="row"><label>العرض</label><div class="ctl"><select data-p="opts.filter">
+        <option value="all"    ${o.filter === 'all'    ? 'selected' : ''}>كل المعوقات</option>
+        <option value="open"   ${o.filter === 'open'   ? 'selected' : ''}>القائمة فقط</option>
+        <option value="closed" ${o.filter === 'closed' ? 'selected' : ''}>التي تم حلها فقط</option>
+      </select></div></div>
+      <div class="row"><label>حد الصفوف</label><div class="ctl">
+        <input type="number" min="0" max="50" data-p="opts.maxRows" value="${o.maxRows}"></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.showSummary" ${o.showSummary ? 'checked' : ''}> شريط الملخص (إجمالي/قائم/محلول)</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showImpact" ${o.showImpact ? 'checked' : ''}> إظهار درجة التأثير</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showStatus" ${o.showStatus ? 'checked' : ''}> إظهار الحالة</label>
+      <div class="hint">٠ في حد الصفوف = عرض الكل. الألوان تتبع درجة التأثير المسجّلة من مدير المشروع.</div>`;
+  }
+  if(w.type === 'image'){
+    const imgs = FIELD_META.filter(f => f.type === 'image');
+    return `
+      <div class="row"><label>المصدر</label><div class="ctl"><select data-p="opts.src">
+        <option value="field" ${o.src === 'field' ? 'selected' : ''}>مرفق من بيانات المشروع</option>
+        <option value="url"   ${o.src === 'url'   ? 'selected' : ''}>لوجو / رابط صورة</option>
+      </select></div></div>
+      ${o.src === 'field' ? `
+      <div class="row"><label>المرفق</label><div class="ctl"><select data-p="opts.field">
+        ${imgs.map(f => `<option value="${f.key}" ${o.field === f.key ? 'selected' : ''}>${f.label}</option>`).join('')}
+      </select></div></div>` : `
+      <div class="mini" style="margin-bottom:8px;"><span>رابط الصورة</span>
+        <input type="text" data-p="opts.url" placeholder="https://..." value="${(o.url || '').replace(/"/g, '&quot;')}"></div>
+      <div class="mini" style="margin-bottom:8px;"><span>أو ارفع لوجو من جهازك</span>
+        <input type="file" accept="image/*" id="logoUpload" style="font-size:.72rem;"></div>
+      <div class="hint">اللوجو يُرفع على Cloudinary ويُستخدم رابطه مباشرة — مناسب للوجو المالك أو المطور أو المقاول أو الاستشاري.</div>`}
+      <div class="row"><label>ملء الإطار</label><div class="ctl"><select data-p="opts.fit">
+        <option value="contain" ${o.fit === 'contain' ? 'selected' : ''}>احتواء كامل (بدون قص)</option>
+        <option value="cover"   ${o.fit === 'cover'   ? 'selected' : ''}>تغطية (مع قص)</option>
+        <option value="fill"    ${o.fit === 'fill'    ? 'selected' : ''}>تمديد</option>
+      </select></div></div>
+      <div class="row"><label>الموضع</label><div class="ctl"><select data-p="opts.pos">
+        <option value="center" ${o.pos === 'center' ? 'selected' : ''}>وسط</option>
+        <option value="top"    ${o.pos === 'top'    ? 'selected' : ''}>أعلى</option>
+        <option value="bottom" ${o.pos === 'bottom' ? 'selected' : ''}>أسفل</option>
+        <option value="right"  ${o.pos === 'right'  ? 'selected' : ''}>يمين</option>
+        <option value="left"   ${o.pos === 'left'   ? 'selected' : ''}>يسار</option>
+      </select></div></div>
+      <div class="row"><label>الشفافية</label><div class="ctl">
+        <input type="range" min="0.1" max="1" step="0.05" data-p="opts.imgOpacity" value="${o.imgOpacity}"></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.grayscale" ${o.grayscale ? 'checked' : ''}> أبيض وأسود</label>
+      <label class="chk"><input type="checkbox" data-p="opts.captionShow" ${o.captionShow ? 'checked' : ''}> إظهار تعليق أسفل الصورة</label>
+      <div class="mini"><span>نص التعليق</span>
+        <input type="text" data-p="opts.caption" value="${(o.caption || '').replace(/"/g, '&quot;')}"></div>`;
   }
   if(w.type === 'info_table'){
     const sel = o.fields || [];
@@ -1158,7 +1604,10 @@ function optionsHtml(w){
 
 function setPath(obj, path, val){
   const parts = path.split('.'); let o = obj;
-  for(let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+  for(let i = 0; i < parts.length - 1; i++){
+    if(o[parts[i]] === undefined || o[parts[i]] === null) o[parts[i]] = {};
+    o = o[parts[i]];
+  }
   o[parts[parts.length-1]] = val;
 }
 function bindProps(el, w){
@@ -1175,6 +1624,7 @@ function bindProps(el, w){
       setPath(w, inp.dataset.p, v);
       if(['x','y','w','h'].includes(inp.dataset.p)) w[inp.dataset.p] = Math.round(v);
       drawWidget(w); buildLayersList();
+      if(['opts.pair','opts.src','opts.mode'].includes(inp.dataset.p)) buildPropsTab();
     }
 
     inp.addEventListener('focus', () => { pending = true; });
@@ -1195,6 +1645,22 @@ function bindProps(el, w){
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
     if(b.dataset.act === 'del') removeWidget(w.id); else duplicateWidget(w.id);
   }));
+  const up = el.querySelector('#logoUpload');
+  if(up) up.addEventListener('change', async () => {
+    const f = up.files && up.files[0];
+    if(!f) return;
+    if(f.size > 8 * 1024 * 1024){ toast('حجم الصورة أكبر من 8 ميجابايت', true); return; }
+    toast('جاري رفع الصورة…');
+    try{
+      const fd = new FormData(); fd.append('file', f);
+      const j = await (await fetch('/api/builder/upload', {method:'POST', body:fd})).json();
+      if(!j.success){ toast(j.error || 'فشل رفع الصورة', true); return; }
+      snapshot();
+      w.opts.src = 'url'; w.opts.url = j.url;
+      drawWidget(w); buildPropsTab();
+      toast('تم رفع اللوجو ✓');
+    }catch(e){ toast('خطأ في الرفع: ' + e.message, true); }
+  });
   el.querySelectorAll('[data-fld]').forEach(c => c.addEventListener('change', () => {
     snapshot();
     const set = new Set(w.opts.fields || []);
@@ -1216,7 +1682,10 @@ function buildPageTab(){
       <div class="row"><label>الثيم</label><div class="ctl"><select id="pgTheme">
         ${Object.keys(THEMES).map(k => `<option value="${k}" ${p.theme===k?'selected':''}>${THEMES[k].name}</option>`).join('')}
       </select></div></div>
+      <div class="theme-prev" id="themePrev"></div>
       <button class="sbtn" id="btnApplyTheme" style="width:100%;">تطبيق الثيم على كل العناصر</button>
+      <div class="hint" style="margin-top:8px;">اختيار الثيم لا يغيّر شيئاً حتى تضغط الزر — عندها تُحدَّث
+      خلفية الصفحة وألوان كل العناصر ولوحة ألوان الرسوم.</div>
     </div>
 
     <div class="grp">
@@ -1252,7 +1721,15 @@ function buildPageTab(){
 
     <div class="hint">مقاس الصفحة هو نفسه الذي سيُصدَّر إلى PDF لاحقاً، فاختر <b>A4 أفقي</b> إن كان التقرير للطباعة.</div>`;
 
-  $('#pgTheme').addEventListener('change', e => { S.page.theme = e.target.value; });
+  function paintThemePrev(){
+    const t = THEMES[$('#pgTheme').value] || THEMES.navy;
+    $('#themePrev').innerHTML =
+      `<span class="tp-page" style="background:${t.pageBg}"></span>` +
+      `<span class="tp-page" style="background:${t.titleBg}"></span>` +
+      t.palette.slice(0, 6).map(c => `<span class="tp-c" style="background:${c}"></span>`).join('');
+  }
+  paintThemePrev();
+  $('#pgTheme').addEventListener('change', e => { S.page.theme = e.target.value; paintThemePrev(); });
   $('#btnApplyTheme').addEventListener('click', applyThemeToAll);
   $('#pgPreset').addEventListener('change', e => {
     snapshot(); const k = e.target.value; S.page.preset = k;
