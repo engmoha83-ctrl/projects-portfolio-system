@@ -429,10 +429,12 @@ TEXT_FIELDS = {"manager_name", "project_name", "project_desc", "project_type", "
                "works_planned", "username", "submission_time"}
 IMAGE_FIELDS = {"file_link_1", "file_link_2", "file_link_3", "file_link_4", "master_plan_link", "isometric_link"}
 JSON_FIELDS = {"obstacles_data"}
+DAYS_FIELDS = {"consultant_mods_time", "contractor_mods_time"}
 
 
 def field_type(col):
     if col in PERCENT_FIELDS: return "percent"
+    if col in DAYS_FIELDS: return "days"
     if col in CURRENCY_FIELDS: return "currency"
     if col in DATE_FIELDS: return "date"
     if col in TEXT_FIELDS: return "text"
