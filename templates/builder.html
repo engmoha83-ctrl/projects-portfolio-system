@@ -127,6 +127,17 @@ button{font-family:inherit;}
 .hnd[data-d="w"]{left:-5px; top:calc(50% - 5px); cursor:ew-resize;}
 .hnd[data-d="e"]{right:-5px; top:calc(50% - 5px); cursor:ew-resize;}
 
+/* وضع الكتابة المباشرة داخل العنصر */
+.bw.editing{outline:2px dashed var(--ui-accent); outline-offset:2px; z-index:8;}
+.bw.editing .bw-drag{display:none;}          /* رفع الغطاء الشفاف حتى يمكن الكتابة */
+.bw.editing .hnd{display:none;}
+.bw [contenteditable="true"]{outline:none; cursor:text; white-space:pre-wrap; overflow:auto;}
+.bw-edit-tip{
+  position:absolute; bottom:-24px; inset-inline-start:0; background:var(--ui-accent); color:#fff;
+  font-size:.68rem; font-weight:700; padding:2px 8px; border-radius:6px; white-space:nowrap; z-index:20;
+}
+.txt-placeholder{opacity:.45;}
+
 .guide{position:absolute; background:#ff2d78; z-index:50; pointer-events:none;}
 .guide.v{width:1px; top:0; bottom:0;}
 .guide.h{height:1px; left:0; right:0;}
@@ -383,8 +394,10 @@ function snapshot(){
   S.redo.length = 0; S.dirty = true;
 }
 function applyState(str){
+  const prev = S.selected;
   const st = JSON.parse(str);
-  S.widgets = st.widgets; S.page = st.page; S.selected = null;
+  S.widgets = st.widgets; S.page = st.page;
+  S.selected = S.widgets.some(w => w.id === prev) ? prev : null;   // حافظ على العنصر المحدد
   renderAll(); buildPageTab(); buildPropsTab();
 }
 function doUndo(){
@@ -544,9 +557,12 @@ const VISUALS = {
     opts:{content:'اكتب النص هنا', size:15, color:'', align:'start', font:"'Tajawal',sans-serif", weight:500},
     title:'', titleShow:false,
     render(body, w){
-      body.innerHTML = `<div class="txt-visual" style="font-family:${w.opts.font};font-size:${w.opts.size}px;
+      const empty = !String(w.opts.content || '').trim();
+      const shown = empty ? 'اضغط ضغطتين للكتابة…' : String(w.opts.content);
+      body.innerHTML = `<div class="txt-visual${empty ? ' txt-placeholder' : ''}"
+        style="font-family:${w.opts.font};font-size:${w.opts.size}px;
         color:${w.opts.color || theme().text};text-align:${w.opts.align};font-weight:${w.opts.weight};">${
-        String(w.opts.content).replace(/[<>]/g, c => ({'<':'&lt;','>':'&gt;'}[c]))}</div>`;
+        shown.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>`;
     }
   }
 };
@@ -586,6 +602,12 @@ function addWidget(type){
   S.widgets.push(w);
   drawWidget(w); select(w.id);
   switchTab('props');
+  if(type === 'text'){                          // ابدأ الكتابة فوراً في مربع النص الجديد
+    setTimeout(() => {
+      const v = document.querySelector('#' + w.id + ' .txt-visual');
+      if(v) startInlineEdit(w, v, 'content');
+    }, 60);
+  }
 }
 function removeWidget(id){
   snapshot();
@@ -631,6 +653,18 @@ function drawWidget(w){
       else if(a === 'back'){ snapshot(); page.insertBefore(el, page.firstChild); reorderModel(w.id, -1); }
     }));
     el.addEventListener('mousedown', () => select(w.id));
+    el.addEventListener('dblclick', function(ev){
+      if(el.classList.contains('editing')) return;
+      var titleEl = el.querySelector('.bw-title');
+      if(w.title.show && titleEl){
+        var tr = titleEl.getBoundingClientRect();
+        if(ev.clientY <= tr.bottom){ startInlineEdit(w, titleEl, 'title'); return; }
+      }
+      if(w.type === 'text'){
+        var v = el.querySelector('.txt-visual');
+        if(v) startInlineEdit(w, v, 'content');
+      }
+    });
   }
   el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
   el.style.width = w.w + 'px'; el.style.height = w.h + 'px';
@@ -654,6 +688,58 @@ function drawWidget(w){
   try{ VISUALS[w.type].render(body, w); }
   catch(err){ body.innerHTML = `<div class="empty-note">تعذر عرض القالب: ${err.message}</div>`; }
 }
+/* الكتابة مباشرة داخل العنصر على الصفحة (ضغطتين على النص أو على شريط العنوان) */
+function startInlineEdit(w, node, field){
+  const el = document.getElementById(w.id);
+  if(!el || !node) return;
+  select(w.id);
+  el.classList.add('editing');
+
+  if(field === 'content' && !String(w.opts.content || '').trim()){
+    node.textContent = '';                      // امسح النص التلميحي
+    node.classList.remove('txt-placeholder');
+  }
+  node.setAttribute('contenteditable', 'true');
+
+  const tip = document.createElement('div');
+  tip.className = 'bw-edit-tip';
+  tip.textContent = field === 'title'
+    ? 'اكتب العنوان — Enter للحفظ، Esc للإلغاء'
+    : 'اكتب النص — Ctrl+Enter للحفظ، Esc للإلغاء';
+  el.appendChild(tip);
+
+  node.focus();
+  const rng = document.createRange(); rng.selectNodeContents(node);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng);
+
+  let cancelled = false, done = false;
+  function finish(){
+    if(done) return; done = true;
+    node.removeEventListener('blur', onBlur);
+    node.removeEventListener('keydown', onKey);
+    node.removeAttribute('contenteditable');
+    el.classList.remove('editing');
+    if(tip.parentNode) tip.remove();
+    if(!cancelled){
+      const val = (node.innerText || '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
+      const cur = (field === 'title') ? w.title.text : w.opts.content;
+      if(val !== cur){
+        snapshot();
+        if(field === 'title') w.title.text = val; else w.opts.content = val;
+      }
+    }
+    drawWidget(w); buildPropsTab(); buildLayersList();
+  }
+  function onBlur(){ finish(); }
+  function onKey(e){
+    e.stopPropagation();                        // لا تصل لاختصارات الصفحة (Delete وغيرها)
+    if(e.key === 'Escape'){ cancelled = true; node.blur(); }
+    else if(e.key === 'Enter' && (field === 'title' || e.ctrlKey)){ e.preventDefault(); node.blur(); }
+  }
+  node.addEventListener('blur', onBlur);
+  node.addEventListener('keydown', onKey);
+}
+
 function reorderModel(id, dir){
   const i = S.widgets.findIndex(w => w.id === id); if(i < 0) return;
   const [w] = S.widgets.splice(i, 1);
@@ -862,7 +948,9 @@ function buildTemplatesTab(){
       <div id="layersList"></div>
     </div>
     <div class="hint">اضغط على أي قالب لإضافته. اسحب الـ visual من أي مكان بداخله، وغيّر حجمه من المربعات الزرقاء على الحواف.
-    اضغط <b>Alt</b> أثناء السحب لتعطيل الالتصاق مؤقتاً.</div>`;
+    اضغط <b>Alt</b> أثناء السحب لتعطيل الالتصاق مؤقتاً.
+    <br><br>✍️ <b>للكتابة:</b> اضغط ضغطتين على مربع النص للكتابة داخله مباشرة، وضغطتين على شريط
+    العنوان لتعديل العنوان.</div>`;
   el.querySelectorAll('.tpl-card').forEach(c =>
     c.addEventListener('click', () => addWidget(c.dataset.t)));
   $('#btnArrange').addEventListener('click', autoArrange);
@@ -1042,8 +1130,10 @@ function optionsHtml(w){
   }
   if(w.type === 'text'){
     return `
-      <div class="row"><label>النص</label><div class="ctl">
-        <textarea rows="4" data-p="opts.content">${(o.content||'')}</textarea></div></div>
+      <div class="mini" style="margin-bottom:8px;">
+        <span>النص (يمكنك أيضاً الكتابة مباشرة داخل المربع بالضغط عليه ضغطتين)</span>
+        <textarea rows="5" data-p="opts.content" placeholder="اكتب النص هنا…">${(o.content||'')}</textarea>
+      </div>
       <div class="row"><label>الخط</label><div class="ctl"><select data-p="opts.font">
         ${FONTS.map(f => `<option value="${f.v}" ${o.font===f.v?'selected':''}>${f.n}</option>`).join('')}
       </select></div></div>
@@ -1073,16 +1163,23 @@ function setPath(obj, path, val){
 }
 function bindProps(el, w){
   el.querySelectorAll('[data-p]').forEach(inp => {
-    const ev = (inp.type === 'range') ? 'input' : 'change';
-    inp.addEventListener(ev, () => {
-      snapshot();
+    const tag  = inp.tagName.toLowerCase();
+    const live = (inp.type === 'range') || tag === 'textarea' || inp.type === 'text';
+    let pending = true;                       // لقطة تراجع واحدة لكل جلسة كتابة
+
+    function apply(){
+      if(pending){ snapshot(); pending = false; }
       let v = inp.type === 'checkbox' ? inp.checked : inp.value;
       if(inp.type === 'number' || inp.type === 'range') v = parseFloat(v) || 0;
       if(['title.weight','opts.weight'].includes(inp.dataset.p)) v = parseInt(v);
       setPath(w, inp.dataset.p, v);
       if(['x','y','w','h'].includes(inp.dataset.p)) w[inp.dataset.p] = Math.round(v);
       drawWidget(w); buildLayersList();
-    });
+    }
+
+    inp.addEventListener('focus', () => { pending = true; });
+    if(live) inp.addEventListener('input', apply);     // معاينة فورية أثناء الكتابة
+    inp.addEventListener('change', apply);
   });
   el.querySelectorAll('[data-cb]').forEach(inp => {
     inp.addEventListener('input', () => { setPath(w, inp.dataset.cb, inp.value); drawWidget(w); });
@@ -1380,6 +1477,7 @@ $('#canvasArea').addEventListener('mousedown', e => {
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if(tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if(e.target.isContentEditable) return;        // أثناء الكتابة المباشرة داخل عنصر
   if(e.ctrlKey && e.key.toLowerCase() === 'z'){ e.preventDefault(); doUndo(); return; }
   if(e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); doRedo(); return; }
   if(e.ctrlKey && e.key.toLowerCase() === 's'){ e.preventDefault(); saveLayout(); return; }
