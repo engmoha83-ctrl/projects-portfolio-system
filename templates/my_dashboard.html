@@ -1,204 +1,368 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" id="html-root">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مُنشئ الداشبورد | المعماريون السعوديون</title>
-    <!-- خطوط جوجل -->
+    <!-- الخطوط -->
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;700&family=Almarai:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- مكتبة Gridstack للسحب والإفلات وتغيير الحجم -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <!-- مكتبة Gridstack و ApexCharts و html2pdf -->
     <link href="https://cdn.jsdelivr.net/npm/gridstack@7.2.3/dist/gridstack.min.css" rel="stylesheet"/>
     <script src="https://cdn.jsdelivr.net/npm/gridstack@7.2.3/dist/gridstack-all.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
-        :root { --main-bg: #f4f7f6; --canvas-bg: #ffffff; --title-color: #1a2b4c; --title-font: 'Tajawal', sans-serif; }
-        body { background-color: var(--main-bg); overflow-x: hidden; font-family: var(--title-font); margin: 0; }
-        
-        /* تصميم الشريط الجانبي */
-        .sidebar {
-            position: fixed; top: 0; right: 0; width: 300px; height: 100vh;
-            background: #1a2b4c; color: white; padding: 20px; overflow-y: auto;
-            box-shadow: -2px 0 10px rgba(0,0,0,0.1); z-index: 1000;
+        :root { 
+            --canvas-bg: #f4f7f6; 
+            --title-color: #1a2b4c; 
+            --title-font: 'Tajawal', sans-serif; 
+            --theme-color: #1a2b4c;
         }
-        .main-content { margin-right: 300px; padding: 20px; min-height: 100vh; background-color: var(--canvas-bg); transition: background 0.3s; }
+        body { background-color: var(--canvas-bg); overflow-x: hidden; font-family: var(--title-font); margin: 0; transition: background 0.3s; }
         
-        .sidebar h5 { border-bottom: 1px solid #344a71; padding-bottom: 10px; margin-bottom: 15px; font-weight: bold; }
+        /* Layout */
+        .sidebar { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; background: var(--theme-color); color: white; overflow-y: auto; box-shadow: -2px 0 15px rgba(0,0,0,0.15); z-index: 1000; transition: background 0.3s; }
+        .main-content { margin-right: 340px; padding: 20px; min-height: 100vh; }
+        
+        /* Sidebar Components */
+        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .accordion-item { background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .accordion-button { background: transparent; color: white; font-weight: bold; padding: 15px 20px; box-shadow: none !important; }
+        .accordion-button:not(.collapsed) { background: rgba(255,255,255,0.05); color: #d4a373; }
+        .accordion-button::after { filter: invert(1); }
+        .accordion-body { padding: 15px 20px; }
         .control-group { margin-bottom: 15px; }
         .control-group label { display: block; font-size: 0.85rem; margin-bottom: 5px; color: #a9b4c9; }
-        .form-control, .form-select { font-size: 0.85rem; }
+        .form-control, .form-select { font-size: 0.85rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; }
+        .form-control:focus, .form-select:focus { background: rgba(255,255,255,0.15); color: white; border-color: #d4a373; box-shadow: none; }
+        .form-control-color { padding: 0.2rem; height: 35px; }
         
-        /* عناصر السحب في الشريط الجانبي */
-        .draggable-item {
-            background: #2b3958; border: 1px dashed #4e658e; padding: 10px;
-            border-radius: 5px; margin-bottom: 10px; cursor: grab; text-align: center;
-        }
+        /* Widgets Tools */
+        .draggable-tool { background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.3); padding: 10px; border-radius: 6px; margin-bottom: 10px; cursor: pointer; text-align: center; transition: 0.2s; }
+        .draggable-tool:hover { border-color: #d4a373; background: rgba(212,163,115,0.1); }
+        .data-pill { display: inline-block; background: #d4a373; color: #1a2b4c; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; cursor: grab; margin: 4px; }
         
-        /* تصميم الـ Visuals (Grid Items) */
-        .grid-stack-item-content {
-            background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            padding: 15px; overflow: hidden; border: 1px solid transparent; transition: border 0.3s;
-        }
-        .grid-stack-item-content:hover { border: 1px solid #d4a373; }
+        /* Grid Canvas */
+        .grid-stack-item-content { background: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); padding: 15px; overflow: hidden; border: 2px solid transparent; display: flex; flex-direction: column; transition: border 0.2s; }
+        .grid-stack-item.selected .grid-stack-item-content { border: 2px dashed #d4a373; }
         .visual-header { display: flex; justify-content: space-between; align-items: center; cursor: move; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
-        .remove-btn { color: #dc3545; cursor: pointer; font-size: 1.2rem; background: none; border: none; }
+        .visual-body { flex-grow: 1; position: relative; overflow: auto; }
+        .remove-btn { color: #dc3545; cursor: pointer; font-size: 1.2rem; background: none; border: none; padding: 0; }
         
-        /* العنوان الديناميكي */
-        #dash-title-container {
-            text-align: center; padding: 15px; border-radius: 8px; margin-bottom: 20px;
-            background-color: transparent; color: var(--title-color); font-family: var(--title-font);
-        }
+        /* Print Area */
+        #print-area { padding: 20px; border-radius: 12px; }
+        #dash-title-container { text-align: center; padding: 15px; border-radius: 8px; margin-bottom: 20px; background-color: transparent; color: var(--title-color); font-family: var(--title-font); transition: all 0.3s; }
     </style>
 </head>
 <body>
 
-    <!-- الشريط الجانبي للتحكم -->
+    <!-- الشريط الجانبي -->
     <div class="sidebar">
-        <h5>🛠️ أدوات بناء الداشبورد</h5>
-        
-        <!-- 1. إعدادات الصفحة والعنوان -->
-        <div class="control-group">
-            <label>عنوان الداشبورد</label>
-            <input type="text" id="dashTitleInput" class="form-control" value="لوحة تحكم المشروع" onkeyup="updateTitle()">
-        </div>
-        
-        <div class="row">
-            <div class="col-6 control-group">
-                <label>نوع الخط</label>
-                <select id="fontSelect" class="form-select" onchange="updateTheme()">
-                    <option value="'Tajawal', sans-serif">تجوّل</option>
-                    <option value="'Cairo', sans-serif">كايرو</option>
-                    <option value="'Almarai', sans-serif">المراعي</option>
-                </select>
-            </div>
-            <div class="col-6 control-group">
-                <label>لون الخط</label>
-                <input type="color" id="titleColorInput" class="form-control form-control-color w-100" value="#1a2b4c" onchange="updateTheme()">
-            </div>
+        <div class="sidebar-header">
+            <h5 class="mb-0" id="ui-title">🛠️ باني الداشبورد</h5>
+            <select id="langSelect" class="form-select form-select-sm w-auto" onchange="changeLang(this.value)">
+                <option value="ar">AR</option><option value="en">EN</option><option value="fr">FR</option><option value="es">ES</option>
+            </select>
         </div>
 
-        <div class="row">
-            <div class="col-6 control-group">
-                <label>خلفية العنوان</label>
-                <input type="color" id="titleBgInput" class="form-control form-control-color w-100" value="#ffffff" onchange="updateTheme()">
+        <div class="accordion accordion-flush" id="sidebarAccordion">
+            
+            <!-- 1. إعدادات عامة -->
+            <div class="accordion-item">
+                <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sec1" id="ui-sec1">🌍 إعدادات عامة</button></h2>
+                <div id="sec1" class="accordion-collapse collapse show" data-bs-parent="#sidebarAccordion">
+                    <div class="accordion-body">
+                        <div class="control-group"><label id="ui-dash-title">عنوان الداشبورد</label><input type="text" id="dashTitleInput" class="form-control" value="لوحة تحكم المشروع" oninput="updateGlobal()"></div>
+                        <div class="row">
+                            <div class="col-6 control-group"><label>نوع الخط</label><select id="fontSelect" class="form-select" onchange="updateGlobal()"><option value="'Tajawal', sans-serif">تجوّل</option><option value="'Cairo', sans-serif">كايرو</option><option value="'Almarai', sans-serif">المراعي</option></select></div>
+                            <div class="col-6 control-group"><label>حجم الخط</label><input type="number" id="titleSizeInput" class="form-control" value="28" oninput="updateGlobal()"></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 control-group"><label>لون النص</label><input type="color" id="titleColorInput" class="form-control form-control-color w-100" value="#1a2b4c" onchange="updateGlobal()"></div>
+                            <div class="col-6 control-group"><label>خلفية العنوان</label><input type="color" id="titleBgInput" class="form-control form-control-color w-100" value="#ffffff" onchange="updateGlobal()"></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 control-group"><label>خلفية الصفحة</label><input type="color" id="canvasBgInput" class="form-control form-control-color w-100" value="#f4f7f6" onchange="updateGlobal()"></div>
+                            <div class="col-6 control-group"><label>ثيم الشريط</label><input type="color" id="themeBgInput" class="form-control form-control-color w-100" value="#1a2b4c" onchange="updateGlobal()"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="col-6 control-group">
-                <label>خلفية الصفحة (Canvas)</label>
-                <input type="color" id="canvasBgInput" class="form-control form-control-color w-100" value="#f4f7f6" onchange="updateTheme()">
+
+            <!-- 2. إضافة قوالب -->
+            <div class="accordion-item">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec2" id="ui-sec2">➕ إضافة قوالب (Visuals)</button></h2>
+                <div id="sec2" class="accordion-collapse collapse" data-bs-parent="#sidebarAccordion">
+                    <div class="accordion-body">
+                        <div class="draggable-tool" onclick="addVisual('kpi')">📊 مؤشر أداء رقمي (KPI)</div>
+                        <div class="draggable-tool" onclick="addVisual('bar')">📈 رسم بياني (Bar)</div>
+                        <div class="draggable-tool" onclick="addVisual('line')">📉 رسم بياني (Line)</div>
+                        <div class="draggable-tool" onclick="addVisual('text')">📝 نص / أرقام متقدمة</div>
+                        <div class="draggable-tool" onclick="addVisual('image')">🖼️ صورة / لوجو</div>
+                    </div>
+                </div>
             </div>
+
+            <!-- 3. خصائص العنصر المحدد -->
+            <div class="accordion-item">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec3" id="ui-sec3">⚙️ خصائص العنصر المحدد</button></h2>
+                <div id="sec3" class="accordion-collapse collapse" data-bs-parent="#sidebarAccordion">
+                    <div class="accordion-body" id="properties-panel">
+                        <div id="no-selection" class="text-center text-muted small py-3">قم بالضغط على أي قالب في الشاشة لتعديل خصائصه ومقاساته.</div>
+                        <div id="active-props" style="display:none;">
+                            <div class="row g-2 mb-3">
+                                <div class="col-6 control-group"><label>العرض (W)</label><input type="number" id="prop-w" class="form-control" onchange="updateGridData()"></div>
+                                <div class="col-6 control-group"><label>الارتفاع (H)</label><input type="number" id="prop-h" class="form-control" onchange="updateGridData()"></div>
+                                <div class="col-6 control-group"><label>المحور (X)</label><input type="number" id="prop-x" class="form-control" onchange="updateGridData()"></div>
+                                <div class="col-6 control-group"><label>المحور (Y)</label><input type="number" id="prop-y" class="form-control" onchange="updateGridData()"></div>
+                            </div>
+                            <hr style="border-color:rgba(255,255,255,0.1)">
+                            <div class="row g-2 mb-3">
+                                <div class="col-6 control-group"><label>لون الخلفية</label><input type="color" id="prop-bg" class="form-control form-control-color w-100" onchange="updateVisualProps()"></div>
+                                <div class="col-6 control-group"><label>شفافية الخلفية</label><input type="range" id="prop-opacity" class="form-range" min="0" max="1" step="0.1" value="1" onchange="updateVisualProps()"></div>
+                                <div class="col-6 control-group"><label>لون الإطار</label><input type="color" id="prop-border-color" class="form-control form-control-color w-100" value="#ffffff" onchange="updateVisualProps()"></div>
+                                <div class="col-6 control-group"><label>سمك الإطار</label><input type="number" id="prop-border-width" class="form-control" value="0" oninput="updateVisualProps()"></div>
+                            </div>
+                            <!-- خصائص إضافية مخصصة للنوع -->
+                            <div id="dynamic-props"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. بيانات المشروع (للسحب) -->
+            <div class="accordion-item">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec4" id="ui-sec4">💾 بيانات المشروع (للسحب)</button></h2>
+                <div id="sec4" class="accordion-collapse collapse" data-bs-parent="#sidebarAccordion">
+                    <div class="accordion-body">
+                        <p class="small text-muted mb-2">اسحب البيانات وأفلتها داخل قوالب "النص الحر":</p>
+                        <div id="data-pills-container">
+                            <div class="data-pill" draggable="true" ondragstart="drag(event, '{{ project_name }}')">اسم المشروع</div>
+                            <div class="data-pill" draggable="true" ondragstart="drag(event, '85.5%')">الإنجاز الفعلي</div>
+                            <div class="data-pill" draggable="true" ondragstart="drag(event, '15,000,000 SAR')">قيمة العقد</div>
+                            <div class="data-pill" draggable="true" ondragstart="drag(event, 'شركة التطوير')">المقاول</div>
+                            <div class="data-pill" draggable="true" ondragstart="drag(event, '2024-12-31')">تاريخ النهاية</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
-        <hr style="border-color:#344a71">
-
-        <!-- 2. إضافة الـ Visuals -->
-        <h5>📊 إضافة قوالب (Visuals)</h5>
-        <div class="draggable-item" onclick="addVisual('kpi')">➕ إضافة أرقام (KPIs)</div>
-        <div class="draggable-item" onclick="addVisual('barChart')">➕ إضافة رسم بياني (Bar)</div>
-        <div class="draggable-item" onclick="addVisual('textBlock')">➕ إضافة نص حر</div>
-        
-        <hr style="border-color:#344a71">
-
-        <!-- 3. أدوات إضافية -->
-        <button class="btn btn-warning w-100 mb-2" onclick="alert('سيتم تفعيل الطباعة المطابقة بعد ربط إحداثيات Gridstack بـ jsPDF')">📄 استخراج PDF (قريباً)</button>
-        <button class="btn btn-outline-light w-100" onclick="saveLayout()">💾 حفظ التصميم</button>
+        <!-- أزرار الإجراءات -->
+        <div class="p-3 mt-auto">
+            <button class="btn btn-outline-light w-100 mb-2" onclick="grid.compact()">✨ محاذاة تلقائية (Auto-Align)</button>
+            <button class="btn btn-warning w-100 mb-2" onclick="exportPDF()" style="color:#1a2b4c; font-weight:bold;">📄 تصدير تقرير PDF</button>
+            <button class="btn btn-success w-100" onclick="saveDashboard()">💾 حفظ التصميم</button>
+        </div>
     </div>
 
-    <!-- مساحة العمل الرئيسية -->
+    <!-- مساحة العمل (Canvas) -->
     <div class="main-content">
-        <div id="dash-title-container">
-            <h2 id="dashTitleDisplay" style="margin:0; font-weight:800;">لوحة تحكم المشروع</h2>
+        <div id="print-area">
+            <div id="dash-title-container">
+                <h2 id="dashTitleDisplay" style="margin:0; font-weight:800;">لوحة تحكم المشروع</h2>
+            </div>
+            <div class="grid-stack"></div>
         </div>
-
-        <!-- شبكة Gridstack للسحب والإفلات -->
-        <div class="grid-stack"></div>
     </div>
 
     <script>
-        // تهيئة محرك Gridstack
-        let grid = GridStack.init({
-            cellHeight: 100,
-            margin: 10,
-            resizable: { handles: 'e, se, s, sw, w' }, // تفعيل تغيير الحجم من الحواف
-            float: true // السماح بترك مساحات فارغة (حرية الإفلات)
+        // --- 1. التهيئة واللغات ---
+        const dictionary = {
+            ar: { title: "🛠️ باني الداشبورد", sec1: "🌍 إعدادات عامة", sec2: "➕ إضافة قوالب (Visuals)", sec3: "⚙️ خصائص العنصر المحدد", sec4: "💾 بيانات المشروع (للسحب)" },
+            en: { title: "🛠️ Dashboard Builder", sec1: "🌍 Global Settings", sec2: "➕ Add Visuals", sec3: "⚙️ Selected Properties", sec4: "💾 Project Data (Drag)" },
+            fr: { title: "🛠️ Créateur de tableau", sec1: "🌍 Paramètres globaux", sec2: "➕ Ajouter des visuels", sec3: "⚙️ Propriétés sélectionnées", sec4: "💾 Données du projet" },
+            es: { title: "🛠️ Constructor de Dashboard", sec1: "🌍 Ajustes Globales", sec2: "➕ Añadir Visuales", sec3: "⚙️ Propiedades Seleccionadas", sec4: "💾 Datos del Proyecto" }
+        };
+        function changeLang(lang) {
+            document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+            document.getElementById('ui-title').innerText = dictionary[lang].title;
+            document.getElementById('ui-sec1').innerText = dictionary[lang].sec1;
+            document.getElementById('ui-sec2').innerText = dictionary[lang].sec2;
+            document.getElementById('ui-sec3').innerText = dictionary[lang].sec3;
+            document.getElementById('ui-sec4').innerText = dictionary[lang].sec4;
+        }
+
+        // --- 2. إعدادات الشاشة (Global) ---
+        function updateGlobal() {
+            document.getElementById('dashTitleDisplay').innerText = document.getElementById('dashTitleInput').value;
+            document.getElementById('dashTitleDisplay').style.fontSize = document.getElementById('titleSizeInput').value + 'px';
+            document.documentElement.style.setProperty('--title-font', document.getElementById('fontSelect').value);
+            document.documentElement.style.setProperty('--title-color', document.getElementById('titleColorInput').value);
+            document.documentElement.style.setProperty('--canvas-bg', document.getElementById('canvasBgInput').value);
+            document.documentElement.style.setProperty('--theme-color', document.getElementById('themeBgInput').value);
+            document.getElementById('dash-title-container').style.backgroundColor = document.getElementById('titleBgInput').value;
+        }
+
+        // --- 3. محرك Gridstack للتحكم وتغيير الحجم ---
+        let grid = GridStack.init({ cellHeight: 90, margin: 10, resizable: { handles: 'e, se, s, sw, w' }, float: true });
+        let activeWidget = null;
+        let allCharts = {};
+        let widgetCount = 0;
+
+        grid.on('change', function(event, items) {
+            if (activeWidget) syncSidebarProps(); // تحديث أرقام X Y W H في الشريط الجانبي عند السحب
+            items.forEach(item => { if(allCharts[item.el.id]) allCharts[item.el.id].resize(); }); // تكبير الرسم البياني تلقائياً
         });
 
-        // دوال تغيير السمات (Themes) والألوان
-        function updateTitle() {
-            document.getElementById('dashTitleDisplay').innerText = document.getElementById('dashTitleInput').value;
-        }
-
-        function updateTheme() {
-            const font = document.getElementById('fontSelect').value;
-            const titleColor = document.getElementById('titleColorInput').value;
-            const titleBg = document.getElementById('titleBgInput').value;
-            const canvasBg = document.getElementById('canvasBgInput').value;
-
-            document.documentElement.style.setProperty('--title-font', font);
-            document.documentElement.style.setProperty('--title-color', titleColor);
-            document.documentElement.style.setProperty('--canvas-bg', canvasBg);
-            
-            const titleContainer = document.getElementById('dash-title-container');
-            titleContainer.style.backgroundColor = titleBg;
-        }
-
-        // دالة إضافة Visuals ديناميكياً
-        let widgetCount = 0;
+        // --- 4. إضافة قوالب (Visuals) ---
         function addVisual(type) {
             widgetCount++;
-            let widgetId = 'widget_' + widgetCount;
+            let id = 'w_' + widgetCount;
+            let w = 4, h = 3, title = "عنصر جديد";
             let contentHtml = '';
-            let defaultWidth = 4, defaultHeight = 3;
 
-            if(type === 'kpi') {
-                contentHtml = `
-                    <div class="visual-header"><strong>مؤشر أداء (KPI)</strong> <button class="remove-btn" onclick="removeWidget(this)">×</button></div>
-                    <div style="text-align:center; margin-top:20px;">
-                        <div style="font-size:0.9rem; color:#888;">الإنجاز الفعلي</div>
-                        <div style="font-size:2.5rem; font-weight:bold; color:#1e8e5a;">75.4%</div>
-                    </div>`;
-                defaultWidth = 3; defaultHeight = 2;
-            } 
-            else if(type === 'barChart') {
-                contentHtml = `
-                    <div class="visual-header"><strong>التقدم الفعلي والمخطط</strong> <button class="remove-btn" onclick="removeWidget(this)">×</button></div>
-                    <div id="chart_${widgetCount}" style="width:100%; height:80%;"></div>`;
-                defaultWidth = 6; defaultHeight = 4;
-            }
-            else if(type === 'textBlock') {
-                contentHtml = `
-                    <div class="visual-header"><strong>نص ملاحظات</strong> <button class="remove-btn" onclick="removeWidget(this)">×</button></div>
-                    <textarea style="width:100%; height:75%; border:1px solid #ccc; padding:10px; border-radius:4px;" placeholder="اكتب ملاحظاتك هنا..."></textarea>`;
-                defaultWidth = 4; defaultHeight = 3;
-            }
+            if(type === 'kpi') { w = 3; h = 2; title = "مؤشر أداء"; contentHtml = `<div class="visual-body d-flex flex-column align-items-center justify-content-center"><div class="text-muted small">قيمة مخصصة</div><div class="h2 fw-bold" id="val_${id}">0</div></div>`; }
+            else if(type === 'bar' || type === 'line') { w = 6; h = 4; title = type==='bar'?"رسم شريطي":"رسم خطي"; contentHtml = `<div class="visual-body" id="chart_${id}"></div>`; }
+            else if(type === 'text') { w = 4; h = 3; title = "نص حر"; contentHtml = `<div class="visual-body p-2" contenteditable="true" ondrop="drop(event, this)" ondragover="allowDrop(event)">اسحب البيانات هنا...</div>`; }
+            else if(type === 'image') { w = 3; h = 3; title = "صورة/شعار"; contentHtml = `<div class="visual-body d-flex align-items-center justify-content-center"><img id="img_${id}" src="/static/img/logo.png" style="max-width:100%; max-height:100%; object-fit:contain;"></div>`; }
 
-            // إضافة العنصر إلى الشبكة
-            let el = grid.addWidget({ w: defaultWidth, h: defaultHeight, content: contentHtml });
+            let el = grid.addWidget({
+                w: w, h: h, id: id,
+                content: `
+                    <div class="grid-stack-item-content" onclick="selectWidget(this, '${type}', '${id}')" style="background-color:#ffffff; opacity:1; border:0px solid #fff;">
+                        <div class="visual-header"><strong class="v-title">${title}</strong> <button class="remove-btn" onclick="removeWidget(event, this)">×</button></div>
+                        ${contentHtml}
+                    </div>`
+            });
             
-            // تهيئة الرسم البياني إذا كان النوع BarChart
-            if(type === 'barChart') {
-                setTimeout(() => {
-                    new ApexCharts(document.querySelector(`#chart_${widgetCount}`), {
-                        chart: { type: 'bar', height: '100%', parentHeightOffset: 0, toolbar: { show: false } },
-                        series: [{ name: 'مخطط', data: [40, 50, 60] }, { name: 'فعلي', data: [35, 55, 58] }],
-                        xaxis: { categories: ['يناير', 'فبراير', 'مارس'] },
-                        colors: ['#d4a373', '#1a2b4c']
-                    }).render();
-                }, 100); // تأخير بسيط لضمان بناء الـ DOM
+            // خصائص العنصر المخزنة
+            el.dataset.vType = type; el.dataset.vFormat = 'general'; el.dataset.vDataLabels = 'true';
+
+            if(type === 'bar' || type === 'line') renderDummyChart(id, type, true);
+        }
+
+        // --- 5. تحديد العنصر وخصائصه (Properties) ---
+        function selectWidget(element, type, id) {
+            document.querySelectorAll('.grid-stack-item').forEach(el => el.classList.remove('selected'));
+            let parentGridItem = element.closest('.grid-stack-item');
+            parentGridItem.classList.add('selected');
+            activeWidget = parentGridItem;
+
+            document.getElementById('no-selection').style.display = 'none';
+            document.getElementById('active-props').style.display = 'block';
+            
+            syncSidebarProps(); // جلب المقاسات الحالية
+
+            // تجهيز خصائص فريدة حسب نوع العنصر
+            let dynProps = '';
+            if(type === 'kpi') {
+                dynProps = `
+                    <label class="mt-2 text-white-50 small">تنسيق الرقم</label>
+                    <select class="form-select" onchange="formatNumber('${id}', this.value)">
+                        <option value="general">رقم عادي</option><option value="percent">نسبة مئوية (%)</option><option value="currency">عملة (SAR)</option>
+                    </select>`;
+            } else if (type === 'bar' || type === 'line') {
+                dynProps = `
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="lbl-toggle" checked onchange="toggleLabels('${id}', '${type}', this.checked)">
+                        <label class="form-check-label text-white">إظهار القيم (Data Labels)</label>
+                    </div>`;
+            } else if (type === 'image') {
+                dynProps = `<label class="mt-2 text-white-50 small">رابط الصورة (URL)</label><input type="text" class="form-control" oninput="document.getElementById('img_${id}').src = this.value">`;
             }
+            document.getElementById('dynamic-props').innerHTML = dynProps;
         }
 
-        // إزالة Visual
-        function removeWidget(btn) {
+        function syncSidebarProps() {
+            document.getElementById('prop-x').value = activeWidget.getAttribute('gs-x');
+            document.getElementById('prop-y').value = activeWidget.getAttribute('gs-y');
+            document.getElementById('prop-w').value = activeWidget.getAttribute('gs-w');
+            document.getElementById('prop-h').value = activeWidget.getAttribute('gs-h');
+        }
+
+        function updateGridData() { // من الشريط إلى الشاشة
+            if(!activeWidget) return;
+            let x = parseInt(document.getElementById('prop-x').value);
+            let y = parseInt(document.getElementById('prop-y').value);
+            let w = parseInt(document.getElementById('prop-w').value);
+            let h = parseInt(document.getElementById('prop-h').value);
+            grid.update(activeWidget, {x, y, w, h});
+        }
+
+        function updateVisualProps() {
+            if(!activeWidget) return;
+            let content = activeWidget.querySelector('.grid-stack-item-content');
+            let hex = document.getElementById('prop-bg').value;
+            let rgb = parseInt(hex.slice(1,3),16)+','+parseInt(hex.slice(3,5),16)+','+parseInt(hex.slice(5,7),16);
+            content.style.backgroundColor = `rgba(${rgb}, ${document.getElementById('prop-opacity').value})`;
+            content.style.borderColor = document.getElementById('prop-border-color').value;
+            content.style.borderWidth = document.getElementById('prop-border-width').value + 'px';
+        }
+
+        function removeWidget(e, btn) {
+            e.stopPropagation();
             let item = btn.closest('.grid-stack-item');
+            if(allCharts[item.id]) { allCharts[item.id].destroy(); delete allCharts[item.id]; }
             grid.removeWidget(item);
+            document.getElementById('active-props').style.display = 'none';
+            document.getElementById('no-selection').style.display = 'block';
         }
 
-        // حفظ التصميم (هنا يتم استخراج الـ X, Y, W, H لحفظها في قاعدة البيانات لاحقاً)
-        function saveLayout() {
+        // --- 6. الوظائف الفرعية (تنسيقات، سحب بيانات، رسوم) ---
+        function formatNumber(id, format) {
+            let el = document.getElementById('val_'+id);
+            let val = 15000; // قيمة افتراضية للتجربة
+            if(format === 'percent') el.innerText = val.toLocaleString() + '%';
+            else if(format === 'currency') el.innerText = val.toLocaleString() + ' SAR';
+            else el.innerText = val.toLocaleString();
+        }
+
+        function renderDummyChart(id, type, showLbl) {
+            if(allCharts[id]) allCharts[id].destroy();
+            let options = {
+                chart: { type: type, height: '100%', parentHeightOffset: 0, toolbar: {show:false}, fontFamily: 'Tajawal' },
+                series: [{ name: 'مخطط', data: [40, 50, 60] }, { name: 'فعلي', data: [35, 55, 58] }],
+                xaxis: { categories: ['تحديث 1', 'تحديث 2', 'تحديث 3'] },
+                colors: ['#d4a373', '#1a2b4c'],
+                dataLabels: { enabled: showLbl }
+            };
+            let chart = new ApexCharts(document.querySelector(`#chart_${id}`), options);
+            chart.render();
+            allCharts[id] = chart;
+        }
+        function toggleLabels(id, type, isChecked) { renderDummyChart(id, type, isChecked); }
+
+        function allowDrop(ev) { ev.preventDefault(); }
+        function drag(ev, data) { ev.dataTransfer.setData("text", data); }
+        function drop(ev, el) { ev.preventDefault(); let data = ev.dataTransfer.getData("text"); el.innerText += " " + data; }
+
+        // --- 7. تصدير PDF وحفظ ---
+        function exportPDF() {
+            document.querySelectorAll('.remove-btn').forEach(btn => btn.style.display = 'none'); // إخفاء علامة X
+            document.querySelectorAll('.grid-stack-item').forEach(el => el.classList.remove('selected'));
+            
+            const element = document.getElementById('print-area');
+            const opt = {
+                margin: 5, filename: 'dashboard_report.pdf', image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } // منع قص الأشكال
+            };
+            html2pdf().set(opt).from(element).save().then(()=>{
+                document.querySelectorAll('.remove-btn').forEach(btn => btn.style.display = 'block');
+            });
+        }
+
+        function saveDashboard() {
             let layoutData = grid.save();
-            console.log("إحداثيات الشاشة التي يجب حفظها في الباك إند:", layoutData);
-            alert("تم التقاط أبعاد ومقاسات الأشكال! (انظر Console). الخطوة القادمة هي إرسالها لـ Flask.");
+            let globalSettings = {
+                title: document.getElementById('dashTitleInput').value,
+                font: document.getElementById('fontSelect').value,
+                canvasBg: document.getElementById('canvasBgInput').value
+            };
+            
+            // إرسال البيانات للباك إند (Flask)
+            fetch('/api/save-dashboard-layout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ layout: layoutData, settings: globalSettings })
+            }).then(response => response.json()).then(data => {
+                if(data.success) alert("تم حفظ التصميم بنجاح في قاعدة البيانات!");
+                else alert("حدث خطأ أثناء الحفظ.");
+            });
         }
     </script>
 </body>
