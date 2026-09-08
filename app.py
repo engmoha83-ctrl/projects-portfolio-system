@@ -4,6 +4,7 @@ import secrets
 import string
 from urllib.parse import quote
 from datetime import datetime, timedelta, date
+from decimal import Decimal
 from fastapi import FastAPI, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -423,6 +424,176 @@ async def mark_notifications_read():
         return JSONResponse({"success": True})
     except Exception as e:
         return JSONResponse({"success": False, "message": str(e)})
+
+# ==================== مُنشئ الداشبورد (Dashboard Builder) ====================
+
+PERCENT_FIELDS = {"act_prog_cur", "act_prog_prev", "plan_prog_cur", "plan_prog_prev"}
+CURRENCY_FIELDS = {"consultant_val", "contractor_val", "consultant_mods_val", "contractor_mods_val",
+                   "cons_inv_val", "cont_inv_val"}
+DATE_FIELDS = {"current_data_date", "start_contractual", "end_contractual", "start_actual", "end_expected",
+               "cons_inv_date", "cont_inv_date", "consultant_mods_end_date", "contractor_mods_end_date",
+               "submission_date"}
+TEXT_FIELDS = {"manager_name", "project_name", "project_desc", "project_type", "project_owner",
+               "project_developer", "project_contractor", "works_completed", "works_ongoing",
+               "works_planned", "username", "submission_time"}
+IMAGE_FIELDS = {"file_link_1", "file_link_2", "file_link_3", "file_link_4", "master_plan_link", "isometric_link"}
+JSON_FIELDS = {"obstacles_data"}
+
+
+def field_type(col):
+    if col in PERCENT_FIELDS: return "percent"
+    if col in CURRENCY_FIELDS: return "currency"
+    if col in DATE_FIELDS: return "date"
+    if col in TEXT_FIELDS: return "text"
+    if col in IMAGE_FIELDS: return "image"
+    if col in JSON_FIELDS: return "json"
+    return "number"
+
+
+def build_field_meta():
+    """قائمة بكل الحقول المتاحة للسحب والإفلات داخل مُنشئ الداشبورد."""
+    return [{"key": k, "label": v, "type": field_type(k)} for k, v in ARABIC_COLUMNS.items() if k != "id"]
+
+
+def fetch_all_project_records(project_name):
+    """كل تحديثات المشروع بكل الأعمدة مرتبة زمنياً (الأقدم أولاً)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM project_updates WHERE project_name = %s ORDER BY current_data_date ASC", (project_name,))
+    cols = [desc[0] for desc in cursor.description]
+    records = []
+    for row in cursor.fetchall():
+        rec = dict(zip(cols, row))
+        for k, v in rec.items():
+            if isinstance(v, (date, datetime)):
+                rec[k] = str(v)
+            elif isinstance(v, Decimal):
+                rec[k] = float(v)
+        records.append(rec)
+    conn.close()
+    return records
+
+
+@app.get("/builder", response_class=HTMLResponse)
+async def builder_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-dashboard", status_code=303)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT project_name FROM project_updates WHERE project_name IS NOT NULL ORDER BY project_name")
+    projects = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return templates.TemplateResponse(request, "builder.html", {
+        "admin_user": admin_user, "projects": projects, "active_page": "builder",
+        "field_meta": build_field_meta()
+    })
+
+
+@app.get("/api/builder/data")
+async def builder_data(project: str, request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        records = fetch_all_project_records(project)
+        pm = None
+        if records:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT manager_name, phone, email, profile_image FROM pm_directory WHERE manager_name = %s LIMIT 1",
+                           (records[-1].get("manager_name"),))
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                pm = {"manager_name": row[0], "phone": row[1], "email": row[2], "profile_image": row[3]}
+        return {"success": True, "records": records, "pm": pm, "fields": build_field_meta()}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/builder/layouts")
+async def builder_list_layouts(request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, project_name, share_token, updated_at FROM dashboard_layouts ORDER BY updated_at DESC")
+        rows = cursor.fetchall()
+        conn.close()
+        return {"success": True, "layouts": [
+            {"id": r[0], "name": r[1], "project_name": r[2], "share_token": r[3], "updated_at": str(r[4])} for r in rows
+        ]}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/builder/layouts/{layout_id}")
+async def builder_get_layout(layout_id: int, request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, project_name, layout, share_token FROM dashboard_layouts WHERE id = %s", (layout_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return JSONResponse({"success": False, "error": "القالب غير موجود"}, status_code=404)
+        layout = row[3]
+        if isinstance(layout, str):
+            layout = json.loads(layout)
+        return {"success": True, "layout": {"id": row[0], "name": row[1], "project_name": row[2],
+                                            "data": layout, "share_token": row[4]}}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/builder/layouts")
+async def builder_save_layout(request: Request, background_tasks: BackgroundTasks):
+    admin_user = request.cookies.get("super_admin_auth")
+    if admin_user != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        body = await request.json()
+        layout_id = body.get("id")
+        name = (body.get("name") or "").strip() or "قالب بدون اسم"
+        project_name = body.get("project_name") or None
+        data = body.get("data") or {}
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if layout_id:
+            cursor.execute("""UPDATE dashboard_layouts SET name=%s, project_name=%s, layout=%s, updated_at=NOW()
+                              WHERE id=%s RETURNING id, share_token""",
+                           (name, project_name, json.dumps(data, ensure_ascii=False), layout_id))
+        else:
+            cursor.execute("""INSERT INTO dashboard_layouts (name, project_name, layout, share_token, created_by)
+                              VALUES (%s, %s, %s, %s, %s) RETURNING id, share_token""",
+                           (name, project_name, json.dumps(data, ensure_ascii=False), secrets.token_urlsafe(16), admin_user))
+        row = cursor.fetchone()
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(log_audit, admin_user, "حفظ قالب داشبورد", f"القالب: {name}")
+        return {"success": True, "id": row[0], "share_token": row[1]}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/builder/layouts/{layout_id}")
+async def builder_delete_layout(layout_id: int, request: Request, background_tasks: BackgroundTasks):
+    admin_user = request.cookies.get("super_admin_auth")
+    if admin_user != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM dashboard_layouts WHERE id = %s", (layout_id,))
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(log_audit, admin_user, "حذف قالب داشبورد", f"القالب رقم {layout_id}")
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 @app.get("/admin-gallery", response_class=HTMLResponse)
 async def admin_gallery_page(request: Request):
