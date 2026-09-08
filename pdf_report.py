@@ -277,14 +277,21 @@ TXT = {
 def t(lang, key):
     return TXT.get(lang, TXT["ar"]).get(key, TXT["ar"].get(key, key))
 
+# استبدال الألوان الداكنة بألوان عصرية
+NAVY = colors.HexColor("#1e293b")
+BORDER = colors.HexColor("#e2e8f0")
+BG_MUTED = colors.HexColor("#f8fafc")
+
+# تعديل شكل عناوين الأقسام لتكون بخلفية رمادية فاتحة جداً بدلاً من الأزرق الكاتم
 def _section_title(text, align=TA_RIGHT):
-    tbl = Table([[P(text, size=12, bold=True, color=WHITE, align=align)]], colWidths=[170 * mm])
+    tbl = Table([[P(text, size=11, bold=True, color=NAVY, align=align)]], colWidths=[170 * mm])
     tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), NAVY),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f1f5f9")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("LINEBELOW", (0, 0), (-1, -1), 1, BORDER) # خط سفلي رفيع للحدود
     ]))
     return tbl
 
