@@ -119,6 +119,37 @@ ARABIC_COLUMNS = {
     'master_plan_link': 'المخطط العام', 'isometric_link': 'أيزومتريك', 'submission_date': 'تاريخ الإرسال', 'submission_time': 'وقت الإرسال'
 }
 
+ENGLISH_COLUMNS = {
+    'id': '#', 'username': 'Username', 'manager_name': 'Project Manager', 'project_name': 'Project',
+    'project_desc': 'Project Description', 'project_type': 'Project Type', 'current_data_date': 'Data Date',
+    'project_owner': 'Owner', 'project_developer': 'Developer', 'project_contractor': 'Contractor',
+    'consultant_val': 'Consultant Contract Value', 'contractor_val': 'Contractor Contract Value',
+    'consultant_mods_count': 'Consultant Variations (Count)', 'consultant_mods_val': 'Consultant Variations (Value)',
+    'consultant_mods_time': 'Consultant Variations (Time)', 'consultant_mods_end_date': 'Consultant Revised End Date',
+    'contractor_mods_count': 'Contractor Variations (Count)', 'contractor_mods_val': 'Contractor Variations (Value)',
+    'contractor_mods_time': 'Contractor Variations (Time)', 'contractor_mods_end_date': 'Contractor Revised End Date',
+    'cons_inv_count': 'Consultant Invoices (Count)', 'cons_inv_val': 'Consultant Invoices (Value)',
+    'cons_inv_date': 'Consultant Invoice Date',
+    'cont_inv_count': 'Contractor Invoices (Count)', 'cont_inv_val': 'Contractor Invoices (Value)',
+    'cont_inv_date': 'Contractor Invoice Date',
+    'start_contractual': 'Contractual Start', 'end_contractual': 'Contractual End',
+    'start_actual': 'Actual Start', 'end_expected': 'Expected Finish',
+    'act_prog_cur': 'Actual Progress (Current)', 'act_prog_prev': 'Actual Progress (Previous)',
+    'plan_prog_cur': 'Planned Progress (Current)', 'plan_prog_prev': 'Planned Progress (Previous)',
+    'works_completed': 'Completed Works', 'works_ongoing': 'Ongoing Works', 'works_planned': 'Planned Works',
+    'obstacles_data': 'Obstacles',
+    'eval_labor': 'Manpower Rating', 'eval_equip': 'Equipment Rating',
+    'eval_financial': 'Financial Rating', 'eval_hse': 'HSE Rating',
+    'drawings_sub': 'Drawings (Submitted)', 'drawings_app': 'Drawings (Approved)', 'drawings_rev': 'Drawings (Under Review)',
+    'ir_sub': 'Inspection Requests (Submitted)', 'ir_app': 'Inspection Requests (Approved)',
+    'ir_rev': 'Inspection Requests (Under Review)',
+    'ncr_open': 'NCRs (Open)', 'ncr_closed': 'NCRs (Closed)',
+    'file_link_1': 'Attachment 1', 'file_link_2': 'Attachment 2', 'file_link_3': 'Attachment 3',
+    'file_link_4': 'Attachment 4', 'master_plan_link': 'Master Plan', 'isometric_link': 'Isometric',
+    'submission_date': 'Submission Date', 'submission_time': 'Submission Time'
+}
+
+
 def send_telegram_alert(action_type, manager, project):
     try:
         ksa_time = datetime.utcnow() + timedelta(hours=3)
@@ -444,8 +475,9 @@ def field_type(col):
 
 
 def build_field_meta():
-    """قائمة بكل الحقول المتاحة للسحب والإفلات داخل مُنشئ الداشبورد."""
-    return [{"key": k, "label": v, "type": field_type(k)} for k, v in ARABIC_COLUMNS.items() if k != "id"]
+    """قائمة بكل الحقول المتاحة داخل مُنشئ الداشبورد، بالاسم العربي والإنجليزي."""
+    return [{"key": k, "label": v, "label_en": ENGLISH_COLUMNS.get(k, k), "type": field_type(k)}
+            for k, v in ARABIC_COLUMNS.items() if k != "id"]
 
 
 def fetch_all_project_records(project_name):
