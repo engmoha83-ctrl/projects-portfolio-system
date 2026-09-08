@@ -19,9 +19,178 @@
                 <li class="nav-item"><a class="nav-link {{ 'active' if active_page == 'builder' else '' }}" href="/builder">🎛️ مُنشئ الداشبورد</a></li>
                 {% endif %}
             </ul>
-            <div class="d-flex">
+            <div class="d-flex align-items-center gap-2">
+                <div class="pmis-bell">
+                    <button type="button" class="bell-btn" id="bellBtn" title="الإشعارات" aria-label="الإشعارات">
+                        <span class="bell-ico">🔔</span>
+                        <span class="bell-badge" id="bellBadge" hidden>0</span>
+                    </button>
+                    <div class="bell-panel" id="bellPanel" hidden>
+                        <div class="bell-head">
+                            <span>الإشعارات</span>
+                            <button type="button" class="bell-close" id="bellClose" aria-label="إغلاق">✕</button>
+                        </div>
+                        <div class="bell-list" id="bellList">
+                            <div class="bell-empty">جاري التحميل…</div>
+                        </div>
+                    </div>
+                </div>
                 <a href="/admin-logout" class="btn-logout">تسجيل الخروج</a>
             </div>
         </div>
     </div>
 </nav>
+
+<style>
+/* ===== جرس الإشعارات (مستقل تماماً عن Bootstrap) ===== */
+.pmis-bell{position:relative;}
+.pmis-bell .bell-btn{
+  position:relative; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.20);
+  color:#fff; border-radius:10px; width:40px; height:38px; cursor:pointer; font-size:1.05rem;
+  line-height:1; display:flex; align-items:center; justify-content:center; transition:.15s;
+}
+.pmis-bell .bell-btn:hover{background:rgba(255,255,255,.2);}
+.pmis-bell .bell-badge{
+  position:absolute; top:-6px; inset-inline-end:-6px; min-width:19px; height:19px; padding:0 5px;
+  background:#d9463f; color:#fff; border-radius:10px; font-size:.68rem; font-weight:700;
+  display:flex; align-items:center; justify-content:center; border:2px solid #16233d;
+}
+.pmis-bell .bell-panel{
+  position:absolute; top:calc(100% + 10px); inset-inline-end:0; width:min(360px,88vw); background:#fff;
+  border:1px solid #e3e7ef; border-radius:14px; box-shadow:0 18px 44px rgba(15,26,46,.22);
+  z-index:1080; overflow:hidden; text-align:start;
+}
+.pmis-bell .bell-panel[hidden]{display:none;}
+.pmis-bell .bell-badge[hidden]{display:none;}
+.pmis-bell .bell-head{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:11px 14px; background:#f4f6fa; border-bottom:1px solid #e3e7ef;
+  font-weight:800; font-size:.86rem; color:#1a2b4c;
+}
+.pmis-bell .bell-close{
+  background:none; border:none; color:#6c7a91; font-size:.9rem; cursor:pointer; line-height:1; padding:2px 4px;
+}
+.pmis-bell .bell-close:hover{color:#d9463f;}
+.pmis-bell .bell-list{max-height:min(380px,60vh); overflow-y:auto;}
+.pmis-bell .bell-item{
+  display:block; padding:10px 14px; border-bottom:1px solid #eef1f6; color:#3c4657;
+  font-size:.8rem; line-height:1.6; text-decoration:none; transition:.12s;
+}
+.pmis-bell .bell-item:last-child{border-bottom:none;}
+.pmis-bell .bell-item:hover{background:#f7f9fc;}
+.pmis-bell .bell-item.unread{background:#eef5fb;}
+.pmis-bell .bell-item.unread:hover{background:#e3eefa;}
+.pmis-bell .bell-msg{color:#1a2b4c; font-weight:600;}
+.pmis-bell .bell-time{display:block; margin-top:3px; font-size:.7rem; color:#6c7a91;}
+.pmis-bell .bell-empty{padding:24px 14px; text-align:center; color:#6c7a91; font-size:.8rem;}
+@media (max-width: 991.98px){
+  .pmis-bell .bell-panel{position:fixed; inset-inline:12px auto; inset-inline-end:12px; width:auto; max-width:92vw;}
+}
+</style>
+
+<script>
+(function(){
+  if(window.__pmisBellInit) return;           // الملف مُضمَّن مرة واحدة فقط في كل صفحة
+  window.__pmisBellInit = true;
+
+  var btn = document.getElementById('bellBtn');
+  if(!btn) return;
+  var panel = document.getElementById('bellPanel'),
+      list  = document.getElementById('bellList'),
+      badge = document.getElementById('bellBadge'),
+      closeBtn = document.getElementById('bellClose');
+  var unread = 0, loading = false;
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function parseTs(s){
+    if(!s) return null;
+    var t = String(s).replace(' ', 'T');
+    if(!/[Zz]$|[+-]\d\d:?\d\d$/.test(t)) t += 'Z';   // التواريخ مخزّنة بتوقيت UTC
+    var d = new Date(t);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function arPlural(n, one, two, few, many){
+    if(n === 1) return 'منذ ' + one;
+    if(n === 2) return 'منذ ' + two;
+    if(n <= 10) return 'منذ ' + n + ' ' + few;
+    return 'منذ ' + n + ' ' + many;
+  }
+  function relTime(d){
+    if(!d) return '';
+    var diff = (Date.now() - d.getTime()) / 1000;
+    if(diff < 0) diff = 0;
+    if(diff < 60)    return 'الآن';
+    if(diff < 3600)  return arPlural(Math.floor(diff/60),   'دقيقة', 'دقيقتين', 'دقائق', 'دقيقة');
+    if(diff < 86400) return arPlural(Math.floor(diff/3600), 'ساعة',  'ساعتين',  'ساعات', 'ساعة');
+    if(diff < 604800)return arPlural(Math.floor(diff/86400),'يوم',   'يومين',   'أيام',  'يوم');
+    try{ return d.toLocaleDateString('ar-EG', {timeZone:'Asia/Riyadh', year:'numeric', month:'long', day:'numeric'}); }
+    catch(e){ return d.toISOString().slice(0,10); }
+  }
+  function setBadge(n){
+    unread = n || 0;
+    if(unread > 0){ badge.textContent = unread > 99 ? '99+' : unread; badge.hidden = false; }
+    else badge.hidden = true;
+  }
+  function render(items){
+    if(!items || !items.length){
+      list.innerHTML = '<div class="bell-empty">لا توجد إشعارات بعد.</div>';
+      return;
+    }
+    list.innerHTML = items.map(function(n){
+      var href = (n.link && n.link !== '#') ? esc(n.link) : null;
+      var inner = '<span class="bell-msg">' + esc(n.message) + '</span>' +
+                  '<span class="bell-time">' + esc(relTime(parseTs(n.created_at))) + '</span>';
+      var cls = 'bell-item' + (n.is_read ? '' : ' unread');
+      return href ? '<a class="' + cls + '" href="' + href + '">' + inner + '</a>'
+                  : '<div class="' + cls + '">' + inner + '</div>';
+    }).join('');
+  }
+  function fetchNotifs(showList){
+    if(loading) return;
+    loading = true;
+    fetch('/api/notifications', {credentials:'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        loading = false;
+        if(!j || !j.success) throw new Error((j && j.message) || 'تعذر جلب الإشعارات');
+        setBadge(j.unread_count);
+        if(showList){
+          render(j.notifications);
+          if(j.unread_count > 0) markRead();
+        }
+      })
+      .catch(function(e){
+        loading = false;
+        if(showList) list.innerHTML = '<div class="bell-empty">تعذر تحميل الإشعارات.</div>';
+      });
+  }
+  function markRead(){
+    fetch('/api/notifications/mark-read', {method:'POST', credentials:'same-origin'})
+      .then(function(){ setBadge(0); })
+      .catch(function(){});
+  }
+  function open(){
+    panel.hidden = false;
+    list.innerHTML = '<div class="bell-empty">جاري التحميل…</div>';
+    fetchNotifs(true);
+  }
+  function close(){ panel.hidden = true; }
+
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    panel.hidden ? open() : close();
+  });
+  if(closeBtn) closeBtn.addEventListener('click', function(e){ e.stopPropagation(); close(); });
+  document.addEventListener('click', function(e){
+    if(!panel.hidden && !panel.contains(e.target) && e.target !== btn) close();
+  });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+
+  fetchNotifs(false);                       // عدّاد غير المقروء عند فتح الصفحة
+  setInterval(function(){ if(panel.hidden) fetchNotifs(false); }, 60000);
+})();
+</script>
