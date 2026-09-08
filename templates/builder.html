@@ -364,7 +364,10 @@ const T = {
     total:'الإجمالي', open:'مفتوح', closed:'تم الحل', standing:'قائم', resolved:'تم الحل',
     noObstacles:'لا توجد معوقات مسجّلة في آخر تحديث ✅',
     impact:{'كبير':'كبير','متوسط':'متوسط','منخفض':'منخفض','غير مؤثر':'غير مؤثر'},
-    vsPrev:'عن التحديث السابق', currency:'ر.س', dayUnit:'يوم',
+    vsPrev:'عن التحديث السابق', currency:'ر.س', dayUnit:'يوم', pointUnit:'نقطة',
+    cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
+    cumFinance:'التقدم المالي التراكمي', cumFinanceVal:'المصروف التراكمي',
+    noTimeline:'لا توجد تحديثات كافية لرسم المنحنى التراكمي',
     million:'مليون', thousand:'ألف', billion:'مليار',
     pickProject:'اختر مشروعاً من الشريط العلوي لعرض البيانات',
     noImage:'لا توجد صورة — اختر مرفقاً من المشروع أو ارفع لوجو من الشريط الجانبي',
@@ -393,7 +396,10 @@ const T = {
     total:'Total', open:'Open', closed:'Resolved', standing:'Open', resolved:'Resolved',
     noObstacles:'No obstacles recorded in the latest update ✅',
     impact:{'كبير':'High','متوسط':'Medium','منخفض':'Low','غير مؤثر':'No impact'},
-    vsPrev:'vs previous update', currency:'SAR', dayUnit:'days',
+    vsPrev:'vs previous update', currency:'SAR', dayUnit:'days', pointUnit:'pts',
+    cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
+    cumFinance:'Cumulative financial progress', cumFinanceVal:'Cumulative invoiced',
+    noTimeline:'Not enough updates to draw the cumulative curve',
     million:'M', thousand:'K', billion:'B',
     pickProject:'Select a project from the top bar to load data',
     noImage:'No image — pick a project attachment or upload a logo from the sidebar',
@@ -525,6 +531,13 @@ function fmtValue(v, type, o){
   if(type === 'days'){
     return num(v).toLocaleString('en-US') + ' ' + tr('dayUnit');
   }
+  if(type === 'points'){
+    const n = num(v);
+    return (n > 0 ? '+' : '') + n.toFixed(d === 0 ? 1 : d) + ' ' + tr('pointUnit');
+  }
+  if(type === 'ratio'){
+    return num(v).toFixed(d || 2);
+  }
   if(type === 'number'){
     const n = num(v);
     return o.compact ? compactNum(n) : n.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d});
@@ -641,6 +654,34 @@ function dayDiff(a, b){
   if(isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
   return Math.round((d2 - d1) / 86400000);
 }
+/* مقاييس محسوبة تُستخدم في مقارنة المشاريع — تبدأ بـ @ لتمييزها عن أعمدة القاعدة */
+const METRICS = {
+  '@prog_delta':{ar:'التقدم خلال الفترة (فعلي)', en:'Progress this period (actual)', type:'points',
+                 calc:r => (num(r.act_prog_cur) - num(r.act_prog_prev)) * 100},
+  '@plan_delta':{ar:'التقدم خلال الفترة (مخطط)', en:'Progress this period (planned)', type:'points',
+                 calc:r => (num(r.plan_prog_cur) - num(r.plan_prog_prev)) * 100},
+  '@pace':      {ar:'سرعة التنفيذ مقابل الخطة', en:'Pace vs plan', type:'points',
+                 calc:r => ((num(r.act_prog_cur) - num(r.act_prog_prev)) -
+                            (num(r.plan_prog_cur) - num(r.plan_prog_prev))) * 100},
+  '@deviation': {ar:'الانحراف عن المخطط', en:'Deviation from plan', type:'points',
+                 calc:r => (num(r.act_prog_cur) - num(r.plan_prog_cur)) * 100},
+  '@spi':       {ar:'مؤشر الأداء SPI', en:'SPI', type:'ratio',
+                 calc:r => pct(r.plan_prog_cur) > 0 ? pct(r.act_prog_cur) / pct(r.plan_prog_cur) : 0},
+  '@fin_pct':   {ar:'نسبة الصرف من عقد المقاول', en:'Invoiced % of contractor contract', type:'percent',
+                 calc:r => num(r.contractor_val) > 0 ? num(r.cont_inv_val) / num(r.contractor_val) * 100 : 0},
+  '@remaining': {ar:'المتبقي من الإنجاز', en:'Remaining to complete', type:'percent',
+                 calc:r => 100 - pct(r.act_prog_cur)}
+};
+function metricName(k){ const m = METRICS[k]; return m ? (isEN() ? m.en : m.ar) : k; }
+function isMetric(k){ return !!METRICS[k]; }
+function fieldOrMetricName(k){ return isMetric(k) ? metricName(k) : lbl(k); }
+function fieldOrMetricType(k){ return isMetric(k) ? METRICS[k].type : ((FIELD_MAP[k] || {}).type || 'number'); }
+function valueOf(rec, k){
+  if(isMetric(k)) return +METRICS[k].calc(rec).toFixed(3);
+  const ty = (FIELD_MAP[k] || {}).type;
+  return ty === 'percent' ? pct(rec[k]) : num(rec[k]);
+}
+
 function pairName(k){ const p = GAUGE_PAIRS[k] || {}; return (isEN() && p.n_en) ? p.n_en : (p.n || k); }
 function groupName(k){ return (T[LANG()].barGroups || {})[k] || k; }
 function lbl(f){ const m = FIELD_MAP[f] || {}; return (isEN() ? (m.label_en || m.label) : m.label) || f; }
@@ -711,6 +752,8 @@ function dlOpts(w, fallbackColor, formatter){
 function fmtByType(type){
   if(type === 'percent')  return v => v + '%';
   if(type === 'days')     return v => num(v).toLocaleString('en-US') + ' ' + tr('dayUnit');
+  if(type === 'points')   return v => (num(v) > 0 ? '+' : '') + num(v).toFixed(1) + ' ' + tr('pointUnit');
+  if(type === 'ratio')    return v => num(v).toFixed(2);
   if(type === 'currency') return v => compactNum(num(v));
   return v => num(v).toLocaleString('en-US');
 }
@@ -1017,9 +1060,90 @@ const VISUALS = {
       body.innerHTML = `<table class="tbl">${rows}</table>`;
     }
   },
+  scurve:{
+    name:'المنحنى التراكمي', icon:'📉', w:560, h:320,
+    opts:{showActual:true, showPlanned:true, showFinancial:true, finSource:'contractor',
+          finMode:'percent', chartType:'area', smooth:true,
+          dl:Object.assign({}, DL_DEFAULT, {show:false})},
+    title:'المنحنى التراكمي للإنجاز والصرف', title_en:'Cumulative progress & spend curve',
+    render(body, w){
+      if(!S.records || S.records.length < 2){
+        body.innerHTML = `<div class="empty-note">${tr('noTimeline')}</div>`;
+        return;
+      }
+      const rows = S.records;
+      const cats = rows.map(r => r.current_data_date || '');
+      const finPct = r => {
+        const src = w.opts.finSource;
+        const inv = (src === 'consultant') ? num(r.cons_inv_val)
+                  : (src === 'both') ? num(r.cont_inv_val) + num(r.cons_inv_val)
+                  : num(r.cont_inv_val);
+        const con = (src === 'consultant') ? num(r.consultant_val)
+                  : (src === 'both') ? num(r.contractor_val) + num(r.consultant_val)
+                  : num(r.contractor_val);
+        return con > 0 ? +(inv / con * 100).toFixed(2) : 0;
+      };
+      const finVal = r => {
+        const src = w.opts.finSource;
+        return (src === 'consultant') ? num(r.cons_inv_val)
+             : (src === 'both') ? num(r.cont_inv_val) + num(r.cons_inv_val)
+             : num(r.cont_inv_val);
+      };
+      const asValue = (w.opts.finMode === 'value');
+
+      const series = [], colors = [], types = [];
+      if(w.opts.showActual){
+        series.push({name:tr('cumActual'), type:w.opts.chartType, data:rows.map(r => pct(r.act_prog_cur))});
+        colors.push(theme().palette[0]); types.push('pct');
+      }
+      if(w.opts.showPlanned){
+        series.push({name:tr('cumPlanned'), type:'line', data:rows.map(r => pct(r.plan_prog_cur))});
+        colors.push(theme().palette[1]); types.push('pct');
+      }
+      if(w.opts.showFinancial){
+        series.push({name:asValue ? tr('cumFinanceVal') : tr('cumFinance'),
+                     type:'line', data:rows.map(r => asValue ? finVal(r) : finPct(r))});
+        colors.push(theme().palette[3] || '#1e8e5a'); types.push(asValue ? 'val' : 'pct');
+      }
+      if(!series.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
+
+      const hasVal = types.indexOf('val') >= 0;
+      const axFont = {colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'};
+      const yaxes = series.map((sr, i) => (types[i] === 'val')
+        ? {opposite:true, seriesName:sr.name, min:0,
+           labels:{formatter:v => compactNum(num(v)), style:axFont}, title:{text:''}}
+        : {seriesName:series.find((_, j) => types[j] === 'pct').name, min:0, max:100, tickAmount:5,
+           show:i === types.indexOf('pct'),
+           labels:{formatter:v => Math.round(v) + '%', style:axFont}});
+
+      mkChart(body, w, {
+        chart:{type:'line', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}, stacked:false},
+        series, colors,
+        stroke:{curve:w.opts.smooth ? 'smooth' : 'straight',
+                width:series.map(sr => sr.type === 'area' ? 2 : 3),
+                dashArray:series.map((sr, i) => (types[i] === 'pct' && i === 1) ? 5 : 0)},
+        fill:{colors:colors, type:'solid', opacity:series.map(sr => sr.type === 'area' ? 0.20 : 1)},
+        markers:{size:3},
+        dataLabels:dlOpts(w, theme().text, (v, o) => {
+          const i = o && o.seriesIndex;
+          return (types[i] === 'val') ? compactNum(num(v)) : num(v).toFixed(1) + '%';
+        }),
+        xaxis:{categories:cats, labels:{style:axFont}},
+        yaxis:hasVal ? yaxes : {min:0, max:100, tickAmount:5,
+               labels:{formatter:v => Math.round(v) + '%', style:axFont}},
+        grid:{borderColor:'rgba(125,125,125,.18)'},
+        legend:{position:'top', horizontalAlign:'center', fontSize:wSize(w) + 'px',
+                labels:{colors:theme().text}},
+        tooltip:{shared:true, y:{formatter:(v, o) => {
+          const i = o && o.seriesIndex;
+          return (types[i] === 'val') ? compactNum(num(v)) + ' ' + tr('currency') : num(v).toFixed(1) + '%';
+        }}}
+      });
+    }
+  },
   projects_compare:{
     name:'مقارنة المشاريع', icon:'🏗️', w:540, h:330,
-    opts:{field:'act_prog_cur', sort:'desc', topN:0, horizontal:true, showAvg:true,
+    opts:{field:'@prog_delta', sort:'desc', topN:0, horizontal:true, showAvg:true,
           dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
     title:'مقارنة المشاريع', title_en:'Projects comparison',
     render(body, w){
@@ -1027,21 +1151,21 @@ const VISUALS = {
         body.innerHTML = `<div class="empty-note">${tr('allOnly')}</div>`;
         return;
       }
-      const f = w.opts.field, t = (FIELD_MAP[f] || {}).type || 'number';
-      let items = S.projLatest.map(r => ({
-        n:r.project_name || '—',
-        v:t === 'percent' ? pct(r[f]) : num(r[f])
-      }));
+      const f = w.opts.field;
+      const ftype = fieldOrMetricType(f);
+      let items = S.projLatest.map(r => ({ n:r.project_name || '—', v:valueOf(r, f) }));
       if(w.opts.sort === 'desc') items.sort((a, b) => b.v - a.v);
-      if(w.opts.sort === 'asc')  items.sort((a, b) => a.v - b.v);
+      else if(w.opts.sort === 'asc') items.sort((a, b) => a.v - b.v);
+      else items.sort((a, b) => String(a.n).localeCompare(String(b.n), 'ar'));
       if(w.opts.topN > 0) items = items.slice(0, w.opts.topN);
 
-      const fmt = fmtByType(t === 'percent' ? 'percent' : t);
+      const fmt = fmtByType(ftype);
       const avg = items.reduce((a, i) => a + i.v, 0) / (items.length || 1);
       const hz = !!w.opts.horizontal;
       const axFont = {colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'};
-      const numFmt = t === 'percent' ? (v => Math.round(v) + '%')
-                   : (t === 'currency' ? (v => compactNum(num(v))) : (v => Math.round(num(v)).toLocaleString('en-US')));
+      const numFmt = (ftype === 'percent' || ftype === 'points') ? (v => Math.round(v) + (ftype === 'percent' ? '%' : ''))
+                   : (ftype === 'ratio' ? (v => num(v).toFixed(2))
+                   : (ftype === 'currency' ? (v => compactNum(num(v))) : (v => Math.round(num(v)).toLocaleString('en-US'))));
       const catAxis = {trim:true, maxHeight:76, style:axFont,
                        rotate:(!hz && items.length > 4) ? -35 : 0, rotateAlways:(!hz && items.length > 4)};
       if(hz){ catAxis.maxWidth = Math.max(90, Math.round(w.w * 0.34)); catAxis.align = 'right'; }
@@ -1054,7 +1178,10 @@ const VISUALS = {
       }
       mkChart(body, w, {
         chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
-        series:[{name:lbl(f), data:items.map(i => i.v)}], colors:theme().palette,
+        series:[{name:fieldOrMetricName(f), data:items.map(i => i.v)}],
+        colors:(ftype === 'points' || ftype === 'ratio')
+          ? items.map(i => i.v >= (ftype === 'ratio' ? 1 : 0) ? '#1e8e5a' : '#d9463f')   // أخضر للموجب/المتقدم
+          : theme().palette,
         plotOptions:{bar:{horizontal:hz, distributed:true, borderRadius:5,
                           columnWidth:'60%', barHeight:'62%'}},
         dataLabels:dlOpts(w, '#ffffff', (v, o) => {
@@ -1850,7 +1977,7 @@ function buildPropsTab(){
   bindProps(el, w);
 }
 
-const DL_TYPES = ['gauge','spi','progress_line','bars','radar_eval','projects_compare'];
+const DL_TYPES = ['gauge','spi','progress_line','bars','radar_eval','projects_compare','scurve'];
 function dataLabelsHtml(w){
   if(!DL_TYPES.includes(w.type)) return '';
   if(w.type === 'radar_eval' && (w.opts.numMode || 'axis') !== 'chart') return '';
@@ -2079,11 +2206,38 @@ function optionsHtml(w){
       «على رؤوس الرسم» يضع الأرقام على الرؤوس، ويُفضَّل معه تفعيل خلفية الأرقام من قسم Data Labels
       حتى تُقرأ فوق أسماء المحاور.</div>`;
   }
+  if(w.type === 'scurve'){
+    return `
+      <label class="chk"><input type="checkbox" data-p="opts.showActual" ${o.showActual ? 'checked' : ''}> الإنجاز الفعلي التراكمي</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned ? 'checked' : ''}> الإنجاز المخطط التراكمي</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showFinancial" ${o.showFinancial ? 'checked' : ''}> التقدم المالي التراكمي</label>
+      <div class="row"><label>مصدر الصرف</label><div class="ctl"><select data-p="opts.finSource">
+        <option value="contractor" ${o.finSource === 'contractor' ? 'selected' : ''}>فواتير المقاول ÷ عقده</option>
+        <option value="consultant" ${o.finSource === 'consultant' ? 'selected' : ''}>فواتير الاستشاري ÷ عقده</option>
+        <option value="both"       ${o.finSource === 'both'       ? 'selected' : ''}>الاثنان معاً</option>
+      </select></div></div>
+      <div class="row"><label>عرض الصرف</label><div class="ctl"><select data-p="opts.finMode">
+        <option value="percent" ${o.finMode === 'percent' ? 'selected' : ''}>نسبة مئوية من العقد</option>
+        <option value="value"   ${o.finMode === 'value'   ? 'selected' : ''}>قيمة بالريال (محور ثانٍ)</option>
+      </select></div></div>
+      <div class="row"><label>شكل الفعلي</label><div class="ctl"><select data-p="opts.chartType">
+        <option value="area" ${o.chartType === 'area' ? 'selected' : ''}>مساحي</option>
+        <option value="line" ${o.chartType === 'line' ? 'selected' : ''}>خطي</option>
+      </select></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth ? 'checked' : ''}> خطوط انسيابية</label>
+      <div class="hint">يرسم تطور الإنجاز والصرف عبر كل تواريخ التحديث. في وضع «كل المشاريع» يعرض
+      المنحنى المجمّع (الإنجاز متوسط مرجّح والصرف مجموع).</div>`;
+  }
   if(w.type === 'projects_compare'){
     const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
     return `
-      <div class="row"><label>الحقل</label><div class="ctl"><select data-p="opts.field">
-        ${nums.map(f => `<option value="${f.key}" ${o.field === f.key ? 'selected' : ''}>${f.label}</option>`).join('')}
+      <div class="row"><label>المقياس</label><div class="ctl"><select data-p="opts.field">
+        <optgroup label="مقاييس محسوبة">
+          ${Object.keys(METRICS).map(k => `<option value="${k}" ${o.field === k ? 'selected' : ''}>${METRICS[k].ar}</option>`).join('')}
+        </optgroup>
+        <optgroup label="حقول البيانات">
+          ${nums.map(f => `<option value="${f.key}" ${o.field === f.key ? 'selected' : ''}>${f.label}</option>`).join('')}
+        </optgroup>
       </select></div></div>
       <div class="row"><label>الترتيب</label><div class="ctl"><select data-p="opts.sort">
         <option value="desc" ${o.sort === 'desc' ? 'selected' : ''}>من الأكبر للأصغر</option>
@@ -2094,7 +2248,9 @@ function optionsHtml(w){
         <input type="number" min="0" max="50" data-p="opts.topN" value="${o.topN}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal ? 'checked' : ''}> أعمدة أفقية</label>
       <label class="chk"><input type="checkbox" data-p="opts.showAvg" ${o.showAvg ? 'checked' : ''}> خط المتوسط</label>
-      <div class="hint">٠ في «أفضل عدد» = عرض كل المشاريع. يعمل فقط في وضع «كل المشاريع».</div>`;
+      <div class="hint">٠ في «أفضل عدد» = عرض كل المشاريع. يعمل فقط في وضع «كل المشاريع».
+      <br><br>لمعرفة <b>أسرع المشاريع تقدماً خلال الأسبوع</b> اختر «التقدم خلال الفترة (فعلي)»
+      مع الترتيب من الأكبر للأصغر — الأعمدة الخضراء تقدّمت والحمراء تراجعت.</div>`;
   }
   if(w.type === 'obstacles'){
     return `
