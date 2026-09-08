@@ -1,1 +1,1318 @@
 
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مُنشئ الداشبورد | المعماريون السعوديون</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Cairo:wght@400;600;700;900&family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js"></script>
+<style>
+:root{
+  --ui-bg:#f2f4f8; --ui-panel:#ffffff; --ui-bar:#0f1a2e; --ui-bar-2:#16233d;
+  --ui-line:#e2e7f0; --ui-text:#1a2b4c; --ui-muted:#6c7a91; --ui-gold:#d4a373;
+  --ui-accent:#2685c9; --ui-danger:#d9463f; --ui-ok:#1e8e5a;
+  --sidebar-w:320px; --topbar-h:56px;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{
+  font-family:'Tajawal','Segoe UI',Tahoma,sans-serif; background:var(--ui-bg); color:var(--ui-text);
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;}
+
+/* ============ الشريط العلوي ============ */
+.topbar{
+  height:var(--topbar-h); background:var(--ui-bar); color:#fff; display:flex; align-items:center;
+  gap:10px; padding:0 14px; border-bottom:2px solid var(--ui-gold);
+}
+.topbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.95rem;white-space:nowrap;}
+.topbar .brand span{color:var(--ui-gold);}
+.topbar .sep{width:1px;height:26px;background:rgba(255,255,255,.18);}
+.topbar .spacer{flex:1;}
+.tb-btn{
+  background:rgba(255,255,255,.10); color:#fff; border:1px solid rgba(255,255,255,.18);
+  border-radius:8px; padding:6px 12px; font-size:.82rem; cursor:pointer; white-space:nowrap; transition:.15s;
+}
+.tb-btn:hover{background:rgba(255,255,255,.2);}
+.tb-btn.primary{background:var(--ui-gold); border-color:var(--ui-gold); color:#22160a; font-weight:700;}
+.tb-btn.primary:hover{background:#e0b98d;}
+.tb-btn.ghost{background:transparent;}
+.tb-input,.tb-select{
+  background:rgba(255,255,255,.10); color:#fff; border:1px solid rgba(255,255,255,.2);
+  border-radius:8px; padding:6px 10px; font-size:.82rem; font-family:inherit; max-width:210px;
+}
+.tb-select option{color:#111;}
+.tb-input::placeholder{color:rgba(255,255,255,.5);}
+
+/* ============ التخطيط العام ============ */
+.workspace{display:flex; height:calc(100% - var(--topbar-h));}
+.sidebar{
+  width:var(--sidebar-w); min-width:var(--sidebar-w); background:var(--ui-panel);
+  border-inline-start:1px solid var(--ui-line); display:flex; flex-direction:column; overflow:hidden;
+}
+.side-tabs{display:flex; border-bottom:1px solid var(--ui-line); background:#f8fafc;}
+.side-tab{
+  flex:1; padding:11px 4px; text-align:center; font-size:.8rem; font-weight:700; color:var(--ui-muted);
+  cursor:pointer; border-bottom:3px solid transparent; transition:.15s; user-select:none;
+}
+.side-tab:hover{background:#eef2f8;}
+.side-tab.active{color:var(--ui-text); border-bottom-color:var(--ui-gold); background:#fff;}
+.side-body{flex:1; overflow-y:auto; padding:12px;}
+.side-body::-webkit-scrollbar{width:8px;}
+.side-body::-webkit-scrollbar-thumb{background:#cbd4e2;border-radius:4px;}
+
+.canvas-area{
+  flex:1; overflow:auto; padding:26px; display:flex; justify-content:center; align-items:flex-start;
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.03) 1px,transparent 1px) 0 0/24px 24px,
+    linear-gradient(rgba(0,0,0,.03) 1px,transparent 1px) 0 0/24px 24px, var(--ui-bg);
+}
+.page-shell{transform-origin:top center;}
+#page{
+  position:relative; background:#fff; box-shadow:0 10px 40px rgba(15,26,46,.18); overflow:hidden;
+  border-radius:6px;
+}
+#page.show-grid::before{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background-image:linear-gradient(90deg,rgba(26,43,76,.07) 1px,transparent 1px),
+                   linear-gradient(rgba(26,43,76,.07) 1px,transparent 1px);
+  background-size:var(--gs) var(--gs);
+}
+
+/* ============ الـ Visuals ============ */
+.bw{
+  position:absolute; z-index:1; display:flex; flex-direction:column; overflow:visible;
+  background:#fff; transition:box-shadow .12s;
+}
+.bw.selected{outline:2px solid var(--ui-accent); outline-offset:1px; z-index:5;}
+.bw-title{
+  flex:0 0 auto; padding:7px 10px; font-weight:700; line-height:1.35; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap;
+}
+.bw-body{flex:1 1 auto; min-height:0; position:relative; overflow:hidden; padding:6px;}
+.bw-drag{position:absolute; inset:0; cursor:move; z-index:3;}
+.bw.selected .bw-drag{cursor:move;}
+.bw-tools{
+  position:absolute; top:-30px; inset-inline-start:0; display:none; gap:4px; z-index:20;
+}
+.bw.selected .bw-tools{display:flex;}
+.bw-tools button{
+  background:var(--ui-bar); color:#fff; border:none; border-radius:6px; width:26px; height:26px;
+  font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.bw-tools button:hover{background:var(--ui-accent);}
+.bw-tools button.del:hover{background:var(--ui-danger);}
+.hnd{position:absolute; width:10px; height:10px; background:#fff; border:2px solid var(--ui-accent);
+     border-radius:2px; z-index:10; display:none;}
+.bw.selected .hnd{display:block;}
+/* مقابض التحجيم بإحداثيات فيزيائية (يسار/يمين) حتى لا تنعكس مع اتجاه الصفحة RTL */
+.hnd[data-d="nw"]{top:-5px; left:-5px; cursor:nwse-resize;}
+.hnd[data-d="ne"]{top:-5px; right:-5px; cursor:nesw-resize;}
+.hnd[data-d="sw"]{bottom:-5px; left:-5px; cursor:nesw-resize;}
+.hnd[data-d="se"]{bottom:-5px; right:-5px; cursor:nwse-resize;}
+.hnd[data-d="n"]{top:-5px; left:calc(50% - 5px); cursor:ns-resize;}
+.hnd[data-d="s"]{bottom:-5px; left:calc(50% - 5px); cursor:ns-resize;}
+.hnd[data-d="w"]{left:-5px; top:calc(50% - 5px); cursor:ew-resize;}
+.hnd[data-d="e"]{right:-5px; top:calc(50% - 5px); cursor:ew-resize;}
+
+.guide{position:absolute; background:#ff2d78; z-index:50; pointer-events:none;}
+.guide.v{width:1px; top:0; bottom:0;}
+.guide.h{height:1px; left:0; right:0;}
+
+/* محتوى القوالب */
+.kpi-wrap{height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:2px; padding:2px;}
+.kpi-value{font-weight:900; line-height:1.15; word-break:break-word;}
+.kpi-label{font-size:.78rem; color:inherit; opacity:.72;}
+.kpi-delta{font-size:.75rem; font-weight:700;}
+.kpi-delta.up{color:var(--ui-ok);} .kpi-delta.down{color:var(--ui-danger);}
+.tbl{width:100%; border-collapse:collapse; font-size:.78rem;}
+.tbl td{padding:5px 7px; border-bottom:1px solid rgba(128,128,128,.22); vertical-align:top;}
+.tbl td:first-child{color:inherit; opacity:.72; font-weight:700; white-space:nowrap; width:42%;}
+.tbl tr:last-child td{border-bottom:none;}
+.txt-visual{height:100%; overflow:auto; white-space:pre-wrap; word-break:break-word;}
+.empty-note{
+  height:100%; display:flex; align-items:center; justify-content:center; text-align:center;
+  color:var(--ui-muted); font-size:.8rem; padding:8px;
+}
+
+/* ============ عناصر الشريط الجانبي ============ */
+.tpl-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px;}
+.tpl-card{
+  border:1px solid var(--ui-line); border-radius:10px; padding:10px 6px; text-align:center; cursor:pointer;
+  background:#fbfcfe; transition:.15s; user-select:none;
+}
+.tpl-card:hover{border-color:var(--ui-gold); background:#fff; transform:translateY(-2px); box-shadow:0 6px 14px rgba(15,26,46,.08);}
+.tpl-ico{font-size:1.5rem; display:block; margin-bottom:4px;}
+.tpl-name{font-size:.74rem; font-weight:700; line-height:1.3;}
+.grp{margin-bottom:16px;}
+.grp-h{
+  font-size:.72rem; font-weight:800; color:var(--ui-muted); letter-spacing:.02em; margin-bottom:8px;
+  padding-bottom:5px; border-bottom:1px solid var(--ui-line); display:flex; align-items:center; gap:6px;
+}
+.row{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+.row label{flex:0 0 78px; font-size:.75rem; color:var(--ui-muted); font-weight:700;}
+.row .ctl{flex:1; min-width:0;}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;}
+.mini{display:flex; flex-direction:column; gap:3px;}
+.mini span{font-size:.7rem; color:var(--ui-muted); font-weight:700;}
+input[type=text],input[type=number],select,textarea{
+  width:100%; border:1px solid var(--ui-line); border-radius:7px; padding:6px 8px; font-size:.78rem;
+  font-family:inherit; background:#fff; color:var(--ui-text);
+}
+input:focus,select:focus,textarea:focus{outline:none; border-color:var(--ui-accent);}
+input[type=color]{width:100%; height:30px; padding:2px; border:1px solid var(--ui-line); border-radius:7px; background:#fff; cursor:pointer;}
+input[type=range]{width:100%;}
+.swatches{display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;}
+.sw{width:19px; height:19px; border-radius:5px; cursor:pointer; border:2px solid #fff; box-shadow:0 0 0 1px var(--ui-line);}
+.sw:hover{transform:scale(1.12);}
+.chk{display:flex; align-items:center; gap:7px; font-size:.78rem; font-weight:700; margin-bottom:8px; cursor:pointer;}
+.chk input{width:15px; height:15px; accent-color:var(--ui-accent); cursor:pointer;}
+.btn-row{display:flex; gap:6px; flex-wrap:wrap;}
+.sbtn{
+  flex:1; border:1px solid var(--ui-line); background:#fff; border-radius:7px; padding:6px 4px;
+  font-size:.74rem; font-weight:700; cursor:pointer; color:var(--ui-text); transition:.12s; min-width:0;
+}
+.sbtn:hover{border-color:var(--ui-accent); color:var(--ui-accent);}
+.sbtn.on{background:var(--ui-bar); color:#fff; border-color:var(--ui-bar);}
+.sbtn.danger{color:var(--ui-danger); border-color:#f2c9c7;}
+.sbtn.danger:hover{background:var(--ui-danger); color:#fff;}
+.hint{font-size:.72rem; color:var(--ui-muted); line-height:1.6; background:#f7f9fc; border:1px dashed var(--ui-line);
+      border-radius:8px; padding:9px 10px;}
+.layer{
+  display:flex; align-items:center; gap:7px; padding:6px 8px; border:1px solid var(--ui-line); border-radius:8px;
+  margin-bottom:5px; font-size:.76rem; cursor:pointer; background:#fff;
+}
+.layer:hover{border-color:var(--ui-accent);}
+.layer.on{background:#eef5fb; border-color:var(--ui-accent); font-weight:700;}
+.layer .lyr-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+/* ============ نافذة منبثقة ============ */
+.modal-back{
+  position:fixed; inset:0; background:rgba(15,26,46,.55); display:none; align-items:center; justify-content:center; z-index:900;
+}
+.modal-back.open{display:flex;}
+.modal{
+  background:#fff; border-radius:14px; width:min(560px,92vw); max-height:80vh; display:flex; flex-direction:column;
+  box-shadow:0 24px 60px rgba(0,0,0,.35); overflow:hidden;
+}
+.modal h3{margin:0; padding:14px 18px; background:var(--ui-bar); color:#fff; font-size:.95rem;}
+.modal-body{padding:14px 18px; overflow-y:auto;}
+.modal-foot{padding:12px 18px; border-top:1px solid var(--ui-line); display:flex; justify-content:flex-start; gap:8px;}
+.lay-item{
+  display:flex; align-items:center; gap:10px; padding:10px; border:1px solid var(--ui-line); border-radius:10px; margin-bottom:8px;
+}
+.lay-item .li-main{flex:1; min-width:0;}
+.lay-item .li-name{font-weight:700; font-size:.85rem;}
+.lay-item .li-sub{font-size:.72rem; color:var(--ui-muted);}
+
+.toast{
+  position:fixed; bottom:22px; inset-inline-start:22px; background:var(--ui-bar); color:#fff; padding:11px 18px;
+  border-radius:10px; font-size:.83rem; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:999;
+  opacity:0; transform:translateY(12px); transition:.25s; pointer-events:none;
+}
+.toast.show{opacity:1; transform:translateY(0);}
+.toast.err{background:var(--ui-danger);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">🎛️ مُنشئ الداشبورد <span>| PMIS</span></div>
+  <div class="sep"></div>
+  <select class="tb-select" id="projectSel" title="المشروع">
+    <option value="">— اختر المشروع —</option>
+    {% for p in projects %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+  </select>
+  <input class="tb-input" id="layoutName" placeholder="اسم القالب" value="قالب جديد">
+  <div class="sep"></div>
+  <button class="tb-btn" id="btnUndo" title="تراجع (Ctrl+Z)">↶</button>
+  <button class="tb-btn" id="btnRedo" title="إعادة (Ctrl+Y)">↷</button>
+  <div class="sep"></div>
+  <button class="tb-btn" id="btnZoomOut" title="تصغير">−</button>
+  <span id="zoomLabel" style="font-size:.78rem;min-width:42px;text-align:center;">100%</span>
+  <button class="tb-btn" id="btnZoomIn" title="تكبير">+</button>
+  <button class="tb-btn ghost" id="btnZoomFit" title="ملاءمة الشاشة">⤢</button>
+  <div class="spacer"></div>
+  <button class="tb-btn" id="btnNew">جديد</button>
+  <button class="tb-btn" id="btnOpen">القوالب المحفوظة</button>
+  <button class="tb-btn primary" id="btnSave">💾 حفظ</button>
+  <a class="tb-btn ghost" href="/admin-hub" style="text-decoration:none;">رجوع</a>
+</div>
+
+<div class="workspace">
+  <aside class="sidebar">
+    <div class="side-tabs">
+      <div class="side-tab active" data-tab="templates">القوالب</div>
+      <div class="side-tab" data-tab="props">الخصائص</div>
+      <div class="side-tab" data-tab="page">الصفحة</div>
+    </div>
+    <div class="side-body" id="tab-templates"></div>
+    <div class="side-body" id="tab-props" style="display:none;"></div>
+    <div class="side-body" id="tab-page" style="display:none;"></div>
+  </aside>
+
+  <main class="canvas-area" id="canvasArea">
+    <div class="page-shell" id="pageShell">
+      <div id="page"></div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-back" id="modalBack">
+  <div class="modal">
+    <h3>القوالب المحفوظة</h3>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot"><button class="sbtn" style="flex:0 0 110px" id="btnCloseModal">إغلاق</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   مُنشئ الداشبورد — المرحلة الأولى
+   محرك canvas بمواضع بالبكسل + التصاق للشبكة + خطوط محاذاة + قوالب حية
+   ===================================================================== */
+
+const FIELD_META = {{ field_meta | tojson }};
+const FIELD_MAP = {};
+FIELD_META.forEach(f => FIELD_MAP[f.key] = f);
+
+/* ---------------- الثيمات ---------------- */
+const THEMES = {
+  navy:  {name:'كحلي وذهبي', pageBg:'#ffffff', widgetBg:'#ffffff', titleBg:'#1a2b4c', titleColor:'#ffffff',
+          text:'#1a2b4c', border:'#e3e7ef',
+          palette:['#1a2b4c','#d4a373','#2685c9','#1e8e5a','#d9463f','#7b5ea7','#d99425','#6c7a91']},
+  light: {name:'فاتح هادئ', pageBg:'#f7f9fc', widgetBg:'#ffffff', titleBg:'#eef2f8', titleColor:'#1a2b4c',
+          text:'#3c4657', border:'#e3e7ef',
+          palette:['#2685c9','#1e8e5a','#d99425','#d9463f','#7b5ea7','#0f9b8e','#6c7a91','#c2547f']},
+  dark:  {name:'داكن', pageBg:'#1e1e24', widgetBg:'#2b2d35', titleBg:'#15161a', titleColor:'#f8f9fa',
+          text:'#f0f2f6', border:'#444857',
+          palette:['#0dcaf0','#fd7e14','#20c997','#dc3545','#ffc107','#a78bfa','#4dabf7','#adb5bd']},
+  sand:  {name:'رملي', pageBg:'#faf6ef', widgetBg:'#ffffff', titleBg:'#d4a373', titleColor:'#22160a',
+          text:'#4a3b2a', border:'#e8dcc8',
+          palette:['#a9714b','#d4a373','#7d8471','#b25f4a','#42604f','#8a6d3b','#5c4033','#c9a66b']}
+};
+const FONTS = [
+  {v:"'Tajawal',sans-serif", n:'تجوال'},
+  {v:"'Cairo',sans-serif",   n:'القاهرة'},
+  {v:"'Almarai',sans-serif", n:'المراعي'},
+  {v:"'Amiri',serif",        n:'أميري'}
+];
+const SWATCHES = ['#0f1a2e','#1a2b4c','#2685c9','#0dcaf0','#1e8e5a','#20c997','#d99425','#d4a373',
+                  '#d9463f','#c2547f','#7b5ea7','#6c7a91','#eef2f8','#ffffff'];
+const PAGE_PRESETS = {
+  a4l:{n:'A4 أفقي', w:1123, h:794}, a4p:{n:'A4 رأسي', w:794, h:1123},
+  hd :{n:'شاشة 16:9', w:1280, h:720}, wide:{n:'عريض', w:1440, h:900}
+};
+
+/* ---------------- الحالة ---------------- */
+const S = {
+  project:'', records:[], latest:null, pm:null,
+  layoutId:null, layoutName:'قالب جديد',
+  page:{preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
+        theme:'navy', grid:10, snap:true, showGrid:true, noOverlap:false},
+  widgets:[], selected:null, zoom:1, seq:1,
+  charts:{}, undo:[], redo:[], dirty:false
+};
+
+const $ = s => document.querySelector(s);
+const page = $('#page');
+const theme = () => THEMES[S.page.theme] || THEMES.navy;
+
+/* ---------------- أدوات مساعدة ---------------- */
+function toast(msg, isErr){
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', 2600);
+}
+function uid(){ return 'w' + (S.seq++) + Math.random().toString(36).slice(2,6); }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+function autoDecimals(type){ return type === 'percent' ? 1 : 0; }
+function compactNum(n){
+  const a = Math.abs(n);
+  if(a >= 1e9) return (n/1e9).toFixed(2).replace(/\.?0+$/,'') + ' مليار';
+  if(a >= 1e6) return (n/1e6).toFixed(2).replace(/\.?0+$/,'') + ' مليون';
+  if(a >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + ' ألف';
+  return n.toLocaleString('en-US');
+}
+function fmtValue(v, type, o){
+  o = o || {};
+  if(v === null || v === undefined || v === '') return '—';
+  const d = (o.decimals === undefined || o.decimals === null) ? autoDecimals(type) : o.decimals;
+  if(type === 'percent'){
+    let n = num(v); if(Math.abs(n) <= 1.0001) n *= 100;
+    return n.toFixed(d) + '%';
+  }
+  if(type === 'currency'){
+    const n = num(v);
+    return (o.compact ? compactNum(n)
+      : n.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d})) + ' ر.س';
+  }
+  if(type === 'number'){
+    const n = num(v);
+    return o.compact ? compactNum(n) : n.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d});
+  }
+  return String(v);
+}
+function pct(v){ let n = num(v); if(Math.abs(n) <= 1.0001) n *= 100; return +n.toFixed(2); }
+
+/* ---------------- سجل التراجع ---------------- */
+function snapshot(){
+  S.undo.push(JSON.stringify({widgets:S.widgets, page:S.page}));
+  if(S.undo.length > 40) S.undo.shift();
+  S.redo.length = 0; S.dirty = true;
+}
+function applyState(str){
+  const st = JSON.parse(str);
+  S.widgets = st.widgets; S.page = st.page; S.selected = null;
+  renderAll(); buildPageTab(); buildPropsTab();
+}
+function doUndo(){
+  if(!S.undo.length) return;
+  S.redo.push(JSON.stringify({widgets:S.widgets, page:S.page}));
+  applyState(S.undo.pop());
+}
+function doRedo(){
+  if(!S.redo.length) return;
+  S.undo.push(JSON.stringify({widgets:S.widgets, page:S.page}));
+  applyState(S.redo.pop());
+}
+
+/* =====================================================================
+   قوالب الـ Visuals
+   ===================================================================== */
+const BAR_GROUPS = {
+  drawings:{n:'المخططات', fields:['drawings_sub','drawings_app','drawings_rev'], type:'number'},
+  ir:      {n:'طلبات الاستلام IR', fields:['ir_sub','ir_app','ir_rev'], type:'number'},
+  ncr:     {n:'مخالفات NCR', fields:['ncr_open','ncr_closed'], type:'number'},
+  invoices:{n:'الفواتير', fields:['cons_inv_val','cont_inv_val'], type:'currency'},
+  contracts:{n:'قيم العقود', fields:['consultant_val','contractor_val'], type:'currency'},
+  mods:    {n:'أوامر التغيير', fields:['consultant_mods_count','contractor_mods_count'], type:'number'}
+};
+
+const VISUALS = {
+  kpi:{
+    name:'بطاقة مؤشر', icon:'📌', w:250, h:150,
+    opts:{field:'act_prog_cur', decimals:null, compact:false, showLabel:false, showDelta:true, valueSize:30, valueColor:''},
+    title:'الإنجاز الفعلي',
+    render(body, w){
+      if(!S.latest) return empty(body);
+      const f = w.opts.field, meta = FIELD_MAP[f] || {type:'number', label:f};
+      const val = S.latest[f];
+      const prev = S.records.length > 1 ? S.records[S.records.length-2][f] : null;
+      let delta = '';
+      if(w.opts.showDelta && prev !== null && prev !== undefined && meta.type !== 'text' && meta.type !== 'date'){
+        const d = num(val) - num(prev);
+        if(Math.abs(d) > 0.0000001){
+          const shown = meta.type === 'percent' ? (Math.abs(d)*100).toFixed(1)+'%' :
+                        Math.abs(d).toLocaleString('en-US',{maximumFractionDigits:2});
+          delta = `<div class="kpi-delta ${d>0?'up':'down'}">${d>0?'▲':'▼'} ${shown} عن التحديث السابق</div>`;
+        }
+      }
+      const color = w.opts.valueColor || theme().palette[0];
+      const label = w.opts.showLabel ? `<div class="kpi-label">${meta.label || f}</div>` : '';
+      body.innerHTML = `<div class="kpi-wrap">
+          <div class="kpi-value" style="font-size:${w.opts.valueSize}px;color:${color}">${
+            fmtValue(val, meta.type, {decimals:w.opts.decimals, compact:w.opts.compact})}</div>
+          ${label}${delta}</div>`;
+    }
+  },
+  gauge:{
+    name:'مؤشر دائري', icon:'🎯', w:300, h:280,
+    opts:{mode:'both', dataLabels:true},
+    title:'نسبة الإنجاز',
+    render(body, w){
+      if(!S.latest) return empty(body);
+      const series = [], labels = [];
+      if(w.opts.mode === 'both' || w.opts.mode === 'actual'){ series.push(pct(S.latest.act_prog_cur)); labels.push('الفعلي'); }
+      if(w.opts.mode === 'both' || w.opts.mode === 'planned'){ series.push(pct(S.latest.plan_prog_cur)); labels.push('المخطط'); }
+      mkChart(body, w, {
+        chart:{type:'radialBar', fontFamily:w.title.font, background:'transparent'},
+        series, labels, colors:theme().palette.slice(0,2),
+        plotOptions:{radialBar:{hollow:{size:'44%'}, track:{background:'rgba(125,125,125,.15)'},
+          dataLabels:{show:w.opts.dataLabels, name:{fontSize:'13px', color:theme().text},
+            value:{fontSize:'19px', fontWeight:700, color:theme().text, formatter:v=>v+'%'},
+            total:{show:series.length>1, label:labels[0], color:theme().text, formatter:()=>series[0]+'%'}}}},
+        legend:{show:series.length>1, position:'bottom', labels:{colors:theme().text}}
+      });
+    }
+  },
+  progress_line:{
+    name:'مسار الإنجاز', icon:'📈', w:520, h:290,
+    opts:{chartType:'line', dataLabels:false, smooth:true, showPlanned:true},
+    title:'مسار الإنجاز الفعلي مقابل المخطط',
+    render(body, w){
+      if(!S.records.length) return empty(body);
+      const cats = S.records.map(r => r.current_data_date || '');
+      const series = [{name:'الفعلي', data:S.records.map(r => pct(r.act_prog_cur))}];
+      if(w.opts.showPlanned) series.push({name:'المخطط', data:S.records.map(r => pct(r.plan_prog_cur))});
+      mkChart(body, w, {
+        chart:{type:w.opts.chartType, fontFamily:w.title.font, background:'transparent', toolbar:{show:false}},
+        series, colors:theme().palette.slice(0,2),
+        stroke:{curve:w.opts.smooth?'smooth':'straight', width:w.opts.chartType==='bar'?0:3},
+        fill:w.opts.chartType==='area'?{type:'gradient', gradient:{opacityFrom:.45, opacityTo:.05}}:{opacity:1},
+        dataLabels:{enabled:w.opts.dataLabels, formatter:v=>v+'%', style:{fontSize:'10px'}},
+        markers:{size:w.opts.chartType==='line'?4:0},
+        xaxis:{categories:cats, labels:{style:{colors:theme().text, fontSize:'10px'}}},
+        yaxis:{max:100, min:0, tickAmount:5, decimalsInFloat:0,
+               labels:{formatter:v=>Math.round(v)+'%', style:{colors:theme().text, fontSize:'10px'}}},
+        grid:{borderColor:'rgba(125,125,125,.18)'},
+        legend:{position:'top', horizontalAlign:'center', labels:{colors:theme().text}},
+        tooltip:{y:{formatter:v=>v+'%'}}
+      });
+    }
+  },
+  bars:{
+    name:'أعمدة مقارنة', icon:'📊', w:420, h:270,
+    opts:{group:'drawings', dataLabels:true, horizontal:false},
+    title:'المخططات',
+    render(body, w){
+      if(!S.latest) return empty(body);
+      const g = BAR_GROUPS[w.opts.group] || BAR_GROUPS.drawings;
+      const cats = g.fields.map(f => (FIELD_MAP[f] || {}).label || f);
+      const data = g.fields.map(f => num(S.latest[f]));
+      mkChart(body, w, {
+        chart:{type:'bar', fontFamily:w.title.font, background:'transparent', toolbar:{show:false}},
+        series:[{name:g.n, data}], colors:theme().palette,
+        plotOptions:{bar:{horizontal:w.opts.horizontal, distributed:true, borderRadius:5, columnWidth:'55%'}},
+        dataLabels:{enabled:w.opts.dataLabels,
+          formatter:v => g.type==='currency' ? num(v).toLocaleString('en-US') : v,
+          style:{fontSize:'11px', fontWeight:700}},
+        xaxis:{categories:cats, labels:{style:{colors:theme().text, fontSize:'10px'}}},
+        yaxis:{labels:{style:{colors:theme().text, fontSize:'10px'}}},
+        grid:{borderColor:'rgba(125,125,125,.18)'},
+        legend:{show:false},
+        tooltip:{y:{formatter:v => fmtValue(v, g.type, {})}}
+      });
+    }
+  },
+  radar_eval:{
+    name:'التقييم الفني', icon:'🕸️', w:340, h:300,
+    opts:{dataLabels:false},
+    title:'التقييم الفني للمشروع',
+    render(body, w){
+      if(!S.latest) return empty(body);
+      const fields = ['eval_labor','eval_equip','eval_financial','eval_hse'];
+      mkChart(body, w, {
+        chart:{type:'radar', fontFamily:w.title.font, background:'transparent', toolbar:{show:false}},
+        series:[{name:'التقييم', data:fields.map(f => num(S.latest[f]))}],
+        labels:['العمالة','المعدات','المالي','السلامة'],
+        colors:[theme().palette[0]],
+        dataLabels:{enabled:w.opts.dataLabels, style:{fontSize:'10px'}},
+        markers:{size:4},
+        yaxis:{show:false},
+        plotOptions:{radar:{polygons:{strokeColors:'rgba(125,125,125,.25)', connectorColors:'rgba(125,125,125,.25)'}}},
+        xaxis:{labels:{style:{colors:Array(4).fill(theme().text), fontSize:'11px'}}}
+      });
+    }
+  },
+  info_table:{
+    name:'بيانات المشروع', icon:'📋', w:360, h:250,
+    opts:{fields:['project_name','project_type','project_owner','project_contractor','start_actual','end_expected']},
+    title:'بيانات المشروع',
+    render(body, w){
+      if(!S.latest) return empty(body);
+      const rows = (w.opts.fields || []).map(f => {
+        const m = FIELD_MAP[f] || {label:f, type:'text'};
+        return `<tr><td>${m.label}</td><td>${fmtValue(S.latest[f], m.type, {})}</td></tr>`;
+      }).join('');
+      body.innerHTML = `<table class="tbl">${rows}</table>`;
+    }
+  },
+  text:{
+    name:'نص حر', icon:'🔤', w:280, h:110,
+    opts:{content:'اكتب النص هنا', size:15, color:'', align:'start', font:"'Tajawal',sans-serif", weight:500},
+    title:'', titleShow:false,
+    render(body, w){
+      body.innerHTML = `<div class="txt-visual" style="font-family:${w.opts.font};font-size:${w.opts.size}px;
+        color:${w.opts.color || theme().text};text-align:${w.opts.align};font-weight:${w.opts.weight};">${
+        String(w.opts.content).replace(/[<>]/g, c => ({'<':'&lt;','>':'&gt;'}[c]))}</div>`;
+    }
+  }
+};
+
+function empty(body){
+  body.innerHTML = '<div class="empty-note">اختر مشروعاً من الشريط العلوي لعرض البيانات</div>';
+}
+function mkChart(body, w, opt){
+  if(typeof ApexCharts === 'undefined'){
+    body.innerHTML = '<div class="empty-note">تعذر تحميل مكتبة الرسوم البيانية — تأكد من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</div>';
+    return;
+  }
+  body.innerHTML = '<div style="width:100%;height:100%"></div>';
+  const host = body.firstChild;
+  const h = Math.max(60, w.h - (w.title.show ? 38 : 0) - 14);
+  opt.chart = Object.assign({height:h, width:'100%'}, opt.chart);
+  if(S.charts[w.id]){ try{ S.charts[w.id].destroy(); }catch(e){} }
+  const c = new ApexCharts(host, opt); c.render(); S.charts[w.id] = c;
+}
+
+/* =====================================================================
+   إدارة الـ Widgets
+   ===================================================================== */
+function addWidget(type){
+  const t = VISUALS[type];
+  snapshot();
+  const w = {
+    id:uid(), type,
+    x:snap(40 + (S.widgets.length % 5) * 18), y:snap(40 + (S.widgets.length % 5) * 18),
+    w:t.w, h:t.h,
+    title:{show:t.titleShow !== false, text:t.title || t.name, font:FONTS[0].v, size:14, weight:700,
+           color:theme().titleColor, bg:theme().titleBg, align:'start'},
+    style:{bg:theme().widgetBg, color:theme().text, opacity:1, radius:10, shadow:true,
+           border:{show:true, color:theme().border, width:1}},
+    opts:clone(t.opts)
+  };
+  S.widgets.push(w);
+  drawWidget(w); select(w.id);
+  switchTab('props');
+}
+function removeWidget(id){
+  snapshot();
+  if(S.charts[id]){ try{ S.charts[id].destroy(); }catch(e){} delete S.charts[id]; }
+  S.widgets = S.widgets.filter(w => w.id !== id);
+  const el = document.getElementById(id); if(el) el.remove();
+  if(S.selected === id) S.selected = null;
+  buildPropsTab();
+}
+function duplicateWidget(id){
+  const src = S.widgets.find(w => w.id === id); if(!src) return;
+  snapshot();
+  const w = clone(src); w.id = uid(); w.x = snap(src.x + 20); w.y = snap(src.y + 20);
+  S.widgets.push(w); drawWidget(w); select(w.id);
+}
+function getW(id){ return S.widgets.find(w => w.id === id); }
+
+function snap(v){ return S.page.snap ? Math.round(v / S.page.grid) * S.page.grid : Math.round(v); }
+
+function drawWidget(w){
+  let el = document.getElementById(w.id);
+  if(!el){
+    el = document.createElement('div');
+    el.className = 'bw'; el.id = w.id;
+    el.innerHTML = `<div class="bw-title"></div><div class="bw-body"></div><div class="bw-drag"></div>
+      <div class="bw-tools">
+        <button data-a="dup" title="تكرار">⧉</button>
+        <button data-a="front" title="للأمام">↑</button>
+        <button data-a="back" title="للخلف">↓</button>
+        <button data-a="del" class="del" title="حذف">🗑</button>
+      </div>` +
+      ['nw','n','ne','e','se','s','sw','w'].map(d => `<div class="hnd" data-d="${d}"></div>`).join('');
+    page.appendChild(el);
+    el.querySelector('.bw-drag').addEventListener('mousedown', e => startDrag(e, w.id));
+    el.querySelectorAll('.hnd').forEach(h =>
+      h.addEventListener('mousedown', e => startResize(e, w.id, h.dataset.d)));
+    el.querySelectorAll('.bw-tools button').forEach(b => b.addEventListener('mousedown', e => {
+      e.stopPropagation(); e.preventDefault();
+      const a = b.dataset.a;
+      if(a === 'del') removeWidget(w.id);
+      else if(a === 'dup') duplicateWidget(w.id);
+      else if(a === 'front'){ snapshot(); page.appendChild(el); reorderModel(w.id, 1); }
+      else if(a === 'back'){ snapshot(); page.insertBefore(el, page.firstChild); reorderModel(w.id, -1); }
+    }));
+    el.addEventListener('mousedown', () => select(w.id));
+  }
+  el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
+  el.style.width = w.w + 'px'; el.style.height = w.h + 'px';
+  el.style.background = w.style.bg;
+  el.style.color = w.style.color || theme().text;
+  el.style.opacity = w.style.opacity;
+  el.style.borderRadius = w.style.radius + 'px';
+  el.style.boxShadow = w.style.shadow ? '0 4px 14px rgba(15,26,46,.10)' : 'none';
+  el.style.border = w.style.border.show ? `${w.style.border.width}px solid ${w.style.border.color}` : 'none';
+
+  const tEl = el.querySelector('.bw-title');
+  if(w.title.show){
+    tEl.style.display = 'block'; tEl.textContent = w.title.text;
+    tEl.style.font = `${w.title.weight} ${w.title.size}px ${w.title.font}`;
+    tEl.style.color = w.title.color; tEl.style.background = w.title.bg;
+    tEl.style.textAlign = w.title.align;
+    tEl.style.borderRadius = `${w.style.radius}px ${w.style.radius}px 0 0`;
+  } else tEl.style.display = 'none';
+
+  const body = el.querySelector('.bw-body');
+  try{ VISUALS[w.type].render(body, w); }
+  catch(err){ body.innerHTML = `<div class="empty-note">تعذر عرض القالب: ${err.message}</div>`; }
+}
+function reorderModel(id, dir){
+  const i = S.widgets.findIndex(w => w.id === id); if(i < 0) return;
+  const [w] = S.widgets.splice(i, 1);
+  if(dir > 0) S.widgets.push(w); else S.widgets.unshift(w);
+}
+function renderAll(){
+  Object.values(S.charts).forEach(c => { try{ c.destroy(); }catch(e){} });
+  S.charts = {}; page.innerHTML = '';
+  applyPageStyle();
+  S.widgets.forEach(drawWidget);
+  if(S.selected) select(S.selected);
+  buildLayersList();
+}
+function select(id){
+  S.selected = id;
+  document.querySelectorAll('.bw').forEach(e => e.classList.toggle('selected', e.id === id));
+  buildPropsTab(); buildLayersList();
+}
+
+/* =====================================================================
+   السحب والتحجيم + خطوط المحاذاة
+   ===================================================================== */
+let guides = [];
+function clearGuides(){ guides.forEach(g => g.remove()); guides = []; }
+function addGuide(dir, pos){
+  const g = document.createElement('div'); g.className = 'guide ' + dir;
+  if(dir === 'v') g.style.left = pos + 'px'; else g.style.top = pos + 'px';
+  page.appendChild(g); guides.push(g);
+}
+function alignTargets(exceptId){
+  const vs = [0, S.page.w/2, S.page.w], hs = [0, S.page.h/2, S.page.h];
+  S.widgets.forEach(o => {
+    if(o.id === exceptId) return;
+    vs.push(o.x, o.x + o.w/2, o.x + o.w);
+    hs.push(o.y, o.y + o.h/2, o.y + o.h);
+  });
+  return {vs, hs};
+}
+function magnet(val, targets, tol){
+  let best = null, bd = tol;
+  targets.forEach(t => { const d = Math.abs(val - t); if(d < bd){ bd = d; best = t; } });
+  return best;
+}
+
+function startDrag(e, id){
+  if(e.button !== 0) return;
+  e.preventDefault(); select(id);
+  const w = getW(id), el = document.getElementById(id);
+  const sx = e.clientX, sy = e.clientY, ox = w.x, oy = w.y;
+  const {vs, hs} = alignTargets(id);
+  let moved = false;
+  function mv(ev){
+    if(!moved){ snapshot(); moved = true; }
+    let nx = ox + (ev.clientX - sx) / S.zoom * (document.dir === 'rtl' ? 1 : 1);
+    let ny = oy + (ev.clientY - sy) / S.zoom;
+    clearGuides();
+    if(!ev.altKey){
+      const tol = 7;
+      const mL = magnet(nx, vs, tol), mC = magnet(nx + w.w/2, vs, tol), mR = magnet(nx + w.w, vs, tol);
+      if(mL !== null){ nx = mL; addGuide('v', mL); }
+      else if(mC !== null){ nx = mC - w.w/2; addGuide('v', mC); }
+      else if(mR !== null){ nx = mR - w.w; addGuide('v', mR); }
+      else nx = snap(nx);
+      const mT = magnet(ny, hs, tol), mM = magnet(ny + w.h/2, hs, tol), mB = magnet(ny + w.h, hs, tol);
+      if(mT !== null){ ny = mT; addGuide('h', mT); }
+      else if(mM !== null){ ny = mM - w.h/2; addGuide('h', mM); }
+      else if(mB !== null){ ny = mB - w.h; addGuide('h', mB); }
+      else ny = snap(ny);
+    }
+    w.x = Math.max(0, Math.min(S.page.w - w.w, Math.round(nx)));
+    w.y = Math.max(0, Math.min(S.page.h - w.h, Math.round(ny)));
+    el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
+  }
+  function up(){
+    document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
+    clearGuides();
+    if(moved && S.page.noOverlap) resolveOverlap(w);
+    drawWidget(w); buildPropsTab();
+  }
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+}
+
+function startResize(e, id, dir){
+  e.preventDefault(); e.stopPropagation(); select(id);
+  const w = getW(id), el = document.getElementById(id);
+  const sx = e.clientX, sy = e.clientY;
+  const o = {x:w.x, y:w.y, w:w.w, h:w.h};
+  let moved = false;
+  function mv(ev){
+    if(!moved){ snapshot(); moved = true; }
+    const dx = (ev.clientX - sx) / S.zoom, dy = (ev.clientY - sy) / S.zoom;
+    let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+    // الإحداثيات فيزيائية: w = الحافة اليسرى، e = الحافة اليمنى
+    if(dir.includes('e'))  nw = o.w + dx;
+    if(dir.includes('w')){ nw = o.w - dx; nx = o.x + dx; }
+    if(dir.includes('n')){ nh = o.h - dy; ny = o.y + dy; }
+    if(dir.includes('s')) nh = o.h + dy;
+    nw = Math.max(90, nw); nh = Math.max(60, nh);
+    if(!ev.altKey){ nw = snap(nw); nh = snap(nh); }
+    // تثبيت الحافة المقابلة عند بلوغ الحد الأدنى أو بعد الالتصاق
+    if(dir.includes('w')) nx = o.x + o.w - nw;
+    if(dir.includes('n')) ny = o.y + o.h - nh;
+    nx = Math.max(0, Math.min(nx, S.page.w - 90));
+    ny = Math.max(0, Math.min(ny, S.page.h - 60));
+    nw = Math.min(nw, S.page.w - nx); nh = Math.min(nh, S.page.h - ny);
+    w.x = Math.round(nx); w.y = Math.round(ny);
+    w.w = Math.round(nw); w.h = Math.round(nh);
+    el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
+    el.style.width = w.w + 'px'; el.style.height = w.h + 'px';
+  }
+  function up(){
+    document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
+    drawWidget(w); buildPropsTab();
+  }
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+}
+
+function hit(a, b){ return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y); }
+function resolveOverlap(w){
+  let guard = 0;
+  while(guard++ < 200){
+    const c = S.widgets.find(o => o.id !== w.id && hit(w, o));
+    if(!c) break;
+    w.y = snap(c.y + c.h + 8);
+    if(w.y + w.h > S.page.h){ w.y = snap(8); break; }
+  }
+}
+function alignSelected(mode){
+  const w = getW(S.selected); if(!w) return;
+  snapshot();
+  if(mode === 'start')  w.x = 0;
+  if(mode === 'hcenter')w.x = Math.round((S.page.w - w.w) / 2);
+  if(mode === 'end')    w.x = S.page.w - w.w;
+  if(mode === 'top')    w.y = 0;
+  if(mode === 'vcenter')w.y = Math.round((S.page.h - w.h) / 2);
+  if(mode === 'bottom') w.y = S.page.h - w.h;
+  drawWidget(w); buildPropsTab();
+}
+function autoArrange(){
+  if(!S.widgets.length) return;
+  snapshot();
+  const pad = 12; let x = pad, y = pad, rowH = 0;
+  S.widgets.forEach(w => {
+    if(x + w.w + pad > S.page.w){ x = pad; y += rowH + pad; rowH = 0; }
+    w.x = snap(x); w.y = snap(y); x += w.w + pad; rowH = Math.max(rowH, w.h);
+  });
+  renderAll(); toast('تم الترتيب التلقائي');
+}
+
+/* =====================================================================
+   الصفحة والثيم
+   ===================================================================== */
+function applyPageStyle(){
+  page.style.width = S.page.w + 'px'; page.style.height = S.page.h + 'px';
+  page.style.background = S.page.gradient && S.page.bg2
+      ? `linear-gradient(${S.page.gradDir}deg, ${S.page.bg}, ${S.page.bg2})` : S.page.bg;
+  page.style.setProperty('--gs', S.page.grid + 'px');
+  page.classList.toggle('show-grid', S.page.showGrid);
+  applyZoom();
+}
+function applyZoom(){
+  $('#pageShell').style.transform = `scale(${S.zoom})`;
+  $('#pageShell').style.width = (S.page.w * S.zoom) + 'px';
+  $('#pageShell').style.height = (S.page.h * S.zoom) + 'px';
+  $('#zoomLabel').textContent = Math.round(S.zoom * 100) + '%';
+}
+function zoomFit(){
+  const a = $('#canvasArea');
+  S.zoom = Math.min(1, Math.max(.2, (a.clientWidth - 60) / S.page.w));
+  applyZoom();
+}
+function applyThemeToAll(){
+  const t = theme();
+  snapshot();
+  S.page.bg = t.pageBg;
+  S.widgets.forEach(w => {
+    w.style.bg = t.widgetBg; w.style.color = t.text; w.style.border.color = t.border;
+    w.title.bg = t.titleBg; w.title.color = t.titleColor;
+    if(w.type === 'kpi') w.opts.valueColor = '';
+    if(w.type === 'text') w.opts.color = '';
+  });
+  renderAll(); buildPageTab();
+}
+
+/* =====================================================================
+   الشريط الجانبي — القوالب
+   ===================================================================== */
+function buildTemplatesTab(){
+  const el = $('#tab-templates');
+  el.innerHTML = `
+    <div class="grp">
+      <div class="grp-h">إضافة visual للصفحة</div>
+      <div class="tpl-grid">${Object.keys(VISUALS).map(k =>
+        `<div class="tpl-card" data-t="${k}"><span class="tpl-ico">${VISUALS[k].icon}</span>
+         <span class="tpl-name">${VISUALS[k].name}</span></div>`).join('')}</div>
+    </div>
+    <div class="grp">
+      <div class="grp-h">ترتيب</div>
+      <div class="btn-row">
+        <button class="sbtn" id="btnArrange">ترتيب تلقائي</button>
+        <button class="sbtn danger" id="btnClear">مسح الكل</button>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="grp-h">العناصر في الصفحة</div>
+      <div id="layersList"></div>
+    </div>
+    <div class="hint">اضغط على أي قالب لإضافته. اسحب الـ visual من أي مكان بداخله، وغيّر حجمه من المربعات الزرقاء على الحواف.
+    اضغط <b>Alt</b> أثناء السحب لتعطيل الالتصاق مؤقتاً.</div>`;
+  el.querySelectorAll('.tpl-card').forEach(c =>
+    c.addEventListener('click', () => addWidget(c.dataset.t)));
+  $('#btnArrange').addEventListener('click', autoArrange);
+  $('#btnClear').addEventListener('click', () => {
+    if(!S.widgets.length) return;
+    if(confirm('هل تريد مسح كل العناصر من الصفحة؟')){
+      snapshot(); S.widgets = []; S.selected = null; renderAll(); buildPropsTab();
+    }
+  });
+  buildLayersList();
+}
+function buildLayersList(){
+  const box = $('#layersList'); if(!box) return;
+  if(!S.widgets.length){ box.innerHTML = '<div class="hint">لا توجد عناصر بعد.</div>'; return; }
+  box.innerHTML = S.widgets.map(w =>
+    `<div class="layer ${w.id === S.selected ? 'on' : ''}" data-id="${w.id}">
+       <span>${VISUALS[w.type].icon}</span>
+       <span class="lyr-name">${w.title.show && w.title.text ? w.title.text : VISUALS[w.type].name}</span>
+     </div>`).join('');
+  box.querySelectorAll('.layer').forEach(l => l.addEventListener('click', () => {
+    select(l.dataset.id); switchTab('props');
+  }));
+}
+
+/* =====================================================================
+   الشريط الجانبي — الخصائص
+   ===================================================================== */
+function ctlColor(label, val, cb, id){
+  return `<div class="row"><label>${label}</label><div class="ctl">
+     <input type="color" value="${val || '#ffffff'}" data-cb="${id}">
+     <div class="swatches">${SWATCHES.map(c => `<div class="sw" style="background:${c}" data-sw="${id}" data-c="${c}"></div>`).join('')}</div>
+   </div></div>`;
+}
+function buildPropsTab(){
+  const el = $('#tab-props');
+  const w = getW(S.selected);
+  if(!w){
+    el.innerHTML = '<div class="hint">اختر عنصراً من الصفحة (أو من قائمة العناصر) لعرض خصائصه هنا.</div>';
+    return;
+  }
+  const t = VISUALS[w.type];
+  el.innerHTML = `
+    <div class="grp">
+      <div class="grp-h">${t.icon} ${t.name}</div>
+      <div class="btn-row" style="margin-bottom:8px;">
+        <button class="sbtn" data-act="dup">تكرار</button>
+        <button class="sbtn danger" data-act="del">حذف</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">العنوان</div>
+      <label class="chk"><input type="checkbox" data-p="title.show" ${w.title.show?'checked':''}> إظهار شريط العنوان</label>
+      <div class="row"><label>النص</label><div class="ctl"><input type="text" data-p="title.text" value="${(w.title.text||'').replace(/"/g,'&quot;')}"></div></div>
+      <div class="row"><label>الخط</label><div class="ctl"><select data-p="title.font">
+        ${FONTS.map(f => `<option value="${f.v}" ${w.title.font===f.v?'selected':''}>${f.n}</option>`).join('')}
+      </select></div></div>
+      <div class="row2">
+        <div class="mini"><span>الحجم</span><input type="number" min="8" max="48" data-p="title.size" value="${w.title.size}"></div>
+        <div class="mini"><span>السماكة</span><select data-p="title.weight">
+          <option value="400" ${w.title.weight==400?'selected':''}>عادي</option>
+          <option value="700" ${w.title.weight==700?'selected':''}>عريض</option>
+          <option value="900" ${w.title.weight==900?'selected':''}>عريض جداً</option>
+        </select></div>
+      </div>
+      <div class="row"><label>المحاذاة</label><div class="ctl btn-row">
+        <button class="sbtn ${w.title.align==='start'?'on':''}" data-set="title.align" data-v="start">يمين</button>
+        <button class="sbtn ${w.title.align==='center'?'on':''}" data-set="title.align" data-v="center">وسط</button>
+        <button class="sbtn ${w.title.align==='end'?'on':''}" data-set="title.align" data-v="end">يسار</button>
+      </div></div>
+      ${ctlColor('لون الخط', w.title.color, null, 'title.color')}
+      ${ctlColor('خلفية العنوان', w.title.bg, null, 'title.bg')}
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">مظهر الـ Visual</div>
+      ${ctlColor('لون الخلفية', w.style.bg, null, 'style.bg')}
+      ${ctlColor('لون النص', w.style.color || theme().text, null, 'style.color')}
+      <div class="row"><label>الشفافية</label><div class="ctl">
+        <input type="range" min="0.2" max="1" step="0.05" data-p="style.opacity" value="${w.style.opacity}"></div></div>
+      <div class="row"><label>الاستدارة</label><div class="ctl">
+        <input type="range" min="0" max="30" step="1" data-p="style.radius" value="${w.style.radius}"></div></div>
+      <label class="chk"><input type="checkbox" data-p="style.shadow" ${w.style.shadow?'checked':''}> ظل خفيف</label>
+      <label class="chk"><input type="checkbox" data-p="style.border.show" ${w.style.border.show?'checked':''}> إطار (Border)</label>
+      <div class="row"><label>سماكة</label><div class="ctl">
+        <input type="range" min="0" max="8" step="1" data-p="style.border.width" value="${w.style.border.width}"></div></div>
+      ${ctlColor('لون الإطار', w.style.border.color, null, 'style.border.color')}
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">الموضع والحجم (بكسل)</div>
+      <div class="row2">
+        <div class="mini"><span>X</span><input type="number" data-p="x" value="${w.x}"></div>
+        <div class="mini"><span>Y</span><input type="number" data-p="y" value="${w.y}"></div>
+      </div>
+      <div class="row2">
+        <div class="mini"><span>العرض</span><input type="number" min="90" data-p="w" value="${w.w}"></div>
+        <div class="mini"><span>الارتفاع</span><input type="number" min="60" data-p="h" value="${w.h}"></div>
+      </div>
+      <div class="grp-h" style="margin-top:10px;">محاذاة داخل الصفحة</div>
+      <div class="btn-row" style="margin-bottom:6px;">
+        <button class="sbtn" data-al="start">يمين</button>
+        <button class="sbtn" data-al="hcenter">وسط أفقي</button>
+        <button class="sbtn" data-al="end">يسار</button>
+      </div>
+      <div class="btn-row">
+        <button class="sbtn" data-al="top">أعلى</button>
+        <button class="sbtn" data-al="vcenter">وسط رأسي</button>
+        <button class="sbtn" data-al="bottom">أسفل</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">خيارات القالب</div>
+      ${optionsHtml(w)}
+    </div>`;
+
+  bindProps(el, w);
+}
+
+function optionsHtml(w){
+  const o = w.opts;
+  if(w.type === 'kpi'){
+    const usable = FIELD_META.filter(f => ['number','percent','currency','date','text'].includes(f.type));
+    return `
+      <div class="row"><label>الحقل</label><div class="ctl"><select data-p="opts.field">
+        ${usable.map(f => `<option value="${f.key}" ${o.field===f.key?'selected':''}>${f.label}</option>`).join('')}
+      </select></div></div>
+      <div class="row2">
+        <div class="mini"><span>خانات عشرية</span><input type="number" min="0" max="4" data-p="opts.decimals"
+             value="${o.decimals === null || o.decimals === undefined ? autoDecimals((FIELD_MAP[o.field]||{}).type) : o.decimals}"></div>
+        <div class="mini"><span>حجم الرقم</span><input type="number" min="12" max="80" data-p="opts.valueSize" value="${o.valueSize}"></div>
+      </div>
+      <label class="chk"><input type="checkbox" data-p="opts.compact" ${o.compact?'checked':''}> اختصار الأرقام الكبيرة (مليون/ألف)</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showLabel" ${o.showLabel?'checked':''}> إظهار اسم الحقل تحت الرقم</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showDelta" ${o.showDelta?'checked':''}> إظهار الفرق عن التحديث السابق</label>
+      ${ctlColor('لون الرقم', o.valueColor || theme().palette[0], null, 'opts.valueColor')}`;
+  }
+  if(w.type === 'gauge'){
+    return `
+      <div class="row"><label>المحتوى</label><div class="ctl"><select data-p="opts.mode">
+        <option value="both" ${o.mode==='both'?'selected':''}>الفعلي والمخطط</option>
+        <option value="actual" ${o.mode==='actual'?'selected':''}>الفعلي فقط</option>
+        <option value="planned" ${o.mode==='planned'?'selected':''}>المخطط فقط</option>
+      </select></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.dataLabels" ${o.dataLabels?'checked':''}> إظهار Data Labels</label>`;
+  }
+  if(w.type === 'progress_line'){
+    return `
+      <div class="row"><label>نوع الرسم</label><div class="ctl"><select data-p="opts.chartType">
+        <option value="line" ${o.chartType==='line'?'selected':''}>خطي</option>
+        <option value="area" ${o.chartType==='area'?'selected':''}>مساحي</option>
+        <option value="bar"  ${o.chartType==='bar'?'selected':''}>أعمدة</option>
+      </select></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned?'checked':''}> إظهار المخطط</label>
+      <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>
+      <label class="chk"><input type="checkbox" data-p="opts.dataLabels" ${o.dataLabels?'checked':''}> إظهار Data Labels</label>`;
+  }
+  if(w.type === 'bars'){
+    return `
+      <div class="row"><label>المجموعة</label><div class="ctl"><select data-p="opts.group">
+        ${Object.keys(BAR_GROUPS).map(k => `<option value="${k}" ${o.group===k?'selected':''}>${BAR_GROUPS[k].n}</option>`).join('')}
+      </select></div></div>
+      <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>
+      <label class="chk"><input type="checkbox" data-p="opts.dataLabels" ${o.dataLabels?'checked':''}> إظهار Data Labels</label>`;
+  }
+  if(w.type === 'radar_eval'){
+    return `<label class="chk"><input type="checkbox" data-p="opts.dataLabels" ${o.dataLabels?'checked':''}> إظهار Data Labels</label>`;
+  }
+  if(w.type === 'info_table'){
+    const sel = o.fields || [];
+    return `<div style="max-height:230px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;">
+      ${FIELD_META.filter(f => f.type !== 'image' && f.type !== 'json').map(f =>
+        `<label class="chk" style="margin-bottom:4px;font-weight:500;">
+           <input type="checkbox" data-fld="${f.key}" ${sel.includes(f.key)?'checked':''}> ${f.label}</label>`).join('')}
+    </div><div class="hint" style="margin-top:8px;">اختر الحقول التي تظهر في الجدول.</div>`;
+  }
+  if(w.type === 'text'){
+    return `
+      <div class="row"><label>النص</label><div class="ctl">
+        <textarea rows="4" data-p="opts.content">${(o.content||'')}</textarea></div></div>
+      <div class="row"><label>الخط</label><div class="ctl"><select data-p="opts.font">
+        ${FONTS.map(f => `<option value="${f.v}" ${o.font===f.v?'selected':''}>${f.n}</option>`).join('')}
+      </select></div></div>
+      <div class="row2">
+        <div class="mini"><span>الحجم</span><input type="number" min="8" max="72" data-p="opts.size" value="${o.size}"></div>
+        <div class="mini"><span>السماكة</span><select data-p="opts.weight">
+          <option value="400" ${o.weight==400?'selected':''}>عادي</option>
+          <option value="500" ${o.weight==500?'selected':''}>متوسط</option>
+          <option value="700" ${o.weight==700?'selected':''}>عريض</option>
+          <option value="900" ${o.weight==900?'selected':''}>عريض جداً</option>
+        </select></div>
+      </div>
+      <div class="row"><label>المحاذاة</label><div class="ctl btn-row">
+        <button class="sbtn ${o.align==='start'?'on':''}" data-set="opts.align" data-v="start">يمين</button>
+        <button class="sbtn ${o.align==='center'?'on':''}" data-set="opts.align" data-v="center">وسط</button>
+        <button class="sbtn ${o.align==='end'?'on':''}" data-set="opts.align" data-v="end">يسار</button>
+      </div></div>
+      ${ctlColor('لون النص', o.color || theme().text, null, 'opts.color')}`;
+  }
+  return '<div class="hint">لا توجد خيارات إضافية لهذا القالب.</div>';
+}
+
+function setPath(obj, path, val){
+  const parts = path.split('.'); let o = obj;
+  for(let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+  o[parts[parts.length-1]] = val;
+}
+function bindProps(el, w){
+  el.querySelectorAll('[data-p]').forEach(inp => {
+    const ev = (inp.type === 'range') ? 'input' : 'change';
+    inp.addEventListener(ev, () => {
+      snapshot();
+      let v = inp.type === 'checkbox' ? inp.checked : inp.value;
+      if(inp.type === 'number' || inp.type === 'range') v = parseFloat(v) || 0;
+      if(['title.weight','opts.weight'].includes(inp.dataset.p)) v = parseInt(v);
+      setPath(w, inp.dataset.p, v);
+      if(['x','y','w','h'].includes(inp.dataset.p)) w[inp.dataset.p] = Math.round(v);
+      drawWidget(w); buildLayersList();
+    });
+  });
+  el.querySelectorAll('[data-cb]').forEach(inp => {
+    inp.addEventListener('input', () => { setPath(w, inp.dataset.cb, inp.value); drawWidget(w); });
+    inp.addEventListener('change', () => { snapshot(); });
+  });
+  el.querySelectorAll('[data-sw]').forEach(s => s.addEventListener('click', () => {
+    snapshot(); setPath(w, s.dataset.sw, s.dataset.c); drawWidget(w); buildPropsTab();
+  }));
+  el.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => {
+    snapshot(); setPath(w, b.dataset.set, b.dataset.v); drawWidget(w); buildPropsTab();
+  }));
+  el.querySelectorAll('[data-al]').forEach(b => b.addEventListener('click', () => alignSelected(b.dataset.al)));
+  el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+    if(b.dataset.act === 'del') removeWidget(w.id); else duplicateWidget(w.id);
+  }));
+  el.querySelectorAll('[data-fld]').forEach(c => c.addEventListener('change', () => {
+    snapshot();
+    const set = new Set(w.opts.fields || []);
+    c.checked ? set.add(c.dataset.fld) : set.delete(c.dataset.fld);
+    w.opts.fields = FIELD_META.map(f => f.key).filter(k => set.has(k));
+    drawWidget(w);
+  }));
+}
+
+/* =====================================================================
+   الشريط الجانبي — الصفحة
+   ===================================================================== */
+function buildPageTab(){
+  const el = $('#tab-page');
+  const p = S.page;
+  el.innerHTML = `
+    <div class="grp">
+      <div class="grp-h">الثيم العام</div>
+      <div class="row"><label>الثيم</label><div class="ctl"><select id="pgTheme">
+        ${Object.keys(THEMES).map(k => `<option value="${k}" ${p.theme===k?'selected':''}>${THEMES[k].name}</option>`).join('')}
+      </select></div></div>
+      <button class="sbtn" id="btnApplyTheme" style="width:100%;">تطبيق الثيم على كل العناصر</button>
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">مقاس الصفحة</div>
+      <div class="row"><label>المقاس</label><div class="ctl"><select id="pgPreset">
+        ${Object.keys(PAGE_PRESETS).map(k => `<option value="${k}" ${p.preset===k?'selected':''}>${PAGE_PRESETS[k].n}</option>`).join('')}
+        <option value="custom" ${p.preset==='custom'?'selected':''}>مخصص</option>
+      </select></div></div>
+      <div class="row2">
+        <div class="mini"><span>العرض</span><input type="number" id="pgW" value="${p.w}"></div>
+        <div class="mini"><span>الارتفاع</span><input type="number" id="pgH" value="${p.h}"></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">خلفية الصفحة</div>
+      <div class="row"><label>اللون</label><div class="ctl"><input type="color" id="pgBg" value="${p.bg}">
+        <div class="swatches">${SWATCHES.map(c => `<div class="sw" style="background:${c}" data-pgsw="${c}"></div>`).join('')}</div>
+      </div></div>
+      <label class="chk"><input type="checkbox" id="pgGrad" ${p.gradient?'checked':''}> تدرج لوني</label>
+      <div class="row"><label>اللون 2</label><div class="ctl"><input type="color" id="pgBg2" value="${p.bg2 || '#ffffff'}"></div></div>
+      <div class="row"><label>الاتجاه</label><div class="ctl"><input type="range" min="0" max="360" id="pgDir" value="${p.gradDir}"></div></div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">الشبكة والالتصاق</div>
+      <label class="chk"><input type="checkbox" id="pgShowGrid" ${p.showGrid?'checked':''}> إظهار الشبكة</label>
+      <label class="chk"><input type="checkbox" id="pgSnap" ${p.snap?'checked':''}> الالتصاق بالشبكة</label>
+      <label class="chk"><input type="checkbox" id="pgNoOv" ${p.noOverlap?'checked':''}> منع تداخل العناصر</label>
+      <div class="row"><label>مقاس الخلية</label><div class="ctl">
+        <input type="number" min="2" max="50" id="pgGrid" value="${p.grid}"></div></div>
+    </div>
+
+    <div class="hint">مقاس الصفحة هو نفسه الذي سيُصدَّر إلى PDF لاحقاً، فاختر <b>A4 أفقي</b> إن كان التقرير للطباعة.</div>`;
+
+  $('#pgTheme').addEventListener('change', e => { S.page.theme = e.target.value; });
+  $('#btnApplyTheme').addEventListener('click', applyThemeToAll);
+  $('#pgPreset').addEventListener('change', e => {
+    snapshot(); const k = e.target.value; S.page.preset = k;
+    if(PAGE_PRESETS[k]){ S.page.w = PAGE_PRESETS[k].w; S.page.h = PAGE_PRESETS[k].h; }
+    applyPageStyle(); buildPageTab(); zoomFit();
+  });
+  ['pgW','pgH'].forEach(id => $('#'+id).addEventListener('change', e => {
+    snapshot(); S.page[id === 'pgW' ? 'w' : 'h'] = Math.max(300, parseInt(e.target.value) || 800);
+    S.page.preset = 'custom'; applyPageStyle(); buildPageTab();
+  }));
+  $('#pgBg').addEventListener('input', e => { S.page.bg = e.target.value; applyPageStyle(); });
+  $('#pgBg2').addEventListener('input', e => { S.page.bg2 = e.target.value; applyPageStyle(); });
+  $('#pgDir').addEventListener('input', e => { S.page.gradDir = +e.target.value; applyPageStyle(); });
+  $('#pgGrad').addEventListener('change', e => { S.page.gradient = e.target.checked; applyPageStyle(); });
+  $('#pgShowGrid').addEventListener('change', e => { S.page.showGrid = e.target.checked; applyPageStyle(); });
+  $('#pgSnap').addEventListener('change', e => { S.page.snap = e.target.checked; });
+  $('#pgNoOv').addEventListener('change', e => { S.page.noOverlap = e.target.checked; });
+  $('#pgGrid').addEventListener('change', e => { S.page.grid = Math.max(2, parseInt(e.target.value) || 10); applyPageStyle(); });
+  el.querySelectorAll('[data-pgsw]').forEach(s => s.addEventListener('click', () => {
+    snapshot(); S.page.bg = s.dataset.pgsw; applyPageStyle(); buildPageTab();
+  }));
+}
+
+/* =====================================================================
+   البيانات
+   ===================================================================== */
+async function loadProject(name){
+  S.project = name;
+  if(!name){ S.records = []; S.latest = null; S.pm = null; renderAll(); return; }
+  try{
+    const r = await fetch('/api/builder/data?project=' + encodeURIComponent(name));
+    const j = await r.json();
+    if(!j.success){ toast(j.error || 'تعذر تحميل البيانات', true); return; }
+    S.records = j.records || [];
+    S.latest = S.records.length ? S.records[S.records.length - 1] : null;
+    S.pm = j.pm || null;
+    renderAll();
+    toast(`تم تحميل ${S.records.length} تحديث للمشروع`);
+  }catch(e){ toast('خطأ في الاتصال: ' + e.message, true); }
+}
+
+/* =====================================================================
+   الحفظ والتحميل
+   ===================================================================== */
+async function saveLayout(){
+  const body = {
+    id:S.layoutId, name:$('#layoutName').value.trim() || 'قالب بدون اسم',
+    project_name:S.project || null,
+    data:{version:1, page:S.page, widgets:S.widgets, seq:S.seq}
+  };
+  try{
+    const r = await fetch('/api/builder/layouts', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    });
+    const j = await r.json();
+    if(!j.success){ toast(j.error || 'فشل الحفظ', true); return; }
+    S.layoutId = j.id; S.dirty = false;
+    toast('تم حفظ القالب بنجاح ✓');
+  }catch(e){ toast('خطأ في الحفظ: ' + e.message, true); }
+}
+async function openLayouts(){
+  $('#modalBack').classList.add('open');
+  const box = $('#modalBody'); box.innerHTML = 'جاري التحميل...';
+  try{
+    const j = await (await fetch('/api/builder/layouts')).json();
+    if(!j.success || !j.layouts.length){ box.innerHTML = '<div class="hint">لا توجد قوالب محفوظة بعد.</div>'; return; }
+    box.innerHTML = j.layouts.map(l => `
+      <div class="lay-item">
+        <div class="li-main">
+          <div class="li-name">${l.name}</div>
+          <div class="li-sub">${l.project_name || 'قالب عام'} · آخر تعديل ${(l.updated_at||'').slice(0,16)}</div>
+        </div>
+        <button class="sbtn" style="flex:0 0 70px" data-load="${l.id}">فتح</button>
+        <button class="sbtn danger" style="flex:0 0 60px" data-del="${l.id}">حذف</button>
+      </div>`).join('');
+    box.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => loadLayout(b.dataset.load)));
+    box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+      if(!confirm('حذف هذا القالب نهائياً؟')) return;
+      await fetch('/api/builder/layouts/' + b.dataset.del, {method:'DELETE'});
+      openLayouts();
+    }));
+  }catch(e){ box.innerHTML = '<div class="hint">خطأ: ' + e.message + '</div>'; }
+}
+async function loadLayout(id){
+  try{
+    const j = await (await fetch('/api/builder/layouts/' + id)).json();
+    if(!j.success){ toast(j.error || 'تعذر فتح القالب', true); return; }
+    const L = j.layout, d = L.data || {};
+    S.layoutId = L.id; S.layoutName = L.name;
+    $('#layoutName').value = L.name;
+    S.page = Object.assign(S.page, d.page || {});
+    S.widgets = d.widgets || [];
+    S.seq = d.seq || (S.widgets.length + 1);
+    S.selected = null; S.undo.length = 0; S.redo.length = 0;
+    $('#modalBack').classList.remove('open');
+    if(L.project_name){
+      $('#projectSel').value = L.project_name;
+      await loadProject(L.project_name);
+    } else renderAll();
+    buildPageTab(); buildPropsTab(); zoomFit();
+    toast('تم فتح القالب: ' + L.name);
+  }catch(e){ toast('خطأ: ' + e.message, true); }
+}
+function newLayout(){
+  if(S.widgets.length && !confirm('سيتم بدء قالب جديد فارغ. هل تريد المتابعة؟')) return;
+  S.layoutId = null; S.widgets = []; S.selected = null; S.undo.length = 0; S.redo.length = 0;
+  $('#layoutName').value = 'قالب جديد';
+  renderAll(); buildPropsTab(); toast('قالب جديد');
+}
+
+/* =====================================================================
+   التبويبات والاختصارات والتشغيل
+   ===================================================================== */
+function switchTab(name){
+  document.querySelectorAll('.side-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  ['templates','props','page'].forEach(n => $('#tab-' + n).style.display = (n === name ? 'block' : 'none'));
+}
+document.querySelectorAll('.side-tab').forEach(t =>
+  t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+$('#projectSel').addEventListener('change', e => loadProject(e.target.value));
+$('#btnSave').addEventListener('click', saveLayout);
+$('#btnOpen').addEventListener('click', openLayouts);
+$('#btnNew').addEventListener('click', newLayout);
+$('#btnCloseModal').addEventListener('click', () => $('#modalBack').classList.remove('open'));
+$('#modalBack').addEventListener('click', e => { if(e.target.id === 'modalBack') e.currentTarget.classList.remove('open'); });
+$('#btnUndo').addEventListener('click', doUndo);
+$('#btnRedo').addEventListener('click', doRedo);
+$('#btnZoomIn').addEventListener('click', () => { S.zoom = Math.min(2, S.zoom + .1); applyZoom(); });
+$('#btnZoomOut').addEventListener('click', () => { S.zoom = Math.max(.2, S.zoom - .1); applyZoom(); });
+$('#btnZoomFit').addEventListener('click', zoomFit);
+$('#layoutName').addEventListener('change', e => S.layoutName = e.target.value);
+
+$('#canvasArea').addEventListener('mousedown', e => {
+  if(e.target.id === 'canvasArea' || e.target.id === 'page' || e.target.id === 'pageShell'){
+    S.selected = null;
+    document.querySelectorAll('.bw').forEach(el => el.classList.remove('selected'));
+    buildPropsTab(); buildLayersList();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if(e.ctrlKey && e.key.toLowerCase() === 'z'){ e.preventDefault(); doUndo(); return; }
+  if(e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); doRedo(); return; }
+  if(e.ctrlKey && e.key.toLowerCase() === 's'){ e.preventDefault(); saveLayout(); return; }
+  if(e.ctrlKey && e.key.toLowerCase() === 'd'){ e.preventDefault(); if(S.selected) duplicateWidget(S.selected); return; }
+  if(!S.selected) return;
+  const w = getW(S.selected); if(!w) return;
+  if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); removeWidget(S.selected); return; }
+  const step = e.shiftKey ? S.page.grid : 1;
+  let moved = true;
+  if(e.key === 'ArrowLeft')      w.x -= step;
+  else if(e.key === 'ArrowRight')w.x += step;
+  else if(e.key === 'ArrowUp')   w.y -= step;
+  else if(e.key === 'ArrowDown') w.y += step;
+  else moved = false;
+  if(moved){
+    e.preventDefault();
+    w.x = Math.max(0, Math.min(S.page.w - w.w, w.x));
+    w.y = Math.max(0, Math.min(S.page.h - w.h, w.y));
+    drawWidget(w); buildPropsTab();
+  }
+});
+window.addEventListener('beforeunload', e => {
+  if(S.dirty){ e.preventDefault(); e.returnValue = ''; }
+});
+
+/* التشغيل */
+buildTemplatesTab(); buildPageTab(); buildPropsTab(); applyPageStyle(); zoomFit();
+</script>
+</body>
+</html>
