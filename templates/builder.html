@@ -298,6 +298,8 @@ input[type=range]{width:100%;}
   <span class="scope-chip" id="scopeChip">—</span>
   <button class="tb-btn" id="btnUnlink" hidden title="حذف التخصيص والرجوع للقالب العام">إلغاء التخصيص</button>
   <div class="sep"></div>
+  <button class="tb-btn" id="btnLang" title="لغة عرض الداشبورد">🌐 <span id="langLabel">عربي</span></button>
+  <div class="sep"></div>
   <button class="tb-btn" id="btnUndo" title="تراجع (Ctrl+Z)">↶</button>
   <button class="tb-btn" id="btnRedo" title="إعادة (Ctrl+Y)">↷</button>
   <div class="sep"></div>
@@ -348,6 +350,78 @@ input[type=range]{width:100%;}
    ===================================================================== */
 
 const FIELD_META = {{ field_meta | tojson }};
+
+/* ===== الترجمة: كل نصوص الداشبورد المولّدة تلقائياً ===== */
+const T = {
+  ar:{
+    actual:'الفعلي', planned:'المخطط', evaluation:'التقييم', average:'المتوسط',
+    manpower:'العمالة', equipment:'المعدات', financial:'المالي', hse:'السلامة',
+    spiTitle:'مؤشر أداء الجدول الزمني (SPI)',
+    ahead:'متقدم على البرنامج', onTrack:'مطابق تقريباً للبرنامج', behind:'متأخر عن البرنامج',
+    target:'الهدف', scale:'المقياس', progressPct:'تقدُّم', delayPct:'تأخر',
+    metTarget:'اكتمل مقابل الهدف', exactTarget:'مطابق للهدف تماماً', ofTarget:'من الهدف',
+    divides:'÷', spiBase:(a,b) => `الفعلي <b>${a}</b> ÷ المخطط <b>${b}</b>`,
+    total:'الإجمالي', open:'مفتوح', closed:'تم الحل', standing:'قائم', resolved:'تم الحل',
+    noObstacles:'لا توجد معوقات مسجّلة في آخر تحديث ✅',
+    impact:{'كبير':'كبير','متوسط':'متوسط','منخفض':'منخفض','غير مؤثر':'غير مؤثر'},
+    vsPrev:'عن التحديث السابق', currency:'ر.س', dayUnit:'يوم',
+    million:'مليون', thousand:'ألف', billion:'مليار',
+    pickProject:'اختر مشروعاً من الشريط العلوي لعرض البيانات',
+    noImage:'لا توجد صورة — اختر مرفقاً من المشروع أو ارفع لوجو من الشريط الجانبي',
+    imgError:'تعذر تحميل الصورة من الرابط',
+    typeHere:'اضغط ضغطتين للكتابة…',
+    allOnly:'هذا القالب يعمل في وضع «كل المشاريع» — اختره من قائمة المشروع في الشريط العلوي.',
+    chartLibError:'تعذر تحميل مكتبة الرسوم البيانية — تأكد من الاتصال بالإنترنت ثم أعد تحميل الصفحة.',
+    allProjects:n => `كل المشاريع (${n})`, allDesc:'ملخص مجمّع لكل المشاريع المسجَّلة في النظام',
+    managers:n => `${n} مدير مشروع`,
+    barGroups:{progress:'نسب الإنجاز (فعلي/مخطط)', progress4:'نسب الإنجاز (حالي/سابق)',
+      durations:'مدة العقد الأصلية والممددة', mods_val:'قيم أوامر التغيير', mods:'أوامر التغيير (عدد)',
+      mods_time:'مدد التمديد (يوم)', drawings:'المخططات', ir:'طلبات الاستلام IR', ncr:'مخالفات NCR',
+      invoices:'الفواتير', contracts:'قيم العقود', custom:'مقارنة مخصصة'},
+    durLabels:['المدة التعاقدية','المدة بعد التمديد','فرق التمديد'],
+    progLabels:['الإنجاز الفعلي','الإنجاز المخطط'],
+    prog4Labels:['فعلي حالي','فعلي سابق','مخطط حالي','مخطط سابق']
+  },
+  en:{
+    actual:'Actual', planned:'Planned', evaluation:'Rating', average:'Average',
+    manpower:'Manpower', equipment:'Equipment', financial:'Financial', hse:'HSE',
+    spiTitle:'Schedule Performance Index (SPI)',
+    ahead:'Ahead of schedule', onTrack:'On track', behind:'Behind schedule',
+    target:'target', scale:'Scale', progressPct:'ahead', delayPct:'behind',
+    metTarget:'Target met', exactTarget:'Exactly on target', ofTarget:'of target',
+    divides:'÷', spiBase:(a,b) => `Actual <b>${a}</b> ÷ Planned <b>${b}</b>`,
+    total:'Total', open:'Open', closed:'Resolved', standing:'Open', resolved:'Resolved',
+    noObstacles:'No obstacles recorded in the latest update ✅',
+    impact:{'كبير':'High','متوسط':'Medium','منخفض':'Low','غير مؤثر':'No impact'},
+    vsPrev:'vs previous update', currency:'SAR', dayUnit:'days',
+    million:'M', thousand:'K', billion:'B',
+    pickProject:'Select a project from the top bar to load data',
+    noImage:'No image — pick a project attachment or upload a logo from the sidebar',
+    imgError:'Could not load the image from this URL',
+    typeHere:'Double-click to type…',
+    allOnly:'This visual works in “All projects” mode — select it from the project list in the top bar.',
+    chartLibError:'Could not load the charting library — check your connection and reload the page.',
+    allProjects:n => `All projects (${n})`, allDesc:'Aggregated summary of every project in the system',
+    managers:n => `${n} project managers`,
+    barGroups:{progress:'Progress (Actual / Planned)', progress4:'Progress (Current / Previous)',
+      durations:'Contract duration vs extended', mods_val:'Variation order values', mods:'Variation orders (count)',
+      mods_time:'Extension durations (days)', drawings:'Drawings', ir:'Inspection requests', ncr:'NCRs',
+      invoices:'Invoices', contracts:'Contract values', custom:'Custom comparison'},
+    durLabels:['Contract duration','After extension','Extension delta'],
+    progLabels:['Actual progress','Planned progress'],
+    prog4Labels:['Actual (cur)','Actual (prev)','Planned (cur)','Planned (prev)']
+  }
+};
+function LANG(){ return (S && S.page && S.page.lang === 'en') ? 'en' : 'ar'; }
+function tr(k){ return T[LANG()][k]; }
+function isEN(){ return LANG() === 'en'; }
+/* نص ثنائي اللغة يكتبه المستخدم: يقع على العربية عند غياب الإنجليزية */
+function bi(obj, base){
+  if(!obj) return '';
+  if(isEN()) return (obj[base + '_en'] !== undefined && obj[base + '_en'] !== '') ? obj[base + '_en'] : (obj[base] || '');
+  return obj[base] || '';
+}
+function biKey(base){ return isEN() ? base + '_en' : base; }
 const FIELD_MAP = {};
 FIELD_META.forEach(f => FIELD_MAP[f.key] = f);
 
@@ -408,7 +482,7 @@ const S = {
   project:'', mode:'single', records:[], latest:null, pm:null,
   projLatest:[], projNames:[],
   layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
-  page:{preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
+  page:{lang:'ar', preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
         theme:'navy', grid:10, snap:true, showGrid:true, noOverlap:false},
   widgets:[], selected:null, multi:[], zoom:1, seq:1,
   charts:{}, undo:[], redo:[], dirty:false
@@ -430,9 +504,9 @@ function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 function autoDecimals(type){ return type === 'percent' ? 1 : 0; }
 function compactNum(n){
   const a = Math.abs(n);
-  if(a >= 1e9) return (n/1e9).toFixed(2).replace(/\.?0+$/,'') + ' مليار';
-  if(a >= 1e6) return (n/1e6).toFixed(2).replace(/\.?0+$/,'') + ' مليون';
-  if(a >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + ' ألف';
+  if(a >= 1e9) return (n/1e9).toFixed(2).replace(/\.?0+$/,'') + ' ' + tr('billion');
+  if(a >= 1e6) return (n/1e6).toFixed(2).replace(/\.?0+$/,'') + ' ' + tr('million');
+  if(a >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + ' ' + tr('thousand');
   return n.toLocaleString('en-US');
 }
 function fmtValue(v, type, o){
@@ -446,10 +520,10 @@ function fmtValue(v, type, o){
   if(type === 'currency'){
     const n = num(v);
     return (o.compact ? compactNum(n)
-      : n.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d})) + ' ر.س';
+      : n.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d})) + ' ' + tr('currency');
   }
   if(type === 'days'){
-    return num(v).toLocaleString('en-US') + ' يوم';
+    return num(v).toLocaleString('en-US') + ' ' + tr('dayUnit');
   }
   if(type === 'number'){
     const n = num(v);
@@ -462,20 +536,26 @@ function pct(v){ let n = num(v); if(Math.abs(n) <= 1.0001) n *= 100; return +n.t
 /* ---------------- تجميع بيانات كل المشاريع ---------------- */
 const ALL_PROJECTS = '__ALL__';
 
+/* حقول التقييم درجات من ١٠٠ — تُجمَّع كمتوسط مرجّح لا كمجموع */
+const RATING_FIELDS = ['eval_labor','eval_equip','eval_financial','eval_hse'];
+
 function aggregate(rows){
   if(!rows || !rows.length) return null;
   const out = {};
   const wts  = rows.map(r => num(r.contractor_val) || 0);
   const wsum = wts.reduce((a, b) => a + b, 0);
+  const wavg = key => {
+    const vals = rows.map(r => num(r[key]));
+    return wsum > 0 ? vals.reduce((a, v, i) => a + v * wts[i], 0) / wsum
+                    : vals.reduce((a, v) => a + v, 0) / vals.length;
+  };
 
   FIELD_META.forEach(f => {
     const k = f.key, t = f.type;
-    if(t === 'percent'){
-      const vals = rows.map(r => pct(r[k]));
-      const avg = wsum > 0
-        ? vals.reduce((a, v, i) => a + v * wts[i], 0) / wsum      // متوسط مرجّح بقيمة العقد
-        : vals.reduce((a, v) => a + v, 0) / vals.length;
-      out[k] = avg / 100;                                          // نفس تخزين قاعدة البيانات (0–1)
+    if(RATING_FIELDS.indexOf(k) >= 0){
+      out[k] = Math.round(wavg(k) * 10) / 10;                      // متوسط التقييم
+    }else if(t === 'percent'){
+      out[k] = wavg(k);                                            // متوسط مرجّح بقيمة العقد (0–1)
     }else if(t === 'currency' || t === 'number'){
       out[k] = rows.reduce((a, r) => a + num(r[k]), 0);            // مجموع
     }else if(t === 'days'){
@@ -500,9 +580,9 @@ function aggregate(rows){
   out.obstacles_data = obs;
 
   const names = Array.from(new Set(rows.map(r => r.project_name).filter(Boolean)));
-  out.project_name  = `كل المشاريع (${names.length})`;
-  out.project_desc  = 'ملخص مجمّع لكل المشاريع المسجَّلة في النظام';
-  out.project_type  = '—'; out.manager_name = `${names.length} مدير مشروع`;
+  out.project_name  = tr('allProjects')(names.length);
+  out.project_desc  = tr('allDesc');
+  out.project_type  = '—'; out.manager_name = tr('managers')(names.length);
   out.project_owner = '—'; out.project_developer = '—'; out.project_contractor = '—';
   out.works_completed = out.works_ongoing = out.works_planned = '—';
   return out;
@@ -561,50 +641,51 @@ function dayDiff(a, b){
   if(isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
   return Math.round((d2 - d1) / 86400000);
 }
-function lbl(f){ return (FIELD_MAP[f] || {}).label || f; }
+function pairName(k){ const p = GAUGE_PAIRS[k] || {}; return (isEN() && p.n_en) ? p.n_en : (p.n || k); }
+function groupName(k){ return (T[LANG()].barGroups || {})[k] || k; }
+function lbl(f){ const m = FIELD_MAP[f] || {}; return (isEN() ? (m.label_en || m.label) : m.label) || f; }
 
 const BAR_GROUPS = {
-  progress:  {n:'نسب الإنجاز (فعلي/مخطط)', type:'percent',
-              compute:r => ({labels:['الإنجاز الفعلي','الإنجاز المخطط'],
+  progress:  {type:'percent',
+              compute:r => ({labels:tr('progLabels'),
                              data:[pct(r.act_prog_cur), pct(r.plan_prog_cur)]})},
-  progress4: {n:'نسب الإنجاز (حالي/سابق)', type:'percent',
-              compute:r => ({labels:['فعلي حالي','فعلي سابق','مخطط حالي','مخطط سابق'],
+  progress4: {type:'percent',
+              compute:r => ({labels:tr('prog4Labels'),
                              data:[pct(r.act_prog_cur), pct(r.act_prog_prev),
                                    pct(r.plan_prog_cur), pct(r.plan_prog_prev)]})},
-  durations: {n:'مدة العقد الأصلية والممددة', type:'days',
+  durations: {type:'days',
               compute(r){
                 const base = dayDiff(r.start_contractual, r.end_contractual);
                 const extEnd = r.contractor_mods_end_date || r.consultant_mods_end_date || null;
                 let ext = extEnd ? dayDiff(r.start_contractual, extEnd) : 0;
                 const modTime = num(r.contractor_mods_time) || num(r.consultant_mods_time) || 0;
                 if(!ext) ext = base + modTime;
-                return {labels:['المدة التعاقدية','المدة بعد التمديد','فرق التمديد'],
-                        data:[base, ext, Math.max(0, ext - base)]};
+                return {labels:tr('durLabels'), data:[base, ext, Math.max(0, ext - base)]};
               }},
-  mods_val:  {n:'قيم أوامر التغيير', fields:['consultant_mods_val','contractor_mods_val'], type:'currency'},
-  mods:      {n:'أوامر التغيير (عدد)', fields:['consultant_mods_count','contractor_mods_count'], type:'number'},
-  mods_time: {n:'مدد التمديد (يوم)', fields:['consultant_mods_time','contractor_mods_time'], type:'days'},
-  drawings:  {n:'المخططات', fields:['drawings_sub','drawings_app','drawings_rev'], type:'number'},
-  ir:        {n:'طلبات الاستلام IR', fields:['ir_sub','ir_app','ir_rev'], type:'number'},
-  ncr:       {n:'مخالفات NCR', fields:['ncr_open','ncr_closed'], type:'number'},
-  invoices:  {n:'الفواتير', fields:['cons_inv_val','cont_inv_val'], type:'currency'},
-  contracts: {n:'قيم العقود', fields:['consultant_val','contractor_val'], type:'currency'},
-  custom:    {n:'مقارنة مخصصة (اختر الحقول)', type:'mixed', custom:true}
+  mods_val:  {fields:['consultant_mods_val','contractor_mods_val'], type:'currency'},
+  mods:      {fields:['consultant_mods_count','contractor_mods_count'], type:'number'},
+  mods_time: {fields:['consultant_mods_time','contractor_mods_time'], type:'days'},
+  drawings:  {fields:['drawings_sub','drawings_app','drawings_rev'], type:'number'},
+  ir:        {fields:['ir_sub','ir_app','ir_rev'], type:'number'},
+  ncr:       {fields:['ncr_open','ncr_closed'], type:'number'},
+  invoices:  {fields:['cons_inv_val','cont_inv_val'], type:'currency'},
+  contracts: {fields:['consultant_val','contractor_val'], type:'currency'},
+  custom:    {type:'mixed', custom:true}
 };
 
 /* أزواج المقارنة للمؤشر الدائري */
 const GAUGE_PAIRS = {
-  progress:     {n:'الإنجاز الفعلي مقابل المخطط', kind:'percent', a:'act_prog_cur', b:'plan_prog_cur'},
-  progress_prev:{n:'الإنجاز الفعلي: حالي مقابل سابق', kind:'percent', a:'act_prog_cur', b:'act_prog_prev'},
-  plan_prev:    {n:'الإنجاز المخطط: حالي مقابل سابق', kind:'percent', a:'plan_prog_cur', b:'plan_prog_prev'},
-  drawings:     {n:'المخططات: معتمدة من مقدمة', kind:'ratio', a:'drawings_app', b:'drawings_sub'},
-  drawings_rev: {n:'المخططات: قيد المراجعة من مقدمة', kind:'ratio', a:'drawings_rev', b:'drawings_sub'},
-  ir:           {n:'طلبات الاستلام: معتمدة من مقدمة', kind:'ratio', a:'ir_app', b:'ir_sub'},
-  ncr:          {n:'المخالفات: مغلقة من الإجمالي', kind:'ratio_sum', a:'ncr_closed', b:'ncr_open'},
-  inv_cont:     {n:'فواتير المقاول من قيمة عقده', kind:'ratio', a:'cont_inv_val', b:'contractor_val'},
-  inv_cons:     {n:'فواتير الاستشاري من قيمة عقده', kind:'ratio', a:'cons_inv_val', b:'consultant_val'},
-  mods_cont:    {n:'أوامر تغيير المقاول من قيمة عقده', kind:'ratio', a:'contractor_mods_val', b:'contractor_val'},
-  custom:       {n:'مقارنة مخصصة (اختر حقلين)', kind:'custom'}
+  progress:     {n:'الإنجاز الفعلي مقابل المخطط', n_en:'Actual vs planned progress', kind:'percent', a:'act_prog_cur', b:'plan_prog_cur'},
+  progress_prev:{n:'الإنجاز الفعلي: حالي مقابل سابق', n_en:'Actual progress: current vs previous', kind:'percent', a:'act_prog_cur', b:'act_prog_prev'},
+  plan_prev:    {n:'الإنجاز المخطط: حالي مقابل سابق', n_en:'Planned progress: current vs previous', kind:'percent', a:'plan_prog_cur', b:'plan_prog_prev'},
+  drawings:     {kind:'ratio', a:'drawings_app', b:'drawings_sub'},
+  drawings_rev: {n:'المخططات: قيد المراجعة من مقدمة', n_en:'Drawings: under review of submitted', kind:'ratio', a:'drawings_rev', b:'drawings_sub'},
+  ir:           {kind:'ratio', a:'ir_app', b:'ir_sub'},
+  ncr:          {kind:'ratio_sum', a:'ncr_closed', b:'ncr_open'},
+  inv_cont:     {n:'فواتير المقاول من قيمة عقده', n_en:'Contractor invoices of contract value', kind:'ratio', a:'cont_inv_val', b:'contractor_val'},
+  inv_cons:     {n:'فواتير الاستشاري من قيمة عقده', n_en:'Consultant invoices of contract value', kind:'ratio', a:'cons_inv_val', b:'consultant_val'},
+  mods_cont:    {n:'أوامر تغيير المقاول من قيمة عقده', n_en:'Contractor variations of contract value', kind:'ratio', a:'contractor_mods_val', b:'contractor_val'},
+  custom:       {kind:'custom'}
 };
 
 /* تنسيق موحّد لـ Data Labels (حجم/لون/خلفية) */
@@ -629,7 +710,7 @@ function dlOpts(w, fallbackColor, formatter){
 }
 function fmtByType(type){
   if(type === 'percent')  return v => v + '%';
-  if(type === 'days')     return v => num(v).toLocaleString('en-US') + ' يوم';
+  if(type === 'days')     return v => num(v).toLocaleString('en-US') + ' ' + tr('dayUnit');
   if(type === 'currency') return v => compactNum(num(v));
   return v => num(v).toLocaleString('en-US');
 }
@@ -640,7 +721,7 @@ const VISUALS = {
   kpi:{
     name:'بطاقة مؤشر', icon:'📌', w:250, h:150,
     opts:{field:'act_prog_cur', decimals:null, compact:false, showLabel:false, showDelta:true, valueSize:30, valueColor:''},
-    title:'الإنجاز الفعلي',
+    title:'الإنجاز الفعلي', title_en:'Actual progress',
     render(body, w){
       if(!S.latest) return empty(body);
       const f = w.opts.field, meta = FIELD_MAP[f] || {type:'number', label:f};
@@ -667,7 +748,7 @@ const VISUALS = {
     name:'مؤشر دائري', icon:'🎯', w:320, h:300,
     opts:{pair:'progress', fieldA:'act_prog_cur', fieldB:'plan_prog_cur', showValues:true,
           dl:Object.assign({}, DL_DEFAULT)},
-    title:'نسبة الإنجاز',
+    title:'نسبة الإنجاز', title_en:'Progress',
     render(body, w){
       if(!S.latest) return empty(body);
       const P = GAUGE_PAIRS[w.opts.pair] || GAUGE_PAIRS.progress;
@@ -718,8 +799,9 @@ const VISUALS = {
   spi:{
     name:'مؤشر الأداء SPI', icon:'⏱️', w:330, h:300,
     opts:{mode:'card', decimals:2, showBase:true, good:1, warn:0.95,
+          scaleMode:'target', maxScale:1.5,
           dl:Object.assign({}, DL_DEFAULT, {color:''})},
-    title:'مؤشر أداء الجدول الزمني (SPI)',
+    title:'مؤشر أداء الجدول الزمني (SPI)', title_en:'Schedule Performance Index (SPI)',
     render(body, w){
       if(!S.latest) return empty(body);
       const spiOf = r => {
@@ -729,12 +811,12 @@ const VISUALS = {
       const val = spiOf(S.latest);
       const good = num(w.opts.good) || 1, warn = num(w.opts.warn) || 0.95;
       const color = val >= good ? '#1e8e5a' : (val >= warn ? '#d99425' : '#d9463f');
-      const status = val >= good ? 'متقدم على البرنامج' : (val >= warn ? 'مطابق تقريباً للبرنامج' : 'متأخر عن البرنامج');
+      const status = val >= good ? tr('ahead') : (val >= warn ? tr('onTrack') : tr('behind'));
       const shown = val.toFixed(w.opts.decimals);
       const base = w.opts.showBase
-        ? `<div class="spi-base" style="font-size:${Math.max(10, wSize(w) - 1)}px">
-             الفعلي <b>${pct(S.latest.act_prog_cur).toFixed(1)}%</b> ÷
-             المخطط <b>${pct(S.latest.plan_prog_cur).toFixed(1)}%</b></div>` : '';
+        ? `<div class="spi-base" style="font-size:${Math.max(10, wSize(w) - 1)}px">${
+             tr('spiBase')(pct(S.latest.act_prog_cur).toFixed(1) + '%',
+                          pct(S.latest.plan_prog_cur).toFixed(1) + '%')}</div>` : '';
 
       if(w.opts.mode === 'trend'){
         const d = dlOf(w);
@@ -756,10 +838,27 @@ const VISUALS = {
       }
       if(w.opts.mode === 'gauge'){
         const d = dlOf(w);
-        body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${base}</div>`;
+        const smode = w.opts.scaleMode || 'target';
+        const maxScale = num(w.opts.maxScale) || 1.5;
+        // «نسبة من الهدف»: الحلقة = الإنجاز الفعلي كنسبة من المخطط (تكتمل عند الهدف)
+        // «مقياس ممتد»: الحلقة = SPI ÷ أقصى قيمة للمقياس، مع بيان المقياس أسفل الرسم
+        const fill = (smode === 'target')
+          ? Math.max(0, Math.min(100, +(val / good * 100).toFixed(1)))
+          : Math.max(0, Math.min(100, +(val / maxScale * 100).toFixed(1)));
+        const gTxt = Number.isInteger(good) ? good : good.toFixed(2);
+        const over = Math.round((val - good) * 100);
+        const note = (smode === 'target')
+          ? (over > 0 ? `${tr('metTarget')} ${gTxt} · ${tr('progressPct')} +${over}%`
+            : (over === 0 ? `${tr('exactTarget')} (${gTxt})`
+                          : `${Math.round(val / good * 100)}% ${tr('ofTarget')} ${gTxt} · ${tr('delayPct')} ${Math.abs(over)}%`))
+          : `${tr('scale')} 0 – ${maxScale.toFixed(2)} · ${tr('target')} ${gTxt}`;
+        const noteHtml = `<div class="spi-base" style="font-size:${Math.max(10, wSize(w) - 2)}px">
+            ${w.opts.showBase ? tr('spiBase')(pct(S.latest.act_prog_cur).toFixed(1) + '%',
+                                             pct(S.latest.plan_prog_cur).toFixed(1) + '%') + '<br>' : ''}${note}</div>`;
+        body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${noteHtml}</div>`;
         mkChart(body, w, {
           chart:{type:'radialBar', fontFamily:wFont(w), background:'transparent'},
-          series:[Math.min(100, +(val / 1.5 * 100).toFixed(1))], labels:['SPI'], colors:[color],
+          series:[fill], labels:['SPI'], colors:[color],
           plotOptions:{radialBar:{hollow:{size:'58%'}, track:{background:'rgba(125,125,125,.15)'},
             dataLabels:{show:d.show !== false,
               name:{fontSize:Math.max(11, d.size) + 'px', color:d.color || theme().text},
@@ -778,12 +877,12 @@ const VISUALS = {
   progress_line:{
     name:'مسار الإنجاز', icon:'📈', w:520, h:290,
     opts:{chartType:'line', smooth:true, showPlanned:true, dl:Object.assign({}, DL_DEFAULT, {show:false})},
-    title:'مسار الإنجاز الفعلي مقابل المخطط',
+    title:'مسار الإنجاز الفعلي مقابل المخطط', title_en:'Actual vs planned progress',
     render(body, w){
       if(!S.records.length) return empty(body);
       const cats = S.records.map(r => r.current_data_date || '');
-      const series = [{name:'الفعلي', data:S.records.map(r => pct(r.act_prog_cur))}];
-      if(w.opts.showPlanned) series.push({name:'المخطط', data:S.records.map(r => pct(r.plan_prog_cur))});
+      const series = [{name:tr('actual'), data:S.records.map(r => pct(r.act_prog_cur))}];
+      if(w.opts.showPlanned) series.push({name:tr('planned'), data:S.records.map(r => pct(r.plan_prog_cur))});
       mkChart(body, w, {
         chart:{type:w.opts.chartType, fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
         series, colors:theme().palette.slice(0, 2),
@@ -805,7 +904,7 @@ const VISUALS = {
     name:'أعمدة مقارنة', icon:'📊', w:430, h:280,
     opts:{group:'progress', customFields:['act_prog_cur','plan_prog_cur'], horizontal:false, logScale:false,
           dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
-    title:'مقارنة',
+    title:'مقارنة', title_en:'Comparison',
     render(body, w){
       if(!S.latest) return empty(body);
       const g = BAR_GROUPS[w.opts.group] || BAR_GROUPS.progress;
@@ -855,7 +954,7 @@ const VISUALS = {
       }
       mkChart(body, w, {
         chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
-        series:[{name:g.n, data}], colors:theme().palette,
+        series:[{name:groupName(w.opts.group), data}], colors:theme().palette,
         plotOptions:{bar:{horizontal:w.opts.horizontal, distributed:true, borderRadius:5, columnWidth:'58%'}},
         dataLabels:dlOpts(w, '#ffffff', fmt),
         xaxis:{categories:cats, labels:hz ? valAxis : catAxis},
@@ -870,11 +969,11 @@ const VISUALS = {
     name:'التقييم الفني', icon:'🕸️', w:360, h:310,
     opts:{numMode:'axis', showValues:false,
           dl:Object.assign({}, DL_DEFAULT, {show:true, size:11, bg:true, bgColor:'#ffffff'})},
-    title:'التقييم الفني للمشروع',
+    title:'التقييم الفني للمشروع', title_en:'Technical evaluation',
     render(body, w){
       if(!S.latest) return empty(body);
       const fields = ['eval_labor','eval_equip','eval_financial','eval_hse'];
-      const names  = ['العمالة','المعدات','المالي','السلامة'];
+      const names  = [tr('manpower'), tr('equipment'), tr('financial'), tr('hse')];
       const data   = fields.map(f => num(S.latest[f]));
       const mode   = w.opts.numMode || 'axis';
 
@@ -894,7 +993,7 @@ const VISUALS = {
 
       mkChart(body, w, {
         chart:{type:'radar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
-        series:[{name:'التقييم', data}], labels:cats, colors:[theme().palette[0]],
+        series:[{name:tr('evaluation'), data}], labels:cats, colors:[theme().palette[0]],
         dataLabels:(mode === 'chart')
           ? dlOpts(w, theme().text, v => num(v).toLocaleString('en-US'))
           : {enabled:false},
@@ -908,7 +1007,7 @@ const VISUALS = {
   info_table:{
     name:'بيانات المشروع', icon:'📋', w:360, h:250,
     opts:{fields:['project_name','project_type','project_owner','project_contractor','start_actual','end_expected']},
-    title:'بيانات المشروع',
+    title:'بيانات المشروع', title_en:'Project information',
     render(body, w){
       if(!S.latest) return empty(body);
       const rows = (w.opts.fields || []).map(f => {
@@ -922,11 +1021,10 @@ const VISUALS = {
     name:'مقارنة المشاريع', icon:'🏗️', w:540, h:330,
     opts:{field:'act_prog_cur', sort:'desc', topN:0, horizontal:true, showAvg:true,
           dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
-    title:'مقارنة المشاريع',
+    title:'مقارنة المشاريع', title_en:'Projects comparison',
     render(body, w){
       if(S.mode !== 'all' || !S.projLatest.length){
-        body.innerHTML = `<div class="empty-note">هذا القالب يعمل في وضع «🌐 كل المشاريع» —
-          اختره من قائمة المشروع في الشريط العلوي.</div>`;
+        body.innerHTML = `<div class="empty-note">${tr('allOnly')}</div>`;
         return;
       }
       const f = w.opts.field, t = (FIELD_MAP[f] || {}).type || 'number';
@@ -967,11 +1065,11 @@ const VISUALS = {
         yaxis:{labels:hz ? catAxis : valAxis},
         annotations:w.opts.showAvg ? (hz
           ? {xaxis:[{x:avg, borderColor:'#6c7a91', strokeDashArray:4,
-                     label:{text:'المتوسط ' + fmt(+avg.toFixed(1)), orientation:'horizontal',
+                     label:{text:tr('average') + ' ' + fmt(+avg.toFixed(1)), orientation:'horizontal',
                             position:'top', offsetY:-4,
                             style:{fontSize:'10px', background:'#6c7a91', color:'#fff'}}}]}
           : {yaxis:[{y:avg, borderColor:'#6c7a91', strokeDashArray:4,
-                     label:{text:'المتوسط ' + fmt(+avg.toFixed(1)),
+                     label:{text:tr('average') + ' ' + fmt(+avg.toFixed(1)),
                             style:{fontSize:'10px', background:'#6c7a91', color:'#fff'}}}]}) : {},
         grid:{borderColor:'rgba(125,125,125,.18)'},
         legend:{show:false},
@@ -982,7 +1080,7 @@ const VISUALS = {
   obstacles:{
     name:'معوقات المشروع', icon:'⚠️', w:430, h:290,
     opts:{mode:'table', filter:'all', maxRows:0, showImpact:true, showStatus:true, showSummary:true},
-    title:'المعوقات الحالية',
+    title:'المعوقات الحالية', title_en:'Current obstacles',
     render(body, w){
       if(!S.latest) return empty(body);
       let list = S.latest.obstacles_data;
@@ -998,25 +1096,26 @@ const VISUALS = {
       const open   = total - closed;
 
       if(!total){
-        body.innerHTML = `<div class="empty-note">لا توجد معوقات مسجّلة في آخر تحديث ✅</div>`;
+        body.innerHTML = `<div class="empty-note">${tr('noObstacles')}</div>`;
         return;
       }
       const rows = w.opts.maxRows > 0 ? list.slice(0, w.opts.maxRows) : list;
       const summary = w.opts.showSummary
         ? `<div class="obs-sum" style="font-size:${Math.max(10, wSize(w) - 2)}px">
-             <span>الإجمالي: <b>${total}</b></span>
-             <span class="o-open">مفتوح: <b>${open}</b></span>
-             <span class="o-closed">تم الحل: <b>${closed}</b></span>
+             <span>${tr('total')}: <b>${total}</b></span>
+             <span class="o-open">${tr('open')}: <b>${open}</b></span>
+             <span class="o-closed">${tr('closed')}: <b>${closed}</b></span>
            </div>` : '';
 
       const cell = o => {
         const desc = String(o.description || o.obstacle || '')
           .replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
         const imp = String(o.impact || '').trim();
+        const impTxt = (tr('impact')[imp] || imp);
         const impChip = w.opts.showImpact && imp
-          ? `<span class="obs-chip ${impactClass(imp)}">${imp}</span>` : '';
+          ? `<span class="obs-chip ${impactClass(imp)}">${impTxt}</span>` : '';
         const stChip = w.opts.showStatus
-          ? `<span class="obs-chip ${o.closed ? 'st-closed' : 'st-open'}">${o.closed ? 'تم الحل' : 'قائم'}</span>` : '';
+          ? `<span class="obs-chip ${o.closed ? 'st-closed' : 'st-open'}">${o.closed ? tr('resolved') : tr('standing')}</span>` : '';
         return {desc, impChip, stChip};
       };
 
@@ -1040,7 +1139,7 @@ const VISUALS = {
     name:'صورة / لوجو', icon:'🖼️', w:300, h:220,
     opts:{src:'field', field:'master_plan_link', url:'', fit:'contain', pos:'center',
           caption:'', captionShow:false, imgOpacity:1, grayscale:false},
-    title:'صورة', titleShow:false,
+    title:'صورة', title_en:'Image', titleShow:false,
     render(body, w){
       let url = '';
       if(w.opts.src === 'field'){
@@ -1049,17 +1148,18 @@ const VISUALS = {
       }else url = (w.opts.url || '').trim();
 
       if(!url){
-        body.innerHTML = `<div class="empty-note">لا توجد صورة — اختر مرفقاً من المشروع أو ارفع لوجو من الشريط الجانبي</div>`;
+        body.innerHTML = `<div class="empty-note">${tr('noImage')}</div>`;
         return;
       }
-      const cap = (w.opts.captionShow && w.opts.caption)
+      const capTxt = bi(w.opts, 'caption');
+      const cap = (w.opts.captionShow && capTxt)
         ? `<div class="img-cap" style="font-size:${Math.max(10, wSize(w) - 2)}px">${
-            String(w.opts.caption).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>` : '';
+            String(capTxt).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>` : '';
       body.innerHTML = `<div class="img-wrap">
           <img src="${String(url).replace(/"/g, '&quot;')}" alt=""
                style="object-fit:${w.opts.fit};object-position:${w.opts.pos};
                       opacity:${w.opts.imgOpacity};filter:${w.opts.grayscale ? 'grayscale(1)' : 'none'}"
-               onerror="this.parentNode.innerHTML='<div class=\\'empty-note\\'>تعذر تحميل الصورة من الرابط</div>'">
+               onerror="this.parentNode.innerHTML='<div class=\\'empty-note\\'>' + tr('imgError') + '</div>'">
           ${cap}</div>`;
     }
   },
@@ -1068,8 +1168,9 @@ const VISUALS = {
     opts:{content:'اكتب النص هنا', size:15, color:'', align:'start', font:"'Tajawal',sans-serif", weight:500},
     title:'', titleShow:false,
     render(body, w){
-      const empty = !String(w.opts.content || '').trim();
-      const shown = empty ? 'اضغط ضغطتين للكتابة…' : String(w.opts.content);
+      const txt = bi(w.opts, 'content');
+      const empty = !String(txt || '').trim();
+      const shown = empty ? tr('typeHere') : String(txt);
       body.innerHTML = `<div class="txt-visual${empty ? ' txt-placeholder' : ''}"
         style="font-family:${w.opts.font};font-size:${w.opts.size}px;
         color:${w.opts.color || theme().text};text-align:${w.opts.align};font-weight:${w.opts.weight};">${
@@ -1085,7 +1186,7 @@ function impactClass(imp){
   return 'imp-none';
 }
 function empty(body){
-  body.innerHTML = '<div class="empty-note">اختر مشروعاً من الشريط العلوي لعرض البيانات</div>';
+  body.innerHTML = `<div class="empty-note">${tr('pickProject')}</div>`;
 }
 /* الارتفاع الفعلي لشريط القيم أسفل الرسم حتى لا يُقص */
 function measureSpiBase(body){
@@ -1099,7 +1200,7 @@ function measureStrip(body){
 function mkChart(body, w, opt, extra){
   extra = extra || {};
   if(typeof ApexCharts === 'undefined'){
-    body.innerHTML = '<div class="empty-note">تعذر تحميل مكتبة الرسوم البيانية — تأكد من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</div>';
+    body.innerHTML = `<div class="empty-note">${tr('chartLibError')}</div>`;
     return;
   }
   let host = extra.host;
@@ -1123,7 +1224,8 @@ function addWidget(type){
     id:uid(), type,
     x:snap(40 + (S.widgets.length % 5) * 18), y:snap(40 + (S.widgets.length % 5) * 18),
     w:t.w, h:t.h,
-    title:{show:t.titleShow !== false, text:t.title || t.name, font:FONTS[0].v, size:14, weight:700,
+    title:{show:t.titleShow !== false, text:t.title || t.name, text_en:t.title_en || t.title || t.name,
+           font:FONTS[0].v, size:14, weight:700,
            color:theme().titleColor, bg:theme().titleBg, align:'start'},
     style:{bg:theme().widgetBg, color:theme().text, font:FONTS[0].v, fontSize:13,
            opacity:1, radius:10, shadow:true,
@@ -1245,7 +1347,7 @@ function drawWidget(w){
 
   const tEl = el.querySelector('.bw-title');
   if(w.title.show){
-    tEl.style.display = 'block'; tEl.textContent = w.title.text;
+    tEl.style.display = 'block'; tEl.textContent = bi(w.title, 'text');
     tEl.style.font = `${w.title.weight} ${w.title.size}px ${w.title.font}`;
     tEl.style.color = w.title.color; tEl.style.background = w.title.bg;
     tEl.style.textAlign = w.title.align;
@@ -1263,7 +1365,8 @@ function startInlineEdit(w, node, field){
   select(w.id);
   el.classList.add('editing');
 
-  if(field === 'content' && !String(w.opts.content || '').trim()){
+  const key = biKey(field === 'title' ? 'text' : 'content');
+  if(field === 'content' && !String(w.opts[key] || '').trim()){
     node.textContent = '';                      // امسح النص التلميحي
     node.classList.remove('txt-placeholder');
   }
@@ -1290,10 +1393,10 @@ function startInlineEdit(w, node, field){
     if(tip.parentNode) tip.remove();
     if(!cancelled){
       const val = (node.innerText || '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
-      const cur = (field === 'title') ? w.title.text : w.opts.content;
-      if(val !== cur){
+      const cur = (field === 'title') ? w.title[key] : w.opts[key];
+      if(val !== (cur || '')){
         snapshot();
-        if(field === 'title') w.title.text = val; else w.opts.content = val;
+        if(field === 'title') w.title[key] = val; else w.opts[key] = val;
       }
     }
     drawWidget(w); buildPropsTab(); buildLayersList();
@@ -1544,7 +1647,20 @@ function autoArrange(){
 /* =====================================================================
    الصفحة والثيم
    ===================================================================== */
+function applyLang(){
+  const en = isEN();
+  page.setAttribute('dir', en ? 'ltr' : 'rtl');
+  page.setAttribute('lang', en ? 'en' : 'ar');
+  const lab = $('#langLabel'); if(lab) lab.textContent = en ? 'English' : 'عربي';
+}
+function setLang(l){
+  S.page.lang = (l === 'en') ? 'en' : 'ar';
+  applyLang(); renderAll(); buildPropsTab(); buildPageTab();
+  S.dirty = true;
+  toast(isEN() ? 'Dashboard language: English' : 'لغة الداشبورد: العربية');
+}
 function applyPageStyle(){
+  applyLang();
   page.style.width = S.page.w + 'px'; page.style.height = S.page.h + 'px';
   page.style.background = S.page.gradient && S.page.bg2
       ? `linear-gradient(${S.page.gradDir}deg, ${S.page.bg}, ${S.page.bg2})` : S.page.bg;
@@ -1620,7 +1736,7 @@ function buildLayersList(){
   box.innerHTML = S.widgets.map(w =>
     `<div class="layer ${S.multi.indexOf(w.id) >= 0 ? 'on' : ''}${w.id === S.selected ? ' pri' : ''}" data-id="${w.id}">
        <span>${VISUALS[w.type].icon}</span>
-       <span class="lyr-name">${w.title.show && w.title.text ? w.title.text : VISUALS[w.type].name}</span>
+       <span class="lyr-name">${w.title.show && bi(w.title, 'text') ? bi(w.title, 'text') : VISUALS[w.type].name}</span>
      </div>`).join('');
   box.querySelectorAll('.layer').forEach(l => l.addEventListener('click', ev => {
     select(l.dataset.id, ev.ctrlKey || ev.metaKey || ev.shiftKey); switchTab('props');
@@ -1659,7 +1775,9 @@ function buildPropsTab(){
     <div class="grp">
       <div class="grp-h">العنوان</div>
       <label class="chk"><input type="checkbox" data-p="title.show" ${w.title.show?'checked':''}> إظهار شريط العنوان</label>
-      <div class="row"><label>النص</label><div class="ctl"><input type="text" data-p="title.text" value="${(w.title.text||'').replace(/"/g,'&quot;')}"></div></div>
+      <div class="row"><label>النص${isEN() ? ' (EN)' : ' (عربي)'}</label><div class="ctl">
+        <input type="text" data-p="title.${biKey('text')}" value="${(w.title[biKey('text')]||'').replace(/"/g,'&quot;')}"></div></div>
+      ${isEN() ? '<div class="hint" style="margin-bottom:8px;">تكتب الآن النص الإنجليزي. بدّل اللغة من الشريط العلوي لتحرير النص العربي.</div>' : ''}
       <div class="row"><label>الخط</label><div class="ctl"><select data-p="title.font">
         ${FONTS.map(f => `<option value="${f.v}" ${w.title.font===f.v?'selected':''}>${f.n}</option>`).join('')}
       </select></div></div>
@@ -1885,7 +2003,7 @@ function optionsHtml(w){
       <div class="hint">لو الحقلان نسبة مئوية سيُرسم حلقتان، وغير ذلك ستُرسم نسبة الأول من الثاني.</div>` : '';
     return `
       <div class="row"><label>المقارنة</label><div class="ctl"><select data-p="opts.pair">
-        ${Object.keys(GAUGE_PAIRS).map(k => `<option value="${k}" ${o.pair === k ? 'selected' : ''}>${GAUGE_PAIRS[k].n}</option>`).join('')}
+        ${Object.keys(GAUGE_PAIRS).map(k => `<option value="${k}" ${o.pair === k ? 'selected' : ''}>${pairName(k)}</option>`).join('')}
       </select></div></div>
       ${customHtml}
       <label class="chk"><input type="checkbox" data-p="opts.showValues" ${o.showValues ? 'checked' : ''}> إظهار الأرقام الفعلية أسفل الرسم</label>`;
@@ -1904,6 +2022,17 @@ function optionsHtml(w){
       <div class="row"><label>حد التحذير</label><div class="ctl">
         <input type="number" step="0.01" data-p="opts.warn" value="${o.warn}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showBase" ${o.showBase ? 'checked' : ''}> إظهار النسب المستخدمة في الحساب</label>
+      ${o.mode === 'gauge' ? `
+      <div class="grp-h" style="margin-top:10px;">مقياس ملء الحلقة</div>
+      <div class="row"><label>الطريقة</label><div class="ctl"><select data-p="opts.scaleMode">
+        <option value="target" ${(o.scaleMode||'target') === 'target' ? 'selected' : ''}>نسبة من الهدف (تكتمل عند ١)</option>
+        <option value="range"  ${o.scaleMode === 'range' ? 'selected' : ''}>مقياس ممتد (يُظهر التجاوز)</option>
+      </select></div></div>
+      ${o.scaleMode === 'range' ? `<div class="row"><label>أقصى المقياس</label><div class="ctl">
+        <input type="number" step="0.1" min="1.1" max="3" data-p="opts.maxScale" value="${o.maxScale}"></div></div>` : ''}
+      <div class="hint">«نسبة من الهدف» تجعل امتلاء الحلقة مطابقاً للرقم: SPI ١٫٠٣ = حلقة مكتملة
+      ومكتوب تحتها مقدار التجاوز. «مقياس ممتد» يترك مجالاً فوق الهدف لتظهر درجة التقدم،
+      لكن الامتلاء عندها يكون نسبة إلى أقصى المقياس وليس إلى الرقم.</div>` : ''}
       <div class="hint">SPI = الإنجاز الفعلي ÷ الإنجاز المخطط. أكبر من ١ يعني تقدماً على البرنامج،
       وأقل من ١ يعني تأخراً. الألوان تتغير تلقائياً حسب الحدّين أعلاه.</div>`;
   }
@@ -1929,7 +2058,7 @@ function optionsHtml(w){
       (نسبة مع مبلغ مثلاً) سيُنسَّق كل عمود حسب نوعه.</div>` : '';
     return `
       <div class="row"><label>المجموعة</label><div class="ctl"><select data-p="opts.group">
-        ${Object.keys(BAR_GROUPS).map(k => `<option value="${k}" ${o.group===k?'selected':''}>${BAR_GROUPS[k].n}</option>`).join('')}
+        ${Object.keys(BAR_GROUPS).map(k => `<option value="${k}" ${o.group===k?'selected':''}>${groupName(k)}</option>`).join('')}
       </select></div></div>
       ${picker}
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>
@@ -2017,8 +2146,8 @@ function optionsHtml(w){
         <input type="range" min="0.1" max="1" step="0.05" data-p="opts.imgOpacity" value="${o.imgOpacity}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.grayscale" ${o.grayscale ? 'checked' : ''}> أبيض وأسود</label>
       <label class="chk"><input type="checkbox" data-p="opts.captionShow" ${o.captionShow ? 'checked' : ''}> إظهار تعليق أسفل الصورة</label>
-      <div class="mini"><span>نص التعليق</span>
-        <input type="text" data-p="opts.caption" value="${(o.caption || '').replace(/"/g, '&quot;')}"></div>`;
+      <div class="mini"><span>نص التعليق ${isEN() ? '(بالإنجليزية)' : '(بالعربية)'}</span>
+        <input type="text" data-p="opts.${biKey('caption')}" value="${(o[biKey('caption')] || '').replace(/"/g, '&quot;')}"></div>`;
   }
   if(w.type === 'info_table'){
     const sel = o.fields || [];
@@ -2031,8 +2160,8 @@ function optionsHtml(w){
   if(w.type === 'text'){
     return `
       <div class="mini" style="margin-bottom:8px;">
-        <span>النص (يمكنك أيضاً الكتابة مباشرة داخل المربع بالضغط عليه ضغطتين)</span>
-        <textarea rows="5" data-p="opts.content" placeholder="اكتب النص هنا…">${(o.content||'')}</textarea>
+        <span>النص ${isEN() ? '(بالإنجليزية)' : '(بالعربية)'} — أو اكتب مباشرة داخل المربع بضغطتين</span>
+        <textarea rows="5" data-p="opts.${biKey('content')}" placeholder="اكتب النص هنا…">${(o[biKey('content')]||'')}</textarea>
       </div>
       <div class="row"><label>الخط</label><div class="ctl"><select data-p="opts.font">
         ${FONTS.map(f => `<option value="${f.v}" ${o.font===f.v?'selected':''}>${f.n}</option>`).join('')}
@@ -2078,7 +2207,7 @@ function bindProps(el, w){
       setPath(w, inp.dataset.p, v);
       if(['x','y','w','h'].includes(inp.dataset.p)) w[inp.dataset.p] = Math.round(v);
       drawWidget(w); buildLayersList();
-      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode'].includes(inp.dataset.p)) buildPropsTab();
+      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode'].includes(inp.dataset.p)) buildPropsTab();
     }
 
     inp.addEventListener('focus', () => { pending = true; });
@@ -2139,6 +2268,16 @@ function buildPageTab(){
   const p = S.page;
   el.innerHTML = `
     <div class="grp">
+      <div class="grp-h">لغة الداشبورد</div>
+      <div class="btn-row">
+        <button class="sbtn ${p.lang !== 'en' ? 'on' : ''}" data-lang="ar">🇸🇦 العربية</button>
+        <button class="sbtn ${p.lang === 'en' ? 'on' : ''}" data-lang="en">🇬🇧 English</button>
+      </div>
+      <div class="hint" style="margin-top:8px;">تبديل اللغة يترجم كل النصوص التلقائية ويقلب اتجاه الصفحة.
+      عناوين الـ visuals والنصوص الحرة لها نسخة لكل لغة — اكتبها مرة بالعربي ومرة بالإنجليزي.</div>
+    </div>
+
+    <div class="grp">
       <div class="grp-h">الثيم العام</div>
       <div class="row"><label>الثيم</label><div class="ctl"><select id="pgTheme">
         ${Object.keys(THEMES).map(k => `<option value="${k}" ${p.theme===k?'selected':''}>${THEMES[k].name}</option>`).join('')}
@@ -2191,6 +2330,7 @@ function buildPageTab(){
   }
   paintThemePrev();
   $('#pgTheme').addEventListener('change', e => { S.page.theme = e.target.value; paintThemePrev(); });
+  el.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
   $('#btnApplyTheme').addEventListener('click', applyThemeToAll);
   $('#pgPreset').addEventListener('change', e => {
     snapshot(); const k = e.target.value; S.page.preset = k;
@@ -2412,6 +2552,7 @@ $('#btnOpen').addEventListener('click', openLayouts);
 $('#btnNew').addEventListener('click', newLayout);
 $('#btnCloseModal').addEventListener('click', () => $('#modalBack').classList.remove('open'));
 $('#modalBack').addEventListener('click', e => { if(e.target.id === 'modalBack') e.currentTarget.classList.remove('open'); });
+$('#btnLang').addEventListener('click', () => setLang(isEN() ? 'ar' : 'en'));
 $('#btnUndo').addEventListener('click', doUndo);
 $('#btnRedo').addEventListener('click', doRedo);
 $('#btnZoomIn').addEventListener('click', () => { S.zoom = Math.min(2, S.zoom + .1); applyZoom(); });
