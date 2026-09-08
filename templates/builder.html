@@ -377,7 +377,7 @@ const T = {
     noObstacles:'لا توجد معوقات مسجّلة في آخر تحديث ✅',
     impact:{'كبير':'كبير','متوسط':'متوسط','منخفض':'منخفض','غير مؤثر':'غير مؤثر'},
     vsPrev:'عن التحديث السابق', currency:'ر.س', dayUnit:'يوم', pointUnit:'نقطة',
-    ranking:'الترتيب', cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
+    ranking:'الترتيب', pickFields:'اختر حقلين أو أكثر من قائمة الحقول في الشريط الجانبي للمقارنة بينهم', cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
     cumFinance:'التقدم المالي التراكمي', cumFinanceVal:'المصروف التراكمي',
     noTimeline:'لا توجد تحديثات كافية لرسم المنحنى التراكمي',
     million:'مليون', thousand:'ألف', billion:'مليار',
@@ -409,7 +409,7 @@ const T = {
     noObstacles:'No obstacles recorded in the latest update ✅',
     impact:{'كبير':'High','متوسط':'Medium','منخفض':'Low','غير مؤثر':'No impact'},
     vsPrev:'vs previous update', currency:'SAR', dayUnit:'days', pointUnit:'pts',
-    ranking:'Ranking', cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
+    ranking:'Ranking', pickFields:'Pick two or more fields from the sidebar list to compare them', cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
     cumFinance:'Cumulative financial progress', cumFinanceVal:'Cumulative invoiced',
     noTimeline:'Not enough updates to draw the cumulative curve',
     million:'M', thousand:'K', billion:'B',
@@ -501,7 +501,7 @@ const S = {
   projLatest:[], projNames:[],
   layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
   page:{lang:'ar', preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
-        theme:'navy', grid:10, snap:true, showGrid:true, noOverlap:false},
+        theme:'navy', grid:10, snap:true, snapMode:'grid', showGrid:true, noOverlap:false},
   widgets:[], selected:null, multi:[], zoom:1, seq:1,
   charts:{}, undo:[], redo:[], dirty:false
 };
@@ -545,7 +545,8 @@ function fmtValue(v, type, o){
   }
   if(type === 'points'){
     const n = num(v);
-    return (n > 0 ? '+' : '') + n.toFixed(d === 0 ? 1 : d) + ' ' + tr('pointUnit');
+    const unit = (o.pointsAs === 'pct') ? '%' : ' ' + tr('pointUnit');
+    return (n > 0 ? '+' : '') + n.toFixed(d === 0 ? 1 : d) + unit;
   }
   if(type === 'ratio'){
     return num(v).toFixed(d || 2);
@@ -761,10 +762,12 @@ function dlOpts(w, fallbackColor, formatter){
   if(formatter) o.formatter = formatter;
   return o;
 }
-function fmtByType(type){
+function fmtByType(type, o){
+  o = o || {};
   if(type === 'percent')  return v => v + '%';
   if(type === 'days')     return v => num(v).toLocaleString('en-US') + ' ' + tr('dayUnit');
-  if(type === 'points')   return v => (num(v) > 0 ? '+' : '') + num(v).toFixed(1) + ' ' + tr('pointUnit');
+  if(type === 'points')   return v => (num(v) > 0 ? '+' : '') + num(v).toFixed(1) +
+                                     ((o.pointsAs === 'pct') ? '%' : ' ' + tr('pointUnit'));
   if(type === 'ratio')    return v => num(v).toFixed(2);
   if(type === 'currency') return v => compactNum(num(v));
   return v => num(v).toLocaleString('en-US');
@@ -1156,7 +1159,7 @@ const VISUALS = {
   topn:{
     name:'ترتيب Top N', icon:'🏆', w:480, h:330,
     opts:{source:'projects', field:'@prog_delta', fields:['drawings_sub','ir_sub','ncr_open'],
-          order:'desc', limit:5, display:'table', showRank:true, showBar:true,
+          order:'desc', limit:5, display:'table', showRank:true, showBar:true, pointsAs:'pts',
           highlightTop:true, horizontal:true, dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
     title:'الترتيب', title_en:'Ranking',
     render(body, w){
@@ -1175,7 +1178,11 @@ const VISUALS = {
         items = S.records.map(r => ({n:r.current_data_date || '—', v:valueOf(r, w.opts.field)}));
       }else{
         if(!S.latest){ empty(body); return; }
-        const fs = (w.opts.fields && w.opts.fields.length) ? w.opts.fields : ['drawings_sub'];
+        const fs = (w.opts.fields && w.opts.fields.length) ? w.opts.fields : [];
+        if(fs.length < 2){
+          body.innerHTML = `<div class="empty-note">${tr('pickFields')}</div>`;
+          return;
+        }
         const types = fs.map(f => fieldOrMetricType(f));
         const uniq = Array.from(new Set(types));
         ftype = uniq.length === 1 ? uniq[0] : 'mixed';
@@ -1187,7 +1194,7 @@ const VISUALS = {
       if(n > 0) items = items.slice(0, n);
       if(!items.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
 
-      const fmtOne = (it) => fmtValue(it.v, it.t || ftype, {compact:true,
+      const fmtOne = (it) => fmtValue(it.v, it.t || ftype, {compact:true, pointsAs:w.opts.pointsAs,
                               decimals:(it.t || ftype) === 'percent' ? 1 : undefined});
       const maxAbs = Math.max(...items.map(i => Math.abs(i.v)), 0.0001);
 
@@ -1241,7 +1248,7 @@ const VISUALS = {
   },
   projects_compare:{
     name:'مقارنة المشاريع', icon:'🏗️', w:540, h:330,
-    opts:{field:'@prog_delta', sort:'desc', topN:0, horizontal:true, showAvg:true,
+    opts:{field:'@prog_delta', sort:'desc', topN:0, horizontal:true, showAvg:true, pointsAs:'pts',
           dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
     title:'مقارنة المشاريع', title_en:'Projects comparison',
     render(body, w){
@@ -1257,7 +1264,7 @@ const VISUALS = {
       else items.sort((a, b) => String(a.n).localeCompare(String(b.n), 'ar'));
       if(w.opts.topN > 0) items = items.slice(0, w.opts.topN);
 
-      const fmt = fmtByType(ftype);
+      const fmt = fmtByType(ftype, {pointsAs:w.opts.pointsAs});
       const avg = items.reduce((a, i) => a + i.v, 0) / (items.length || 1);
       const hz = !!w.opts.horizontal;
       const axFont = {colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'};
@@ -1641,10 +1648,29 @@ function reorderModel(id, dir){
   const [w] = S.widgets.splice(i, 1);
   if(dir > 0) S.widgets.push(w); else S.widgets.unshift(w);
 }
+/* يملأ أي خصائص/خيارات ناقصة في العناصر القادمة من قوالب محفوظة بنسخة أقدم.
+   بدون هذا تظهر القوالب القديمة بخيارات مفقودة (مثل قائمة الحقول أو إعدادات الأرقام). */
+function normalizeWidget(w){
+  const t = VISUALS[w.type];
+  if(!t) return w;
+  w.opts  = Object.assign(clone(t.opts || {}), w.opts || {});
+  if(DL_TYPES.indexOf(w.type) >= 0) w.opts.dl = Object.assign({}, DL_DEFAULT, w.opts.dl || {});
+  w.style = Object.assign({bg:theme().widgetBg, color:theme().text, font:FONTS[0].v, fontSize:13,
+                           opacity:1, radius:10, shadow:true}, w.style || {});
+  w.style.border = Object.assign({show:true, color:theme().border, width:1}, w.style.border || {});
+  w.title = Object.assign({show:t.titleShow !== false, text:t.title || t.name,
+                           text_en:t.title_en || t.title || t.name, font:FONTS[0].v, size:14,
+                           weight:700, color:theme().titleColor, bg:theme().titleBg, align:'start'},
+                          w.title || {});
+  if(w.title.text_en === undefined) w.title.text_en = t.title_en || w.title.text;
+  return w;
+}
+
 function renderAll(){
   Object.values(S.charts).forEach(c => { try{ c.destroy(); }catch(e){} });
   S.charts = {}; page.innerHTML = '';
   applyPageStyle();
+  S.widgets.forEach(normalizeWidget);
   S.widgets.forEach(drawWidget);
   S.multi = S.multi.filter(id => S.widgets.some(w => w.id === id));
   if(S.selected && S.multi.indexOf(S.selected) < 0) S.selected = S.multi[S.multi.length - 1] || null;
@@ -1730,21 +1756,35 @@ function startDrag(e, id){
     let ny = oy + (ev.clientY - sy) / S.zoom;
     clearGuides();
     if(!ev.altKey){
-      const tol = 7;
-      const mL = magnet(nx, vs, tol), mC = magnet(nx + w.w/2, vs, tol), mR = magnet(nx + w.w, vs, tol);
-      if(mL !== null){ nx = mL; addGuide('v', mL); }
-      else if(mC !== null){ nx = mC - w.w/2; addGuide('v', mC); }
-      else if(mR !== null){ nx = mR - w.w; addGuide('v', mR); }
-      else nx = snap(nx);
-      const mT = magnet(ny, hs, tol), mM = magnet(ny + w.h/2, hs, tol), mB = magnet(ny + w.h, hs, tol);
-      if(mT !== null){ ny = mT; addGuide('h', mT); }
-      else if(mM !== null){ ny = mM - w.h/2; addGuide('h', mM); }
-      else if(mB !== null){ ny = mB - w.h; addGuide('h', mB); }
-      else ny = snap(ny);
+      if(S.page.snap && (S.page.snapMode || 'grid') === 'grid'){
+        // الشبكة أولاً: الحركة دائماً بمضاعفات مقاس الخلية
+        nx = snap(nx); ny = snap(ny);
+        // خطوط إرشادية فقط عند التطابق الفعلي مع حواف العناصر الأخرى
+        [nx, nx + w.w/2, nx + w.w].forEach(v => { if(vs.some(t => Math.abs(t - v) < 0.5)) addGuide('v', v); });
+        [ny, ny + w.h/2, ny + w.h].forEach(v => { if(hs.some(t => Math.abs(t - v) < 0.5)) addGuide('h', v); });
+      }else{
+        const tol = 7;
+        const mL = magnet(nx, vs, tol), mC = magnet(nx + w.w/2, vs, tol), mR = magnet(nx + w.w, vs, tol);
+        if(mL !== null){ nx = mL; addGuide('v', mL); }
+        else if(mC !== null){ nx = mC - w.w/2; addGuide('v', mC); }
+        else if(mR !== null){ nx = mR - w.w; addGuide('v', mR); }
+        else nx = snap(nx);
+        const mT = magnet(ny, hs, tol), mM = magnet(ny + w.h/2, hs, tol), mB = magnet(ny + w.h, hs, tol);
+        if(mT !== null){ ny = mT; addGuide('h', mT); }
+        else if(mM !== null){ ny = mM - w.h/2; addGuide('h', mM); }
+        else if(mB !== null){ ny = mB - w.h; addGuide('h', mB); }
+        else ny = snap(ny);
+      }
     }
     let dx = Math.round(nx) - ox, dy = Math.round(ny) - oy;
     dx = Math.max(dxMin, Math.min(dxMax, dx));
     dy = Math.max(dyMin, Math.min(dyMax, dy));
+    if(!ev.altKey && S.page.snap && (S.page.snapMode || 'grid') === 'grid' && group.length){
+      // مع التحديد المتعدد: اجعل الإزاحة نفسها من مضاعفات الخلية حتى تبقى العناصر على الشبكة
+      const g = S.page.grid || 1;
+      dx = Math.round(dx / g) * g; dy = Math.round(dy / g) * g;
+      dx = Math.max(dxMin, Math.min(dxMax, dx)); dy = Math.max(dyMin, Math.min(dyMax, dy));
+    }
     w.x = ox + dx; w.y = oy + dy;
     el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
     group.forEach(o => {                       // نفس الإزاحة لباقي العناصر المحددة
@@ -1779,7 +1819,16 @@ function startResize(e, id, dir){
     if(dir.includes('n')){ nh = o.h - dy; ny = o.y + dy; }
     if(dir.includes('s')) nh = o.h + dy;
     nw = Math.max(90, nw); nh = Math.max(60, nh);
-    if(!ev.altKey){ nw = snap(nw); nh = snap(nh); }
+    if(!ev.altKey){
+      if(S.page.snap && (S.page.snapMode || 'grid') === 'grid'){
+        // الحواف المتحركة تقع على الشبكة، والحافة المقابلة تبقى ثابتة
+        if(dir.includes('e')) nw = snap(o.x + nw) - o.x;
+        if(dir.includes('s')) nh = snap(o.y + nh) - o.y;
+        if(dir.includes('w')){ const left = snap(o.x + o.w - nw); nw = o.x + o.w - left; }
+        if(dir.includes('n')){ const top  = snap(o.y + o.h - nh); nh = o.y + o.h - top; }
+        nw = Math.max(90, nw); nh = Math.max(60, nh);
+      }else{ nw = snap(nw); nh = snap(nh); }
+    }
     // تثبيت الحافة المقابلة عند بلوغ الحد الأدنى أو بعد الالتصاق
     if(dir.includes('w')) nx = o.x + o.w - nw;
     if(dir.includes('n')) ny = o.y + o.h - nh;
@@ -1857,6 +1906,21 @@ function applyToSel(fn, snap){
   if(snap !== false) snapshot();
   ws.forEach(w => { fn(w); drawWidget(w); });
   buildLayersList();
+}
+function snapAllToGrid(){
+  if(!S.widgets.length) return;
+  snapshot();
+  const g = S.page.grid || 1;
+  S.widgets.forEach(w => {
+    w.x = Math.max(0, Math.min(S.page.w - w.w, Math.round(w.x / g) * g));
+    w.y = Math.max(0, Math.min(S.page.h - w.h, Math.round(w.y / g) * g));
+    w.w = Math.max(90, Math.round(w.w / g) * g);
+    w.h = Math.max(60, Math.round(w.h / g) * g);
+    if(w.x + w.w > S.page.w) w.w = Math.max(90, S.page.w - w.x);
+    if(w.y + w.h > S.page.h) w.h = Math.max(60, S.page.h - w.y);
+  });
+  renderAll();
+  toast(`تمت محاذاة ${S.widgets.length} عنصر على شبكة ${g} بكسل`);
 }
 function autoArrange(){
   if(!S.widgets.length) return;
@@ -2046,13 +2110,14 @@ function buildPropsTab(){
     <div class="grp">
       <div class="grp-h">الموضع والحجم (بكسل)</div>
       <div class="row2">
-        <div class="mini"><span>X</span><input type="number" data-p="x" value="${w.x}"></div>
-        <div class="mini"><span>Y</span><input type="number" data-p="y" value="${w.y}"></div>
+        <div class="mini"><span>X</span><input type="number" step="${S.page.grid || 1}" data-p="x" value="${w.x}"></div>
+        <div class="mini"><span>Y</span><input type="number" step="${S.page.grid || 1}" data-p="y" value="${w.y}"></div>
       </div>
       <div class="row2">
-        <div class="mini"><span>العرض</span><input type="number" min="90" data-p="w" value="${w.w}"></div>
-        <div class="mini"><span>الارتفاع</span><input type="number" min="60" data-p="h" value="${w.h}"></div>
+        <div class="mini"><span>العرض</span><input type="number" min="90" step="${S.page.grid || 1}" data-p="w" value="${w.w}"></div>
+        <div class="mini"><span>الارتفاع</span><input type="number" min="60" step="${S.page.grid || 1}" data-p="h" value="${w.h}"></div>
       </div>
+      <div class="hint" style="margin-bottom:8px;">الخطوة الحالية ${S.page.grid || 1} بكسل (مقاس خلية الشبكة).</div>
       <div class="grp-h" style="margin-top:10px;">محاذاة داخل الصفحة</div>
       <div class="btn-row" style="margin-bottom:6px;">
         <button class="sbtn" data-al="start">يمين</button>
@@ -2339,6 +2404,8 @@ function optionsHtml(w){
         </optgroup>
       </select></div></div>`;
     const fieldsPicker = `
+      <div class="hint" style="margin-bottom:6px;">المُختار الآن: <b>${sel.length}</b> حقل —
+      علّم على الحقول التي تريد ترتيبها معاً (حقلان على الأقل).</div>
       <div style="max-height:210px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
         ${nums.map(f => `<label class="chk" style="margin-bottom:4px;font-weight:500;">
             <input type="checkbox" data-cfld="${f.key}" ${sel.includes(f.key) ? 'checked' : ''}> ${f.label}</label>`).join('')}
@@ -2362,6 +2429,13 @@ function optionsHtml(w){
         <option value="table" ${o.display === 'table' ? 'selected' : ''}>جدول ترتيب</option>
         <option value="bars"  ${o.display === 'bars'  ? 'selected' : ''}>أعمدة</option>
       </select></div></div>
+      ${fieldOrMetricType(o.field) === 'points' ? `
+      <div class="row"><label>وحدة الفرق</label><div class="ctl"><select data-p="opts.pointsAs">
+        <option value="pts" ${(o.pointsAs||'pts') === 'pts' ? 'selected' : ''}>نقطة مئوية (+6.0 نقطة)</option>
+        <option value="pct" ${o.pointsAs === 'pct' ? 'selected' : ''}>علامة النسبة (+6.0%)</option>
+      </select></div></div>
+      <div class="hint">هذا المقياس فرق بين نسبتين (٤٥% ناقص ٣٩%)، ووحدته الصحيحة «نقطة مئوية»
+      حتى لا تختلط مع الزيادة النسبية. اختر «علامة النسبة» إن كنت تفضّل شكل %.</div>` : ''}
       ${o.display === 'bars'
         ? `<label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal ? 'checked' : ''}> أعمدة أفقية</label>`
         : `<label class="chk"><input type="checkbox" data-p="opts.showRank" ${o.showRank ? 'checked' : ''}> إظهار أرقام الترتيب</label>
@@ -2390,6 +2464,13 @@ function optionsHtml(w){
         <input type="number" min="0" max="50" data-p="opts.topN" value="${o.topN}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal ? 'checked' : ''}> أعمدة أفقية</label>
       <label class="chk"><input type="checkbox" data-p="opts.showAvg" ${o.showAvg ? 'checked' : ''}> خط المتوسط</label>
+      ${fieldOrMetricType(o.field) === 'points' ? `
+      <div class="row"><label>وحدة الفرق</label><div class="ctl"><select data-p="opts.pointsAs">
+        <option value="pts" ${(o.pointsAs||'pts') === 'pts' ? 'selected' : ''}>نقطة مئوية (+6.0 نقطة)</option>
+        <option value="pct" ${o.pointsAs === 'pct' ? 'selected' : ''}>علامة النسبة (+6.0%)</option>
+      </select></div></div>
+      <div class="hint">هذا المقياس فرق بين نسبتين (٤٥% ناقص ٣٩%)، ووحدته الصحيحة «نقطة مئوية»
+      حتى لا تختلط مع الزيادة النسبية. اختر «علامة النسبة» إن كنت تفضّل شكل %.</div>` : ''}
       <div class="hint">٠ في «أفضل عدد» = عرض كل المشاريع. يعمل فقط في وضع «كل المشاريع».
       <br><br>لمعرفة <b>أسرع المشاريع تقدماً خلال الأسبوع</b> اختر «التقدم خلال الفترة (فعلي)»
       مع الترتيب من الأكبر للأصغر — الأعمدة الخضراء تقدّمت والحمراء تراجعت.</div>`;
@@ -2503,9 +2584,14 @@ function bindProps(el, w){
       if(inp.type === 'number' || inp.type === 'range') v = parseFloat(v) || 0;
       if(['title.weight','opts.weight'].includes(inp.dataset.p)) v = parseInt(v);
       setPath(w, inp.dataset.p, v);
-      if(['x','y','w','h'].includes(inp.dataset.p)) w[inp.dataset.p] = Math.round(v);
+      if(['x','y','w','h'].includes(inp.dataset.p)){
+        w[inp.dataset.p] = S.page.snap ? snap(v) : Math.round(v);   // القيم المكتوبة تلتصق بالشبكة أيضاً
+        if(inp.dataset.p === 'w') w.w = Math.max(90, w.w);
+        if(inp.dataset.p === 'h') w.h = Math.max(60, w.h);
+        inp.value = w[inp.dataset.p];
+      }
       drawWidget(w); buildLayersList();
-      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display'].includes(inp.dataset.p)) buildPropsTab();
+      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs'].includes(inp.dataset.p)) buildPropsTab();
     }
 
     inp.addEventListener('focus', () => { pending = true; });
@@ -2549,6 +2635,8 @@ function bindProps(el, w){
     const target = (w.type === 'topn') ? 'fields' : 'customFields';
     w.opts[target] = FIELD_META.map(f => f.key).filter(k => set.has(k));
     drawWidget(w);
+    const counter = el.querySelector('.hint b');
+    if(counter && w.type === 'topn') counter.textContent = w.opts[target].length;
   }));
   el.querySelectorAll('[data-fld]').forEach(c => c.addEventListener('change', () => {
     snapshot();
@@ -2615,7 +2703,15 @@ function buildPageTab(){
       <label class="chk"><input type="checkbox" id="pgSnap" ${p.snap?'checked':''}> الالتصاق بالشبكة</label>
       <label class="chk"><input type="checkbox" id="pgNoOv" ${p.noOverlap?'checked':''}> منع تداخل العناصر</label>
       <div class="row"><label>مقاس الخلية</label><div class="ctl">
-        <input type="number" min="2" max="50" id="pgGrid" value="${p.grid}"></div></div>
+        <input type="number" min="1" max="100" step="1" id="pgGrid" value="${p.grid}"></div></div>
+      <div class="row"><label>أولوية الالتصاق</label><div class="ctl"><select id="pgSnapMode">
+        <option value="grid"  ${(p.snapMode||'grid') === 'grid'  ? 'selected' : ''}>الشبكة (حركة بمقدار الخلية)</option>
+        <option value="smart" ${p.snapMode === 'smart' ? 'selected' : ''}>محاذاة ذكية لحواف العناصر</option>
+      </select></div></div>
+      <button class="sbtn" id="btnSnapAll" style="width:100%;margin-top:4px;">محاذاة كل العناصر على الشبكة الآن</button>
+      <div class="hint" style="margin-top:8px;">في وضع «الشبكة» يتحرك العنصر ويتغيّر حجمه بمضاعفات مقاس
+      الخلية بالضبط، والأسهم تحرّكه خطوة خلية كاملة (Shift للتحريك بكسل واحد، و Alt أثناء السحب لتعطيل
+      الالتصاق مؤقتاً). بعد تغيير مقاس الخلية اضغط الزر أعلاه لمحاذاة العناصر الموجودة.</div>
     </div>
 
     <div class="hint">مقاس الصفحة هو نفسه الذي سيُصدَّر إلى PDF لاحقاً، فاختر <b>A4 أفقي</b> إن كان التقرير للطباعة.</div>`;
@@ -2647,7 +2743,12 @@ function buildPageTab(){
   $('#pgShowGrid').addEventListener('change', e => { S.page.showGrid = e.target.checked; applyPageStyle(); });
   $('#pgSnap').addEventListener('change', e => { S.page.snap = e.target.checked; });
   $('#pgNoOv').addEventListener('change', e => { S.page.noOverlap = e.target.checked; });
-  $('#pgGrid').addEventListener('change', e => { S.page.grid = Math.max(2, parseInt(e.target.value) || 10); applyPageStyle(); });
+  $('#pgGrid').addEventListener('change', e => {
+    S.page.grid = Math.max(1, parseInt(e.target.value) || 10);
+    applyPageStyle(); buildPropsTab();
+  });
+  $('#pgSnapMode').addEventListener('change', e => { S.page.snapMode = e.target.value; });
+  $('#btnSnapAll').addEventListener('click', snapAllToGrid);
   el.querySelectorAll('[data-pgsw]').forEach(s => s.addEventListener('click', () => {
     snapshot(); S.page.bg = s.dataset.pgsw; applyPageStyle(); buildPageTab();
   }));
@@ -2913,7 +3014,8 @@ document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){ select(null); return; }
   if(!S.multi.length) return;
   if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); removeSelected(); return; }
-  const step = e.shiftKey ? S.page.grid : 1;
+  // الأسهم تتحرك بمقدار مقاس الخلية عند تفعيل الالتصاق، و Shift للتحريك الدقيق بكسل واحد
+  const step = e.shiftKey ? 1 : (S.page.snap ? (S.page.grid || 1) : 1);
   let dx = 0, dy = 0;
   if(e.key === 'ArrowLeft')      dx = -step;
   else if(e.key === 'ArrowRight')dx =  step;
