@@ -173,6 +173,18 @@ button{font-family:inherit;}
 .spi-val{font-weight:900; line-height:1;}
 .spi-status{color:#fff; font-weight:700; font-size:.78rem; padding:3px 12px; border-radius:20px;}
 .spi-base{opacity:.75; text-align:center; padding-top:2px;}
+.rk-wrap{height:100%; overflow-y:auto;}
+.rk-tbl td{vertical-align:middle;}
+.rk-tbl td.rk-num{width:1%; white-space:nowrap; color:inherit; opacity:1;}
+.rk-tbl td.rk-num span{
+  display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px;
+  border-radius:50%; background:rgba(128,128,128,.18); font-weight:800; font-size:.72rem;
+}
+.rk-tbl tr.rk-first td.rk-num span{background:#d4a373; color:#22160a;}
+.rk-tbl td.rk-name{width:auto; color:inherit; opacity:1; font-weight:600; white-space:normal;}
+.rk-tbl td.rk-val{width:1%; white-space:nowrap; font-weight:800; text-align:end;}
+.rk-bar{margin-top:4px; height:5px; border-radius:3px; background:rgba(128,128,128,.18); overflow:hidden;}
+.rk-bar i{display:block; height:100%; border-radius:3px;}
 .obs-wrap{height:100%; display:flex; flex-direction:column; min-height:0; gap:5px;}
 .obs-scroll{flex:1 1 auto; min-height:0; overflow-y:auto;}
 .obs-sum{flex:0 0 auto; display:flex; gap:12px; flex-wrap:wrap; padding-bottom:4px;
@@ -365,7 +377,7 @@ const T = {
     noObstacles:'لا توجد معوقات مسجّلة في آخر تحديث ✅',
     impact:{'كبير':'كبير','متوسط':'متوسط','منخفض':'منخفض','غير مؤثر':'غير مؤثر'},
     vsPrev:'عن التحديث السابق', currency:'ر.س', dayUnit:'يوم', pointUnit:'نقطة',
-    cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
+    ranking:'الترتيب', cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
     cumFinance:'التقدم المالي التراكمي', cumFinanceVal:'المصروف التراكمي',
     noTimeline:'لا توجد تحديثات كافية لرسم المنحنى التراكمي',
     million:'مليون', thousand:'ألف', billion:'مليار',
@@ -397,7 +409,7 @@ const T = {
     noObstacles:'No obstacles recorded in the latest update ✅',
     impact:{'كبير':'High','متوسط':'Medium','منخفض':'Low','غير مؤثر':'No impact'},
     vsPrev:'vs previous update', currency:'SAR', dayUnit:'days', pointUnit:'pts',
-    cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
+    ranking:'Ranking', cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
     cumFinance:'Cumulative financial progress', cumFinanceVal:'Cumulative invoiced',
     noTimeline:'Not enough updates to draw the cumulative curve',
     million:'M', thousand:'K', billion:'B',
@@ -1139,6 +1151,92 @@ const VISUALS = {
           return (types[i] === 'val') ? compactNum(num(v)) + ' ' + tr('currency') : num(v).toFixed(1) + '%';
         }}}
       });
+    }
+  },
+  topn:{
+    name:'ترتيب Top N', icon:'🏆', w:480, h:330,
+    opts:{source:'projects', field:'@prog_delta', fields:['drawings_sub','ir_sub','ncr_open'],
+          order:'desc', limit:5, display:'table', showRank:true, showBar:true,
+          highlightTop:true, horizontal:true, dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
+    title:'الترتيب', title_en:'Ranking',
+    render(body, w){
+      const src = w.opts.source || 'projects';
+      let items = [], ftype = 'number';
+
+      if(src === 'projects'){
+        if(S.mode !== 'all' || !S.projLatest.length){
+          body.innerHTML = `<div class="empty-note">${tr('allOnly')}</div>`; return;
+        }
+        ftype = fieldOrMetricType(w.opts.field);
+        items = S.projLatest.map(r => ({n:r.project_name || '—', v:valueOf(r, w.opts.field)}));
+      }else if(src === 'timeline'){
+        if(!S.records || !S.records.length){ empty(body); return; }
+        ftype = fieldOrMetricType(w.opts.field);
+        items = S.records.map(r => ({n:r.current_data_date || '—', v:valueOf(r, w.opts.field)}));
+      }else{
+        if(!S.latest){ empty(body); return; }
+        const fs = (w.opts.fields && w.opts.fields.length) ? w.opts.fields : ['drawings_sub'];
+        const types = fs.map(f => fieldOrMetricType(f));
+        const uniq = Array.from(new Set(types));
+        ftype = uniq.length === 1 ? uniq[0] : 'mixed';
+        items = fs.map((f, i) => ({n:fieldOrMetricName(f), v:valueOf(S.latest, f), t:types[i]}));
+      }
+
+      items.sort((a, b) => w.opts.order === 'asc' ? a.v - b.v : b.v - a.v);
+      const n = parseInt(w.opts.limit) || 0;
+      if(n > 0) items = items.slice(0, n);
+      if(!items.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
+
+      const fmtOne = (it) => fmtValue(it.v, it.t || ftype, {compact:true,
+                              decimals:(it.t || ftype) === 'percent' ? 1 : undefined});
+      const maxAbs = Math.max(...items.map(i => Math.abs(i.v)), 0.0001);
+
+      if(w.opts.display === 'bars'){
+        const hz = !!w.opts.horizontal;
+        const axFont = {colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'};
+        const numFmt = v => (ftype === 'percent' ? Math.round(v) + '%'
+                          : ftype === 'currency' ? compactNum(num(v))
+                          : ftype === 'ratio' ? num(v).toFixed(2)
+                          : Math.round(num(v)).toLocaleString('en-US'));
+        const catAxis = {trim:true, maxHeight:76, style:axFont,
+                         rotate:(!hz && items.length > 4) ? -35 : 0, rotateAlways:(!hz && items.length > 4)};
+        if(hz){ catAxis.maxWidth = Math.max(90, Math.round(w.w * 0.34)); catAxis.align = 'right'; }
+        let hostEl = null;
+        if(hz){ body.innerHTML = '<div style="width:100%;height:100%;direction:ltr"></div>'; hostEl = body.firstChild; }
+        mkChart(body, w, {
+          chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
+          series:[{name:tr('ranking'), data:items.map(i => i.v)}],
+          colors:items.map((i, idx) => idx === 0 && w.opts.highlightTop
+            ? (theme().palette[1] || '#d4a373') : (i.v < 0 ? '#d9463f' : theme().palette[0])),
+          plotOptions:{bar:{horizontal:hz, distributed:true, borderRadius:5, columnWidth:'58%', barHeight:'62%'}},
+          dataLabels:dlOpts(w, '#ffffff', (v, o) => {
+            const i = o && o.dataPointIndex;
+            return (i !== undefined && items[i]) ? fmtOne(items[i]) : v;
+          }),
+          xaxis:{categories:items.map(i => i.n), labels:hz ? {formatter:numFmt, style:axFont} : catAxis},
+          yaxis:{labels:hz ? catAxis : {formatter:numFmt, style:axFont}},
+          grid:{borderColor:'rgba(125,125,125,.18)'},
+          legend:{show:false},
+          tooltip:{y:{formatter:v => numFmt(v)}}
+        }, {host:hostEl});
+        return;
+      }
+
+      // جدول ترتيب
+      const rows = items.map((it, i) => {
+        const pos = (w.opts.order === 'asc') ? i + 1 : i + 1;
+        const medal = (w.opts.showRank && w.opts.highlightTop && i === 0) ? 'rk-first' : '';
+        const barW = Math.round(Math.abs(it.v) / maxAbs * 100);
+        const barC = it.v < 0 ? '#d9463f' : (i === 0 && w.opts.highlightTop
+                      ? (theme().palette[1] || '#d4a373') : theme().palette[0]);
+        return `<tr class="${medal}">
+          ${w.opts.showRank ? `<td class="rk-num"><span>${pos}</span></td>` : ''}
+          <td class="rk-name">${String(it.n).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}
+            ${w.opts.showBar ? `<div class="rk-bar"><i style="width:${barW}%;background:${barC}"></i></div>` : ''}
+          </td>
+          <td class="rk-val">${fmtOne(it)}</td></tr>`;
+      }).join('');
+      body.innerHTML = `<div class="rk-wrap"><table class="tbl rk-tbl">${rows}</table></div>`;
     }
   },
   projects_compare:{
@@ -1977,7 +2075,7 @@ function buildPropsTab(){
   bindProps(el, w);
 }
 
-const DL_TYPES = ['gauge','spi','progress_line','bars','radar_eval','projects_compare','scurve'];
+const DL_TYPES = ['gauge','spi','progress_line','bars','radar_eval','projects_compare','scurve','topn'];
 function dataLabelsHtml(w){
   if(!DL_TYPES.includes(w.type)) return '';
   if(w.type === 'radar_eval' && (w.opts.numMode || 'axis') !== 'chart') return '';
@@ -2228,6 +2326,50 @@ function optionsHtml(w){
       <div class="hint">يرسم تطور الإنجاز والصرف عبر كل تواريخ التحديث. في وضع «كل المشاريع» يعرض
       المنحنى المجمّع (الإنجاز متوسط مرجّح والصرف مجموع).</div>`;
   }
+  if(w.type === 'topn'){
+    const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
+    const sel = o.fields || [];
+    const fieldSel = `
+      <div class="row"><label>المقياس</label><div class="ctl"><select data-p="opts.field">
+        <optgroup label="مقاييس محسوبة">
+          ${Object.keys(METRICS).map(k => `<option value="${k}" ${o.field === k ? 'selected' : ''}>${METRICS[k].ar}</option>`).join('')}
+        </optgroup>
+        <optgroup label="حقول البيانات">
+          ${nums.map(f => `<option value="${f.key}" ${o.field === f.key ? 'selected' : ''}>${f.label}</option>`).join('')}
+        </optgroup>
+      </select></div></div>`;
+    const fieldsPicker = `
+      <div style="max-height:210px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
+        ${nums.map(f => `<label class="chk" style="margin-bottom:4px;font-weight:500;">
+            <input type="checkbox" data-cfld="${f.key}" ${sel.includes(f.key) ? 'checked' : ''}> ${f.label}</label>`).join('')}
+      </div>`;
+    return `
+      <div class="row"><label>ترتيب ماذا</label><div class="ctl"><select data-p="opts.source">
+        <option value="projects" ${o.source === 'projects' ? 'selected' : ''}>المشاريع (وضع كل المشاريع)</option>
+        <option value="timeline" ${o.source === 'timeline' ? 'selected' : ''}>تواريخ التحديثات</option>
+        <option value="fields"   ${o.source === 'fields'   ? 'selected' : ''}>حقول مختارة</option>
+      </select></div></div>
+      ${o.source === 'fields' ? fieldsPicker : fieldSel}
+      <div class="row2">
+        <div class="mini"><span>الترتيب</span><select data-p="opts.order">
+          <option value="desc" ${o.order === 'desc' ? 'selected' : ''}>الأكبر أولاً</option>
+          <option value="asc"  ${o.order === 'asc'  ? 'selected' : ''}>الأصغر أولاً</option>
+        </select></div>
+        <div class="mini"><span>عدد العناصر (Top N)</span>
+          <input type="number" min="0" max="100" data-p="opts.limit" value="${o.limit}"></div>
+      </div>
+      <div class="row"><label>الشكل</label><div class="ctl"><select data-p="opts.display">
+        <option value="table" ${o.display === 'table' ? 'selected' : ''}>جدول ترتيب</option>
+        <option value="bars"  ${o.display === 'bars'  ? 'selected' : ''}>أعمدة</option>
+      </select></div></div>
+      ${o.display === 'bars'
+        ? `<label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal ? 'checked' : ''}> أعمدة أفقية</label>`
+        : `<label class="chk"><input type="checkbox" data-p="opts.showRank" ${o.showRank ? 'checked' : ''}> إظهار أرقام الترتيب</label>
+           <label class="chk"><input type="checkbox" data-p="opts.showBar" ${o.showBar ? 'checked' : ''}> شريط نسبي تحت كل اسم</label>`}
+      <label class="chk"><input type="checkbox" data-p="opts.highlightTop" ${o.highlightTop ? 'checked' : ''}> إبراز الأول</label>
+      <div class="hint">٠ في «عدد العناصر» = عرض الكل. القيم السالبة تظهر بالأحمر تلقائياً
+      (مفيد مع مقاييس مثل «التقدم خلال الفترة»).</div>`;
+  }
   if(w.type === 'projects_compare'){
     const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
     return `
@@ -2363,7 +2505,7 @@ function bindProps(el, w){
       setPath(w, inp.dataset.p, v);
       if(['x','y','w','h'].includes(inp.dataset.p)) w[inp.dataset.p] = Math.round(v);
       drawWidget(w); buildLayersList();
-      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode'].includes(inp.dataset.p)) buildPropsTab();
+      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display'].includes(inp.dataset.p)) buildPropsTab();
     }
 
     inp.addEventListener('focus', () => { pending = true; });
@@ -2402,9 +2544,10 @@ function bindProps(el, w){
   });
   el.querySelectorAll('[data-cfld]').forEach(c => c.addEventListener('change', () => {
     snapshot();
-    const set = new Set(w.opts.customFields || []);
+    const set = new Set((w.type === 'topn' ? w.opts.fields : w.opts.customFields) || []);
     c.checked ? set.add(c.dataset.cfld) : set.delete(c.dataset.cfld);
-    w.opts.customFields = FIELD_META.map(f => f.key).filter(k => set.has(k));
+    const target = (w.type === 'topn') ? 'fields' : 'customFields';
+    w.opts[target] = FIELD_META.map(f => f.key).filter(k => set.has(k));
     drawWidget(w);
   }));
   el.querySelectorAll('[data-fld]').forEach(c => c.addEventListener('change', () => {
