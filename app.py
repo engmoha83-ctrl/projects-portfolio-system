@@ -225,51 +225,6 @@ async def admin_dashboard(request: Request):
         rows.append(row_list)
     return templates.TemplateResponse(request, "admin_dashboard.html", {"original_columns": original_columns, "translated_columns": translated_columns, "rows": rows, "admin_user": admin_user, "active_page": "dashboard"})
 
-@app.get("/project-dashboard", response_class=HTMLResponse)
-async def project_dashboard_page(request: Request):
-    admin_user = request.cookies.get("super_admin_auth")
-    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT project_name FROM project_updates WHERE project_name IS NOT NULL ORDER BY project_name")
-    projects = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return templates.TemplateResponse(request, "project_dashboard.html", {"admin_user": admin_user, "projects": projects, "active_page": "project_dashboard"})
-
-@app.get("/api/project-dashboard-data")
-async def get_project_dashboard_data(project: str, request: Request):
-    if not request.cookies.get("super_admin_auth"): return {"success": False, "error": "غير مصرح"}
-    records = fetch_project_records(project)
-    return {"success": True, "records": records}
-
-@app.get("/my-dashboard", response_class=HTMLResponse)
-async def my_dashboard_page(request: Request):
-    auth_user = request.cookies.get("auth_user")
-    if not auth_user: return RedirectResponse(url="/login", status_code=303)
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT manager_name, project_name FROM users WHERE username=%s", (auth_user,))
-    user = cursor.fetchone()
-    conn.close()
-    if not user:
-        res = RedirectResponse(url="/login", status_code=303)
-        res.delete_cookie("auth_user")
-        return res
-    return templates.TemplateResponse(request, "my_dashboard.html", {"username": auth_user, "manager_name": user[0], "project_name": user[1]})
-
-@app.get("/api/my-dashboard-data")
-async def get_my_dashboard_data(request: Request):
-    auth_user = request.cookies.get("auth_user")
-    if not auth_user: return {"success": False, "error": "غير مصرح"}
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT project_name FROM users WHERE username=%s", (auth_user,))
-    user = cursor.fetchone()
-    conn.close()
-    if not user: return {"success": False, "error": "غير مصرح"}
-    records = fetch_project_records(user[0])
-    return {"success": True, "records": records, "project_name": user[0]}
-
 @app.post("/api/save-dashboard-layout")
 async def save_dashboard_layout(request: Request, background_tasks: BackgroundTasks):
     try:
@@ -442,17 +397,6 @@ async def admin_delete_user(request: Request, background_tasks: BackgroundTasks,
     conn.close()
     background_tasks.add_task(log_audit, admin_user, "حذف مستخدم", f"حذف حساب رقم {user_id}")
     return RedirectResponse(url="/admin-users?notice=تم حذف الحساب بنجاح", status_code=303)
-
-@app.get("/admin-audit-log", response_class=HTMLResponse)
-async def admin_audit_log_page(request: Request):
-    admin_user = request.cookies.get("super_admin_auth")
-    if admin_user != "admin_mohamed": return RedirectResponse(url="/admin-hub")
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cursor.execute("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 500")
-    logs = cursor.fetchall()
-    conn.close()
-    return templates.TemplateResponse(request, "admin_audit_log.html", {"logs": logs, "admin_user": admin_user, "active_page": "audit"})
 
 @app.get("/api/notifications")
 async def get_notifications():
