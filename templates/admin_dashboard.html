@@ -144,6 +144,7 @@
 
         function populateSelect(elementId, dataSet) {
             const select = document.getElementById(elementId);
+            const previous = select.value;                 // احتفظ باختيار المستخدم الحالي
             select.innerHTML = '<option value="">الكل</option>';
             const sortedArray = Array.from(dataSet).filter(val => val !== "").sort();
             sortedArray.forEach(val => {
@@ -152,6 +153,10 @@
                 option.text = val;
                 select.appendChild(option);
             });
+            // أعد الاختيار السابق إن كان ما زال موجوداً بعد التعديل
+            if (previous && Array.from(select.options).some(o => o.value === previous)) {
+                select.value = previous;
+            }
         }
 
         function applyFilters() {
@@ -265,7 +270,8 @@
                         cellElement.innerText = newValue;
                         cellElement.style.backgroundColor = '#d4edda';
                         setTimeout(() => cellElement.style.backgroundColor = '', 2000);
-                        initFilters(); 
+                        // إعادة بناء القوائم مع الحفاظ على الفلاتر المختارة
+                        initFilters();
                     } else {
                         alert("حدث خطأ أثناء الحفظ: " + data.error);
                     }
