@@ -412,7 +412,7 @@
                 series: [ { name: trn('kpi_actual'), data: [actPrev, actCur] }, { name: trn('kpi_planned'), data: [planPrev, planCur] } ],
                 xaxis: { categories: [trn('cat_prev_period'), trn('cat_cur_period')] },
                 yaxis: { max: 100, labels: { formatter: v => Number(v).toFixed(1) + '%' } },
-                colors: ['#1a2b4c', '#d4a373'], plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
+                colors: ['#3b82f6', '#f59e0b', '#10b981', '#6366f1'], plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
                 dataLabels: { enabled: true, formatter: v => Number(v).toFixed(1) + '%' }, legend: { position: 'top' }
             };
             if (progressClusterChart) progressClusterChart.destroy();
@@ -544,7 +544,7 @@
             }
             document.getElementById('dur-total').innerText = totalLabel; document.getElementById('dur-elapsed').innerText = elapsedLabel; document.getElementById('dur-remaining').innerText = remainingLabel;
 
-            const donutOptions = { chart: { type: 'donut', height: 220, fontFamily: 'Tajawal' }, series: [elapsedPct, remainingPct], labels: [trn('dur_elapsed'), trn('dur_remaining')], colors: ['#1a2b4c', '#d4a373'], legend: { position: 'bottom' }, dataLabels: { enabled: false }, tooltip: { y: { formatter: v => Math.round(v) + '%' } }, plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: trn('dur_elapsed'), formatter: () => elapsedPct + '%' } } } } } };
+            const donutOptions = { chart: { type: 'donut', height: 220, fontFamily: 'Tajawal' }, series: [elapsedPct, remainingPct], labels: [trn('dur_elapsed'), trn('dur_remaining')], colors: ['#3b82f6', '#f59e0b', '#10b981', '#6366f1'], legend: { position: 'bottom' }, dataLabels: { enabled: false }, tooltip: { y: { formatter: v => Math.round(v) + '%' } }, plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: trn('dur_elapsed'), formatter: () => elapsedPct + '%' } } } } } };
             if (durationDonutChart) durationDonutChart.destroy(); durationDonutChart = new ApexCharts(document.querySelector('#duration-donut-chart'), donutOptions); durationDonutChart.render();
         }
 
