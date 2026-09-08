@@ -266,4 +266,42 @@ html[dir="ltr"] select.form-control {
   body { background: #fff !important; }
   .section-card { box-shadow: none !important; border: 1px solid #ddd !important; }
 }
+/* تصميم SaaS عصري واحترافي */
+body {
+    background-color: #f8fafc; /* لون خلفية رمادي فاتح جداً مريح للعين */
+}
+.pmis-card, .section-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+}
+.section-title {
+    color: #0f172a;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+}
+.kpi-tile {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1.25rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+.kpi-tile::before {
+    content: ''; position: absolute; top: 0; right: 0; width: 4px; height: 100%;
+}
+.kpi-navy::before { background-color: #3b82f6; }
+.kpi-gold::before { background-color: #f59e0b; }
+.kpi-green::before { background-color: #10b981; }
+.kpi-info::before { background-color: #6366f1; }
+.kpi-label { color: #64748b; font-size: 0.85rem; font-weight: 500; }
+.kpi-value { color: #0f172a; font-size: 1.5rem; font-weight: 800; margin-top: 5px; display: block; }
 
