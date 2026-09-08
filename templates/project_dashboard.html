@@ -162,7 +162,7 @@
                 series: [ { name: 'الإنجاز الفعلي', data: actualSeries }, { name: 'الإنجاز المخطط', data: plannedSeries } ],
                 xaxis: { categories: dates, labels: { rotate: -35 } },
                 yaxis: { max: 100, labels: { formatter: v => Number(v).toFixed(1) + '%' } },
-                colors: ['#1a2b4c', '#d4a373'], stroke: { width: 3, curve: 'smooth' }, legend: { position: 'top' }, dataLabels: { enabled: false }
+                colors: ['#3b82f6', '#f59e0b', '#10b981', '#6366f1'], stroke: { width: 3, curve: 'smooth' }, legend: { position: 'top' }, dataLabels: { enabled: false }
             };
             if (progressChart) progressChart.destroy(); progressChart = new ApexCharts(document.querySelector('#progress-chart'), chartOptions); progressChart.render();
 
