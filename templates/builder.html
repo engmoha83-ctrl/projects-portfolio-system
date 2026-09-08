@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -47,6 +46,15 @@ button{font-family:inherit;}
 }
 .tb-select option{color:#111;}
 .tb-input::placeholder{color:rgba(255,255,255,.5);}
+.scope-chip{
+  font-size:.72rem; font-weight:700; padding:4px 9px; border-radius:20px; white-space:nowrap;
+  background:rgba(212,163,115,.18); color:var(--ui-gold); border:1px solid rgba(212,163,115,.45);
+}
+.scope-chip.custom{background:rgba(38,133,201,.20); color:#8ecbff; border-color:rgba(38,133,201,.5);}
+.lay-badge{
+  font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:20px; margin-inline-start:6px;
+  background:#f4ead9; color:#8a6134; border:1px solid #e5d3b6;
+}
 
 /* ============ التخطيط العام ============ */
 .workspace{display:flex; height:calc(100% - var(--topbar-h));}
@@ -228,6 +236,12 @@ input[type=range]{width:100%;}
     {% for p in projects %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
   </select>
   <input class="tb-input" id="layoutName" placeholder="اسم القالب" value="قالب جديد">
+  <select class="tb-select" id="scopeSel" title="نطاق القالب" style="max-width:190px;">
+    <option value="default">🌍 قالب عام لكل المشاريع</option>
+    <option value="project">📌 مخصص لهذا المشروع</option>
+  </select>
+  <span class="scope-chip" id="scopeChip">—</span>
+  <button class="tb-btn" id="btnUnlink" hidden title="حذف التخصيص والرجوع للقالب العام">إلغاء التخصيص</button>
   <div class="sep"></div>
   <button class="tb-btn" id="btnUndo" title="تراجع (Ctrl+Z)">↶</button>
   <button class="tb-btn" id="btnRedo" title="إعادة (Ctrl+Y)">↷</button>
@@ -313,7 +327,7 @@ const PAGE_PRESETS = {
 /* ---------------- الحالة ---------------- */
 const S = {
   project:'', records:[], latest:null, pm:null,
-  layoutId:null, layoutName:'قالب جديد',
+  layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
   page:{preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
         theme:'navy', grid:10, snap:true, showGrid:true, noOverlap:false},
   widgets:[], selected:null, zoom:1, seq:1,
@@ -1168,9 +1182,10 @@ function buildPageTab(){
 /* =====================================================================
    البيانات
    ===================================================================== */
-async function loadProject(name){
+async function loadProject(name, opts){
+  opts = opts || {};
   S.project = name;
-  if(!name){ S.records = []; S.latest = null; S.pm = null; renderAll(); return; }
+  if(!name){ S.records = []; S.latest = null; S.pm = null; renderAll(); updateScopeUI(); return; }
   try{
     const r = await fetch('/api/builder/data?project=' + encodeURIComponent(name));
     const j = await r.json();
@@ -1178,18 +1193,56 @@ async function loadProject(name){
     S.records = j.records || [];
     S.latest = S.records.length ? S.records[S.records.length - 1] : null;
     S.pm = j.pm || null;
-    renderAll();
+    if(opts.resolve !== false) await resolveLayout(name);
+    renderAll(); updateScopeUI();
     toast(`تم تحميل ${S.records.length} تحديث للمشروع`);
   }catch(e){ toast('خطأ في الاتصال: ' + e.message, true); }
+}
+
+/* يجيب القالب المطبَّق على المشروع: المخصص له إن وُجد، وإلا القالب العام */
+async function resolveLayout(name){
+  try{
+    const j = await (await fetch('/api/builder/resolve?project=' + encodeURIComponent(name || ''))).json();
+    if(!j.success) return;
+    S.source = j.source;
+    if(j.source === 'none'){
+      S.layoutId = null; S.scope = 'default';
+      return;
+    }
+    const L = j.layout, d = L.data || {};
+    S.layoutId = L.id; S.layoutName = L.name;
+    S.scope = (j.source === 'project') ? 'project' : 'default';
+    $('#layoutName').value = L.name;
+    S.page = Object.assign(S.page, d.page || {});
+    S.widgets = d.widgets || [];
+    S.seq = d.seq || (S.widgets.length + 1);
+    S.selected = null; S.undo.length = 0; S.redo.length = 0; S.dirty = false;
+    buildPageTab(); buildPropsTab();
+  }catch(e){ /* تجاهل: الصفحة تفضل بالتصميم الحالي */ }
+}
+
+function updateScopeUI(){
+  const sel = $('#scopeSel'), chip = $('#scopeChip'), unlink = $('#btnUnlink');
+  sel.value = S.scope;
+  const custom = (S.scope === 'project');
+  chip.classList.toggle('custom', custom);
+  if(!S.project && custom) chip.textContent = 'اختر مشروعاً أولاً';
+  else if(custom)          chip.textContent = 'مخصص لهذا المشروع';
+  else                     chip.textContent = 'يظهر لكل المشاريع';
+  unlink.hidden = !(S.source === 'project' && S.layoutId);
+  $('#btnSave').textContent = custom ? '💾 حفظ للمشروع' : '💾 حفظ القالب العام';
 }
 
 /* =====================================================================
    الحفظ والتحميل
    ===================================================================== */
 async function saveLayout(){
+  if(S.scope === 'project' && !S.project){
+    toast('اختر مشروعاً أولاً لحفظ قالب مخصص له', true); return;
+  }
   const body = {
     id:S.layoutId, name:$('#layoutName').value.trim() || 'قالب بدون اسم',
-    project_name:S.project || null,
+    scope:S.scope, project_name:S.project || null,
     data:{version:1, page:S.page, widgets:S.widgets, seq:S.seq}
   };
   try{
@@ -1199,7 +1252,11 @@ async function saveLayout(){
     const j = await r.json();
     if(!j.success){ toast(j.error || 'فشل الحفظ', true); return; }
     S.layoutId = j.id; S.dirty = false;
-    toast('تم حفظ القالب بنجاح ✓');
+    S.source = (j.scope === 'default') ? 'default' : 'project';
+    updateScopeUI();
+    toast(S.scope === 'default'
+      ? 'تم حفظ القالب العام — سينطبق على كل المشاريع التي ليس لها قالب مخصص ✓'
+      : 'تم حفظ القالب المخصص لمشروع ' + S.project + ' ✓');
   }catch(e){ toast('خطأ في الحفظ: ' + e.message, true); }
 }
 async function openLayouts(){
@@ -1211,8 +1268,8 @@ async function openLayouts(){
     box.innerHTML = j.layouts.map(l => `
       <div class="lay-item">
         <div class="li-main">
-          <div class="li-name">${l.name}</div>
-          <div class="li-sub">${l.project_name || 'قالب عام'} · آخر تعديل ${(l.updated_at||'').slice(0,16)}</div>
+          <div class="li-name">${l.name}${l.is_default ? '<span class="lay-badge">🌍 عام</span>' : ''}</div>
+          <div class="li-sub">${l.is_default ? 'ينطبق على كل المشاريع' : ('مخصص لمشروع: ' + (l.project_name || '—'))} · آخر تعديل ${(l.updated_at||'').slice(0,16)}</div>
         </div>
         <button class="sbtn" style="flex:0 0 70px" data-load="${l.id}">فتح</button>
         <button class="sbtn danger" style="flex:0 0 60px" data-del="${l.id}">حذف</button>
@@ -1231,6 +1288,8 @@ async function loadLayout(id){
     if(!j.success){ toast(j.error || 'تعذر فتح القالب', true); return; }
     const L = j.layout, d = L.data || {};
     S.layoutId = L.id; S.layoutName = L.name;
+    S.scope = L.is_default ? 'default' : 'project';
+    S.source = S.scope;
     $('#layoutName').value = L.name;
     S.page = Object.assign(S.page, d.page || {});
     S.widgets = d.widgets || [];
@@ -1239,17 +1298,18 @@ async function loadLayout(id){
     $('#modalBack').classList.remove('open');
     if(L.project_name){
       $('#projectSel').value = L.project_name;
-      await loadProject(L.project_name);
+      await loadProject(L.project_name, {resolve:false});
     } else renderAll();
-    buildPageTab(); buildPropsTab(); zoomFit();
+    buildPageTab(); buildPropsTab(); updateScopeUI(); zoomFit();
     toast('تم فتح القالب: ' + L.name);
   }catch(e){ toast('خطأ: ' + e.message, true); }
 }
 function newLayout(){
   if(S.widgets.length && !confirm('سيتم بدء قالب جديد فارغ. هل تريد المتابعة؟')) return;
-  S.layoutId = null; S.widgets = []; S.selected = null; S.undo.length = 0; S.redo.length = 0;
+  S.layoutId = null; S.source = 'none'; S.widgets = []; S.selected = null;
+  S.undo.length = 0; S.redo.length = 0; S.dirty = false;
   $('#layoutName').value = 'قالب جديد';
-  renderAll(); buildPropsTab(); toast('قالب جديد');
+  renderAll(); buildPropsTab(); updateScopeUI(); toast('قالب جديد');
 }
 
 /* =====================================================================
@@ -1262,7 +1322,41 @@ function switchTab(name){
 document.querySelectorAll('.side-tab').forEach(t =>
   t.addEventListener('click', () => switchTab(t.dataset.tab)));
 
-$('#projectSel').addEventListener('change', e => loadProject(e.target.value));
+$('#projectSel').addEventListener('change', async e => {
+  if(S.dirty && !confirm('لديك تعديلات غير محفوظة، سيتم استبدالها بقالب المشروع الجديد. المتابعة؟')){
+    e.target.value = S.project || ''; return;
+  }
+  await loadProject(e.target.value);
+});
+$('#scopeSel').addEventListener('change', e => {
+  const v = e.target.value;
+  if(v === 'project' && !S.project){
+    toast('اختر مشروعاً أولاً', true); e.target.value = S.scope; return;
+  }
+  if(v === 'project' && S.scope === 'default'){
+    if(!confirm('سيتم حفظ نسخة مستقلة خاصة بمشروع "' + S.project +
+                '" عند الضغط على حفظ.\nبعدها لن تتأثر بأي تعديل تعمله على القالب العام. المتابعة؟')){
+      e.target.value = 'default'; return;
+    }
+    S.layoutId = null;                 // نسخة جديدة مستقلة
+  }
+  if(v === 'default' && S.scope === 'project'){
+    if(!confirm('سيتم حفظ هذا التصميم كقالب عام لكل المشاريع عند الضغط على حفظ. المتابعة؟')){
+      e.target.value = 'project'; return;
+    }
+    S.layoutId = null;
+  }
+  S.scope = v; S.dirty = true; updateScopeUI();
+});
+$('#btnUnlink').addEventListener('click', async () => {
+  if(!S.layoutId || S.source !== 'project') return;
+  if(!confirm('سيتم حذف القالب المخصص لمشروع "' + S.project +
+              '" وسيعود المشروع لاستخدام القالب العام. المتابعة؟')) return;
+  await fetch('/api/builder/layouts/' + S.layoutId, {method:'DELETE'});
+  S.layoutId = null; S.source = 'none'; S.scope = 'default'; S.dirty = false;
+  await loadProject(S.project);
+  toast('تم إلغاء التخصيص — المشروع يستخدم القالب العام الآن');
+});
 $('#btnSave').addEventListener('click', saveLayout);
 $('#btnOpen').addEventListener('click', openLayouts);
 $('#btnNew').addEventListener('click', newLayout);
@@ -1312,7 +1406,8 @@ window.addEventListener('beforeunload', e => {
 });
 
 /* التشغيل */
-buildTemplatesTab(); buildPageTab(); buildPropsTab(); applyPageStyle(); zoomFit();
+buildTemplatesTab(); buildPageTab(); buildPropsTab(); applyPageStyle(); updateScopeUI(); zoomFit();
+resolveLayout('').then(() => { renderAll(); updateScopeUI(); zoomFit(); });  // افتح القالب العام مباشرة
 </script>
 </body>
 </html>
