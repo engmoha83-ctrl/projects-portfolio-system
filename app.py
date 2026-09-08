@@ -599,6 +599,24 @@ async def builder_save_layout(request: Request, background_tasks: BackgroundTask
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+@app.post("/api/builder/upload")
+async def builder_upload_image(request: Request, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """رفع لوجو أو صورة لاستخدامها داخل قوالب الداشبورد (تُرفع على Cloudinary)."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if admin_user != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        if not getattr(file, "filename", None):
+            return JSONResponse({"success": False, "error": "لم يتم اختيار ملف"}, status_code=400)
+        url = upload_to_cloudinary(file)
+        if not url:
+            return JSONResponse({"success": False, "error": "فشل رفع الصورة"}, status_code=500)
+        background_tasks.add_task(log_audit, admin_user, "رفع صورة داشبورد", file.filename)
+        return {"success": True, "url": url}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 @app.get("/api/builder/resolve")
 async def builder_resolve_layout(request: Request, project: str = None):
     """يرجّع القالب المطبَّق على مشروع معيّن: المخصص له إن وُجد، وإلا القالب العام."""
