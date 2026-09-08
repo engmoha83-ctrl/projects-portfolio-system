@@ -156,6 +156,8 @@ button{font-family:inherit;}
 .tbl td:first-child{color:inherit; opacity:.72; font-weight:700; white-space:nowrap; width:42%;}
 .tbl tr:last-child td{border-bottom:none;}
 .txt-visual{height:100%; overflow:auto; white-space:pre-wrap; word-break:break-word;}
+/* ترتيب صحيح للنص العربي داخل رسومات ApexCharts (خصوصاً الأعمدة الأفقية بحاوية LTR) */
+.bw svg text{ unicode-bidi:plaintext; }
 .gauge-wrap{height:100%; display:flex; flex-direction:column; min-height:0;}
 .gauge-chart{flex:1 1 auto; min-height:0; overflow:hidden;}
 .gauge-vals{
@@ -440,6 +442,9 @@ function fmtValue(v, type, o){
     return (o.compact ? compactNum(n)
       : n.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d})) + ' ر.س';
   }
+  if(type === 'days'){
+    return num(v).toLocaleString('en-US') + ' يوم';
+  }
   if(type === 'number'){
     const n = num(v);
     return o.compact ? compactNum(n) : n.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d});
@@ -508,7 +513,8 @@ const BAR_GROUPS = {
   ir:        {n:'طلبات الاستلام IR', fields:['ir_sub','ir_app','ir_rev'], type:'number'},
   ncr:       {n:'مخالفات NCR', fields:['ncr_open','ncr_closed'], type:'number'},
   invoices:  {n:'الفواتير', fields:['cons_inv_val','cont_inv_val'], type:'currency'},
-  contracts: {n:'قيم العقود', fields:['consultant_val','contractor_val'], type:'currency'}
+  contracts: {n:'قيم العقود', fields:['consultant_val','contractor_val'], type:'currency'},
+  custom:    {n:'مقارنة مخصصة (اختر الحقول)', type:'mixed', custom:true}
 };
 
 /* أزواج المقارنة للمؤشر الدائري */
@@ -531,13 +537,17 @@ const DL_DEFAULT = {show:true, size:11, weight:700, color:'', bg:false, bgColor:
 function dlOf(w){ return Object.assign({}, DL_DEFAULT, w.opts.dl || {}); }
 function dlOpts(w, fallbackColor, formatter){
   const d = dlOf(w);
+  const textC = d.color || fallbackColor || theme().text;
+  const bgC   = d.bgColor || '#1a2b4c';
+  /* ملاحظة ApexCharts: عند تفعيل الخلفية يصبح style.colors هو لون *المستطيل*
+     و background.foreColor هو لون *النص* — لذلك نعكسهما هنا عمداً. */
   const o = {
     enabled: d.show !== false,
     style:{fontSize:(d.size || 11) + 'px', fontWeight:d.weight || 700,
            fontFamily:w.style.font || FONTS[0].v,
-           colors:[d.color || fallbackColor || theme().text]},
-    background:{enabled: !!d.bg, foreColor: d.bgColor || '#1a2b4c',
-                borderRadius:4, padding:4, borderWidth:0, opacity:0.92, dropShadow:{enabled:false}}
+           colors:[d.bg ? bgC : textC]},
+    background:{enabled: !!d.bg, foreColor: textC, borderColor: bgC, borderWidth: 0,
+                borderRadius:4, padding:4, opacity:0.95, dropShadow:{enabled:false}}
   };
   if(formatter) o.formatter = formatter;
   return o;
@@ -718,31 +728,67 @@ const VISUALS = {
   },
   bars:{
     name:'أعمدة مقارنة', icon:'📊', w:430, h:280,
-    opts:{group:'progress', horizontal:false, dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
+    opts:{group:'progress', customFields:['act_prog_cur','plan_prog_cur'], horizontal:false, logScale:false,
+          dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
     title:'مقارنة',
     render(body, w){
       if(!S.latest) return empty(body);
       const g = BAR_GROUPS[w.opts.group] || BAR_GROUPS.progress;
-      let cats, data;
-      if(g.compute){ const r = g.compute(S.latest); cats = r.labels; data = r.data; }
-      else{
-        cats = g.fields.map(lbl);
-        data = g.fields.map(f => g.type === 'percent' ? pct(S.latest[f]) : num(S.latest[f]));
+      let cats, data, fmt, gtype = g.type;
+
+      if(g.custom){
+        const fs = (w.opts.customFields && w.opts.customFields.length)
+                 ? w.opts.customFields : ['act_prog_cur','plan_prog_cur'];
+        const types = fs.map(f => (FIELD_MAP[f] || {}).type || 'number');
+        cats = fs.map(lbl);
+        data = fs.map((f, i) => types[i] === 'percent' ? pct(S.latest[f]) : num(S.latest[f]));
+        const uniq = Array.from(new Set(types));
+        gtype = uniq.length === 1 ? uniq[0] : 'mixed';
+        fmt = (v, o) => {                       // كل عمود يُنسَّق حسب نوع حقله
+          const i = o && o.dataPointIndex;
+          const t = (i !== undefined && i !== null && types[i]) ? types[i] : 'number';
+          const raw = (i !== undefined && i !== null && data[i] !== undefined) ? data[i] : v;
+          return fmtValue(raw, t, {compact:true, decimals:t === 'percent' ? 1 : 0});
+        };
+      }else{
+        if(g.compute){ const r = g.compute(S.latest); cats = r.labels; data = r.data; }
+        else{
+          cats = g.fields.map(lbl);
+          data = g.fields.map(f => g.type === 'percent' ? pct(S.latest[f]) : num(S.latest[f]));
+        }
+        const base = fmtByType(g.type);
+        fmt = (v, o) => {                       // القيمة الأصلية دائماً (حتى مع المقياس اللوغاريتمي)
+          const i = o && o.dataPointIndex;
+          return base((i !== undefined && i !== null && data[i] !== undefined) ? data[i] : v);
+        };
       }
-      const fmt = fmtByType(g.type);
+      const hz = !!w.opts.horizontal;
+      const useLog = !!w.opts.logScale && !hz;        // المقياس اللوغاريتمي للأعمدة الرأسية فقط
+      const axFont = {colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'};
+      const numFmt = gtype === 'percent' ? (v => Math.round(v) + '%')
+                   : (gtype === 'currency' || gtype === 'mixed' ? (v => compactNum(num(v)))
+                                                                : (v => Math.round(num(v)).toLocaleString('en-US')));
+      const valAxis = {formatter:numFmt, style:axFont};
+      const catAxis = {rotate:(!hz && cats.length > 4) ? -35 : 0, rotateAlways:(!hz && cats.length > 4),
+                       trim:true, maxHeight:76, style:axFont};
+      if(hz){ catAxis.maxWidth = Math.max(80, Math.round(w.w * 0.32)); catAxis.align = 'right'; }
+
+      let hostEl = null;
+      if(hz){                                   // الأعمدة الأفقية تُرسم LTR حتى لا تتداخل التسميات مع الأعمدة
+        body.innerHTML = '<div style="width:100%;height:100%;direction:ltr"></div>';
+        hostEl = body.firstChild;
+      }
       mkChart(body, w, {
         chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
         series:[{name:g.n, data}], colors:theme().palette,
         plotOptions:{bar:{horizontal:w.opts.horizontal, distributed:true, borderRadius:5, columnWidth:'58%'}},
         dataLabels:dlOpts(w, '#ffffff', fmt),
-        xaxis:{categories:cats, labels:{style:{colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'}}},
-        yaxis:{labels:{formatter:g.type === 'percent' ? (v => Math.round(v) + '%')
-                       : (g.type === 'currency' ? (v => compactNum(num(v))) : (v => Math.round(num(v)).toLocaleString('en-US'))),
-                       style:{colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'}}},
+        xaxis:{categories:cats, labels:hz ? valAxis : catAxis},
+        yaxis:{logarithmic:useLog, forceNiceScale:!useLog, labels:hz ? catAxis : valAxis},
         grid:{borderColor:'rgba(125,125,125,.18)'},
         legend:{show:false},
         tooltip:{y:{formatter:v => fmt(v)}}
-      });
+      }, {host:hostEl});
     }
   },
   radar_eval:{
@@ -1442,7 +1488,7 @@ function dataLabelsHtml(w){
 function optionsHtml(w){
   const o = w.opts;
   if(w.type === 'kpi'){
-    const usable = FIELD_META.filter(f => ['number','percent','currency','date','text'].includes(f.type));
+    const usable = FIELD_META.filter(f => ['number','percent','currency','days','date','text'].includes(f.type));
     return `
       <div class="row"><label>الحقل</label><div class="ctl"><select data-p="opts.field">
         ${usable.map(f => `<option value="${f.key}" ${o.field===f.key?'selected':''}>${f.label}</option>`).join('')}
@@ -1459,7 +1505,7 @@ function optionsHtml(w){
   }
   if(w.type === 'gauge'){
     const P = GAUGE_PAIRS[o.pair] || GAUGE_PAIRS.progress;
-    const nums = FIELD_META.filter(f => ['number','percent','currency'].includes(f.type));
+    const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
     const customHtml = (o.pair === 'custom') ? `
       <div class="row"><label>الحقل الأول</label><div class="ctl"><select data-p="opts.fieldA">
         ${nums.map(f => `<option value="${f.key}" ${o.fieldA === f.key ? 'selected' : ''}>${f.label}</option>`).join('')}
@@ -1503,11 +1549,25 @@ function optionsHtml(w){
       <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>`;
   }
   if(w.type === 'bars'){
+    const sel = o.customFields || ['act_prog_cur','plan_prog_cur'];
+    const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
+    const picker = (o.group === 'custom') ? `
+      <div style="max-height:230px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
+        ${nums.map(f => `<label class="chk" style="margin-bottom:4px;font-weight:500;">
+            <input type="checkbox" data-cfld="${f.key}" ${sel.includes(f.key) ? 'checked' : ''}> ${f.label}</label>`).join('')}
+      </div>
+      <div class="hint">اختر عمودين أو أكثر (يُفضَّل حتى ٦ للوضوح). لو اخترت حقولاً بأنواع مختلفة
+      (نسبة مع مبلغ مثلاً) سيُنسَّق كل عمود حسب نوعه.</div>` : '';
     return `
       <div class="row"><label>المجموعة</label><div class="ctl"><select data-p="opts.group">
         ${Object.keys(BAR_GROUPS).map(k => `<option value="${k}" ${o.group===k?'selected':''}>${BAR_GROUPS[k].n}</option>`).join('')}
       </select></div></div>
-      <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>`;
+      ${picker}
+      <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>
+      <label class="chk"><input type="checkbox" data-p="opts.logScale" ${o.logScale?'checked':''}> مقياس لوغاريتمي</label>
+      <div class="hint">فعّل المقياس اللوغاريتمي لو قارنت أرقاماً متباعدة جداً (مبلغ بالملايين مع عدد صغير)
+      حتى لا تختفي الأعمدة الصغيرة — الأرقام المعروضة تبقى القيم الحقيقية.
+      وللعناوين الطويلة جرّب «أعمدة أفقية» (المقياس اللوغاريتمي لا يعمل معها).</div>`;
   }
   if(w.type === 'radar_eval'){
     return `<label class="chk"><input type="checkbox" data-p="opts.showValues" ${o.showValues?'checked':''}> إظهار قائمة القيم أسفل الرسم</label>
@@ -1624,7 +1684,7 @@ function bindProps(el, w){
       setPath(w, inp.dataset.p, v);
       if(['x','y','w','h'].includes(inp.dataset.p)) w[inp.dataset.p] = Math.round(v);
       drawWidget(w); buildLayersList();
-      if(['opts.pair','opts.src','opts.mode'].includes(inp.dataset.p)) buildPropsTab();
+      if(['opts.pair','opts.src','opts.mode','opts.group'].includes(inp.dataset.p)) buildPropsTab();
     }
 
     inp.addEventListener('focus', () => { pending = true; });
@@ -1661,6 +1721,13 @@ function bindProps(el, w){
       toast('تم رفع اللوجو ✓');
     }catch(e){ toast('خطأ في الرفع: ' + e.message, true); }
   });
+  el.querySelectorAll('[data-cfld]').forEach(c => c.addEventListener('change', () => {
+    snapshot();
+    const set = new Set(w.opts.customFields || []);
+    c.checked ? set.add(c.dataset.cfld) : set.delete(c.dataset.cfld);
+    w.opts.customFields = FIELD_META.map(f => f.key).filter(k => set.has(k));
+    drawWidget(w);
+  }));
   el.querySelectorAll('[data-fld]').forEach(c => c.addEventListener('change', () => {
     snapshot();
     const set = new Set(w.opts.fields || []);
