@@ -482,11 +482,38 @@ async def builder_page(request: Request):
     })
 
 
+ALL_PROJECTS = "__ALL__"
+
+
+def fetch_every_record():
+    """كل تحديثات كل المشاريع (لوضع الداشبورد المجمّع)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM project_updates ORDER BY project_name, current_data_date ASC")
+    cols = [desc[0] for desc in cursor.description]
+    records = []
+    for row in cursor.fetchall():
+        rec = dict(zip(cols, row))
+        for k, v in rec.items():
+            if isinstance(v, (date, datetime)):
+                rec[k] = str(v)
+            elif isinstance(v, Decimal):
+                rec[k] = float(v)
+        records.append(rec)
+    conn.close()
+    return records
+
+
 @app.get("/api/builder/data")
 async def builder_data(project: str, request: Request):
     if not request.cookies.get("super_admin_auth"):
         return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
     try:
+        if project == ALL_PROJECTS:
+            records = fetch_every_record()
+            names = sorted({r.get("project_name") for r in records if r.get("project_name")})
+            return {"success": True, "mode": "all", "records": records,
+                    "projects": names, "pm": None, "fields": build_field_meta()}
         records = fetch_all_project_records(project)
         pm = None
         if records:
@@ -498,7 +525,8 @@ async def builder_data(project: str, request: Request):
             conn.close()
             if row:
                 pm = {"manager_name": row[0], "phone": row[1], "email": row[2], "profile_image": row[3]}
-        return {"success": True, "records": records, "pm": pm, "fields": build_field_meta()}
+        return {"success": True, "mode": "single", "records": records, "pm": pm,
+                "fields": build_field_meta()}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
