@@ -73,6 +73,8 @@
         /* ===== نافذة اللصق من إكسيل ===== */
         .pm-back { position: fixed; inset: 0; background: rgba(15,26,46,.45); z-index: 1090;
                    display: flex; align-items: center; justify-content: center; padding: 2vh 2vw; }
+        /* لا نعتمد على Bootstrap في إخفاء النوافذ — لو تعذّر تحميله تظل مخفية */
+        .pm-back[hidden] { display: none !important; }
         .pm-box { background: #fff; border-radius: var(--radius-md); box-shadow: 0 24px 60px rgba(15,26,46,.35);
                   width: min(1080px, 96vw); max-height: 96vh; display: flex; flex-direction: column; overflow: hidden; }
         .pm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -150,6 +152,18 @@
         .snap-row button.rs { border-color: var(--navy-700); color: var(--navy-700); }
         .snap-row button.rs:hover { background: var(--navy-700); color: #fff; }
         .snap-row button.dl:hover { border-color: var(--danger); color: var(--danger); }
+
+        /* ===== مسح البيانات (للمشرف الرئيسي) ===== */
+        .btn-cf.danger { border-color: rgba(217,70,63,.45); color: var(--danger); }
+        .btn-cf.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+        .wipe-opt { display: block; border: 1px solid var(--border-soft); border-radius: 9px; padding: .6rem .75rem;
+                    margin-bottom: .5rem; cursor: pointer; font-size: .82rem; }
+        .wipe-opt:hover { border-color: var(--info); background: #f7f9fc; }
+        .wipe-opt input { margin-inline-end: .4rem; }
+        .wipe-opt .d { display: block; font-size: .74rem; color: var(--text-muted); margin-top: .2rem;
+                    margin-inline-start: 1.25rem; font-weight: 500; }
+        .wipe-danger { background: var(--danger-bg); border: 1px solid rgba(217,70,63,.35); color: #8a2b26;
+                    border-radius: var(--radius-sm); padding: .6rem .8rem; font-size: .78rem; font-weight: 700; }
         .flag { display: inline-block; font-size: .64rem; font-weight: 800; padding: 1px 6px; border-radius: 20px; margin-inline-start: 4px; }
         .f-drop { background: var(--danger); color: #fff; }
         .f-same { background: var(--warning); color: #22160a; }
@@ -199,6 +213,8 @@
             <div class="meta-grid">
                 <div><label>قيمة العقد الأصلية (خط الأساس)</label><input type="number" id="mCv" step="1000"></div>
                 <div><label>القيمة بعد أوامر التغيير (الفعلي)</label><input type="number" id="mRv" step="1000"></div>
+                <div><label title="التراكمي المخطط ÷ هذه القيمة = النسبة المخططة">أساس النسبة المخططة</label>
+                     <input type="number" id="mPb" step="1000"></div>
                 <div><label>أول شهر</label><input type="month" id="mStart"></div>
                 <div><label>آخر شهر</label><input type="month" id="mEnd"></div>
                 <div><label>حد تنبيه الانحراف (نقطة)</label><input type="number" id="mDev" value="10" min="1" max="50"></div>
@@ -233,6 +249,9 @@
             <label class="d-flex align-items-center gap-1" style="font-size:.78rem;font-weight:700;color:var(--text-body);cursor:pointer">
                 <input type="checkbox" id="showPeriod" checked> أعمدة الفترة
             </label>
+            {% if admin_user == 'admin_mohamed' %}
+            <button class="btn-cf danger" id="btnWipe" title="متاح للمشرف الرئيسي فقط">🗑️ مسح البيانات</button>
+            {% endif %}
         </div>
 
         <div class="tbl-scroll">
@@ -282,6 +301,45 @@
             <span class="flag f-dev">انحراف</span> فرق عن خط الأساس أكبر من الحد المحدد.
         </div>
     </div>
+
+    {% if admin_user == 'admin_mohamed' %}
+    <!-- ============ نافذة مسح البيانات (المشرف الرئيسي فقط) ============ -->
+    <div class="pm-back" id="wipeModal" hidden>
+      <div class="pm-box" style="width:min(640px,96vw)">
+        <div class="pm-head" style="background:#8a2b26">
+          <span>🗑️ مسح بيانات التدفق النقدي</span>
+          <button type="button" id="wClose" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="pm-body">
+          <div class="pm-msg mb-2">
+            تُؤخذ <b>نسخة كاملة</b> قبل المسح دائماً، فتقدر ترجّع كل شيء من «🗂️ النسخ المحفوظة».
+            هذه العملية متاحة لك وحدك ولا تظهر للمساعدين.
+          </div>
+
+          <label class="wipe-opt"><input type="radio" name="wScope" value="actual" checked> مسح البيانات الفعلية فقط
+            <span class="d">تُفرَّغ النسب والمبالغ الفعلية (شهرية وأسبوعية) ويبقى خط الأساس والإعدادات كما هي.</span></label>
+          <label class="wipe-opt"><input type="radio" name="wScope" value="plan"> مسح خط الأساس المخطط فقط
+            <span class="d">يُفرَّغ المخطط الشهري والنسب المخططة ويبقى الفعلي والإعدادات كما هي.</span></label>
+          <label class="wipe-opt"><input type="radio" name="wScope" value="all"> مسح كل شيء لهذا المشروع
+            <span class="d">تُحذف كل الصفوف والأسابيع والإعدادات، ويعود المشروع كأنه لم يُفتح من قبل.</span></label>
+
+          <label class="d-flex align-items-center gap-2 mt-3" style="font-size:.82rem;font-weight:700;cursor:pointer">
+            <input type="checkbox" id="wAll"> تطبيق المسح على <b>كل المشاريع</b> وليس هذا المشروع فقط
+          </label>
+
+          <div class="wipe-danger mt-2" id="wConfirmBox" hidden>
+            ⚠️ سيشمل المسح كل المشاريع. اكتب كلمة <b>مسح</b> في الخانة للتأكيد:
+            <input type="text" id="wConfirm" class="form-control form-control-sm mt-2" style="max-width:180px" placeholder="مسح">
+          </div>
+        </div>
+        <div class="pm-foot">
+          <button class="btn-cf danger" id="wApply">🗑️ تنفيذ المسح</button>
+          <button class="btn-cf" id="wCancel">إلغاء</button>
+          <span class="pm-msg" id="wMsg" style="margin-inline-start:auto"></span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- ============ نافذة النسخ المحفوظة ============ -->
     <div class="pm-back" id="snapModal" hidden>
@@ -416,10 +474,11 @@
 
               <div class="gen-grid mt-2">
                 <div style="grid-column:1/-1">
-                  <label style="font-size:.78rem;font-weight:600;display:flex;align-items:center;gap:.35rem">
-                    <input type="checkbox" id="gSyncCv"> اجعل «قيمة العقد الأصلية» تساوي أساس التوزيع
-                    <span class="pm-msg">(حتى تنتهي النسبة المخططة عند 100% بالضبط)</span>
-                  </label>
+                  <label class="fld">النسبة المخططة تُحسب على</label>
+                  <select id="gPctBase">
+                    <option value="total">أساس التوزيع — المنحنى ينتهي عند 100% (قيمة العقد الأصلية لا تتغيّر)</option>
+                    <option value="cv">قيمة العقد الأصلية — المنحنى قد يتجاوز 100% أو يقلّ عنه</option>
+                  </select>
                 </div>
               </div>
 
@@ -516,6 +575,7 @@ async function loadProject(p){
         $('#mStart').value = j.meta.start_month;
         $('#mEnd').value = j.meta.end_month;
         $('#mSrc').value = j.meta.baseline_source || 'manual';
+        $('#mPb').value = j.meta.plan_base || j.meta.contract_value || 0;
         $('#metaBox').hidden = $('#tablePanel').hidden = $('#chartPanel').hidden = false;
         srcBadge();
         render();
@@ -592,6 +652,8 @@ function parseGrid(text){
 
 /* ============ التقسيم الأسبوعي ============ */
 const has = v => v !== null && v !== undefined && v !== '';
+/** أساس النسبة المخططة: التراكمي المخطط ÷ هذه القيمة. فارغ = قيمة العقد الأصلية */
+const planBase = () => num($('#mPb').value) || num($('#mCv').value) || 0;
 
 function normRow(r){
     r.weeks = Array.isArray(r.weeks) ? r.weeks.slice(0, WK) : [];
@@ -674,7 +736,7 @@ async function unsplitMonth(i){
 
 /* ============ الحساب ============ */
 function computed(){
-    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    const cv = planBase(), rv = num($('#mRv').value) || num($('#mCv').value) || cv;
     let cumPlan = 0, prevAct = null, prevActPct = null;
     return ST.rows.map(r => {
         const startCum = cumPlan;
@@ -720,7 +782,7 @@ function render(){
     if(BULK.on) return;
     const rows = computed();
     const devLimit = num($('#mDev').value) || 10;
-    const cv = num($('#mCv').value) || 0;
+    const cv = planBase();
     let prevPct = null;
 
     const esc = s => String(s || '').replace(/"/g, '&quot;');
@@ -789,7 +851,7 @@ function render(){
 }
 
 function renderKpis(rows){
-    const cv = num($('#mCv').value) || 0;
+    const cv = planBase();
     const planSum = rows.reduce((a, r) => a + (r.plan_amount || 0), 0);
     const diff = planSum - cv;
     const withAct = rows.filter(r => r.act_pct !== null && r.act_pct !== undefined);
@@ -885,7 +947,7 @@ function onEdit(inp){
     if(inp.dataset.w) return onEditWeek(inp);
     const i = +inp.dataset.i, f = inp.dataset.f, r = ST.rows[i];
     if(!BULK.on) pushUndo(`تعديل ${FLD_AR[f] || f} — ${r.ym}`);
-    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    const cv = planBase(), rv = num($('#mRv').value) || num($('#mCv').value) || cv;
     const payload = {project:ST.project, ym:r.ym, wk:0};
 
     if(f === 'note'){ r.note = inp.value; payload.note = r.note; }
@@ -996,7 +1058,7 @@ function shiftedCells(){
 /** تعديل خانة داخل أسبوع: تُحدَّث قيمة الأسبوع ثم تُجمَّع قيمة الشهر منه ومن إخوته */
 function onEditWeek(inp){
     const i = +inp.dataset.i, wi = +inp.dataset.w, f = inp.dataset.f, r = ST.rows[i];
-    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    const cv = planBase(), rv = num($('#mRv').value) || num($('#mCv').value) || cv;
     if(!BULK.on) pushUndo(`تعديل ${FLD_AR[f] || f} — ${r.ym} أسبوع ${wi}`);
     if(!r.weeks[wi - 1]) r.weeks[wi - 1] = emptyWeek(r.ym, wi);
     const w = r.weeks[wi - 1];
@@ -1080,7 +1142,13 @@ function saveCells(cells, okMsg){
 
 /* ============ الأزرار ============ */
 $('#projSel').addEventListener('change', e => loadProject(e.target.value));
-['mCv','mRv','mDev'].forEach(id => $('#' + id).addEventListener('change', render));
+['mCv','mRv','mDev','mPb'].forEach(id => $('#' + id).addEventListener('change', render));
+// تغيير قيمة العقد يحرّك أساس النسبة معه ما دام لم يُخصَّص بقيمة مختلفة
+$('#mCv').addEventListener('change', () => {
+    const oldCv = ST.meta ? ST.meta.contract_value : null;
+    const pb = num($('#mPb').value);
+    if(!pb || (oldCv !== null && Math.abs(pb - oldCv) < 0.5)){ $('#mPb').value = $('#mCv').value; render(); }
+});
 
 async function saveMeta(keepRows){
     if(!ST.project) return;
@@ -1089,7 +1157,7 @@ async function saveMeta(keepRows){
         const j = await (await fetch('/api/cashflow/meta', {method:'POST', headers:{'Content-Type':'application/json'},
             body:JSON.stringify({project:ST.project, contract_value:num($('#mCv').value),
                 revised_value:num($('#mRv').value), start_month:$('#mStart').value, end_month:$('#mEnd').value,
-                baseline_source:$('#mSrc').value})})).json();
+                baseline_source:$('#mSrc').value, plan_base:num($('#mPb').value)})})).json();
         if(!j.success){ setState(j.error || 'فشل', 'err'); return; }
         ST.meta = j.meta;
         if(!keepRows){ ST.rows = j.rows.map(normRow); render(); setState('تم حفظ الإعدادات ✓', 'ok'); }
@@ -1193,7 +1261,7 @@ const UNDO_MAX = 30;
 /** يحفظ صورة من الحالة قبل أي تعديل — للتراجع الفوري داخل الجلسة */
 function pushUndo(label){
     UNDO.push({label, json: JSON.stringify(ST.rows),
-               cv: $('#mCv').value, rv: $('#mRv').value, src: $('#mSrc').value});
+               cv: $('#mCv').value, rv: $('#mRv').value, src: $('#mSrc').value, pb: $('#mPb').value});
     if(UNDO.length > UNDO_MAX) UNDO.shift();
     $('#btnUndo').disabled = false;
     $('#btnUndo').title = 'تراجع عن: ' + label + ' (Ctrl+Z)';
@@ -1211,11 +1279,12 @@ async function doUndo(){
     if(!s){ setState('لا يوجد ما يمكن التراجع عنه', 'err'); return; }
     ST.rows = JSON.parse(s.json).map(normRow);
     $('#mCv').value = s.cv; $('#mRv').value = s.rv; $('#mSrc').value = s.src;
+    if(s.pb !== undefined) $('#mPb').value = s.pb;
     ST.expanded = new Set(ST.rows.map((r, i) => r.has_weeks ? i : -1).filter(i => i >= 0 && ST.expanded.has(i)));
     srcBadge(); render();
     $('#btnUndo').disabled = !UNDO.length;
 
-    const cv = num($('#mCv').value) || 0;
+    const cv = planBase();
     const cells = []; let cum = 0;
     ST.rows.forEach(m => {
         cum += (m.plan_amount || 0);
@@ -1291,6 +1360,7 @@ async function restoreSnap(id, name){
         $('#mRv').value = j.meta.revised_value || 0;
         $('#mStart').value = j.meta.start_month; $('#mEnd').value = j.meta.end_month;
         $('#mSrc').value = j.meta.baseline_source || 'manual';
+        $('#mPb').value = j.meta.plan_base || j.meta.contract_value || 0;
         srcBadge(); render();
         $('#snapModal').hidden = true;
         setState(`تم استرجاع النسخة «${name}» ✓`, 'ok');
@@ -1309,6 +1379,59 @@ $('#snSave').addEventListener('click', async () => {
     $('#snMsg').textContent = 'تم حفظ النسخة ✓';
     loadSnaps();
 });
+
+/* مسح البيانات — للمشرف الرئيسي فقط (الزر نفسه غير موجود في الصفحة لغيره) */
+if($('#btnWipe')){
+    const wScope = () => (document.querySelector('input[name=wScope]:checked') || {}).value || 'actual';
+    const syncWipe = () => {
+        $('#wConfirmBox').hidden = !$('#wAll').checked;
+        if(!$('#wAll').checked) $('#wConfirm').value = '';
+    };
+    $('#btnWipe').addEventListener('click', () => {
+        if(!ST.project){ setState('اختر مشروعاً أولاً', 'err'); return; }
+        $('#wMsg').textContent = ''; $('#wAll').checked = false;
+        document.querySelector('input[name=wScope][value=actual]').checked = true;
+        syncWipe();
+        $('#wipeModal').hidden = false;
+    });
+    $('#wAll').addEventListener('change', syncWipe);
+    $('#wClose').addEventListener('click', () => $('#wipeModal').hidden = true);
+    $('#wCancel').addEventListener('click', () => $('#wipeModal').hidden = true);
+    $('#wApply').addEventListener('click', async () => {
+        const scope = wScope(), all = $('#wAll').checked;
+        if(all && $('#wConfirm').value.trim() !== 'مسح'){
+            $('#wMsg').textContent = 'اكتب كلمة «مسح» للتأكيد'; return;
+        }
+        const what = {actual:'البيانات الفعلية', plan:'خط الأساس المخطط', all:'كل البيانات والإعدادات'}[scope];
+        if(!confirm(`سيتم مسح ${what} ${all ? 'من كل المشاريع' : 'لمشروع «' + ST.project + '»'}.\n`
+                  + 'ستُؤخذ نسخة قبل المسح ويمكنك الرجوع إليها. المتابعة؟')) return;
+        $('#wMsg').textContent = 'جاري المسح…';
+        try{
+            const j = await (await fetch('/api/cashflow/wipe', {method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({project:ST.project, scope, all_projects:all})})).json();
+            if(!j.success){ $('#wMsg').textContent = j.error || 'فشل'; return; }
+            $('#wipeModal').hidden = true;
+            UNDO.length = 0; $('#btnUndo').disabled = true;
+            if(all){
+                setState(`تم المسح من ${j.projects} مشروع — النسخ محفوظة ويمكن الرجوع إليها`, 'ok');
+                loadProject(ST.project);
+            }else{
+                ST.meta = j.meta; ST.rows = j.rows.map(normRow); ST.expanded = new Set();
+                $('#mCv').value = j.meta.contract_value || 0;
+                $('#mRv').value = j.meta.revised_value || 0;
+                $('#mStart').value = j.meta.start_month; $('#mEnd').value = j.meta.end_month;
+                $('#mSrc').value = j.meta.baseline_source || 'manual';
+                $('#mPb').value = j.meta.plan_base || j.meta.contract_value || 0;
+                srcBadge(); render();
+                setState(`تم مسح ${what} — النسخة محفوظة ويمكن الرجوع إليها من «النسخ المحفوظة»`, 'ok');
+            }
+        }catch(e){ $('#wMsg').textContent = 'خطأ: ' + e.message; }
+    });
+    document.addEventListener('keydown', e => {
+        if(e.key === 'Escape' && !$('#wipeModal').hidden) $('#wipeModal').hidden = true;
+    });
+}
 
 /* أعمدة الفترة */
 function applyPeriodCols(){
@@ -1555,13 +1678,14 @@ function refreshGen(){
     const plan = GS.plan = buildPlan();
     const total = num($('#gTotal').value) || 0;
     const cvNow = num($('#mCv').value) || 0;
+    const pctBase = ($('#gPctBase').value === 'total' && total > 0) ? total : cvNow;
 
     // معاينة
     let cum = 0;
     const rowsHtml = GS.months.map((ym, i) => {
         cum += plan[i];
         return `<tr><td>${ym}</td><td>${fmtN(plan[i])}</td><td>${fmtN(cum)}</td>
-                    <td>${cvNow ? (cum / cvNow * 100).toFixed(1) + '%' : '—'}</td></tr>`;
+                    <td>${pctBase ? (cum / pctBase * 100).toFixed(1) + '%' : '—'}</td></tr>`;
     }).join('');
     $('#gPrev').innerHTML = `<table class="pm-tbl"><thead><tr><th>الشهر</th><th>الشهري</th>
         <th>التراكمي</th><th>% مخططة</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
@@ -1595,9 +1719,10 @@ function refreshGen(){
     if(existing) warns.push(`سيتم استبدال خطة ${existing} شهر مُدخلة مسبقاً.`);
     const split = ST.rows.filter(r => GS.months.includes(r.ym) && r.has_weeks).length;
     if(split) warns.push(`${split} شهر مقسَّم أسبوعياً — سيبقى التقسيم وسيُوزَّع مبلغ كل شهر على أسابيعه بالتساوي.`);
-    if(cvNow && Math.abs(total - cvNow) > Math.max(1, cvNow * .001) && !$('#gSyncCv').checked)
-        warns.push(`أساس التوزيع (${fmtN(total)}) يخالف قيمة العقد الأصلية (${fmtN(cvNow)}) — النسبة المخططة ستنتهي عند `
-                 + `${(total / cvNow * 100).toFixed(1)}% بدل 100%. فعّل الخيار بالأسفل لتوحيدهما.`);
+    if(cvNow && Math.abs(total - cvNow) > Math.max(1, cvNow * .001) && $('#gPctBase').value === 'cv')
+        warns.push(`النسبة المخططة محسوبة على قيمة العقد الأصلية (${fmtN(cvNow)}) بينما التوزيع على ${fmtN(total)} — `
+                 + `المنحنى سينتهي عند ${(total / cvNow * 100).toFixed(1)}% بدل 100%. `
+                 + `اختر «أساس التوزيع» بالأسفل ليقف عند 100% دون تعديل قيمة العقد.`);
     if(mode === 'stages'){
         const sw = GS.stages.reduce((a, s) => a + (s.w || 0), 0);
         if(Math.abs(sw - 100) > .01) warns.push(`مجموع أوزان المراحل ${sw.toFixed(1)}% — سيُعاد توزيعها نسبياً لتصل 100%.`);
@@ -1651,7 +1776,7 @@ function openGen(){
     GS.stages = [];
     $('#gBase').value = 'cv';
     $('#gTotal').value = Math.round(num($('#mCv').value) || 0);
-    $('#gSyncCv').checked = false;
+    $('#gPctBase').value = 'total';
     $('#genModal').hidden = false;
     setTimeout(refreshGen, 60);
 }
@@ -1663,8 +1788,10 @@ async function applyGen(){
     pushUndo('توليد خط الأساس');
     await autoSnapshot('قبل توليد خط الأساس — ' + (CURVES.find(c => c.k === $('#gCurve').value) || {}).n);
     const total = num($('#gTotal').value) || 0;
-    if($('#gSyncCv').checked && total > 0) $('#mCv').value = Math.round(total);
-    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    // قيمة العقد الأصلية لا تُمَس أبداً — يتغيّر أساس النسبة المخططة وحده
+    $('#mPb').value = ($('#gPctBase').value === 'total' && total > 0)
+                      ? Math.round(total) : (num($('#mCv').value) || 0);
+    const cv = planBase(), rv = num($('#mRv').value) || num($('#mCv').value) || cv;
 
     const idx = new Map(ST.rows.map((r, i) => [r.ym, i]));
     GS.months.forEach((ym, k) => {
@@ -1708,12 +1835,12 @@ $('#gBase').addEventListener('change', () => {
     $('#gTotal').value = Math.round(($('#gBase').value === 'rv'
         ? (num($('#mRv').value) || num($('#mCv').value) || 0)
         : (num($('#mCv').value) || 0)));
-    $('#gSyncCv').checked = $('#gBase').value === 'rv';
+    // لا نفعّله تلقائياً: تغيير قيمة العقد الأصلية قرار يخصّ المستخدم وحده
     refreshGen();
 });
 ['gFrom','gTo'].forEach(id => $('#' + id).addEventListener('change', () => { syncRange(); refreshGen(); }));
-['gTotal','gCurve','gRound','gA','gK','gAdvOn','gAdvPct','gAdvMonth','gMobOn','gMobMonths','gMobPct','gSyncCv',
- 'gVoOn','gVoMonth','gVoMode','gVoCurve','gVoKeepOrig','gVoOrigEnd']
+['gTotal','gCurve','gRound','gA','gK','gAdvOn','gAdvPct','gAdvMonth','gMobOn','gMobMonths','gMobPct',
+ 'gVoOn','gVoMonth','gVoMode','gVoCurve','gVoKeepOrig','gVoOrigEnd','gPctBase']
     .forEach(id => { $('#' + id).addEventListener('input', refreshGen); $('#' + id).addEventListener('change', refreshGen); });
 $('#stgAdd').addEventListener('click', () => {
     GS.stages.push({name:'مرحلة جديدة', w:0, m:1}); renderStages(); refreshGen();
@@ -1887,7 +2014,7 @@ async function applyPaste(){
     if(!rows.length){ setState('لا توجد صفوف صالحة للّصق', 'err'); return; }
     pushUndo('لصق من إكسيل');
     await autoSnapshot(`قبل لصق ${rows.length} صف من إكسيل`);
-    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    const cv = planBase(), rv = num($('#mRv').value) || num($('#mCv').value) || cv;
     const addMissing = $('#pAdd').checked, over = $('#pOverwrite').checked;
 
     // 1) أضف الشهور الناقصة ثم رتِّب وابنِ الفهرس
