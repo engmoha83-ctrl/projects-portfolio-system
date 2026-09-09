@@ -130,6 +130,26 @@
                    font-size: .72rem; font-weight: 800; border: 1px solid transparent; }
         .src-badge.programme { background: var(--success-bg, #e2f2ea); color: var(--success); border-color: rgba(30,142,90,.3); }
         .src-badge.est { background: var(--warning-bg); color: var(--warning); border-color: rgba(217,148,37,.35); }
+
+        /* ===== أعمدة الفترة + النسخ المحفوظة ===== */
+        table.cf.hide-per .c-per { display: none; }
+        table.cf thead th.c-per { background: #2a3d63; }
+        table.cf thead th.g-act.c-per { background: #2a604c; }
+        table.cf tbody td.c-per { background: #fcfdff; }
+        table.cf tbody tr.wk-row td.c-per { background: #f2f6fc; }
+        .snap-list { border: 1px solid var(--border-soft); border-radius: 8px; overflow: hidden; }
+        .snap-row { display: flex; align-items: center; gap: .6rem; padding: .55rem .7rem;
+                    border-bottom: 1px solid #eef1f6; font-size: .8rem; }
+        .snap-row:last-child { border-bottom: none; }
+        .snap-row:hover { background: #f7f9fc; }
+        .snap-row .nm { font-weight: 700; color: var(--text-strong); }
+        .snap-row .mt { color: var(--text-muted); font-size: .72rem; }
+        .snap-row .sp { margin-inline-start: auto; display: flex; gap: .35rem; }
+        .snap-row button { border: 1px solid var(--border-soft); background: #fff; border-radius: 7px;
+                    padding: .2rem .6rem; font-size: .74rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .snap-row button.rs { border-color: var(--navy-700); color: var(--navy-700); }
+        .snap-row button.rs:hover { background: var(--navy-700); color: #fff; }
+        .snap-row button.dl:hover { border-color: var(--danger); color: var(--danger); }
         .flag { display: inline-block; font-size: .64rem; font-weight: 800; padding: 1px 6px; border-radius: 20px; margin-inline-start: 4px; }
         .f-drop { background: var(--danger); color: #fff; }
         .f-same { background: var(--warning); color: #22160a; }
@@ -201,6 +221,8 @@
     <div class="panel" id="tablePanel" hidden>
         <div class="toolbar">
             <h5 class="m-0">جدول الشهور</h5>
+            <button class="btn-cf" id="btnUndo" title="تراجع عن آخر تعديل (Ctrl+Z)" disabled>↶ تراجع</button>
+            <button class="btn-cf" id="btnSnaps">🗂️ النسخ المحفوظة</button>
             <button class="btn-cf" id="btnImport">استيراد النسب الفعلية من التحديثات الأسبوعية</button>
             <button class="btn-cf" id="btnAddMonth">+ إضافة شهر</button>
             <button class="btn-cf primary" id="btnGen">📈 توليد خط الأساس</button>
@@ -208,6 +230,9 @@
             <button class="btn-cf" id="btnSplitAll">🗓️ تقسيم كل الشهور أسبوعياً ÷4</button>
             <button class="btn-cf" id="btnCollapseAll">طيّ الأسابيع</button>
             <button class="btn-cf" id="btnExcel">⬇️ تصدير إكسيل</button>
+            <label class="d-flex align-items-center gap-1" style="font-size:.78rem;font-weight:700;color:var(--text-body);cursor:pointer">
+                <input type="checkbox" id="showPeriod" checked> أعمدة الفترة
+            </label>
         </div>
 
         <div class="tbl-scroll">
@@ -215,17 +240,19 @@
                 <thead>
                     <tr class="grp">
                         <th rowspan="2" style="min-width:118px">الشهر</th>
-                        <th class="g-plan" colspan="3">خط الأساس (المخطط)</th>
-                        <th class="g-act" colspan="3">الفعلي</th>
+                        <th class="g-plan" colspan="4">خط الأساس (المخطط)</th>
+                        <th class="g-act" colspan="4">الفعلي</th>
                         <th class="g-ana" colspan="3">التحليل</th>
                     </tr>
                     <tr class="cols">
-                        <th class="g-plan" style="min-width:120px">المخطط الشهري</th>
+                        <th class="g-plan c-per" style="min-width:120px">المخطط للفترة</th>
+                        <th class="g-plan c-per" style="min-width:96px">% للفترة</th>
                         <th class="g-plan" style="min-width:120px">التراكمي المخطط</th>
-                        <th class="g-plan" style="min-width:96px">% مخططة</th>
-                        <th class="g-act"  style="min-width:96px">% فعلية</th>
+                        <th class="g-plan" style="min-width:96px">% مخططة تراكمية</th>
+                        <th class="g-act c-per"  style="min-width:120px">الفعلي للفترة</th>
+                        <th class="g-act c-per"  style="min-width:96px">% للفترة</th>
+                        <th class="g-act"  style="min-width:96px">% فعلية تراكمية</th>
                         <th class="g-act"  style="min-width:120px">التراكمي الفعلي</th>
-                        <th class="g-act"  style="min-width:120px">الفعلي الشهري</th>
                         <th class="g-ana"  style="min-width:96px">الانحراف</th>
                         <th class="g-ana"  style="min-width:80px">SPI</th>
                         <th class="g-ana"  style="min-width:150px">ملاحظة</th>
@@ -238,6 +265,11 @@
         <div class="hint-box mt-3">
             <b>الإدخال تبادلي:</b> اكتب <b>المخطط الشهري</b> فتُحسب النسبة المخططة، أو اكتب <b>% مخططة</b> فيُحسب المبلغ.
             وكذلك في الفعلي: اكتب <b>% فعلية</b> فيُحسب التراكمي، أو اكتب <b>التراكمي الفعلي</b> فتُحسب النسبة.
+            <br><b>بالفترة أو بالتراكمي — كما تحب:</b> أعمدة <b>«للفترة»</b> تخص هذه الفترة وحدها (كمية أو قيمة الأعمال
+            المنفَّذة خلالها)، وأعمدة <b>«التراكمية»</b> تخص المشروع من بدايته. اكتب في أيهما فيُحسب الآخر فوراً؛
+            وتعديل قيمة <b>الفترة</b> يُزيح تراكمي الشهور التالية بنفس الفرق حتى تبقى فتراتها كما أدخلتها.
+            <br><b>الرجوع للخلف:</b> <b>↶ تراجع</b> (أو Ctrl+Z) يلغي آخر تعديل، و<b>🗂️ النسخ المحفوظة</b> ترجّعك لأي حالة سابقة —
+            تُؤخذ نسخة تلقائياً قبل كل عملية استبدال (توليد · لصق · تقسيم شامل).
             <br><b>التقسيم الأسبوعي:</b> اضغط <b>▸</b> بجوار الشهر ليتقسّم تلقائياً إلى 4 أسابيع (المبلغ المخطط ÷ 4، والنسبة الفعلية
             موزّعة بالتدرّج). بعدها المخطط الشهري = <b>مجموع</b> الأسابيع، والنسبة الفعلية للشهر = نسبة <b>آخر أسبوع</b> مُدخل
             (لأن النسب تراكمية لا تُجمَع)، وتظهر عليها علامة <span class="from-wk">من الأسابيع</span>.
@@ -249,6 +281,33 @@
             <span class="flag f-same">بدون تقدم</span> نفس نسبة الشهر السابق ·
             <span class="flag f-dev">انحراف</span> فرق عن خط الأساس أكبر من الحد المحدد.
         </div>
+    </div>
+
+    <!-- ============ نافذة النسخ المحفوظة ============ -->
+    <div class="pm-back" id="snapModal" hidden>
+      <div class="pm-box" style="width:min(760px,96vw)">
+        <div class="pm-head">
+          <span>🗂️ النسخ المحفوظة من التدفق النقدي</span>
+          <button type="button" id="snClose" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="pm-body">
+          <div class="pm-msg mb-2">
+            تُؤخذ نسخة تلقائياً قبل أي عملية تستبدل بيانات (توليد خط الأساس · لصق من إكسيل ·
+            تقسيم أسبوعي شامل · استرجاع نسخة)، وتقدر تحفظ نسخة يدوية في أي وقت.
+            الاسترجاع يأخذ نسخة من الحالة الحالية أولاً، فلا يضيع شيء أبداً.
+          </div>
+          <div class="d-flex gap-2 mb-3">
+            <input type="text" id="snName" class="form-control form-control-sm"
+                   placeholder="اسم النسخة (اختياري) — مثال: خط الأساس المعتمد" style="max-width:340px;font-size:.82rem">
+            <button class="btn-cf primary" id="snSave">💾 حفظ نسخة الآن</button>
+          </div>
+          <div class="snap-list" id="snList"></div>
+        </div>
+        <div class="pm-foot">
+          <button class="btn-cf" id="snCancel">إغلاق</button>
+          <span class="pm-msg" id="snMsg" style="margin-inline-start:auto"></span>
+        </div>
+      </div>
     </div>
 
     <!-- ============ نافذة توليد خط الأساس ============ -->
@@ -393,6 +452,12 @@
         <div class="toolbar">
             <button class="btn-cf" id="btnUnitPct">عرض بالنسبة %</button>
             <button class="btn-cf" id="btnUnitVal">عرض بالمبلغ</button>
+            <label class="d-flex align-items-center gap-1" style="font-size:.78rem;font-weight:700;color:var(--text-body);cursor:pointer">
+                <input type="checkbox" id="showBars" checked> أعمدة القيمة الشهرية (مخطط مقابل فعلي)
+            </label>
+            <label class="d-flex align-items-center gap-1" style="font-size:.78rem;font-weight:700;color:var(--text-body);cursor:pointer">
+                <input type="checkbox" id="showCurve" checked> منحنى التراكمي
+            </label>
         </div>
         <div id="sCurve" style="height:360px"></div>
     </div>
@@ -419,6 +484,7 @@ async function loadProject(p){
         const j = await (await fetch('/api/cashflow?project=' + encodeURIComponent(p))).json();
         if(!j.success){ setState(j.error || 'خطأ', 'err'); return; }
         ST.meta = j.meta; ST.rows = j.rows.map(normRow); ST.expanded = new Set();
+        UNDO.length = 0; $('#btnUndo').disabled = true;
         $('#mCv').value = j.meta.contract_value || 0;
         $('#mRv').value = j.meta.revised_value || 0;
         $('#mStart').value = j.meta.start_month;
@@ -562,6 +628,8 @@ function toggleMonth(i){
 async function unsplitMonth(i){
     const r = ST.rows[i];
     if(!confirm(`إلغاء التقسيم الأسبوعي لشهر ${r.ym}؟\nستُحذف قيم الأسابيع وتبقى قيمة الشهر الحالية كما هي.`)) return;
+    pushUndo('إلغاء تقسيم ' + r.ym);
+    await autoSnapshot('قبل إلغاء التقسيم الأسبوعي لشهر ' + r.ym);
     aggMonth(r);
     const keep = {project:ST.project, ym:r.ym, wk:0, plan_amount:r.plan_amount,
                   act_pct:r.act_pct, act_amount:r.act_amount};
@@ -581,7 +649,7 @@ async function unsplitMonth(i){
 /* ============ الحساب ============ */
 function computed(){
     const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
-    let cumPlan = 0, prevAct = null;
+    let cumPlan = 0, prevAct = null, prevActPct = null;
     return ST.rows.map(r => {
         const startCum = cumPlan;
         cumPlan += (r.plan_amount || 0);
@@ -591,10 +659,13 @@ function computed(){
         const actMon  = (actCum === null) ? null : actCum - (prevAct === null ? 0 : prevAct);
         const dev     = !has(actPct) ? null : actPct - planPct;
         const spi     = (!has(actPct) || planPct <= 0) ? null : actPct / planPct;
-        const o = {...r, cumPlan, planPct, actCum, actMon, dev, spi, prevAct};
+        // قيم «الفترة» = الفرق عن التراكمي السابق (النسبة والمبلغ لهذه الفترة وحدها)
+        const planPctPer = cv ? (r.plan_amount || 0) / cv * 100 : 0;
+        const actPctPer  = !has(actPct) ? null : actPct - (prevActPct === null ? 0 : prevActPct);
+        const o = {...r, cumPlan, planPct, planPctPer, actCum, actMon, actPctPer, dev, spi, prevAct};
 
         if(r.has_weeks){                       // نفس المعادلات لكن داخل الشهر أسبوعاً بأسبوع
-            let wCum = startCum, wPrev = prevAct;
+            let wCum = startCum, wPrev = prevAct, wPrevPct = prevActPct;
             o.wrows = r.weeks.map((w, k) => {
                 w = w || emptyWeek(r.ym, k + 1);
                 wCum += (w.plan_amount || 0);
@@ -603,13 +674,15 @@ function computed(){
                 const wActMon  = (wActCum === null) ? null : wActCum - (wPrev === null ? 0 : wPrev);
                 const wo = {...w, wk:k + 1, ym:r.ym, cumPlan:wCum, planPct:wPlanPct, actCum:wActCum,
                             actMon:wActMon,
+                            planPctPer: cv ? (w.plan_amount || 0) / cv * 100 : 0,
+                            actPctPer: !has(w.act_pct) ? null : w.act_pct - (wPrevPct === null ? 0 : wPrevPct),
                             dev: !has(w.act_pct) ? null : w.act_pct - wPlanPct,
                             spi: (!has(w.act_pct) || wPlanPct <= 0) ? null : w.act_pct / wPlanPct};
-                if(has(w.act_pct)) wPrev = wActCum;
+                if(has(w.act_pct)){ wPrev = wActCum; wPrevPct = w.act_pct; }
                 return wo;
             });
         }
-        if(has(actPct)) prevAct = actCum;
+        if(has(actPct)){ prevAct = actCum; prevActPct = actPct; }
         return o;
     });
 }
@@ -643,14 +716,17 @@ function render(){
         const tgl  = `<button type="button" class="wk-toggle${open ? ' on' : ''}" data-tg="${i}"
                         title="${open ? 'طيّ الأسابيع' : 'تقسيم الشهر إلى ' + WK + ' أسابيع'}">${open ? '▾' : '▸'}</button>`;
 
+        const wa = ''; // سمة إضافية للأسابيع (تُملأ في صفوف الأسابيع)
         html.push(`<tr class="${cls}">
           <td class="ym">${tgl}${r.ym}${mark}${flags}</td>
-          <td><input type="number" step="1000" data-f="plan_amount" data-i="${i}" value="${r.plan_amount ?? ''}"${lock}></td>
+          <td class="c-per"><input type="number" step="1000" data-f="plan_amount" data-i="${i}" value="${r.plan_amount ?? ''}"${lock}></td>
+          <td class="c-per"><input type="number" step="0.1" data-f="plan_pct_per" data-i="${i}" value="${cv && has(r.plan_amount) ? +r.planPctPer.toFixed(2) : ''}"${lock}></td>
           <td class="calc">${fmtN(r.cumPlan)}</td>
           <td><input type="number" step="0.1" data-f="plan_pct" data-i="${i}" value="${cv ? r.planPct.toFixed(2) : ''}"${lock}></td>
+          <td class="c-per"><input type="number" step="1000" data-f="act_amount_per" data-i="${i}" value="${r.actMon === null ? '' : Math.round(r.actMon)}"${lock}></td>
+          <td class="c-per"><input type="number" step="0.1" data-f="act_pct_per" data-i="${i}" value="${r.actPctPer === null ? '' : +r.actPctPer.toFixed(2)}"${lock}></td>
           <td><input type="number" step="0.1" data-f="act_pct" data-i="${i}" value="${r.act_pct ?? ''}"${lock}></td>
           <td><input type="number" step="1000" data-f="act_amount" data-i="${i}" value="${r.actCum === null ? '' : Math.round(r.actCum)}"${lock}></td>
-          <td class="calc">${r.actMon === null ? '—' : fmtN(r.actMon)}</td>
           <td class="calc ${dcls(r.dev)}">${dtxt(r.dev)}</td>
           <td class="calc">${r.spi === null ? '—' : r.spi.toFixed(2)}</td>
           <td class="note-cell"><input type="text" data-f="note" data-i="${i}" value="${esc(r.note)}"${lock}></td>
@@ -658,17 +734,20 @@ function render(){
 
         if(open && r.wrows) r.wrows.forEach((w, k) => {
             const lastW = k === WK - 1;
+            const d = `data-i="${i}" data-w="${w.wk}"`;
             html.push(`<tr class="wk-row${lastW ? ' wk-last' : ''}">
               <td class="ym">أسبوع ${w.wk}${lastW ? `<button type="button" class="wk-toggle" data-un="${i}" title="إلغاء التقسيم الأسبوعي">✕</button>` : ''}</td>
-              <td><input type="number" step="1000" data-f="plan_amount" data-i="${i}" data-w="${w.wk}" value="${w.plan_amount ?? ''}"></td>
+              <td class="c-per"><input type="number" step="1000" data-f="plan_amount" ${d} value="${w.plan_amount ?? ''}"></td>
+              <td class="c-per"><input type="number" step="0.1" data-f="plan_pct_per" ${d} value="${cv && has(w.plan_amount) ? +w.planPctPer.toFixed(2) : ''}"></td>
               <td class="calc">${fmtN(w.cumPlan)}</td>
-              <td><input type="number" step="0.1" data-f="plan_pct" data-i="${i}" data-w="${w.wk}" value="${cv ? w.planPct.toFixed(2) : ''}"></td>
-              <td><input type="number" step="0.1" data-f="act_pct" data-i="${i}" data-w="${w.wk}" value="${w.act_pct ?? ''}"></td>
-              <td><input type="number" step="1000" data-f="act_amount" data-i="${i}" data-w="${w.wk}" value="${w.actCum === null ? '' : Math.round(w.actCum)}"></td>
-              <td class="calc">${w.actMon === null ? '—' : fmtN(w.actMon)}</td>
+              <td><input type="number" step="0.1" data-f="plan_pct" ${d} value="${cv ? w.planPct.toFixed(2) : ''}"></td>
+              <td class="c-per"><input type="number" step="1000" data-f="act_amount_per" ${d} value="${w.actMon === null ? '' : Math.round(w.actMon)}"></td>
+              <td class="c-per"><input type="number" step="0.1" data-f="act_pct_per" ${d} value="${w.actPctPer === null ? '' : +w.actPctPer.toFixed(2)}"></td>
+              <td><input type="number" step="0.1" data-f="act_pct" ${d} value="${w.act_pct ?? ''}"></td>
+              <td><input type="number" step="1000" data-f="act_amount" ${d} value="${w.actCum === null ? '' : Math.round(w.actCum)}"></td>
               <td class="calc ${dcls(w.dev)}">${dtxt(w.dev)}</td>
               <td class="calc">${w.spi === null ? '—' : w.spi.toFixed(2)}</td>
-              <td class="note-cell"><input type="text" data-f="note" data-i="${i}" data-w="${w.wk}" value="${esc(w.note)}"></td>
+              <td class="note-cell"><input type="text" data-f="note" ${d} value="${esc(w.note)}"></td>
             </tr>`);
         });
     });
@@ -705,24 +784,51 @@ function renderKpis(rows){
 
 function renderChart(rows){
     if(typeof ApexCharts === 'undefined') return;
-    const pct = ST.unit === 'pct';
-    const series = [
-        {name: pct ? 'المخطط التراكمي %' : 'المخطط التراكمي',
-         data: rows.map(r => pct ? +r.planPct.toFixed(2) : Math.round(r.cumPlan))},
-        {name: pct ? 'الفعلي التراكمي %' : 'الفعلي التراكمي',
-         data: rows.map(r => r.act_pct === null || r.act_pct === undefined ? null
-                            : (pct ? +Number(r.act_pct).toFixed(2) : Math.round(r.actCum)))}
-    ];
+    const pct   = ST.unit === 'pct';
+    const bars  = $('#showBars').checked;
+    const curve = $('#showCurve').checked || !bars;      // لا نترك الرسم فارغاً
+    const series = [], colors = [], widths = [], dashes = [];
+
+    if(bars){                                            // القيمة الشهرية للفترة: مخطط مقابل فعلي
+        series.push({name: pct ? 'المخطط للفترة %' : 'المخطط للفترة', type:'column',
+                     data: rows.map(r => pct ? +(r.planPctPer || 0).toFixed(2) : Math.round(r.plan_amount || 0))});
+        series.push({name: pct ? 'الفعلي للفترة %' : 'الفعلي للفترة', type:'column',
+                     data: rows.map(r => r.actPctPer === null || r.actPctPer === undefined ? null
+                                        : (pct ? +r.actPctPer.toFixed(2) : Math.round(r.actMon || 0)))});
+        colors.push('#e8c9a0', '#7d97c4'); widths.push(0, 0); dashes.push(0, 0);
+    }
+    if(curve){
+        series.push({name: pct ? 'المخطط التراكمي %' : 'المخطط التراكمي', type:'line',
+                     data: rows.map(r => pct ? +r.planPct.toFixed(2) : Math.round(r.cumPlan))});
+        series.push({name: pct ? 'الفعلي التراكمي %' : 'الفعلي التراكمي', type:'line',
+                     data: rows.map(r => !has(r.act_pct) ? null
+                                        : (pct ? +Number(r.act_pct).toFixed(2) : Math.round(r.actCum)))});
+        colors.push('#d4a373', '#1a2b4c'); widths.push(3, 3); dashes.push(6, 0);
+    }
+
+    const fmtV = v => v === null || v === undefined ? '—'
+                    : (pct ? (+v).toFixed(1) + '%' : Number(v).toLocaleString('en-US'));
     const opt = {
-        chart:{type:'line', height:360, fontFamily:'Tajawal, sans-serif', toolbar:{show:false}, animations:{enabled:false}},
-        series, colors:['#d4a373', '#1a2b4c'],
-        stroke:{curve:'smooth', width:[3, 3], dashArray:[6, 0]},
-        markers:{size:3},
+        chart:{type: bars ? 'line' : 'line', height:380, fontFamily:'Tajawal, sans-serif',
+               toolbar:{show:false}, animations:{enabled:false}, stacked:false},
+        series, colors,
+        stroke:{curve:'smooth', width:widths, dashArray:dashes},
+        plotOptions:{bar:{columnWidth:'62%', borderRadius:2}},
+        markers:{size:0, hover:{size:5}},
+        dataLabels:{enabled:false},
         xaxis:{categories:rows.map(r => r.ym), labels:{rotate:-45, style:{fontSize:'10px'}}},
-        yaxis:{min:0, labels:{formatter:v => pct ? Math.round(v) + '%' : Number(v).toLocaleString('en-US')}},
-        legend:{position:'top'},
+        // محور مستقل للأعمدة حتى لا تسحقها قيم التراكمي الكبيرة
+        yaxis: (bars && curve)
+            ? [{seriesName: series[0].name, min:0, title:{text:'الفترة', style:{fontSize:'11px'}},
+                labels:{formatter:fmtV}},
+               {seriesName: series[0].name, show:false, min:0},
+               {seriesName: series[2].name, opposite:true, min:0,
+                title:{text:'التراكمي', style:{fontSize:'11px'}}, labels:{formatter:fmtV}},
+               {seriesName: series[2].name, show:false, opposite:true, min:0}]
+            : {min:0, labels:{formatter:fmtV}},
+        legend:{position:'top', fontSize:'11px'},
         grid:{borderColor:'#e3e7ef'},
-        tooltip:{shared:true, y:{formatter:v => v === null ? '—' : (pct ? v + '%' : Number(v).toLocaleString('en-US'))}}
+        tooltip:{shared:true, intersect:false, y:{formatter:fmtV}}
     };
     if(ST.chart){ ST.chart.destroy(); }
     ST.chart = new ApexCharts($('#sCurve'), opt);
@@ -745,9 +851,14 @@ function bindCells(){
     });
 }
 
+const FLD_AR = {plan_amount:'المخطط للفترة', plan_pct_per:'% مخططة للفترة', plan_pct:'% مخططة تراكمية',
+                act_pct:'% فعلية تراكمية', act_amount:'التراكمي الفعلي',
+                act_pct_per:'% فعلية للفترة', act_amount_per:'الفعلي للفترة', note:'ملاحظة'};
+
 function onEdit(inp){
     if(inp.dataset.w) return onEditWeek(inp);
     const i = +inp.dataset.i, f = inp.dataset.f, r = ST.rows[i];
+    if(!BULK.on) pushUndo(`تعديل ${FLD_AR[f] || f} — ${r.ym}`);
     const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
     const payload = {project:ST.project, ym:r.ym, wk:0};
 
@@ -767,6 +878,12 @@ function onEdit(inp){
             payload.plan_amount = r.plan_amount;
         }
     }
+    if(f === 'plan_pct_per'){
+        // نسبة الفترة المخططة → مبلغ هذه الفترة وحدها
+        const p = num(inp.value);
+        r.plan_amount = (p === null || cv <= 0) ? null : +(p / 100 * cv).toFixed(2);
+        payload.plan_amount = r.plan_amount;
+    }
     if(f === 'act_pct'){
         r.act_pct = num(inp.value);
         r.act_amount = (r.act_pct === null) ? null : r.act_pct / 100 * rv;
@@ -778,6 +895,19 @@ function onEdit(inp){
         r.act_pct = (amt === null || rv <= 0) ? null : amt / rv * 100;
         payload.act_pct = r.act_pct; payload.act_amount = r.act_amount;
     }
+    // إدخال بالفترة: القيمة تُضاف على تراكمي ما قبلها، والفرق يُزيح كل الشهور التالية
+    if(f === 'act_pct_per' || f === 'act_amount_per'){
+        const v = num(inp.value);
+        const prev = prevCumPct(i, 0);
+        let want = null;
+        if(v !== null) want = (f === 'act_pct_per') ? prev + v
+                                                    : (rv > 0 ? prev + v / rv * 100 : null);
+        const delta = (want === null || !has(r.act_pct)) ? null : +(want - r.act_pct).toFixed(6);
+        r.act_pct = want === null ? null : +want.toFixed(4);
+        r.act_amount = (r.act_pct === null) ? null : r.act_pct / 100 * rv;
+        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount;
+        if(delta) shiftAfter(i, 0, delta);
+    }
 
     // النسبة المخططة المحفوظة تُحدَّث دائماً مع أي تغيير في الخطة
     if(f === 'plan_amount' || f === 'plan_pct'){
@@ -786,14 +916,62 @@ function onEdit(inp){
         payload.plan_pct = cv > 0 ? cum / cv * 100 : null;
     }
 
+    dropNoopUndo();
     render();
-    saveCell(payload);
+    const extra = shiftedCells();
+    if(extra.length) saveCells([payload].concat(extra));
+    else saveCell(payload);
+}
+
+/** آخر نسبة فعلية تراكمية مسجّلة قبل هذا الصف (شهر wk=0 أو أسبوع wk=1..4) */
+function prevCumPct(i, wk){
+    if(wk > 0){
+        const r = ST.rows[i];
+        for(let k = wk - 2; k >= 0; k--)
+            if(r.weeks[k] && has(r.weeks[k].act_pct)) return r.weeks[k].act_pct;
+    }
+    for(let k = i - 1; k >= 0; k--){
+        const m = ST.rows[k];
+        if(m.has_weeks){
+            for(let w = WK - 1; w >= 0; w--)
+                if(m.weeks[w] && has(m.weeks[w].act_pct)) return m.weeks[w].act_pct;
+        }
+        if(has(m.act_pct)) return m.act_pct;
+    }
+    return 0;
+}
+
+/** يزيح كل النسب الفعلية التراكمية بعد هذا الصف بمقدار delta — حتى تبقى قيم الفترات التالية كما أدخلها المستخدم */
+function shiftAfter(i, wk, delta){
+    const bump = o => { if(o && has(o.act_pct)){
+        o.act_pct = +Math.max(0, o.act_pct + delta).toFixed(4);
+        o.act_amount = o.act_pct / 100 * (num($('#mRv').value) || num($('#mCv').value) || 0);
+        SHIFTED.push(o);
+    }};
+    const r0 = ST.rows[i];
+    if(wk > 0 && r0.has_weeks){ for(let w = wk; w < WK; w++) bump(r0.weeks[w]); aggMonth(r0); }
+    for(let k = i + 1; k < ST.rows.length; k++){
+        const m = ST.rows[k];
+        if(m.has_weeks){ m.weeks.forEach(bump); aggMonth(m); SHIFTED.push(m); }
+        else bump(m);
+    }
+}
+let SHIFTED = [];
+
+/** يحوّل الصفوف المُزاحة إلى خانات حفظ */
+function shiftedCells(){
+    const out = SHIFTED.filter(o => o && o.ym).map(o => ({ym:o.ym, wk:o.wk || 0,
+                                    act_pct:o.act_pct, act_amount:o.act_amount}));
+    SHIFTED = [];
+    const seen = new Set();
+    return out.filter(c => { const k = c.ym + '|' + c.wk; if(seen.has(k)) return false; seen.add(k); return true; });
 }
 
 /** تعديل خانة داخل أسبوع: تُحدَّث قيمة الأسبوع ثم تُجمَّع قيمة الشهر منه ومن إخوته */
 function onEditWeek(inp){
     const i = +inp.dataset.i, wi = +inp.dataset.w, f = inp.dataset.f, r = ST.rows[i];
     const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    if(!BULK.on) pushUndo(`تعديل ${FLD_AR[f] || f} — ${r.ym} أسبوع ${wi}`);
     if(!r.weeks[wi - 1]) r.weeks[wi - 1] = emptyWeek(r.ym, wi);
     const w = r.weeks[wi - 1];
     const cell = {ym:r.ym, wk:wi};
@@ -813,6 +991,11 @@ function onEditWeek(inp){
             cell.plan_amount = w.plan_amount;
         }
     }
+    if(f === 'plan_pct_per'){
+        const p = num(inp.value);
+        w.plan_amount = (p === null || cv <= 0) ? null : +(p / 100 * cv).toFixed(2);
+        cell.plan_amount = w.plan_amount;
+    }
     if(f === 'act_pct'){
         w.act_pct = num(inp.value);
         w.act_amount = (w.act_pct === null) ? null : w.act_pct / 100 * rv;
@@ -824,8 +1007,20 @@ function onEditWeek(inp){
         w.act_pct = (amt === null || rv <= 0) ? null : +(amt / rv * 100).toFixed(4);
         cell.act_pct = w.act_pct; cell.act_amount = w.act_amount;
     }
+    if(f === 'act_pct_per' || f === 'act_amount_per'){
+        const v = num(inp.value);
+        const prev = prevCumPct(i, wi);
+        let want = null;
+        if(v !== null) want = (f === 'act_pct_per') ? prev + v : (rv > 0 ? prev + v / rv * 100 : null);
+        const delta = (want === null || !has(w.act_pct)) ? null : +(want - w.act_pct).toFixed(6);
+        w.act_pct = want === null ? null : +want.toFixed(4);
+        w.act_amount = (w.act_pct === null) ? null : w.act_pct / 100 * rv;
+        cell.act_pct = w.act_pct; cell.act_amount = w.act_amount;
+        if(delta) shiftAfter(i, wi, delta);
+    }
 
     aggMonth(r);                                  // الشهر يتبع أسابيعه
+    dropNoopUndo();
     render();
 
     // نحفظ الأسبوع وقيمة الشهر المجمَّعة معاً حتى تراها الداشبورد وملف الإكسيل
@@ -833,7 +1028,7 @@ function onEditWeek(inp){
     for(let k = 0; k <= i; k++) cumM += (ST.rows[k].plan_amount || 0);
     saveCells([cell, {ym:r.ym, wk:0, plan_amount:r.plan_amount,
                       plan_pct: cv > 0 ? cumM / cv * 100 : null,
-                      act_pct:r.act_pct, act_amount:r.act_amount}]);
+                      act_pct:r.act_pct, act_amount:r.act_amount}].concat(shiftedCells()));
 }
 
 function saveCell(payload){
@@ -951,6 +1146,8 @@ $('#btnSplitAll').addEventListener('click', async () => {
     const todo = ST.rows.map((r, i) => i).filter(i => !ST.rows[i].has_weeks);
     if(!todo.length){ setState('كل الشهور مقسَّمة أسبوعياً بالفعل', 'ok'); return; }
     if(!confirm(`سيتم تقسيم ${todo.length} شهر إلى ${WK} أسابيع لكل شهر (المبلغ ÷ ${WK} والنسبة موزّعة بالتدرّج).\nيمكنك تعديل أي أسبوع بعدها. المتابعة؟`)) return;
+    pushUndo('تقسيم كل الشهور أسبوعياً');
+    await autoSnapshot('قبل التقسيم الأسبوعي الشامل');
     let cells = [];
     todo.forEach(i => { cells = cells.concat(splitMonth(i)); ST.expanded.add(i); });
     render();
@@ -962,6 +1159,139 @@ $('#btnCollapseAll').addEventListener('click', () => {
     else ST.rows.forEach((r, i) => { if(r.has_weeks) ST.expanded.add(i); });
     render();
 });
+
+/* ============ التراجع (Ctrl+Z) والنسخ المحفوظة ============ */
+const UNDO = [];
+const UNDO_MAX = 30;
+
+/** يحفظ صورة من الحالة قبل أي تعديل — للتراجع الفوري داخل الجلسة */
+function pushUndo(label){
+    UNDO.push({label, json: JSON.stringify(ST.rows),
+               cv: $('#mCv').value, rv: $('#mRv').value, src: $('#mSrc').value});
+    if(UNDO.length > UNDO_MAX) UNDO.shift();
+    $('#btnUndo').disabled = false;
+    $('#btnUndo').title = 'تراجع عن: ' + label + ' (Ctrl+Z)';
+}
+/** يلغي آخر نقطة تراجع إن لم يتغيّر شيء فعلياً — حتى لا يبتلع زر التراجع ضغطة بلا فائدة */
+function dropNoopUndo(){
+    if(UNDO.length && UNDO[UNDO.length - 1].json === JSON.stringify(ST.rows)){
+        UNDO.pop();
+        $('#btnUndo').disabled = !UNDO.length;
+        if(UNDO.length) $('#btnUndo').title = 'تراجع عن: ' + UNDO[UNDO.length - 1].label + ' (Ctrl+Z)';
+    }
+}
+async function doUndo(){
+    const s = UNDO.pop();
+    if(!s){ setState('لا يوجد ما يمكن التراجع عنه', 'err'); return; }
+    ST.rows = JSON.parse(s.json).map(normRow);
+    $('#mCv').value = s.cv; $('#mRv').value = s.rv; $('#mSrc').value = s.src;
+    ST.expanded = new Set(ST.rows.map((r, i) => r.has_weeks ? i : -1).filter(i => i >= 0 && ST.expanded.has(i)));
+    srcBadge(); render();
+    $('#btnUndo').disabled = !UNDO.length;
+
+    const cv = num($('#mCv').value) || 0;
+    const cells = []; let cum = 0;
+    ST.rows.forEach(m => {
+        cum += (m.plan_amount || 0);
+        cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount,
+                    plan_pct: cv > 0 ? +(cum / cv * 100).toFixed(4) : null,
+                    act_pct:m.act_pct, act_amount:m.act_amount, note:m.note || null});
+        if(m.has_weeks) m.weeks.forEach((w, k) => { if(w)
+            cells.push({ym:m.ym, wk:k + 1, plan_amount:w.plan_amount, act_pct:w.act_pct,
+                        act_amount:w.act_amount, note:w.note || null}); });
+    });
+    await saveCells(cells, `تم التراجع عن: ${s.label} ✓`);
+    saveMeta(true);
+}
+$('#btnUndo').addEventListener('click', doUndo);
+document.addEventListener('keydown', e => {
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'
+       && !/^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || '')
+       && $('#snapModal').hidden && $('#genModal').hidden && $('#pasteModal').hidden){
+        e.preventDefault(); doUndo();
+    }
+});
+
+/** نسخة على الخادم قبل أي عملية تستبدل بيانات */
+async function autoSnapshot(label){
+    if(!ST.project) return;
+    try{
+        await fetch('/api/cashflow/snapshot', {method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({project:ST.project, name:label})});
+    }catch(e){}
+}
+
+async function loadSnaps(){
+    const box = $('#snList');
+    box.innerHTML = '<div class="snap-row"><span class="mt">جاري التحميل…</span></div>';
+    try{
+        const j = await (await fetch('/api/cashflow/snapshots?project=' + encodeURIComponent(ST.project))).json();
+        if(!j.success){ box.innerHTML = `<div class="snap-row"><span class="mt">${j.error || 'خطأ'}</span></div>`; return; }
+        if(!j.snapshots.length){
+            box.innerHTML = '<div class="snap-row"><span class="mt">لا توجد نسخ محفوظة بعد — أول نسخة ستُؤخذ تلقائياً عند أول عملية استبدال.</span></div>';
+            return;
+        }
+        box.innerHTML = j.snapshots.map(s => `
+          <div class="snap-row">
+            <div>
+              <div class="nm">${String(s.name).replace(/</g,'&lt;')}</div>
+              <div class="mt">${s.at} · ${s.by || '—'} · ${s.rows} صف</div>
+            </div>
+            <div class="sp">
+              <button class="rs" data-rs="${s.id}">↩ استرجاع</button>
+              <button class="dl" data-dl="${s.id}" title="حذف">✕</button>
+            </div>
+          </div>`).join('');
+        box.querySelectorAll('button[data-rs]').forEach(b => b.addEventListener('click', () => restoreSnap(+b.dataset.rs, b.closest('.snap-row').querySelector('.nm').textContent)));
+        box.querySelectorAll('button[data-dl]').forEach(b => b.addEventListener('click', async () => {
+            if(!confirm('حذف هذه النسخة نهائياً؟')) return;
+            await fetch('/api/cashflow/snapshot/delete', {method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({project:ST.project, id:+b.dataset.dl})});
+            loadSnaps();
+        }));
+    }catch(e){ box.innerHTML = `<div class="snap-row"><span class="mt">خطأ: ${e.message}</span></div>`; }
+}
+
+async function restoreSnap(id, name){
+    if(!confirm(`استرجاع النسخة «${name}»؟\nسيتم أخذ نسخة من الحالة الحالية أولاً حتى تقدر ترجع لها.`)) return;
+    $('#snMsg').textContent = 'جاري الاسترجاع…';
+    try{
+        const j = await (await fetch('/api/cashflow/snapshot/restore', {method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({project:ST.project, id})})).json();
+        if(!j.success){ $('#snMsg').textContent = j.error || 'فشل'; return; }
+        ST.meta = j.meta; ST.rows = j.rows.map(normRow); ST.expanded = new Set();
+        $('#mCv').value = j.meta.contract_value || 0;
+        $('#mRv').value = j.meta.revised_value || 0;
+        $('#mStart').value = j.meta.start_month; $('#mEnd').value = j.meta.end_month;
+        $('#mSrc').value = j.meta.baseline_source || 'manual';
+        srcBadge(); render();
+        $('#snapModal').hidden = true;
+        setState(`تم استرجاع النسخة «${name}» ✓`, 'ok');
+    }catch(e){ $('#snMsg').textContent = 'خطأ: ' + e.message; }
+}
+
+$('#btnSnaps').addEventListener('click', () => { $('#snMsg').textContent = ''; $('#snapModal').hidden = false; loadSnaps(); });
+$('#snClose').addEventListener('click', () => $('#snapModal').hidden = true);
+$('#snCancel').addEventListener('click', () => $('#snapModal').hidden = true);
+$('#snSave').addEventListener('click', async () => {
+    $('#snMsg').textContent = 'جاري الحفظ…';
+    const nm = ($('#snName').value || '').trim() ||
+               ('نسخة يدوية — ' + new Date().toLocaleString('ar-EG', {dateStyle:'short', timeStyle:'short'}));
+    await autoSnapshot(nm);
+    $('#snName').value = '';
+    $('#snMsg').textContent = 'تم حفظ النسخة ✓';
+    loadSnaps();
+});
+
+/* أعمدة الفترة */
+function applyPeriodCols(){
+    document.querySelector('table.cf').classList.toggle('hide-per', !$('#showPeriod').checked);
+    try{ localStorage.setItem('cf_period', $('#showPeriod').checked ? '1' : '0'); }catch(e){}
+}
+$('#showPeriod').addEventListener('change', applyPeriodCols);
+try{ if(localStorage.getItem('cf_period') === '0') $('#showPeriod').checked = false; }catch(e){}
+applyPeriodCols();
 
 /* ============ مولّد خط الأساس التقديري ============ */
 /* كل الأشكال تخرج من دالة واحدة: نسبة الإنجاز التراكمية عند الزمن t (من 0 إلى 1).
@@ -1197,6 +1527,8 @@ function closeGen(){ $('#genModal').hidden = true; if(GS.chart){ GS.chart.destro
 async function applyGen(){
     const plan = GS.plan;
     if(!plan || !plan.length){ setState('لا يوجد ما يُولَّد', 'err'); return; }
+    pushUndo('توليد خط الأساس');
+    await autoSnapshot('قبل توليد خط الأساس — ' + (CURVES.find(c => c.k === $('#gCurve').value) || {}).n);
     const total = num($('#gTotal').value) || 0;
     if($('#gSyncCv').checked && total > 0) $('#mCv').value = Math.round(total);
     const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
@@ -1419,6 +1751,8 @@ function readPasteText(){
 async function applyPaste(){
     const rows = buildPasteRows().filter(r => !r.err);
     if(!rows.length){ setState('لا توجد صفوف صالحة للّصق', 'err'); return; }
+    pushUndo('لصق من إكسيل');
+    await autoSnapshot(`قبل لصق ${rows.length} صف من إكسيل`);
     const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
     const addMissing = $('#pAdd').checked, over = $('#pOverwrite').checked;
 
@@ -1543,6 +1877,7 @@ document.addEventListener('paste', e => {
     if(startR < 0) return;
 
     let n = 0;
+    pushUndo('لصق مباشر في الجدول');
     BULK.on = true; BULK.cells = [];
     try{
         grid.forEach((cells, ri) => {
@@ -1584,6 +1919,7 @@ $('#btnExcel').addEventListener('click', () => {
 
 $('#btnUnitPct').addEventListener('click', () => { ST.unit = 'pct'; renderChart(computed()); });
 $('#btnUnitVal').addEventListener('click', () => { ST.unit = 'val'; renderChart(computed()); });
+['showBars','showCurve'].forEach(id => $('#' + id).addEventListener('change', () => renderChart(computed())));
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
