@@ -240,8 +240,8 @@
                 <thead>
                     <tr class="grp">
                         <th rowspan="2" style="min-width:118px">الشهر</th>
-                        <th class="g-plan" colspan="4">خط الأساس (المخطط)</th>
-                        <th class="g-act" colspan="4">الفعلي</th>
+                        <th class="g-plan" colspan="4" id="thPlanGrp">خط الأساس (المخطط)</th>
+                        <th class="g-act" colspan="4" id="thActGrp">الفعلي</th>
                         <th class="g-ana" colspan="3">التحليل</th>
                     </tr>
                     <tr class="cols">
@@ -363,6 +363,32 @@
                   <button type="button" class="btn-cf" id="stgAdd" style="padding:.25rem .7rem;font-size:.75rem">+ مرحلة</button>
                   <button type="button" class="btn-cf" id="stgFit" style="padding:.25rem .7rem;font-size:.75rem">ضبط الشهور تلقائياً</button>
                   <span class="stg-sum" id="stgSum"></span>
+                </div>
+              </div>
+
+              <div class="gen-sec" id="gVoBox" hidden style="border-color:rgba(217,148,37,.45);background:#fffdf7">
+                <h6><input type="checkbox" id="gVoOn" checked> توزيع فرق أمر التغيير
+                    <span id="gVoAmt" style="font-weight:800"></span></h6>
+                <div class="gen-grid">
+                  <div><label class="fld">الفرق يبدأ من شهر أمر التغيير</label><select id="gVoMonth"></select></div>
+                  <div>
+                    <label class="fld">طريقة توزيع الفرق</label>
+                    <select id="gVoMode">
+                      <option value="prop">بالتناسب مع خطة الشهور المتبقية</option>
+                      <option value="curve">على شكل منحنى مستقل</option>
+                    </select>
+                  </div>
+                  <div id="gVoCurveBox" hidden><label class="fld">منحنى الفرق</label><select id="gVoCurve"></select></div>
+                </div>
+                <div class="mt-2">
+                  <label style="font-size:.78rem;font-weight:600;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">
+                    <input type="checkbox" id="gVoKeepOrig"> أبقِ القيمة الأصلية موزّعة على المدة الأصلية — تنتهي في
+                    <select id="gVoOrigEnd" style="width:auto;min-width:120px" disabled></select>
+                  </label>
+                </div>
+                <div class="pm-msg mt-1">
+                  القيمة الأصلية توزَّع على منحناها، والفرق (زيادةً أو نقصاناً) يبدأ من شهر أمر التغيير حتى نهاية المدة الجديدة.
+                  لتمديد أو تقليص المدة غيّر حقل <b>«إلى شهر»</b> بالأعلى.
                 </div>
               </div>
 
@@ -1286,8 +1312,12 @@ $('#snSave').addEventListener('click', async () => {
 
 /* أعمدة الفترة */
 function applyPeriodCols(){
-    document.querySelector('table.cf').classList.toggle('hide-per', !$('#showPeriod').checked);
-    try{ localStorage.setItem('cf_period', $('#showPeriod').checked ? '1' : '0'); }catch(e){}
+    const on = $('#showPeriod').checked;
+    document.querySelector('table.cf').classList.toggle('hide-per', !on);
+    // لازم يتغيّر امتداد رؤوس المجموعات وإلا تتزحلق العناوين فوق أعمدة غير أعمدتها
+    $('#thPlanGrp').colSpan = on ? 4 : 2;
+    $('#thActGrp').colSpan  = on ? 4 : 2;
+    try{ localStorage.setItem('cf_period', on ? '1' : '0'); }catch(e){}
 }
 $('#showPeriod').addEventListener('change', applyPeriodCols);
 try{ if(localStorage.getItem('cf_period') === '0') $('#showPeriod').checked = false; }catch(e){}
@@ -1382,6 +1412,20 @@ function spread(total, n, f){
     return out;
 }
 
+/** حالة توزيع فرق أمر التغيير: هل هو مفعّل، وكم الفرق، ومن أي شهر يبدأ */
+function voState(){
+    const months = GS.months;
+    const total  = num($('#gTotal').value) || 0;
+    const cv0    = num($('#mCv').value) || 0;       // القيمة الأصلية قبل أوامر التغيير
+    const delta  = +(total - cv0).toFixed(2);
+    const on = $('#gBase').value === 'rv' && $('#gVoOn').checked && cv0 > 0 && Math.abs(delta) > 0.004;
+    const si = Math.max(0, months.indexOf($('#gVoMonth').value));
+    let oi = months.indexOf($('#gVoOrigEnd').value);
+    if(oi < 0) oi = months.length - 1;
+    return {on, delta, startIdx: si, origEndIdx: oi,
+            mode: $('#gVoMode').value, keepOrig: $('#gVoKeepOrig').checked};
+}
+
 /** يبني خطة الشهور كاملة من كل الخيارات — النتيجة مجموعها = الإجمالي بالضبط */
 function buildPlan(){
     const months = GS.months, n = months.length;
@@ -1404,27 +1448,82 @@ function buildPlan(){
     }
     for(let i = 0; i < mobM; i++) out[i] += mob / mobM;
 
+    // ---- فرق أمر التغيير: القيمة الأصلية على منحناها، والفرق من شهر الأمر حتى نهاية المدة ----
+    const vo = voState();
+    let baseRest = rest, deltaAmt = 0, baseEnd = n - 1;
+    if(vo.on){
+        deltaAmt = vo.delta;
+        baseRest = rest - deltaAmt;                 // rest يحتوي الإجمالي؛ نفصل الفرق عنه
+        baseEnd  = vo.keepOrig ? vo.origEndIdx : n - 1;
+    }
+
+    const baseN = Math.max(0, baseEnd + 1 - mobM);
     if(mode === 'stages'){
-        let at = 0;
+        let at = mobM;
         const sw = GS.stages.reduce((a, s) => a + (s.w || 0), 0) || 1;
+        const span = Math.max(1, baseN);
         GS.stages.forEach(s => {
-            const cnt = Math.min(Math.max(1, s.m || 1), Math.max(0, n - at));
-            const amt = rest * (s.w || 0) / sw;
+            const cnt = Math.min(Math.max(1, s.m || 1), Math.max(0, mobM + span - at));
+            const amt = baseRest * (s.w || 0) / sw;
             for(let i = 0; i < cnt; i++) if(at + i < n) out[at + i] += amt / cnt;
             at += cnt;
         });
-        if(at < n){ /* شهور متبقية بلا مرحلة تبقى صفراً */ }
     }else{
-        const cn = n - mobM;
-        spread(rest, cn, curveFn()).forEach((v, i) => { out[mobM + i] += v; });
+        spread(baseRest, baseN, curveFn()).forEach((v, i) => { out[mobM + i] += v; });
     }
 
-    // تقريب مع استيعاب الفرق في أكبر شهر حتى يبقى المجموع = الإجمالي بالضبط
+    GS.voLeft = 0;
+    if(vo.on && Math.abs(deltaAmt) > 0.004){
+        const a = vo.startIdx, cnt = n - a;
+        if(cnt > 0){
+            if(deltaAmt > 0 && vo.mode === 'curve'){
+                const c = CURVES.find(c => c.k === $('#gVoCurve').value);
+                spread(deltaAmt, cnt, (c && c.f) ? c.f : (t => t)).forEach((v, i) => { out[a + i] += v; });
+            }else{
+                // بالتناسب مع خطة الشهور المتبقية — يصلح للزيادة وللنقصان بلا قيم سالبة
+                let pool = 0, nz = 0;
+                for(let i = a; i < n; i++){ pool += Math.max(0, out[i]); if(out[i] > 0) nz++; }
+                // في الزيادة: الشهور التي لا خطة لها (شهور التمديد مثلاً) تأخذ نصيباً بمتوسط الباقي
+                const avg = nz ? pool / nz : 0;
+                const wOf = i => (deltaAmt > 0 && out[i] <= 0) ? avg : Math.max(0, out[i]);
+                let wSum = 0;
+                for(let i = a; i < n; i++) wSum += wOf(i);
+                if(wSum <= 0){
+                    for(let i = a; i < n; i++) out[i] += deltaAmt / cnt;
+                }else{
+                    let left = deltaAmt;
+                    for(let i = a; i < n; i++){
+                        const share = deltaAmt * wOf(i) / wSum;
+                        const applied = Math.max(share, -out[i]);      // لا ينزل الشهر تحت الصفر
+                        out[i] += applied; left -= applied;
+                    }
+                    // ما تعذّر خصمه يُوزَّع مرة أخرى على ما بقي فيه رصيد
+                    for(let pass = 0; pass < 3 && Math.abs(left) > 0.004; pass++){
+                        let p2 = 0;
+                        for(let i = a; i < n; i++) p2 += Math.max(0, out[i]);
+                        if(p2 <= 0) break;
+                        for(let i = a; i < n; i++){
+                            const share = left * Math.max(0, out[i]) / p2;
+                            const applied = Math.max(share, -out[i]);
+                            out[i] += applied; left -= applied;
+                        }
+                    }
+                    GS.voLeft = left;
+                }
+            }
+        }
+    }
+
+    // تقريب مع استيعاب فرق التقريب في أكبر شهر حتى يبقى المجموع = الإجمالي بالضبط.
+    // أما الفرق الكبير (نقصان تعذّر استيعابه) فلا يُلقى على شهر بريء — يظهر كتحذير بدلاً من ذلك.
     const r = out.map(v => Math.round(v / step) * step);
     const diff = +(total - r.reduce((a, b) => a + b, 0)).toFixed(2);
-    if(Math.abs(diff) > 0.004){
+    const roundSlack = step * n + 1;
+    if(Math.abs(diff) > 0.004 && Math.abs(diff) <= roundSlack){
         let mi = 0; r.forEach((v, i) => { if(v > r[mi]) mi = i; });
         r[mi] = +(r[mi] + diff).toFixed(2);
+    }else if(Math.abs(diff) > roundSlack){
+        GS.voLeft = diff;
     }
     return r;
 }
@@ -1437,6 +1536,20 @@ function refreshGen(){
     $('#gkVal').textContent = (+$('#gK').value).toFixed(2);
     ['gAdvPct','gAdvMonth'].forEach(id => $('#' + id).disabled = !$('#gAdvOn').checked);
     ['gMobMonths','gMobPct'].forEach(id => $('#' + id).disabled = !$('#gMobOn').checked);
+
+    // قسم أمر التغيير يظهر فقط عند وجود فرق فعلي عن القيمة الأصلية
+    const cv0 = num($('#mCv').value) || 0, tot0 = num($('#gTotal').value) || 0;
+    const dlt = +(tot0 - cv0).toFixed(2);
+    const showVo = $('#gBase').value === 'rv' && cv0 > 0 && Math.abs(dlt) > 0.004;
+    $('#gVoBox').hidden = !showVo;
+    if(showVo){
+        $('#gVoAmt').textContent = (dlt > 0 ? '— زيادة ' : '— نقصان ') + fmtN(Math.abs(dlt));
+        $('#gVoAmt').style.color = dlt > 0 ? 'var(--success)' : 'var(--danger)';
+        $('#gVoCurveBox').hidden = $('#gVoMode').value !== 'curve' || dlt < 0;
+        if(dlt < 0 && $('#gVoMode').value === 'curve') $('#gVoMode').value = 'prop';
+        $('#gVoOrigEnd').disabled = !$('#gVoKeepOrig').checked;
+        ['gVoMonth','gVoMode','gVoKeepOrig'].forEach(id => $('#' + id).disabled = !$('#gVoOn').checked);
+    }
     if(mode === 'stages' && !GS.stages.length){ GS.stages = defaultStages(GS.months.length); renderStages(); }
 
     const plan = GS.plan = buildPlan();
@@ -1489,6 +1602,15 @@ function refreshGen(){
         const sw = GS.stages.reduce((a, s) => a + (s.w || 0), 0);
         if(Math.abs(sw - 100) > .01) warns.push(`مجموع أوزان المراحل ${sw.toFixed(1)}% — سيُعاد توزيعها نسبياً لتصل 100%.`);
     }
+    const vo = voState();
+    if(vo.on){
+        const from = GS.months[vo.startIdx] || GS.months[0];
+        warns.push(`القيمة الأصلية (${fmtN(cvNow)}) موزَّعة على ${vo.keepOrig ? 'المدة الأصلية' : 'كامل المدة'}، `
+                 + `و${vo.delta > 0 ? 'الزيادة' : 'النقصان'} (${fmtN(Math.abs(vo.delta))}) من ${from} حتى ${GS.months[GS.months.length-1]}.`);
+        if(Math.abs(GS.voLeft || 0) > 1)
+            warns.push(`تعذّر استيعاب ${fmtN(Math.abs(GS.voLeft))} من النقصان في الشهور من ${from} — `
+                     + `مجموع الخطة سيقلّ عن الإجمالي بهذا المقدار. اختر شهر أمر تغيير أسبق ليتوزّع النقصان على شهور أكثر.`);
+    }
     $('#gWarn').hidden = !warns.length;
     $('#gWarn').innerHTML = warns.map(w => '⚠️ ' + w).join('<br>');
     $('#gSummary').innerHTML = `${GS.months.length} شهر · الإجمالي <b>${fmtN(plan.reduce((a,b)=>a+b,0))}</b>`;
@@ -1496,7 +1618,7 @@ function refreshGen(){
 
 function fillMonthSelects(){
     const opts = ST.rows.map(r => `<option value="${r.ym}">${r.ym}</option>`).join('');
-    ['#gFrom', '#gTo', '#gAdvMonth'].forEach(s => $(s).innerHTML = opts);
+    ['#gFrom', '#gTo', '#gAdvMonth', '#gVoMonth', '#gVoOrigEnd'].forEach(s => $(s).innerHTML = opts);
     $('#gFrom').value = ST.rows[0] ? ST.rows[0].ym : '';
     $('#gTo').value   = ST.rows.length ? ST.rows[ST.rows.length - 1].ym : '';
     $('#gAdvMonth').value = $('#gFrom').value;
@@ -1505,7 +1627,15 @@ function syncRange(){
     const a = $('#gFrom').value, b = $('#gTo').value;
     GS.months = ST.rows.map(r => r.ym).filter(y => y >= a && y <= b);
     if(!GS.months.length) GS.months = ST.rows.map(r => r.ym);
-    if(!GS.months.includes($('#gAdvMonth').value)) $('#gAdvMonth').value = GS.months[0];
+    // قوائم شهور أمر التغيير تتبع النطاق المختار
+    const opts = GS.months.map(y => `<option value="${y}">${y}</option>`).join('');
+    ['#gVoMonth', '#gVoOrigEnd', '#gAdvMonth'].forEach(s => {
+        const cur = $(s).value;
+        $(s).innerHTML = opts;
+        $(s).value = GS.months.includes(cur) ? cur : GS.months[0];
+    });
+    if($('#gVoOrigEnd').value === GS.months[0])
+        $('#gVoOrigEnd').value = GS.months[GS.months.length - 1];
     if($('#gCurve').value === 'stages'){ GS.stages = defaultStages(GS.months.length); renderStages(); }
 }
 
@@ -1513,6 +1643,9 @@ function openGen(){
     if(!ST.rows.length){ setState('اضبط مدى الشهور أولاً', 'err'); return; }
     $('#gCurve').innerHTML = CURVES.map(c => `<option value="${c.k}">${c.n}</option>`).join('');
     $('#gCurve').value = 's_std';
+    $('#gVoCurve').innerHTML = CURVES.filter(c => c.f).map(c => `<option value="${c.k}">${c.n}</option>`).join('');
+    $('#gVoCurve').value = 'linear';
+    $('#gVoOn').checked = true; $('#gVoKeepOrig').checked = false; $('#gVoMode').value = 'prop';
     fillMonthSelects();
     syncRange();
     GS.stages = [];
@@ -1579,7 +1712,8 @@ $('#gBase').addEventListener('change', () => {
     refreshGen();
 });
 ['gFrom','gTo'].forEach(id => $('#' + id).addEventListener('change', () => { syncRange(); refreshGen(); }));
-['gTotal','gCurve','gRound','gA','gK','gAdvOn','gAdvPct','gAdvMonth','gMobOn','gMobMonths','gMobPct','gSyncCv']
+['gTotal','gCurve','gRound','gA','gK','gAdvOn','gAdvPct','gAdvMonth','gMobOn','gMobMonths','gMobPct','gSyncCv',
+ 'gVoOn','gVoMonth','gVoMode','gVoCurve','gVoKeepOrig','gVoOrigEnd']
     .forEach(id => { $('#' + id).addEventListener('input', refreshGen); $('#' + id).addEventListener('change', refreshGen); });
 $('#stgAdd').addEventListener('click', () => {
     GS.stages.push({name:'مرحلة جديدة', w:0, m:1}); renderStages(); refreshGen();
