@@ -13,3 +13,4 @@ python-bidi
 Pillow
 
 
+openpyxl
