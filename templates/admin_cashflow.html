@@ -67,6 +67,36 @@
         .from-wk { display: inline-block; font-size: .6rem; font-weight: 800; color: #4a3b6b;
                    background: #ece7f5; border-radius: 20px; padding: 1px 6px; margin-inline-start: 4px; }
         table.cf tbody td input:disabled { background: #f2f4f8; font-weight: 700; color: var(--text-strong); cursor: not-allowed; }
+        table.cf tbody td.just-pasted { animation: flashPaste 1.1s ease-out; }
+        @keyframes flashPaste { from { background:#fff3cd; } to { background:transparent; } }
+
+        /* ===== نافذة اللصق من إكسيل ===== */
+        .pm-back { position: fixed; inset: 0; background: rgba(15,26,46,.45); z-index: 1090;
+                   display: flex; align-items: center; justify-content: center; padding: 2vh 2vw; }
+        .pm-box { background: #fff; border-radius: var(--radius-md); box-shadow: 0 24px 60px rgba(15,26,46,.35);
+                  width: min(1080px, 96vw); max-height: 96vh; display: flex; flex-direction: column; overflow: hidden; }
+        .pm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                   padding: .8rem 1.1rem; background: var(--navy-800); color: #fff; font-weight: 800; font-size: .92rem; }
+        .pm-head button { background: none; border: none; color: #fff; font-size: 1rem; cursor: pointer; }
+        .pm-body { padding: 1rem 1.1rem; overflow: auto; }
+        .pm-foot { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
+                   padding: .8rem 1.1rem; border-top: 1px solid var(--border-soft); background: var(--bg-muted); }
+        .pm-body textarea { width: 100%; min-height: 130px; border: 1px solid var(--border-soft); border-radius: 8px;
+                   padding: .6rem .7rem; font-family: inherit; font-size: .8rem; direction: ltr; text-align: start; }
+        .pm-opts { display: flex; flex-wrap: wrap; gap: .9rem; align-items: center; margin: .7rem 0; font-size: .78rem; }
+        .pm-opts label { display: flex; align-items: center; gap: .3rem; font-weight: 600; color: var(--text-body); }
+        .pm-opts select { border: 1px solid var(--border-soft); border-radius: 7px; padding: .25rem .5rem;
+                   font-family: inherit; font-size: .78rem; }
+        .pm-prev { overflow: auto; max-height: 42vh; border: 1px solid var(--border-soft); border-radius: 8px; margin-top: .6rem; }
+        table.pm-tbl { width: 100%; border-collapse: collapse; font-size: .76rem; white-space: nowrap; }
+        table.pm-tbl th { background: var(--bg-muted); padding: .35rem .5rem; position: sticky; top: 0; z-index: 2;
+                   border-bottom: 1px solid var(--border-soft); font-weight: 800; }
+        table.pm-tbl th select { width: 100%; min-width: 128px; }
+        table.pm-tbl td { padding: .3rem .5rem; border-bottom: 1px solid #eef1f6; text-align: center; direction: ltr; }
+        table.pm-tbl td.txt { direction: rtl; text-align: start; }
+        table.pm-tbl tr.bad td { background: #fdf1f0; color: var(--danger); }
+        .pm-msg { font-size: .78rem; color: var(--text-muted); }
+        .pm-msg b { color: var(--text-strong); }
         .flag { display: inline-block; font-size: .64rem; font-weight: 800; padding: 1px 6px; border-radius: 20px; margin-inline-start: 4px; }
         .f-drop { background: var(--danger); color: #fff; }
         .f-same { background: var(--warning); color: #22160a; }
@@ -131,6 +161,7 @@
             <h5 class="m-0">جدول الشهور</h5>
             <button class="btn-cf" id="btnImport">استيراد النسب الفعلية من التحديثات الأسبوعية</button>
             <button class="btn-cf" id="btnAddMonth">+ إضافة شهر</button>
+            <button class="btn-cf primary" id="btnPaste">📋 لصق من إكسيل</button>
             <button class="btn-cf" id="btnSplitAll">🗓️ تقسيم كل الشهور أسبوعياً ÷4</button>
             <button class="btn-cf" id="btnCollapseAll">طيّ الأسابيع</button>
             <button class="btn-cf" id="btnExcel">⬇️ تصدير إكسيل</button>
@@ -167,11 +198,47 @@
             <br><b>التقسيم الأسبوعي:</b> اضغط <b>▸</b> بجوار الشهر ليتقسّم تلقائياً إلى 4 أسابيع (المبلغ المخطط ÷ 4، والنسبة الفعلية
             موزّعة بالتدرّج). بعدها المخطط الشهري = <b>مجموع</b> الأسابيع، والنسبة الفعلية للشهر = نسبة <b>آخر أسبوع</b> مُدخل
             (لأن النسب تراكمية لا تُجمَع)، وتظهر عليها علامة <span class="from-wk">من الأسابيع</span>.
+            <br><b>اللصق من إكسيل:</b> زر <b>📋 لصق من إكسيل</b> يفتح نافذة تلصق فيها النطاق كاملاً بأعمدته، وتحدّد معنى كل عمود
+            (الشهر · المخطط · % فعلية …) ثم تراجع المعاينة وتضغط تطبيق — يفهم الفواصل والعملات والنسب والأرقام العربية وأسماء الشهور.
+            أو انقر أي خانة في الجدول واضغط <b>Ctrl+V</b> مباشرة للصق عمود أو نطاق ابتداءً منها.
             <br><b>الحفظ تلقائي</b> عند الخروج من أي خانة. <b>Enter</b> ينتقل للشهر التالي في نفس العمود.
             <br><b>التنبيهات:</b> <span class="flag f-drop">تراجع</span> نسبة أقل من الشهر السابق ·
             <span class="flag f-same">بدون تقدم</span> نفس نسبة الشهر السابق ·
             <span class="flag f-dev">انحراف</span> فرق عن خط الأساس أكبر من الحد المحدد.
         </div>
+    </div>
+
+    <!-- ============ نافذة اللصق من إكسيل ============ -->
+    <div class="pm-back" id="pasteModal" hidden>
+      <div class="pm-box">
+        <div class="pm-head">
+          <span>📋 لصق بيانات التدفق النقدي من إكسيل</span>
+          <button type="button" id="pClose" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="pm-body">
+          <div class="pm-msg mb-2">
+            انسخ النطاق من إكسيل (<b>Ctrl+C</b>) والصقه هنا (<b>Ctrl+V</b>) — بأعمدته كما هي.
+            بعدها حدِّد معنى كل عمود من القائمة أعلاه، وراجع المعاينة قبل التطبيق.
+          </div>
+          <textarea id="pText" placeholder="الصق هنا…  مثال:&#10;الشهر&#9;المخطط الشهري&#9;% فعلية&#10;2026-01&#9;6,000,000&#9;8%&#10;2026-02&#9;9,000,000&#9;20%"></textarea>
+          <div class="pm-opts">
+            <label><input type="checkbox" id="pHeader" checked> الصف الأول عناوين</label>
+            <label><input type="checkbox" id="pFrac"> النسب مكتوبة ككسور (0.45 = 45%)</label>
+            <label><input type="checkbox" id="pAdd"> أضف الشهور غير الموجودة</label>
+            <label><input type="checkbox" id="pOverwrite" checked> استبدل القيم الموجودة</label>
+            <label>ابدأ من الشهر <select id="pStart"></select></label>
+          </div>
+          <div class="pm-prev" id="pPrev"></div>
+          <div class="pm-msg mt-2" id="pSummary"></div>
+        </div>
+        <div class="pm-foot">
+          <button class="btn-cf primary" id="pApply">✔ تطبيق وحفظ</button>
+          <button class="btn-cf" id="pCancel">إلغاء</button>
+          <span class="pm-msg" style="margin-inline-start:auto">
+            لو فيه عمود «الشهر» ستُطابَق الصفوف بالشهر · وإلا ستُملأ بالترتيب من الشهر المحدد.
+          </span>
+        </div>
+      </div>
     </div>
 
     <div class="panel" id="chartPanel" hidden>
@@ -212,6 +279,73 @@ async function loadProject(p){
         render();
         setState(j.meta.is_new ? 'مشروع جديد — القيم مقترحة من بيانات المشروع، راجعها واحفظ الإعدادات' : 'جاهز', 'ok');
     }catch(e){ setState('خطأ في الاتصال: ' + e.message, 'err'); }
+}
+
+/* ============ قراءة القيم الملصوقة من إكسيل ============ */
+/** يحوّل نصاً من إكسيل إلى رقم: أرقام عربية، فواصل ألفية، عملات، نسب، وسالب بالأقواس */
+function parseNum(s){
+    if(s === null || s === undefined) return null;
+    let t = String(s).trim();
+    if(!t) return null;
+    t = t.replace(/[٠-٩]/g, d => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 48))  // ٠١٢
+         .replace(/[۰-۹]/g, d => String.fromCharCode(d.charCodeAt(0) - 0x06F0 + 48))  // ۰۱۲
+         .replace(/[‎‏ \s]/g, '')
+         .replace(/٫/g, '.').replace(/٬/g, ',');                                      // فاصلة عشرية/ألفية عربية
+    const pct = /%|٪/.test(t);
+    t = t.replace(/[%٪]/g, '');
+    let neg = false;
+    if(/^\((.*)\)$/.test(t)){ neg = true; t = t.replace(/[()]/g, ''); }
+    t = t.replace(/[^\d.,\-]/g, '');                       // ر.س، SAR، أي رمز عملة
+    if(t.startsWith('-')){ neg = true; }
+    t = t.replace(/-/g, '');
+    // فاصلة واحدة يتبعها رقم أو رقمان بلا نقطة = فاصلة عشرية أوروبية
+    if(!t.includes('.') && (t.match(/,/g) || []).length === 1 && /,\d{1,2}$/.test(t)) t = t.replace(',', '.');
+    t = t.replace(/,/g, '');
+    const n = parseFloat(t);
+    if(isNaN(n)) return null;
+    return {v: neg ? -n : n, pct};
+}
+
+const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','ابريل','مايو','يونيو','يوليو','أغسطس','اغسطس','سبتمبر','أكتوبر','اكتوبر','نوفمبر','ديسمبر'];
+const AR_IDX    = [1,2,3,4,4,5,6,7,8,8,9,10,10,11,12];
+const EN_MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+/** يحوّل نص الشهر إلى 'YYYY-MM' — يقبل 2026-01 · 01/2026 · 15/01/2026 · يناير 2026 · Jan-26 */
+function parseYm(s){
+    if(s === null || s === undefined) return null;
+    let t = String(s).trim()
+        .replace(/[٠-٩]/g, d => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 48))
+        .replace(/[‎‏]/g, '');
+    if(!t) return null;
+    let m;
+    if((m = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/)))  return `${m[1]}-${String(+m[2]).padStart(2,'0')}`;
+    if((m = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/)))  return `${m[3]}-${String(+m[2]).padStart(2,'0')}`;
+    if((m = t.match(/^(\d{4})[-\/.](\d{1,2})$/)))                return `${m[1]}-${String(+m[2]).padStart(2,'0')}`;
+    if((m = t.match(/^(\d{1,2})[-\/.](\d{4})$/)))                return `${m[2]}-${String(+m[1]).padStart(2,'0')}`;
+    const low = t.toLowerCase();
+    const yr = (low.match(/(\d{4})/) || [])[1] || ((low.match(/[-\/\s](\d{2})$/) || [])[1] ? '20' + low.match(/[-\/\s](\d{2})$/)[1] : null);
+    if(yr){
+        for(let i = 0; i < AR_MONTHS.length; i++)
+            if(t.includes(AR_MONTHS[i])) return `${yr}-${String(AR_IDX[i]).padStart(2,'0')}`;
+        for(let i = 0; i < EN_MONTHS.length; i++)
+            if(low.includes(EN_MONTHS[i])) return `${yr}-${String(i + 1).padStart(2,'0')}`;
+    }
+    return null;
+}
+
+function ymNext(ym, n){
+    const y = +ym.slice(0,4), mo = +ym.slice(5,7);
+    const t = y * 12 + (mo - 1) + n;
+    return `${String(Math.floor(t / 12)).padStart(4,'0')}-${String(t % 12 + 1).padStart(2,'0')}`;
+}
+
+/** يفصل النص الملصوق إلى شبكة صفوف/أعمدة (تبويب من إكسيل، أو فاصلة منقوطة) */
+function parseGrid(text){
+    const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n').filter(l => l.trim() !== '');
+    if(!lines.length) return [];
+    const sep = lines.some(l => l.includes('\t')) ? '\t'
+              : (lines.some(l => l.includes(';')) ? ';' : '\t');
+    return lines.map(l => l.split(sep).map(c => c.replace(/^"|"$/g, '').trim()));
 }
 
 /* ============ التقسيم الأسبوعي ============ */
@@ -330,7 +464,11 @@ function computed(){
     });
 }
 
+/* أثناء اللصق المتعدد نوقف إعادة الرسم وتجميع الحفظ حتى ننتهي من كل الخانات */
+const BULK = {on:false, cells:[]};
+
 function render(){
+    if(BULK.on) return;
     const rows = computed();
     const devLimit = num($('#mDev').value) || 10;
     const cv = num($('#mCv').value) || 0;
@@ -549,6 +687,7 @@ function onEditWeek(inp){
 }
 
 function saveCell(payload){
+    if(BULK.on){ BULK.cells.push(payload); return; }
     setState('جاري الحفظ…');
     fetch('/api/cashflow/cell', {method:'POST', headers:{'Content-Type':'application/json'},
                                  body:JSON.stringify(payload)})
@@ -558,6 +697,7 @@ function saveCell(payload){
 }
 
 function saveCells(cells, okMsg){
+    if(BULK.on){ BULK.cells = BULK.cells.concat(cells); return Promise.resolve({success:true}); }
     setState('جاري الحفظ…');
     return fetch('/api/cashflow/cells', {method:'POST', headers:{'Content-Type':'application/json'},
                                          body:JSON.stringify({project:ST.project, cells})})
@@ -653,6 +793,319 @@ $('#btnCollapseAll').addEventListener('click', () => {
     if(ST.expanded.size){ ST.expanded.clear(); }
     else ST.rows.forEach((r, i) => { if(r.has_weeks) ST.expanded.add(i); });
     render();
+});
+
+/* ============ اللصق من إكسيل ============ */
+const PF = [['', '(تجاهل هذا العمود)'], ['ym', 'الشهر'], ['wk', 'الأسبوع (1-4)'],
+            ['plan_amount', 'المخطط الشهري (مبلغ)'], ['plan_cum', 'التراكمي المخطط (مبلغ)'],
+            ['plan_pct', '% مخططة (تراكمية)'],
+            ['act_pct', '% فعلية (تراكمية)'], ['act_amount', 'التراكمي الفعلي (مبلغ)'],
+            ['note', 'ملاحظة']];
+const PS = {grid: [], map: []};
+
+function guessMap(grid, hasHeader){
+    const cols = Math.max(...grid.map(r => r.length));
+    const map = new Array(cols).fill('');
+    const head = hasHeader ? (grid[0] || []) : [];
+    const body = hasHeader ? grid.slice(1) : grid;
+
+    // ترتيب الفحص مهم: «المخطط الشهري» تحتوي كلمة «شهر» فلا بد أن تُفحص كقيمة قبل أن تُفحص كعمود شهر
+    for(let c = 0; c < cols; c++){
+        const h = String(head[c] || '').toLowerCase();
+        if(!h) continue;
+        const isPct = /%|٪|نسب|نسبة|pct|percent/.test(h);
+        const isCum = /تراكم|مجمع|مجمّع|cumul|todate|to date/.test(h);
+        if(/ملاحظ|بيان|note|comment|remark/.test(h))   { map[c] = 'note'; continue; }
+        if(/مخطط|خطة|plan|baseline|أساس|اساس/.test(h)) { map[c] = isPct ? 'plan_pct' : (isCum ? 'plan_cum' : 'plan_amount'); continue; }
+        if(/فعلي|منفذ|منجز|actual|achiev/.test(h))     { map[c] = isPct ? 'act_pct' : 'act_amount'; continue; }
+        if(/أسبوع|اسبوع|week/.test(h))                 { map[c] = 'wk'; continue; }
+        if(!map.includes('ym') && /شهر|month|تاريخ|date|فترة|period/.test(h)) { map[c] = 'ym'; continue; }
+    }
+    // الأعمدة التي لم يحدّدها العنوان: خمّن من محتواها
+    let nAmt = map.filter(k => k === 'plan_amount' || k === 'act_amount').length;
+    let nPct = map.filter(k => k === 'plan_pct' || k === 'act_pct').length;
+    for(let c = 0; c < cols; c++){
+        if(map[c]) continue;
+        const vals = body.map(r => r[c]).filter(v => v !== undefined && String(v).trim() !== '');
+        if(!vals.length) continue;
+        if(!map.includes('ym') && vals.every(v => parseYm(v))){ map[c] = 'ym'; continue; }
+        const nums = vals.map(parseNum).filter(Boolean);
+        if(nums.length < vals.length * 0.6){ map[c] = 'note'; continue; }
+        const mx = Math.max(...nums.map(n => Math.abs(n.v)));
+        if(nums.some(n => n.pct) || mx <= 100) map[c] = (nPct++ === 0) ? 'act_pct' : 'plan_pct';
+        else                                   map[c] = (nAmt++ === 0) ? 'plan_amount' : 'act_amount';
+    }
+    return map;
+}
+
+/** يقرأ الشبكة حسب التوزيع الحالي ويعطي صفوفاً جاهزة للتطبيق + معاينة */
+function buildPasteRows(){
+    const hasHeader = $('#pHeader').checked;
+    const body = hasHeader ? PS.grid.slice(1) : PS.grid;
+    const map = PS.map;
+    const col = k => map.indexOf(k);
+    const startYm = $('#pStart').value || (ST.rows[0] && ST.rows[0].ym);
+    const frac = $('#pFrac').checked;
+    const out = [];
+    let seq = 0;
+
+    body.forEach(row => {
+        const cell = k => { const c = col(k); return c < 0 ? undefined : row[c]; };
+        const rec = {vals:{}, note:undefined, err:null, raw:row};
+
+        // الشهر
+        if(col('ym') >= 0){
+            rec.ym = parseYm(cell('ym'));
+            if(!rec.ym){ rec.err = 'شهر غير مفهوم'; out.push(rec); return; }
+        }else{
+            rec.ym = startYm ? ymNext(startYm, seq++) : null;
+            if(!rec.ym){ rec.err = 'لا يوجد شهر بداية'; out.push(rec); return; }
+        }
+        // الأسبوع
+        rec.wk = 0;
+        if(col('wk') >= 0){
+            const w = parseNum(cell('wk'));
+            if(w && w.v >= 1 && w.v <= WK) rec.wk = Math.round(w.v);
+        }
+        // القيم
+        ['plan_amount', 'plan_cum', 'plan_pct', 'act_pct', 'act_amount'].forEach(k => {
+            if(col(k) < 0) return;
+            const p = parseNum(cell(k));
+            if(!p) return;
+            let v = p.v;
+            if(k.endsWith('_pct') && !p.pct && frac) v = v * 100;      // 0.45 → 45
+            rec.vals[k] = +v.toFixed(k.endsWith('_pct') ? 4 : 2);
+        });
+        if(col('note') >= 0){
+            const t = cell('note');
+            if(t !== undefined && String(t).trim() !== '') rec.note = String(t).trim();
+        }
+        if(!Object.keys(rec.vals).length && rec.note === undefined) rec.err = 'لا توجد قيم';
+        out.push(rec);
+    });
+    return out;
+}
+
+function renderPaste(){
+    if(!PS.grid.length){
+        $('#pPrev').innerHTML = '';
+        $('#pSummary').textContent = '';
+        return;
+    }
+    const cols = Math.max(...PS.grid.map(r => r.length));
+    const rows = buildPasteRows();
+    const opts = c => PF.map(([k, l]) =>
+        `<option value="${k}"${PS.map[c] === k ? ' selected' : ''}>${l}</option>`).join('');
+
+    const head = `<tr>${Array.from({length: cols}, (_, c) =>
+        `<th><select data-col="${c}">${opts(c)}</select></th>`).join('')}</tr>`;
+    const bodyRaw = (($('#pHeader').checked ? PS.grid.slice(1) : PS.grid)).slice(0, 60);
+    const trs = bodyRaw.map((r, i) => {
+        const rec = rows[i] || {};
+        return `<tr class="${rec.err ? 'bad' : ''}">${Array.from({length: cols}, (_, c) =>
+            `<td class="${/^\s*[\d(]/.test(r[c] || '') ? '' : 'txt'}">${(r[c] || '').replace(/</g,'&lt;')}</td>`).join('')}</tr>`;
+    }).join('');
+    $('#pPrev').innerHTML = `<table class="pm-tbl"><thead>${head}</thead><tbody>${trs}</tbody></table>`;
+    $('#pPrev').querySelectorAll('select[data-col]').forEach(s =>
+        s.addEventListener('change', () => { PS.map[+s.dataset.col] = s.value; renderPaste(); }));
+
+    const ok = rows.filter(r => !r.err);
+    const known = new Set(ST.rows.map(r => r.ym));
+    const miss = [...new Set(ok.map(r => r.ym).filter(y => !known.has(y)))];
+    const wks  = ok.filter(r => r.wk > 0).length;
+    $('#pSummary').innerHTML =
+        `صفوف صالحة: <b>${ok.length}</b> من ${rows.length}` +
+        (wks ? ` · منها <b>${wks}</b> صف أسبوعي` : '') +
+        (miss.length ? ` · شهور غير موجودة في الجدول: <b>${miss.length}</b> (${miss.slice(0,4).join('، ')}${miss.length>4?'…':''}) — ` +
+                       ($('#pAdd').checked ? 'ستُضاف' : 'ستُتجاهَل، فعِّل «أضف الشهور غير الموجودة»') : '') +
+        (rows.length - ok.length ? ` · <b style="color:var(--danger)">${rows.length - ok.length}</b> صف سيُتجاهَل` : '');
+}
+
+function openPaste(){
+    $('#pStart').innerHTML = ST.rows.map(r => `<option value="${r.ym}">${r.ym}</option>`).join('');
+    $('#pText').value = ''; PS.grid = []; PS.map = [];
+    renderPaste();
+    $('#pasteModal').hidden = false;
+    setTimeout(() => $('#pText').focus(), 60);
+}
+function closePaste(){ $('#pasteModal').hidden = true; }
+
+function readPasteText(){
+    PS.grid = parseGrid($('#pText').value);
+    PS.map = PS.grid.length ? guessMap(PS.grid, $('#pHeader').checked) : [];
+    // اقتراح «كسور» تلقائياً لو كل النسب أقل من 1
+    if(PS.grid.length){
+        const body = $('#pHeader').checked ? PS.grid.slice(1) : PS.grid;
+        const pcols = PS.map.map((k, c) => k.endsWith('_pct') ? c : -1).filter(c => c >= 0);
+        let allFrac = pcols.length > 0;
+        pcols.forEach(c => {
+            const ns = body.map(r => parseNum(r[c])).filter(Boolean);
+            if(!ns.length || ns.some(n => n.pct || Math.abs(n.v) > 1)) allFrac = false;
+        });
+        $('#pFrac').checked = allFrac;
+    }
+    renderPaste();
+}
+
+async function applyPaste(){
+    const rows = buildPasteRows().filter(r => !r.err);
+    if(!rows.length){ setState('لا توجد صفوف صالحة للّصق', 'err'); return; }
+    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    const addMissing = $('#pAdd').checked, over = $('#pOverwrite').checked;
+
+    // 1) أضف الشهور الناقصة ثم رتِّب وابنِ الفهرس
+    const known = new Set(ST.rows.map(r => r.ym));
+    let added = 0;
+    if(addMissing) rows.forEach(r => {
+        if(!known.has(r.ym)){ known.add(r.ym); added++;
+            ST.rows.push(normRow({ym:r.ym, plan_amount:null, plan_pct:null, act_pct:null, act_amount:null, note:null})); }
+    });
+    if(added){
+        ST.rows.sort((a, b) => a.ym < b.ym ? -1 : 1);
+        $('#mStart').value = ST.rows[0].ym;
+        $('#mEnd').value   = ST.rows[ST.rows.length - 1].ym;
+    }
+    const idx = new Map(ST.rows.map((r, i) => [r.ym, i]));
+
+    // 2) اكتب القيم (الأسابيع تُقسَّم أولاً عند الحاجة)
+    let nCell = 0, skipped = 0;
+    const planPctPend = [];                       // نسب مخططة تُحوَّل لمبالغ بعد ترتيب التراكمي
+    rows.forEach(r => {
+        const i = idx.get(r.ym);
+        if(i === undefined){ skipped++; return; }
+        const m = ST.rows[i];
+        let tgt = m;
+        if(r.wk > 0){
+            if(!m.has_weeks) splitMonth(i);
+            if(!m.weeks[r.wk - 1]) m.weeks[r.wk - 1] = emptyWeek(m.ym, r.wk);
+            tgt = m.weeks[r.wk - 1];
+        }else if(m.has_weeks && (has(r.vals.plan_amount) || has(r.vals.plan_pct) || has(r.vals.plan_cum) ||
+                                 has(r.vals.act_pct) || has(r.vals.act_amount))){
+            skipped++; return;                    // شهر مقسَّم أسبوعياً لا يُكتب عليه مباشرة
+        }
+        const put = (k, v) => {
+            if(!has(v)) return;
+            if(!over && has(tgt[k])) return;
+            tgt[k] = v; nCell++;
+        };
+        put('plan_amount', r.vals.plan_amount);
+        put('act_pct',     r.vals.act_pct);
+        if(has(r.vals.act_amount) && !has(r.vals.act_pct) && rv > 0)
+            put('act_pct', +(r.vals.act_amount / rv * 100).toFixed(4));
+        if(!has(r.vals.plan_amount) && (has(r.vals.plan_pct) || has(r.vals.plan_cum)))
+            planPctPend.push({i, wk:r.wk, pct:r.vals.plan_pct, cum:r.vals.plan_cum});
+        if(r.note !== undefined) put('note', r.note);
+        if(has(tgt.act_pct)) tgt.act_amount = tgt.act_pct / 100 * rv;
+    });
+
+    // 3) القيم المخططة التراكمية (نسبة أو مبلغ) → مبلغ كل شهر/أسبوع (مرور واحد بالترتيب)
+    if(planPctPend.length){
+        const want = new Map(planPctPend.map(p => [p.i + '|' + p.wk, p]));
+        const target = p => has(p.cum) ? p.cum : (cv > 0 && has(p.pct) ? p.pct / 100 * cv : null);
+        let cum = 0;
+        ST.rows.forEach((m, i) => {
+            if(m.has_weeks){
+                m.weeks.forEach((w, k) => {
+                    if(!w) return;
+                    const p = want.get(i + '|' + (k + 1)), t = p && target(p);
+                    if(has(t)){ w.plan_amount = +Math.max(0, t - cum).toFixed(2); nCell++; }
+                    cum += (w.plan_amount || 0);
+                });
+                aggMonth(m);
+            }else{
+                const p = want.get(i + '|0'), t = p && target(p);
+                if(has(t)){ m.plan_amount = +Math.max(0, t - cum).toFixed(2); nCell++; }
+                cum += (m.plan_amount || 0);
+            }
+        });
+    }
+
+    // 4) جمّع الشهور المقسَّمة ثم احفظ كل شيء دفعة واحدة
+    const cells = [];
+    let cumAll = 0;
+    ST.rows.forEach(m => {
+        aggMonth(m);
+        cumAll += (m.plan_amount || 0);
+        cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount,
+                    plan_pct: cv > 0 ? +(cumAll / cv * 100).toFixed(4) : null,
+                    act_pct:m.act_pct, act_amount:m.act_amount, note:m.note || null});
+        if(m.has_weeks) m.weeks.forEach((w, k) => { if(w)
+            cells.push({ym:m.ym, wk:k + 1, plan_amount:w.plan_amount, act_pct:w.act_pct,
+                        act_amount:w.act_amount, note:w.note || null}); });
+    });
+
+    closePaste();
+    render();
+    await saveCells(cells,
+        `تم لصق ${nCell} قيمة` + (added ? ` · أُضيف ${added} شهر` : '') +
+        (skipped ? ` · تُخطّي ${skipped} صف` : '') + ' ✓');
+    if(added) setTimeout(() => setState('أُضيفت شهور جديدة — اضغط «حفظ الإعدادات» لتثبيت المدى', 'ok'), 1400);
+}
+
+$('#btnPaste').addEventListener('click', openPaste);
+$('#pClose').addEventListener('click', closePaste);
+$('#pCancel').addEventListener('click', closePaste);
+$('#pApply').addEventListener('click', applyPaste);
+$('#pText').addEventListener('input', readPasteText);
+$('#pText').addEventListener('paste', () => setTimeout(readPasteText, 30));
+['pHeader','pFrac','pAdd','pOverwrite','pStart'].forEach(id =>
+    $('#' + id).addEventListener('change', () => { if(id === 'pHeader') readPasteText(); else renderPaste(); }));
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('#pasteModal').hidden) closePaste(); });
+
+/* ---- لصق مباشر داخل الجدول: انقر خانة ثم Ctrl+V ---- */
+const EDITABLE = ['plan_amount', 'plan_pct', 'act_pct', 'act_amount', 'note'];
+
+document.addEventListener('paste', e => {
+    const inp = document.activeElement;
+    if(!inp || !inp.matches || !inp.matches('#cfBody input')) return;
+    const txt = (e.clipboardData || window.clipboardData).getData('text');
+    if(!txt) return;
+    const grid = parseGrid(txt);
+    if(grid.length <= 1 && grid[0] && grid[0].length <= 1) return;   // قيمة واحدة → لصق عادي
+    e.preventDefault();
+
+    const isWk = !!inp.dataset.w;
+    const startF = EDITABLE.indexOf(inp.dataset.f);
+    if(startF < 0) return;
+    // الصفوف المتاحة من نفس النوع (شهور أو أسابيع) ابتداءً من الصف الحالي
+    const sel = isWk ? '#cfBody tr.wk-row' : '#cfBody tr:not(.wk-row)';
+    const trs = Array.from(document.querySelectorAll(sel));
+    const startR = trs.indexOf(inp.closest('tr'));
+    if(startR < 0) return;
+
+    let n = 0;
+    BULK.on = true; BULK.cells = [];
+    try{
+        grid.forEach((cells, ri) => {
+            const tr = trs[startR + ri];
+            if(!tr) return;
+            cells.forEach((val, ci) => {
+                const f = EDITABLE[startF + ci];
+                if(!f) return;
+                const t = tr.querySelector(`[data-f="${f}"]`);
+                if(!t || t.disabled) return;
+                if(f === 'note'){ t.value = val; }
+                else{
+                    const p = parseNum(val);
+                    if(p === null && String(val).trim() !== '') return;
+                    t.value = p === null ? '' : (f.endsWith('_pct') && !p.pct && Math.abs(p.v) <= 1 && p.v !== 0
+                                                 ? p.v * 100 : p.v);
+                }
+                t.dispatchEvent(new Event('change', {bubbles:false}));
+                n++;
+            });
+        });
+    } finally {
+        BULK.on = false;
+    }
+    // ادمج خانات نفس (الشهر/الأسبوع) في سجل واحد قبل الحفظ
+    const merged = new Map();
+    BULK.cells.forEach(c => {
+        const k = c.ym + '|' + (c.wk || 0);
+        merged.set(k, Object.assign(merged.get(k) || {ym:c.ym, wk:c.wk || 0}, c));
+    });
+    render();
+    if(n) saveCells(Array.from(merged.values()), `تم لصق ${n} خانة من إكسيل ✓`);
 });
 
 $('#btnExcel').addEventListener('click', () => {
