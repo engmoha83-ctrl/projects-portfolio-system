@@ -625,12 +625,36 @@ function latestPerProject(rows){
 }
 
 /* خط زمني مجمّع: تجميع كل المشاريع في كل تاريخ */
+/* خط زمني مجمّع صحيح: عند كل تاريخ نأخذ لكل مشروع آخر تحديث له في ذلك التاريخ أو قبله
+   (carry-forward). بدون ذلك يشمل كل تاريخ المشاريع التي صادف أن حدّثت فيه فقط،
+   فتقفز الأرقام وتهبط بلا معنى. */
 function aggregateTimeline(rows){
-  const byDate = {};
-  rows.forEach(r => { const d = r.current_data_date || ''; (byDate[d] = byDate[d] || []).push(r); });
-  return Object.keys(byDate).sort().map(d => {
-    const a = aggregate(byDate[d]); a.current_data_date = d; return a;
+  const dates = Array.from(new Set(rows.map(r => r.current_data_date).filter(Boolean)))
+                     .sort((a, b) => String(a).localeCompare(String(b)));
+  const byProject = {};
+  rows.forEach(r => {
+    const k = r.project_name || '—';
+    (byProject[k] = byProject[k] || []).push(r);
   });
+  Object.keys(byProject).forEach(k => byProject[k].sort(
+    (a, b) => String(a.current_data_date).localeCompare(String(b.current_data_date))));
+
+  return dates.map(d => {
+    const snap = [];
+    Object.keys(byProject).forEach(k => {
+      let last = null;
+      const list = byProject[k];
+      for(let i = 0; i < list.length; i++){
+        if(String(list[i].current_data_date) <= String(d)) last = list[i]; else break;
+      }
+      if(last) snap.push(last);                 // المشاريع التي لم تبدأ بعد تُستثنى
+    });
+    if(!snap.length) return null;
+    const a = aggregate(snap);
+    a.current_data_date = d;
+    a._projects = snap.length;                  // عدد المشاريع الداخلة في هذه النقطة
+    return a;
+  }).filter(Boolean);
 }
 
 /* ---------------- سجل التراجع ---------------- */
@@ -1078,7 +1102,7 @@ const VISUALS = {
   scurve:{
     name:'المنحنى التراكمي', icon:'📉', w:560, h:320,
     opts:{showActual:true, showPlanned:true, showFinancial:true, finSource:'contractor',
-          finMode:'percent', chartType:'area', smooth:true,
+          finMode:'percent', chartType:'area', smooth:true, forceMono:true, showCount:false,
           dl:Object.assign({}, DL_DEFAULT, {show:false})},
     title:'المنحنى التراكمي للإنجاز والصرف', title_en:'Cumulative progress & spend curve',
     render(body, w){
@@ -1106,18 +1130,28 @@ const VISUALS = {
       };
       const asValue = (w.opts.finMode === 'value');
 
+      // القيم تراكمية بطبيعتها؛ هذا يمنع أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق
+      const mono = arr => {
+        if(!w.opts.forceMono) return arr;
+        let mx = -Infinity;
+        return arr.map(v => { mx = Math.max(mx, num(v)); return +mx.toFixed(2); });
+      };
+      const barType = (w.opts.chartType === 'bar');
+
       const series = [], colors = [], types = [];
       if(w.opts.showActual){
-        series.push({name:tr('cumActual'), type:w.opts.chartType, data:rows.map(r => pct(r.act_prog_cur))});
+        series.push({name:tr('cumActual'), type:barType ? 'column' : w.opts.chartType,
+                     data:mono(rows.map(r => pct(r.act_prog_cur)))});
         colors.push(theme().palette[0]); types.push('pct');
       }
       if(w.opts.showPlanned){
-        series.push({name:tr('cumPlanned'), type:'line', data:rows.map(r => pct(r.plan_prog_cur))});
+        series.push({name:tr('cumPlanned'), type:'line', data:mono(rows.map(r => pct(r.plan_prog_cur)))});
         colors.push(theme().palette[1]); types.push('pct');
       }
       if(w.opts.showFinancial){
         series.push({name:asValue ? tr('cumFinanceVal') : tr('cumFinance'),
-                     type:'line', data:rows.map(r => asValue ? finVal(r) : finPct(r))});
+                     type:barType ? 'column' : 'line',
+                     data:mono(rows.map(r => asValue ? finVal(r) : finPct(r)))});
         colors.push(theme().palette[3] || '#1e8e5a'); types.push(asValue ? 'val' : 'pct');
       }
       if(!series.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
@@ -1132,13 +1166,16 @@ const VISUALS = {
            labels:{formatter:v => Math.round(v) + '%', style:axFont}});
 
       mkChart(body, w, {
-        chart:{type:'line', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}, stacked:false},
+        chart:{type:barType ? 'bar' : 'line', fontFamily:wFont(w), background:'transparent',
+               toolbar:{show:false}, stacked:false},
         series, colors,
+        plotOptions:barType ? {bar:{columnWidth:'55%', borderRadius:4}} : {},
         stroke:{curve:w.opts.smooth ? 'smooth' : 'straight',
-                width:series.map(sr => sr.type === 'area' ? 2 : 3),
-                dashArray:series.map((sr, i) => (types[i] === 'pct' && i === 1) ? 5 : 0)},
-        fill:{colors:colors, type:'solid', opacity:series.map(sr => sr.type === 'area' ? 0.20 : 1)},
-        markers:{size:3},
+                width:series.map(sr => sr.type === 'column' ? 0 : (sr.type === 'area' ? 2 : 3)),
+                dashArray:series.map((sr, i) => (types[i] === 'pct' && sr.type === 'line' && i === 1) ? 5 : 0)},
+        fill:{colors:colors, type:'solid',
+              opacity:series.map(sr => sr.type === 'area' ? 0.20 : (sr.type === 'column' ? 0.92 : 1))},
+        markers:{size:barType ? 0 : 3},
         dataLabels:dlOpts(w, theme().text, (v, o) => {
           const i = o && o.seriesIndex;
           return (types[i] === 'val') ? compactNum(num(v)) : num(v).toFixed(1) + '%';
@@ -1149,7 +1186,8 @@ const VISUALS = {
         grid:{borderColor:'rgba(125,125,125,.18)'},
         legend:{position:'top', horizontalAlign:'center', fontSize:wSize(w) + 'px',
                 labels:{colors:theme().text}},
-        tooltip:{shared:true, y:{formatter:(v, o) => {
+        // ApexCharts يرفض shared مع intersect في الأعمدة
+        tooltip:{shared:!barType, intersect:barType, y:{formatter:(v, o) => {
           const i = o && o.seriesIndex;
           return (types[i] === 'val') ? compactNum(num(v)) + ' ' + tr('currency') : num(v).toFixed(1) + '%';
         }}}
@@ -2383,13 +2421,17 @@ function optionsHtml(w){
         <option value="percent" ${o.finMode === 'percent' ? 'selected' : ''}>نسبة مئوية من العقد</option>
         <option value="value"   ${o.finMode === 'value'   ? 'selected' : ''}>قيمة بالريال (محور ثانٍ)</option>
       </select></div></div>
-      <div class="row"><label>شكل الفعلي</label><div class="ctl"><select data-p="opts.chartType">
-        <option value="area" ${o.chartType === 'area' ? 'selected' : ''}>مساحي</option>
-        <option value="line" ${o.chartType === 'line' ? 'selected' : ''}>خطي</option>
+      <div class="row"><label>شكل العرض</label><div class="ctl"><select data-p="opts.chartType">
+        <option value="area" ${o.chartType === 'area' ? 'selected' : ''}>منحنى مساحي</option>
+        <option value="line" ${o.chartType === 'line' ? 'selected' : ''}>منحنى خطي</option>
+        <option value="bar"  ${o.chartType === 'bar'  ? 'selected' : ''}>أعمدة تراكمية</option>
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth ? 'checked' : ''}> خطوط انسيابية</label>
-      <div class="hint">يرسم تطور الإنجاز والصرف عبر كل تواريخ التحديث. في وضع «كل المشاريع» يعرض
-      المنحنى المجمّع (الإنجاز متوسط مرجّح والصرف مجموع).</div>`;
+      <label class="chk"><input type="checkbox" data-p="opts.forceMono" ${o.forceMono ? 'checked' : ''}> فرض التزايد التراكمي (منع الهبوط)</label>
+      <div class="hint">القيم تراكمية بطبيعتها فلا يفترض أن ينزل المنحنى. «فرض التزايد» يثبّت كل نقطة
+      عند أعلى قيمة سابقة، فيعالج أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.
+      <br><br>في وضع «كل المشاريع» يُحتسب لكل تاريخ آخر تحديث معروف لكل مشروع (وليس المشاريع التي
+      حدّثت في ذلك اليوم فقط)، والإنجاز متوسط مرجّح بقيمة العقد والصرف مجموع.</div>`;
   }
   if(w.type === 'topn'){
     const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
