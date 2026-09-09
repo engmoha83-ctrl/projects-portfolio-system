@@ -1044,6 +1044,144 @@ async def api_cashflow_unsplit(request: Request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+SNAPSHOT_KEEP = 20          # أقصى عدد نسخ محفوظة لكل مشروع
+
+
+def _snapshot_capture(project, name, user, conn=None):
+    """يلتقط الحالة الحالية (الإعدادات + كل الصفوف والأسابيع) كنسخة يمكن الرجوع إليها."""
+    own = conn is None
+    if own: conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""SELECT contract_value, revised_value, start_month, end_month, locked,
+                             COALESCE(baseline_source,'manual')
+                      FROM cashflow_meta WHERE project_name = %s""", (project,))
+    m = cursor.fetchone()
+    meta = None if not m else {"contract_value": float(m[0] or 0), "revised_value": float(m[1] or 0),
+                               "start_month": m[2], "end_month": m[3], "locked": bool(m[4]),
+                               "baseline_source": m[5]}
+    cursor.execute("""SELECT ym, COALESCE(wk,0), plan_amount, plan_pct, act_pct, act_amount, note
+                      FROM cashflow_rows WHERE project_name = %s ORDER BY ym, COALESCE(wk,0)""", (project,))
+    rows = [[r[0], int(r[1] or 0)] + [None if v is None else float(v) for v in r[2:6]] + [r[6]]
+            for r in cursor.fetchall()]
+    cursor.execute("""INSERT INTO cashflow_snapshots (project_name, name, payload, created_by)
+                      VALUES (%s,%s,%s,%s) RETURNING id""",
+                   (project, (name or "نسخة")[:120], json.dumps({"meta": meta, "rows": rows}), user))
+    sid = cursor.fetchone()[0]
+    cursor.execute("""DELETE FROM cashflow_snapshots WHERE project_name = %s AND id NOT IN
+                      (SELECT id FROM cashflow_snapshots WHERE project_name = %s
+                       ORDER BY created_at DESC, id DESC LIMIT %s)""",
+                   (project, project, SNAPSHOT_KEEP))
+    if own: conn.commit(); conn.close()
+    return sid, len(rows)
+
+
+@app.get("/api/cashflow/snapshots")
+async def api_cashflow_snapshots(project: str, request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""SELECT id, name, created_by, created_at,
+                                 jsonb_array_length(payload->'rows')
+                          FROM cashflow_snapshots WHERE project_name = %s
+                          ORDER BY created_at DESC, id DESC""", (project,))
+        out = [{"id": r[0], "name": r[1], "by": r[2], "at": str(r[3])[:19], "rows": r[4]}
+               for r in cursor.fetchall()]
+        conn.close()
+        return {"success": True, "snapshots": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/snapshot")
+async def api_cashflow_snapshot(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        if not project:
+            return JSONResponse({"success": False, "error": "المشروع مطلوب"}, status_code=400)
+        sid, n = _snapshot_capture(project, b.get("name"), admin_user)
+        return {"success": True, "id": sid, "rows": n}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/snapshot/restore")
+async def api_cashflow_snapshot_restore(request: Request, background_tasks: BackgroundTasks):
+    """يرجّع نسخة محفوظة — ويأخذ نسخة من الحالة الحالية أولاً حتى لا يضيع شيء."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        sid = int(b.get("id") or 0)
+        if not project or not sid:
+            return JSONResponse({"success": False, "error": "بيانات ناقصة"}, status_code=400)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, payload FROM cashflow_snapshots WHERE id = %s AND project_name = %s",
+                       (sid, project))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return JSONResponse({"success": False, "error": "النسخة غير موجودة"}, status_code=404)
+        snap_name, payload = row[0], row[1]
+        if isinstance(payload, str): payload = json.loads(payload)
+
+        _snapshot_capture(project, f"قبل استرجاع «{snap_name}»", admin_user, conn)
+
+        cursor.execute("DELETE FROM cashflow_rows WHERE project_name = %s", (project,))
+        for r in (payload.get("rows") or []):
+            cursor.execute("""INSERT INTO cashflow_rows
+                                (project_name, ym, wk, plan_amount, plan_pct, act_pct, act_amount, note,
+                                 updated_by, updated_at)
+                              VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())""",
+                           (project, r[0], r[1], r[2], r[3], r[4], r[5], r[6], admin_user))
+        m = payload.get("meta")
+        if m:
+            cursor.execute("""INSERT INTO cashflow_meta
+                                (project_name, contract_value, revised_value, start_month, end_month,
+                                 locked, baseline_source, updated_by, updated_at)
+                              VALUES (%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+                              ON CONFLICT (project_name) DO UPDATE SET
+                                contract_value=EXCLUDED.contract_value, revised_value=EXCLUDED.revised_value,
+                                start_month=EXCLUDED.start_month, end_month=EXCLUDED.end_month,
+                                locked=EXCLUDED.locked, baseline_source=EXCLUDED.baseline_source,
+                                updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
+                           (project, m.get("contract_value") or 0, m.get("revised_value") or 0,
+                            m.get("start_month"), m.get("end_month"), bool(m.get("locked")),
+                            m.get("baseline_source") or "manual", admin_user))
+        conn.commit(); conn.close()
+        background_tasks.add_task(log_audit, admin_user, "استرجاع نسخة تدفق نقدي",
+                                  f"مشروع {project} — {snap_name}")
+        return _cashflow_payload(project)
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/snapshot/delete")
+async def api_cashflow_snapshot_delete(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM cashflow_snapshots WHERE id = %s AND project_name = %s",
+                       (int(b.get("id") or 0), (b.get("project") or "").strip()))
+        conn.commit(); conn.close()
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 @app.post("/api/cashflow/import-weekly")
 async def api_cashflow_import_weekly(request: Request, background_tasks: BackgroundTasks):
     """يقترح نسب الإنجاز الفعلية الشهرية من آخر تحديث أسبوعي داخل كل شهر (لا يحفظ شيئاً)."""
