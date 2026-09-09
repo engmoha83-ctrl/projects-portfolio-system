@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم | التدفق النقدي ومنحنى الإنجاز</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js"></script>
+    <style>
+        .cf-wrap { padding: 0 20px 40px; }
+        .panel { background: var(--bg-card); border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+                 padding: 1.1rem 1.25rem; margin-bottom: 1.1rem; }
+        .panel h5 { font-size: .95rem; font-weight: 800; color: var(--text-strong); margin: 0 0 .9rem; }
+
+        .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem; }
+        .meta-grid label { font-size: .74rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: .2rem; }
+        .meta-grid input, .meta-grid select { width: 100%; border: 1px solid var(--border-soft); border-radius: 8px;
+                 padding: .42rem .6rem; font-size: .84rem; font-family: inherit; }
+        .meta-grid input:focus { outline: none; border-color: var(--info); }
+
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .7rem; margin-top: .9rem; }
+        .kpi { background: var(--bg-muted); border-radius: var(--radius-sm); padding: .6rem .75rem; }
+        .kpi .k-lab { font-size: .7rem; color: var(--text-muted); font-weight: 700; }
+        .kpi .k-val { font-size: 1.05rem; font-weight: 800; color: var(--text-strong); margin-top: .15rem; }
+        .kpi.warn .k-val { color: var(--danger); }
+        .kpi.ok  .k-val { color: var(--success); }
+
+        .tbl-scroll { overflow: auto; max-height: 62vh; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
+        table.cf { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .82rem; white-space: nowrap; }
+        table.cf thead th { position: sticky; top: 0; z-index: 3; background: var(--navy-800); color: #fff;
+                 font-weight: 700; font-size: .74rem; padding: .5rem .55rem; text-align: center; }
+        table.cf thead tr.grp th { top: 0; }
+        table.cf thead tr.cols th { top: 30px; }
+        table.cf thead th.g-plan { background: var(--navy-700); }
+        table.cf thead th.g-act  { background: #1f4d3d; }
+        table.cf thead th.g-ana  { background: #4a3b6b; }
+        table.cf tbody td { border-bottom: 1px solid var(--border-soft); padding: 0; text-align: center; }
+        table.cf tbody td.ym { font-weight: 800; color: var(--text-strong); background: var(--bg-muted);
+                 position: sticky; inset-inline-start: 0; z-index: 2; padding: .35rem .6rem; }
+        table.cf tbody td.calc { background: #fbfcfe; color: var(--text-body); padding: .35rem .5rem;
+                 font-variant-numeric: tabular-nums; direction: ltr; }
+        table.cf tbody td input[type=number] { direction: ltr; }
+        table.cf tbody td input { width: 100%; border: none; background: transparent; text-align: center;
+                 padding: .38rem .3rem; font-size: .82rem; font-family: inherit; font-variant-numeric: tabular-nums; }
+        table.cf tbody td input:focus { outline: 2px solid var(--info); outline-offset: -2px; background: #fff; }
+        table.cf tbody td input:disabled { color: var(--text-muted); }
+        table.cf tbody tr:hover td { background: #f7f9fc; }
+        table.cf tbody tr.row-drop td.ym { background: var(--danger-bg); color: var(--danger); }
+        table.cf tbody tr.row-same td.ym { background: var(--warning-bg); color: var(--warning); }
+        td.note-cell input { text-align: start; }
+
+        /* ===== التقسيم الأسبوعي ===== */
+        .wk-toggle { border: 1px solid var(--border-soft); background: #fff; border-radius: 6px; width: 20px; height: 20px;
+                     font-size: .62rem; line-height: 1; cursor: pointer; color: var(--text-muted); padding: 0;
+                     margin-inline-end: 5px; vertical-align: middle; font-family: inherit; }
+        .wk-toggle:hover { border-color: var(--info); color: var(--info); }
+        .wk-toggle.on { background: var(--navy-700); border-color: var(--navy-700); color: #fff; }
+        table.cf tbody tr.wk-row td { background: #f6f8fc; font-size: .78rem; }
+        table.cf tbody tr.wk-row td.ym { background: #eef2f8; font-weight: 700; color: var(--text-muted);
+                     padding-inline-start: 1.6rem; font-size: .74rem; }
+        table.cf tbody tr.wk-row.wk-last td { border-bottom: 2px solid var(--border-soft); }
+        table.cf tbody tr.wk-row td input { font-size: .78rem; padding: .3rem .3rem; }
+        table.cf tbody tr.wk-row td.calc { background: #f0f4fa; }
+        .from-wk { display: inline-block; font-size: .6rem; font-weight: 800; color: #4a3b6b;
+                   background: #ece7f5; border-radius: 20px; padding: 1px 6px; margin-inline-start: 4px; }
+        table.cf tbody td input:disabled { background: #f2f4f8; font-weight: 700; color: var(--text-strong); cursor: not-allowed; }
+        .flag { display: inline-block; font-size: .64rem; font-weight: 800; padding: 1px 6px; border-radius: 20px; margin-inline-start: 4px; }
+        .f-drop { background: var(--danger); color: #fff; }
+        .f-same { background: var(--warning); color: #22160a; }
+        .f-dev  { background: #7b5ea7; color: #fff; }
+        .dev-neg { color: var(--danger); font-weight: 700; }
+        .dev-pos { color: var(--success); font-weight: 700; }
+
+        .toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .9rem; }
+        .btn-cf { border: 1px solid var(--border-soft); background: #fff; border-radius: 8px; padding: .42rem .9rem;
+                  font-size: .8rem; font-weight: 700; cursor: pointer; font-family: inherit; color: var(--text-strong); }
+        .btn-cf:hover { border-color: var(--info); color: var(--info); }
+        .btn-cf.primary { background: var(--navy-700); border-color: var(--navy-700); color: #fff; }
+        .btn-cf.primary:hover { background: var(--navy-600); color: #fff; }
+        .btn-cf:disabled { opacity: .5; cursor: not-allowed; }
+        .save-state { font-size: .75rem; color: var(--text-muted); margin-inline-start: auto; }
+        .save-state.ok { color: var(--success); font-weight: 700; }
+        .save-state.err { color: var(--danger); font-weight: 700; }
+        .hint-box { font-size: .76rem; color: var(--text-muted); background: var(--bg-muted);
+                    border: 1px dashed var(--border-soft); border-radius: var(--radius-sm); padding: .7rem .85rem; line-height: 1.8; }
+        .hidden-badge { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(217,148,37,.3);
+                    border-radius: 20px; padding: .2rem .7rem; font-size: .72rem; font-weight: 800; }
+    </style>
+</head>
+<body>
+{% include "_admin_nav.html" %}
+
+<div class="cf-wrap">
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+        <h4 class="fw-bold m-0" style="color:var(--text-strong)">💰 التدفق النقدي ومنحنى الإنجاز</h4>
+        <span class="hidden-badge">مخفية عن مديري المشاريع</span>
+    </div>
+
+    <div class="panel">
+        <div class="toolbar">
+            <div style="min-width:260px">
+                <label style="font-size:.74rem;font-weight:700;color:var(--text-muted)">المشروع</label>
+                <select id="projSel" class="form-select form-select-sm">
+                    <option value="">— اختر المشروع —</option>
+                    {% for p in projects %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="save-state" id="saveState"></div>
+        </div>
+
+        <div id="metaBox" hidden>
+            <div class="meta-grid">
+                <div><label>قيمة العقد الأصلية (خط الأساس)</label><input type="number" id="mCv" step="1000"></div>
+                <div><label>القيمة بعد أوامر التغيير (الفعلي)</label><input type="number" id="mRv" step="1000"></div>
+                <div><label>أول شهر</label><input type="month" id="mStart"></div>
+                <div><label>آخر شهر</label><input type="month" id="mEnd"></div>
+                <div><label>حد تنبيه الانحراف (نقطة)</label><input type="number" id="mDev" value="10" min="1" max="50"></div>
+                <div style="display:flex;align-items:flex-end;gap:.5rem">
+                    <button class="btn-cf primary" id="btnMeta">حفظ الإعدادات</button>
+                </div>
+            </div>
+            <div class="kpis" id="kpis"></div>
+        </div>
+    </div>
+
+    <div class="panel" id="tablePanel" hidden>
+        <div class="toolbar">
+            <h5 class="m-0">جدول الشهور</h5>
+            <button class="btn-cf" id="btnImport">استيراد النسب الفعلية من التحديثات الأسبوعية</button>
+            <button class="btn-cf" id="btnAddMonth">+ إضافة شهر</button>
+            <button class="btn-cf" id="btnSplitAll">🗓️ تقسيم كل الشهور أسبوعياً ÷4</button>
+            <button class="btn-cf" id="btnCollapseAll">طيّ الأسابيع</button>
+            <button class="btn-cf" id="btnExcel">⬇️ تصدير إكسيل</button>
+        </div>
+
+        <div class="tbl-scroll">
+            <table class="cf">
+                <thead>
+                    <tr class="grp">
+                        <th rowspan="2" style="min-width:118px">الشهر</th>
+                        <th class="g-plan" colspan="3">خط الأساس (المخطط)</th>
+                        <th class="g-act" colspan="3">الفعلي</th>
+                        <th class="g-ana" colspan="3">التحليل</th>
+                    </tr>
+                    <tr class="cols">
+                        <th class="g-plan" style="min-width:120px">المخطط الشهري</th>
+                        <th class="g-plan" style="min-width:120px">التراكمي المخطط</th>
+                        <th class="g-plan" style="min-width:96px">% مخططة</th>
+                        <th class="g-act"  style="min-width:96px">% فعلية</th>
+                        <th class="g-act"  style="min-width:120px">التراكمي الفعلي</th>
+                        <th class="g-act"  style="min-width:120px">الفعلي الشهري</th>
+                        <th class="g-ana"  style="min-width:96px">الانحراف</th>
+                        <th class="g-ana"  style="min-width:80px">SPI</th>
+                        <th class="g-ana"  style="min-width:150px">ملاحظة</th>
+                    </tr>
+                </thead>
+                <tbody id="cfBody"></tbody>
+            </table>
+        </div>
+
+        <div class="hint-box mt-3">
+            <b>الإدخال تبادلي:</b> اكتب <b>المخطط الشهري</b> فتُحسب النسبة المخططة، أو اكتب <b>% مخططة</b> فيُحسب المبلغ.
+            وكذلك في الفعلي: اكتب <b>% فعلية</b> فيُحسب التراكمي، أو اكتب <b>التراكمي الفعلي</b> فتُحسب النسبة.
+            <br><b>التقسيم الأسبوعي:</b> اضغط <b>▸</b> بجوار الشهر ليتقسّم تلقائياً إلى 4 أسابيع (المبلغ المخطط ÷ 4، والنسبة الفعلية
+            موزّعة بالتدرّج). بعدها المخطط الشهري = <b>مجموع</b> الأسابيع، والنسبة الفعلية للشهر = نسبة <b>آخر أسبوع</b> مُدخل
+            (لأن النسب تراكمية لا تُجمَع)، وتظهر عليها علامة <span class="from-wk">من الأسابيع</span>.
+            <br><b>الحفظ تلقائي</b> عند الخروج من أي خانة. <b>Enter</b> ينتقل للشهر التالي في نفس العمود.
+            <br><b>التنبيهات:</b> <span class="flag f-drop">تراجع</span> نسبة أقل من الشهر السابق ·
+            <span class="flag f-same">بدون تقدم</span> نفس نسبة الشهر السابق ·
+            <span class="flag f-dev">انحراف</span> فرق عن خط الأساس أكبر من الحد المحدد.
+        </div>
+    </div>
+
+    <div class="panel" id="chartPanel" hidden>
+        <h5>منحنى الإنجاز (S-Curve)</h5>
+        <div class="toolbar">
+            <button class="btn-cf" id="btnUnitPct">عرض بالنسبة %</button>
+            <button class="btn-cf" id="btnUnitVal">عرض بالمبلغ</button>
+        </div>
+        <div id="sCurve" style="height:360px"></div>
+    </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const WK = 4;                                   // عدد الأسابيع في الشهر (قسمة تلقائية)
+const ST = { project:'', meta:null, rows:[], unit:'pct', chart:null, timers:{}, expanded:new Set() };
+
+const fmtN = (v, d=0) => (v === null || v === undefined || isNaN(v)) ? '—'
+    : Number(v).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
+const num = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+
+function setState(msg, cls){ const e = $('#saveState'); e.textContent = msg || ''; e.className = 'save-state ' + (cls || ''); }
+
+/* ============ تحميل ============ */
+async function loadProject(p){
+    ST.project = p;
+    if(!p){ $('#metaBox').hidden = $('#tablePanel').hidden = $('#chartPanel').hidden = true; return; }
+    setState('جاري التحميل…');
+    try{
+        const j = await (await fetch('/api/cashflow?project=' + encodeURIComponent(p))).json();
+        if(!j.success){ setState(j.error || 'خطأ', 'err'); return; }
+        ST.meta = j.meta; ST.rows = j.rows.map(normRow); ST.expanded = new Set();
+        $('#mCv').value = j.meta.contract_value || 0;
+        $('#mRv').value = j.meta.revised_value || 0;
+        $('#mStart').value = j.meta.start_month;
+        $('#mEnd').value = j.meta.end_month;
+        $('#metaBox').hidden = $('#tablePanel').hidden = $('#chartPanel').hidden = false;
+        render();
+        setState(j.meta.is_new ? 'مشروع جديد — القيم مقترحة من بيانات المشروع، راجعها واحفظ الإعدادات' : 'جاهز', 'ok');
+    }catch(e){ setState('خطأ في الاتصال: ' + e.message, 'err'); }
+}
+
+/* ============ التقسيم الأسبوعي ============ */
+const has = v => v !== null && v !== undefined && v !== '';
+
+function normRow(r){
+    r.weeks = Array.isArray(r.weeks) ? r.weeks.slice(0, WK) : [];
+    while(r.weeks.length < WK) r.weeks.push(null);
+    r.has_weeks = !!r.has_weeks;
+    return r;
+}
+function emptyWeek(ym, w){
+    return {ym, wk:w, plan_amount:null, plan_pct:null, act_pct:null, act_amount:null, note:null};
+}
+/** الشهر = مجموع مبالغ أسابيعه · ونسبته الفعلية = نسبة آخر أسبوع مُدخل (النسب تراكمية لا تُجمَع) */
+function aggMonth(r){
+    if(!r.has_weeks) return;
+    const ws = r.weeks.filter(Boolean);
+    const plans = ws.map(w => w.plan_amount).filter(has);
+    const acts  = ws.map(w => w.act_pct).filter(has);
+    if(plans.length) r.plan_amount = +plans.reduce((a, b) => a + b, 0).toFixed(2);
+    if(acts.length){
+        r.act_pct = acts[acts.length - 1];
+        const rv = num($('#mRv').value) || num($('#mCv').value) || 0;
+        r.act_amount = r.act_pct / 100 * rv;
+    }
+}
+/** آخر نسبة فعلية مسجّلة قبل هذا الشهر (نقطة بداية التوزيع التدريجي) */
+function prevMonthPct(i){
+    for(let k = i - 1; k >= 0; k--) if(has(ST.rows[k].act_pct)) return ST.rows[k].act_pct;
+    return 0;
+}
+/** يقسّم الشهر إلى 4 أسابيع: المبلغ ÷ 4، والنسبة الفعلية موزّعة بالتدرّج حتى نسبة الشهر */
+function splitMonth(i){
+    const r = ST.rows[i], rv = num($('#mRv').value) || num($('#mCv').value) || 0;
+    const mPlan = has(r.plan_amount) ? r.plan_amount : null;
+    const base  = mPlan === null ? null : Math.round(mPlan / WK * 100) / 100;
+    const p0    = prevMonthPct(i);
+    const cells = [];
+    r.weeks = [];
+    for(let w = 1; w <= WK; w++){
+        const rec = emptyWeek(r.ym, w);
+        if(mPlan !== null) rec.plan_amount = (w === WK) ? +(mPlan - base * (WK - 1)).toFixed(2) : base;
+        if(has(r.act_pct)){
+            rec.act_pct = +(p0 + (r.act_pct - p0) * w / WK).toFixed(2);
+            rec.act_amount = rec.act_pct / 100 * rv;
+        }
+        r.weeks.push(rec);
+        cells.push({ym:r.ym, wk:w, plan_amount:rec.plan_amount, act_pct:rec.act_pct, act_amount:rec.act_amount});
+    }
+    r.has_weeks = true;
+    return cells;
+}
+function toggleMonth(i){
+    if(ST.expanded.has(i)){ ST.expanded.delete(i); render(); return; }
+    ST.expanded.add(i);
+    const r = ST.rows[i];
+    if(!r.has_weeks){
+        const cells = splitMonth(i);
+        render();
+        saveCells(cells, `قُسِّم ${r.ym} إلى ${WK} أسابيع ✓`);
+    }else render();
+}
+async function unsplitMonth(i){
+    const r = ST.rows[i];
+    if(!confirm(`إلغاء التقسيم الأسبوعي لشهر ${r.ym}؟\nستُحذف قيم الأسابيع وتبقى قيمة الشهر الحالية كما هي.`)) return;
+    aggMonth(r);
+    const keep = {project:ST.project, ym:r.ym, wk:0, plan_amount:r.plan_amount,
+                  act_pct:r.act_pct, act_amount:r.act_amount};
+    r.has_weeks = false; r.weeks = [null, null, null, null];
+    ST.expanded.delete(i);
+    render();
+    setState('جاري الحفظ…');
+    try{
+        await fetch('/api/cashflow/unsplit', {method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({project:ST.project, ym:r.ym})});
+        await fetch('/api/cashflow/cell', {method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(keep)});
+        setState('أُلغي التقسيم الأسبوعي لشهر ' + r.ym + ' ✓', 'ok');
+    }catch(e){ setState('فشل الحفظ: ' + e.message, 'err'); }
+}
+
+/* ============ الحساب ============ */
+function computed(){
+    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    let cumPlan = 0, prevAct = null;
+    return ST.rows.map(r => {
+        const startCum = cumPlan;
+        cumPlan += (r.plan_amount || 0);
+        const planPct = cv ? cumPlan / cv * 100 : 0;
+        const actPct  = r.act_pct;
+        const actCum  = !has(actPct) ? null : actPct / 100 * rv;
+        const actMon  = (actCum === null) ? null : actCum - (prevAct === null ? 0 : prevAct);
+        const dev     = !has(actPct) ? null : actPct - planPct;
+        const spi     = (!has(actPct) || planPct <= 0) ? null : actPct / planPct;
+        const o = {...r, cumPlan, planPct, actCum, actMon, dev, spi, prevAct};
+
+        if(r.has_weeks){                       // نفس المعادلات لكن داخل الشهر أسبوعاً بأسبوع
+            let wCum = startCum, wPrev = prevAct;
+            o.wrows = r.weeks.map((w, k) => {
+                w = w || emptyWeek(r.ym, k + 1);
+                wCum += (w.plan_amount || 0);
+                const wPlanPct = cv ? wCum / cv * 100 : 0;
+                const wActCum  = !has(w.act_pct) ? null : w.act_pct / 100 * rv;
+                const wActMon  = (wActCum === null) ? null : wActCum - (wPrev === null ? 0 : wPrev);
+                const wo = {...w, wk:k + 1, ym:r.ym, cumPlan:wCum, planPct:wPlanPct, actCum:wActCum,
+                            actMon:wActMon,
+                            dev: !has(w.act_pct) ? null : w.act_pct - wPlanPct,
+                            spi: (!has(w.act_pct) || wPlanPct <= 0) ? null : w.act_pct / wPlanPct};
+                if(has(w.act_pct)) wPrev = wActCum;
+                return wo;
+            });
+        }
+        if(has(actPct)) prevAct = actCum;
+        return o;
+    });
+}
+
+function render(){
+    const rows = computed();
+    const devLimit = num($('#mDev').value) || 10;
+    const cv = num($('#mCv').value) || 0;
+    let prevPct = null;
+
+    const esc = s => String(s || '').replace(/"/g, '&quot;');
+    const dcls = d => d === null ? '' : (d < 0 ? 'dev-neg' : 'dev-pos');
+    const dtxt = d => d === null ? '—' : (d > 0 ? '+' : '') + d.toFixed(1);
+
+    const html = [];
+    rows.forEach((r, i) => {
+        let cls = '', flags = '';
+        if(has(r.act_pct)){
+            if(prevPct !== null && r.act_pct < prevPct - 0.001){ cls = 'row-drop'; flags += '<span class="flag f-drop">تراجع</span>'; }
+            else if(prevPct !== null && Math.abs(r.act_pct - prevPct) < 0.001){ cls = 'row-same'; flags += '<span class="flag f-same">بدون تقدم</span>'; }
+            if(r.dev !== null && Math.abs(r.dev) >= devLimit) flags += '<span class="flag f-dev">انحراف</span>';
+            prevPct = r.act_pct;
+        }
+        const open = ST.expanded.has(i);
+        const lock = r.has_weeks ? ' disabled title="محسوبة من الأسابيع"' : '';
+        const mark = r.has_weeks ? '<span class="from-wk">من الأسابيع</span>' : '';
+        const tgl  = `<button type="button" class="wk-toggle${open ? ' on' : ''}" data-tg="${i}"
+                        title="${open ? 'طيّ الأسابيع' : 'تقسيم الشهر إلى ' + WK + ' أسابيع'}">${open ? '▾' : '▸'}</button>`;
+
+        html.push(`<tr class="${cls}">
+          <td class="ym">${tgl}${r.ym}${mark}${flags}</td>
+          <td><input type="number" step="1000" data-f="plan_amount" data-i="${i}" value="${r.plan_amount ?? ''}"${lock}></td>
+          <td class="calc">${fmtN(r.cumPlan)}</td>
+          <td><input type="number" step="0.1" data-f="plan_pct" data-i="${i}" value="${cv ? r.planPct.toFixed(2) : ''}"${lock}></td>
+          <td><input type="number" step="0.1" data-f="act_pct" data-i="${i}" value="${r.act_pct ?? ''}"${lock}></td>
+          <td><input type="number" step="1000" data-f="act_amount" data-i="${i}" value="${r.actCum === null ? '' : Math.round(r.actCum)}"${lock}></td>
+          <td class="calc">${r.actMon === null ? '—' : fmtN(r.actMon)}</td>
+          <td class="calc ${dcls(r.dev)}">${dtxt(r.dev)}</td>
+          <td class="calc">${r.spi === null ? '—' : r.spi.toFixed(2)}</td>
+          <td class="note-cell"><input type="text" data-f="note" data-i="${i}" value="${esc(r.note)}"${lock}></td>
+        </tr>`);
+
+        if(open && r.wrows) r.wrows.forEach((w, k) => {
+            const lastW = k === WK - 1;
+            html.push(`<tr class="wk-row${lastW ? ' wk-last' : ''}">
+              <td class="ym">أسبوع ${w.wk}${lastW ? `<button type="button" class="wk-toggle" data-un="${i}" title="إلغاء التقسيم الأسبوعي">✕</button>` : ''}</td>
+              <td><input type="number" step="1000" data-f="plan_amount" data-i="${i}" data-w="${w.wk}" value="${w.plan_amount ?? ''}"></td>
+              <td class="calc">${fmtN(w.cumPlan)}</td>
+              <td><input type="number" step="0.1" data-f="plan_pct" data-i="${i}" data-w="${w.wk}" value="${cv ? w.planPct.toFixed(2) : ''}"></td>
+              <td><input type="number" step="0.1" data-f="act_pct" data-i="${i}" data-w="${w.wk}" value="${w.act_pct ?? ''}"></td>
+              <td><input type="number" step="1000" data-f="act_amount" data-i="${i}" data-w="${w.wk}" value="${w.actCum === null ? '' : Math.round(w.actCum)}"></td>
+              <td class="calc">${w.actMon === null ? '—' : fmtN(w.actMon)}</td>
+              <td class="calc ${dcls(w.dev)}">${dtxt(w.dev)}</td>
+              <td class="calc">${w.spi === null ? '—' : w.spi.toFixed(2)}</td>
+              <td class="note-cell"><input type="text" data-f="note" data-i="${i}" data-w="${w.wk}" value="${esc(w.note)}"></td>
+            </tr>`);
+        });
+    });
+    $('#cfBody').innerHTML = html.join('');
+    document.querySelectorAll('#cfBody .wk-toggle[data-tg]').forEach(b =>
+        b.addEventListener('click', () => toggleMonth(+b.dataset.tg)));
+    document.querySelectorAll('#cfBody .wk-toggle[data-un]').forEach(b =>
+        b.addEventListener('click', () => unsplitMonth(+b.dataset.un)));
+
+    bindCells();
+    renderKpis(rows);
+    renderChart(rows);
+}
+
+function renderKpis(rows){
+    const cv = num($('#mCv').value) || 0;
+    const planSum = rows.reduce((a, r) => a + (r.plan_amount || 0), 0);
+    const diff = planSum - cv;
+    const withAct = rows.filter(r => r.act_pct !== null && r.act_pct !== undefined);
+    const last = withAct.length ? withAct[withAct.length - 1] : null;
+    const okPlan = cv > 0 && Math.abs(diff) < Math.max(1, cv * 0.001);
+    $('#kpis').innerHTML = `
+      <div class="kpi ${okPlan ? 'ok' : (cv ? 'warn' : '')}">
+        <div class="k-lab">مجموع خطة الأساس</div>
+        <div class="k-val">${fmtN(planSum)}</div>
+        <div class="k-lab">${cv ? (okPlan ? 'مطابق لقيمة العقد ✓' : (diff > 0 ? 'يزيد ' : 'ينقص ') + fmtN(Math.abs(diff))) : ''}</div>
+      </div>
+      <div class="kpi"><div class="k-lab">عدد الشهور</div><div class="k-val">${rows.length}</div></div>
+      <div class="kpi"><div class="k-lab">آخر شهر مسجَّل</div><div class="k-val">${last ? last.ym : '—'}</div></div>
+      <div class="kpi"><div class="k-lab">النسبة الفعلية الحالية</div><div class="k-val">${last ? last.act_pct.toFixed(1) + '%' : '—'}</div></div>
+      <div class="kpi ${last && last.spi !== null ? (last.spi >= 1 ? 'ok' : 'warn') : ''}">
+        <div class="k-lab">SPI الحالي</div><div class="k-val">${last && last.spi !== null ? last.spi.toFixed(2) : '—'}</div></div>`;
+}
+
+function renderChart(rows){
+    if(typeof ApexCharts === 'undefined') return;
+    const pct = ST.unit === 'pct';
+    const series = [
+        {name: pct ? 'المخطط التراكمي %' : 'المخطط التراكمي',
+         data: rows.map(r => pct ? +r.planPct.toFixed(2) : Math.round(r.cumPlan))},
+        {name: pct ? 'الفعلي التراكمي %' : 'الفعلي التراكمي',
+         data: rows.map(r => r.act_pct === null || r.act_pct === undefined ? null
+                            : (pct ? +Number(r.act_pct).toFixed(2) : Math.round(r.actCum)))}
+    ];
+    const opt = {
+        chart:{type:'line', height:360, fontFamily:'Tajawal, sans-serif', toolbar:{show:false}, animations:{enabled:false}},
+        series, colors:['#d4a373', '#1a2b4c'],
+        stroke:{curve:'smooth', width:[3, 3], dashArray:[6, 0]},
+        markers:{size:3},
+        xaxis:{categories:rows.map(r => r.ym), labels:{rotate:-45, style:{fontSize:'10px'}}},
+        yaxis:{min:0, labels:{formatter:v => pct ? Math.round(v) + '%' : Number(v).toLocaleString('en-US')}},
+        legend:{position:'top'},
+        grid:{borderColor:'#e3e7ef'},
+        tooltip:{shared:true, y:{formatter:v => v === null ? '—' : (pct ? v + '%' : Number(v).toLocaleString('en-US'))}}
+    };
+    if(ST.chart){ ST.chart.destroy(); }
+    ST.chart = new ApexCharts($('#sCurve'), opt);
+    ST.chart.render();
+}
+
+/* ============ التحرير والحفظ التلقائي ============ */
+function bindCells(){
+    document.querySelectorAll('#cfBody input').forEach(inp => {
+        inp.addEventListener('change', () => onEdit(inp));
+        inp.addEventListener('keydown', e => {
+            if(e.key === 'Enter'){
+                e.preventDefault(); inp.blur();
+                const f = inp.dataset.f;
+                const all = Array.from(document.querySelectorAll(`#cfBody input[data-f="${f}"]`));
+                const nxt = all[all.indexOf(document.activeElement) + 1] || all[all.indexOf(inp) + 1];
+                if(nxt){ nxt.focus(); nxt.select(); }
+            }
+        });
+    });
+}
+
+function onEdit(inp){
+    if(inp.dataset.w) return onEditWeek(inp);
+    const i = +inp.dataset.i, f = inp.dataset.f, r = ST.rows[i];
+    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    const payload = {project:ST.project, ym:r.ym, wk:0};
+
+    if(f === 'note'){ r.note = inp.value; payload.note = r.note; }
+
+    if(f === 'plan_amount'){
+        r.plan_amount = num(inp.value);
+        payload.plan_amount = r.plan_amount;
+    }
+    if(f === 'plan_pct'){
+        // النسبة المخططة → المبلغ الشهري لهذا الشهر (بفارق التراكمي عن الشهر السابق)
+        const wanted = num(inp.value);
+        if(wanted !== null && cv > 0){
+            let cumPrev = 0;
+            for(let k = 0; k < i; k++) cumPrev += (ST.rows[k].plan_amount || 0);
+            r.plan_amount = Math.max(0, wanted / 100 * cv - cumPrev);
+            payload.plan_amount = r.plan_amount;
+        }
+    }
+    if(f === 'act_pct'){
+        r.act_pct = num(inp.value);
+        r.act_amount = (r.act_pct === null) ? null : r.act_pct / 100 * rv;
+        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount;
+    }
+    if(f === 'act_amount'){
+        const amt = num(inp.value);
+        r.act_amount = amt;
+        r.act_pct = (amt === null || rv <= 0) ? null : amt / rv * 100;
+        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount;
+    }
+
+    // النسبة المخططة المحفوظة تُحدَّث دائماً مع أي تغيير في الخطة
+    if(f === 'plan_amount' || f === 'plan_pct'){
+        let cum = 0;
+        for(let k = 0; k <= i; k++) cum += (ST.rows[k].plan_amount || 0);
+        payload.plan_pct = cv > 0 ? cum / cv * 100 : null;
+    }
+
+    render();
+    saveCell(payload);
+}
+
+/** تعديل خانة داخل أسبوع: تُحدَّث قيمة الأسبوع ثم تُجمَّع قيمة الشهر منه ومن إخوته */
+function onEditWeek(inp){
+    const i = +inp.dataset.i, wi = +inp.dataset.w, f = inp.dataset.f, r = ST.rows[i];
+    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+    if(!r.weeks[wi - 1]) r.weeks[wi - 1] = emptyWeek(r.ym, wi);
+    const w = r.weeks[wi - 1];
+    const cell = {ym:r.ym, wk:wi};
+
+    if(f === 'note'){ w.note = inp.value; cell.note = w.note; }
+
+    if(f === 'plan_amount'){ w.plan_amount = num(inp.value); cell.plan_amount = w.plan_amount; }
+
+    if(f === 'plan_pct'){
+        // نسبة مخططة تراكمية للأسبوع → مبلغ هذا الأسبوع = الفرق عن تراكمي ما قبله
+        const wanted = num(inp.value);
+        if(wanted !== null && cv > 0){
+            let cum = 0;
+            for(let k = 0; k < i; k++) cum += (ST.rows[k].plan_amount || 0);
+            for(let k = 0; k < wi - 1; k++) cum += ((r.weeks[k] && r.weeks[k].plan_amount) || 0);
+            w.plan_amount = +Math.max(0, wanted / 100 * cv - cum).toFixed(2);
+            cell.plan_amount = w.plan_amount;
+        }
+    }
+    if(f === 'act_pct'){
+        w.act_pct = num(inp.value);
+        w.act_amount = (w.act_pct === null) ? null : w.act_pct / 100 * rv;
+        cell.act_pct = w.act_pct; cell.act_amount = w.act_amount;
+    }
+    if(f === 'act_amount'){
+        const amt = num(inp.value);
+        w.act_amount = amt;
+        w.act_pct = (amt === null || rv <= 0) ? null : +(amt / rv * 100).toFixed(4);
+        cell.act_pct = w.act_pct; cell.act_amount = w.act_amount;
+    }
+
+    aggMonth(r);                                  // الشهر يتبع أسابيعه
+    render();
+
+    // نحفظ الأسبوع وقيمة الشهر المجمَّعة معاً حتى تراها الداشبورد وملف الإكسيل
+    let cumM = 0;
+    for(let k = 0; k <= i; k++) cumM += (ST.rows[k].plan_amount || 0);
+    saveCells([cell, {ym:r.ym, wk:0, plan_amount:r.plan_amount,
+                      plan_pct: cv > 0 ? cumM / cv * 100 : null,
+                      act_pct:r.act_pct, act_amount:r.act_amount}]);
+}
+
+function saveCell(payload){
+    setState('جاري الحفظ…');
+    fetch('/api/cashflow/cell', {method:'POST', headers:{'Content-Type':'application/json'},
+                                 body:JSON.stringify(payload)})
+      .then(r => r.json())
+      .then(j => setState(j.success ? 'تم الحفظ ✓' : ('فشل الحفظ: ' + (j.error || '')), j.success ? 'ok' : 'err'))
+      .catch(e => setState('فشل الحفظ: ' + e.message, 'err'));
+}
+
+function saveCells(cells, okMsg){
+    setState('جاري الحفظ…');
+    return fetch('/api/cashflow/cells', {method:'POST', headers:{'Content-Type':'application/json'},
+                                         body:JSON.stringify({project:ST.project, cells})})
+      .then(r => r.json())
+      .then(j => { setState(j.success ? (okMsg || 'تم الحفظ ✓') : ('فشل الحفظ: ' + (j.error || '')),
+                            j.success ? 'ok' : 'err'); return j; })
+      .catch(e => { setState('فشل الحفظ: ' + e.message, 'err'); });
+}
+
+/* ============ الأزرار ============ */
+$('#projSel').addEventListener('change', e => loadProject(e.target.value));
+['mCv','mRv','mDev'].forEach(id => $('#' + id).addEventListener('change', render));
+
+$('#btnMeta').addEventListener('click', async () => {
+    setState('جاري حفظ الإعدادات…');
+    try{
+        const j = await (await fetch('/api/cashflow/meta', {method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({project:ST.project, contract_value:num($('#mCv').value),
+                revised_value:num($('#mRv').value), start_month:$('#mStart').value, end_month:$('#mEnd').value})})).json();
+        if(!j.success){ setState(j.error || 'فشل', 'err'); return; }
+        ST.meta = j.meta; ST.rows = j.rows.map(normRow); render();
+        setState('تم حفظ الإعدادات ✓', 'ok');
+    }catch(e){ setState('خطأ: ' + e.message, 'err'); }
+});
+
+$('#btnAddMonth').addEventListener('click', () => {
+    const last = ST.rows.length ? ST.rows[ST.rows.length - 1].ym : $('#mStart').value;
+    const [y, m] = last.split('-').map(Number);
+    const t = y * 12 + (m - 1) + 1;
+    const ym = `${String(Math.floor(t / 12)).padStart(4,'0')}-${String(t % 12 + 1).padStart(2,'0')}`;
+    ST.rows.push(normRow({ym, plan_amount:null, plan_pct:null, act_pct:null, act_amount:null, note:null}));
+    $('#mEnd').value = ym;
+    render();
+    setState('أُضيف شهر ' + ym + ' — اضغط «حفظ الإعدادات» لتثبيت المدى', 'ok');
+});
+
+$('#btnImport').addEventListener('click', async () => {
+    if(!confirm('سيتم ملء عمود «% فعلية» من التحديثات الأسبوعية لمديري المشاريع.\n'
+              + 'الشهور المقسَّمة أسبوعياً سيُملأ كل أسبوع فيها من تحديث نفس الأسبوع.\n'
+              + 'ما أدخلته يدوياً ولها قيمة سيبقى كما هو. المتابعة؟')) return;
+    setState('جاري الاستيراد…');
+    try{
+        const j = await (await fetch('/api/cashflow/import-weekly', {method:'POST',
+            headers:{'Content-Type':'application/json'}, body:JSON.stringify({project:ST.project})})).json();
+        if(!j.success){ setState(j.error || 'فشل', 'err'); return; }
+        const rv = num($('#mRv').value) || num($('#mCv').value) || 0;
+        const cells = []; let nm = 0, nw = 0;
+
+        ST.rows.forEach((r, i) => {
+            if(r.has_weeks){                                   // شهر مقسَّم → املأ أسابيعه
+                const wk = (j.weeks || {})[r.ym] || {};
+                let touched = false;
+                for(let w = 1; w <= WK; w++){
+                    const v = wk[String(w)];
+                    if(v === undefined) continue;
+                    if(!r.weeks[w - 1]) r.weeks[w - 1] = emptyWeek(r.ym, w);
+                    if(has(r.weeks[w - 1].act_pct)) continue;  // لا نلمس ما أُدخل يدوياً
+                    r.weeks[w - 1].act_pct = v;
+                    r.weeks[w - 1].act_amount = v / 100 * rv;
+                    cells.push({ym:r.ym, wk:w, act_pct:v, act_amount:v / 100 * rv});
+                    nw++; touched = true;
+                }
+                if(touched){
+                    aggMonth(r);
+                    cells.push({ym:r.ym, wk:0, act_pct:r.act_pct, act_amount:r.act_amount});
+                }
+            }else{
+                const v = j.months[r.ym];
+                if(v !== undefined && !has(r.act_pct)){
+                    r.act_pct = v; r.act_amount = v / 100 * rv; nm++;
+                    cells.push({ym:r.ym, wk:0, act_pct:v, act_amount:v / 100 * rv});
+                }
+            }
+        });
+
+        render();
+        if(!cells.length){ setState('لا توجد خانات فارغة للاستيراد', 'ok'); return; }
+        await saveCells(cells, `تم استيراد ${nm} شهر و${nw} أسبوع — راجعها قبل الاعتماد`);
+    }catch(e){ setState('خطأ: ' + e.message, 'err'); }
+});
+
+$('#btnSplitAll').addEventListener('click', async () => {
+    const todo = ST.rows.map((r, i) => i).filter(i => !ST.rows[i].has_weeks);
+    if(!todo.length){ setState('كل الشهور مقسَّمة أسبوعياً بالفعل', 'ok'); return; }
+    if(!confirm(`سيتم تقسيم ${todo.length} شهر إلى ${WK} أسابيع لكل شهر (المبلغ ÷ ${WK} والنسبة موزّعة بالتدرّج).\nيمكنك تعديل أي أسبوع بعدها. المتابعة؟`)) return;
+    let cells = [];
+    todo.forEach(i => { cells = cells.concat(splitMonth(i)); ST.expanded.add(i); });
+    render();
+    await saveCells(cells, `تم تقسيم ${todo.length} شهر أسبوعياً ✓`);
+});
+
+$('#btnCollapseAll').addEventListener('click', () => {
+    if(ST.expanded.size){ ST.expanded.clear(); }
+    else ST.rows.forEach((r, i) => { if(r.has_weeks) ST.expanded.add(i); });
+    render();
+});
+
+$('#btnExcel').addEventListener('click', () => {
+    if(!ST.project) return;
+    window.location = '/api/cashflow/excel?project=' + encodeURIComponent(ST.project);
+});
+
+$('#btnUnitPct').addEventListener('click', () => { ST.unit = 'pct'; renderChart(computed()); });
+$('#btnUnitVal').addEventListener('click', () => { ST.unit = 'val'; renderChart(computed()); });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
