@@ -97,6 +97,39 @@
         table.pm-tbl tr.bad td { background: #fdf1f0; color: var(--danger); }
         .pm-msg { font-size: .78rem; color: var(--text-muted); }
         .pm-msg b { color: var(--text-strong); }
+
+        /* ===== مولّد خط الأساس ===== */
+        .gen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .75rem .9rem; }
+        .gen-grid label.fld { display: block; font-size: .73rem; font-weight: 700; color: var(--text-muted); margin-bottom: .18rem; }
+        .gen-grid select, .gen-grid input { width: 100%; border: 1px solid var(--border-soft); border-radius: 8px;
+                   padding: .38rem .55rem; font-size: .82rem; font-family: inherit; }
+        .gen-sec { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: .7rem .8rem; margin-top: .8rem; }
+        .gen-sec > h6 { font-size: .78rem; font-weight: 800; color: var(--text-strong); margin: 0 0 .55rem;
+                   display: flex; align-items: center; gap: .4rem; }
+        .gen-sec > h6 input { margin: 0; }
+        .gen-two { display: grid; grid-template-columns: 1fr 340px; gap: 1rem; align-items: start; }
+        @media (max-width: 900px){ .gen-two { grid-template-columns: 1fr; } }
+        #genChart { min-height: 220px; }
+        table.stg { width: 100%; border-collapse: collapse; font-size: .78rem; }
+        table.stg th { background: var(--bg-muted); padding: .3rem .4rem; font-weight: 800; font-size: .72rem;
+                   border-bottom: 1px solid var(--border-soft); }
+        table.stg td { padding: .18rem .25rem; border-bottom: 1px solid #eef1f6; }
+        table.stg input { width: 100%; border: 1px solid transparent; border-radius: 6px; padding: .28rem .35rem;
+                   font-size: .78rem; font-family: inherit; background: transparent; }
+        table.stg input:focus { outline: none; border-color: var(--info); background: #fff; }
+        table.stg input[type=number] { direction: ltr; text-align: center; }
+        table.stg td.del button { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: .8rem; }
+        table.stg td.del button:hover { color: var(--danger); }
+        .stg-sum { font-size: .75rem; font-weight: 700; margin-top: .35rem; }
+        .stg-sum.bad { color: var(--danger); }
+        .stg-sum.ok { color: var(--success); }
+        .gen-prev { max-height: 230px; overflow: auto; border: 1px solid var(--border-soft); border-radius: 8px; margin-top: .6rem; }
+        .warn-box { background: var(--warning-bg); border: 1px solid rgba(217,148,37,.35); color: #7a5300;
+                   border-radius: var(--radius-sm); padding: .55rem .75rem; font-size: .76rem; font-weight: 600; margin-top: .7rem; }
+        .src-badge { display: inline-flex; align-items: center; gap: .3rem; border-radius: 20px; padding: .2rem .7rem;
+                   font-size: .72rem; font-weight: 800; border: 1px solid transparent; }
+        .src-badge.programme { background: var(--success-bg, #e2f2ea); color: var(--success); border-color: rgba(30,142,90,.3); }
+        .src-badge.est { background: var(--warning-bg); color: var(--warning); border-color: rgba(217,148,37,.35); }
         .flag { display: inline-block; font-size: .64rem; font-weight: 800; padding: 1px 6px; border-radius: 20px; margin-inline-start: 4px; }
         .f-drop { background: var(--danger); color: #fff; }
         .f-same { background: var(--warning); color: #22160a; }
@@ -127,6 +160,7 @@
     <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
         <h4 class="fw-bold m-0" style="color:var(--text-strong)">💰 التدفق النقدي ومنحنى الإنجاز</h4>
         <span class="hidden-badge">مخفية عن مديري المشاريع</span>
+        <span class="src-badge" id="srcBadge" hidden></span>
     </div>
 
     <div class="panel">
@@ -148,6 +182,14 @@
                 <div><label>أول شهر</label><input type="month" id="mStart"></div>
                 <div><label>آخر شهر</label><input type="month" id="mEnd"></div>
                 <div><label>حد تنبيه الانحراف (نقطة)</label><input type="number" id="mDev" value="10" min="1" max="50"></div>
+                <div><label>مصدر خط الأساس</label>
+                    <select id="mSrc">
+                        <option value="programme">برنامج زمني معتمد</option>
+                        <option value="auto">منحنى تقديري مولَّد</option>
+                        <option value="stages">أوزان مراحل تقديرية</option>
+                        <option value="manual">إدخال يدوي</option>
+                    </select>
+                </div>
                 <div style="display:flex;align-items:flex-end;gap:.5rem">
                     <button class="btn-cf primary" id="btnMeta">حفظ الإعدادات</button>
                 </div>
@@ -161,6 +203,7 @@
             <h5 class="m-0">جدول الشهور</h5>
             <button class="btn-cf" id="btnImport">استيراد النسب الفعلية من التحديثات الأسبوعية</button>
             <button class="btn-cf" id="btnAddMonth">+ إضافة شهر</button>
+            <button class="btn-cf primary" id="btnGen">📈 توليد خط الأساس</button>
             <button class="btn-cf primary" id="btnPaste">📋 لصق من إكسيل</button>
             <button class="btn-cf" id="btnSplitAll">🗓️ تقسيم كل الشهور أسبوعياً ÷4</button>
             <button class="btn-cf" id="btnCollapseAll">طيّ الأسابيع</button>
@@ -206,6 +249,110 @@
             <span class="flag f-same">بدون تقدم</span> نفس نسبة الشهر السابق ·
             <span class="flag f-dev">انحراف</span> فرق عن خط الأساس أكبر من الحد المحدد.
         </div>
+    </div>
+
+    <!-- ============ نافذة توليد خط الأساس ============ -->
+    <div class="pm-back" id="genModal" hidden>
+      <div class="pm-box">
+        <div class="pm-head">
+          <span>📈 توليد خط أساس تقديري للتدفق النقدي</span>
+          <button type="button" id="gClose" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="pm-body">
+          <div class="gen-two">
+            <div>
+              <div class="gen-grid">
+                <div>
+                  <label class="fld">أساس التوزيع</label>
+                  <select id="gBase">
+                    <option value="cv">قيمة العقد الأصلية</option>
+                    <option value="rv">القيمة بعد أوامر التغيير</option>
+                  </select>
+                </div>
+                <div><label class="fld">الإجمالي المراد توزيعه</label><input type="number" id="gTotal" step="1000"></div>
+                <div><label class="fld">من شهر</label><select id="gFrom"></select></div>
+                <div><label class="fld">إلى شهر</label><select id="gTo"></select></div>
+                <div>
+                  <label class="fld">شكل المنحنى</label>
+                  <select id="gCurve"></select>
+                </div>
+                <div><label class="fld">تقريب المبالغ لأقرب</label>
+                  <select id="gRound">
+                    <option value="1">بدون تقريب</option>
+                    <option value="1000" selected>ألف</option>
+                    <option value="10000">عشرة آلاف</option>
+                    <option value="100000">مائة ألف</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="gen-grid mt-2" id="gCustomBox" hidden>
+                <div><label class="fld">حِدّة الانحناء <b id="gaVal">2.0</b></label>
+                     <input type="range" id="gA" min="1" max="5" step="0.1" value="2"></div>
+                <div><label class="fld">الميل (أقل = بداية أثقل) <b id="gkVal">1.00</b></label>
+                     <input type="range" id="gK" min="0.4" max="2.2" step="0.05" value="1"></div>
+              </div>
+
+              <div class="gen-sec" id="gStagesBox" hidden>
+                <h6>أوزان المراحل — مجموع الأوزان لازم يساوي 100%</h6>
+                <table class="stg">
+                  <thead><tr><th style="width:44%">المرحلة</th><th style="width:22%">الوزن %</th>
+                             <th style="width:22%">عدد الشهور</th><th style="width:12%"></th></tr></thead>
+                  <tbody id="stgBody"></tbody>
+                </table>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <button type="button" class="btn-cf" id="stgAdd" style="padding:.25rem .7rem;font-size:.75rem">+ مرحلة</button>
+                  <button type="button" class="btn-cf" id="stgFit" style="padding:.25rem .7rem;font-size:.75rem">ضبط الشهور تلقائياً</button>
+                  <span class="stg-sum" id="stgSum"></span>
+                </div>
+              </div>
+
+              <div class="gen-sec">
+                <h6><input type="checkbox" id="gAdvOn"> دفعة مقدمة (اختياري)</h6>
+                <div class="gen-grid">
+                  <div><label class="fld">النسبة % من الإجمالي</label>
+                       <input type="number" id="gAdvPct" value="10" min="0" max="50" step="0.5" disabled></div>
+                  <div><label class="fld">تُصرف في</label>
+                       <select id="gAdvMonth" disabled></select></div>
+                </div>
+                <div class="pm-msg mt-1">الدفعة المقدمة ترفع المنحنى المخطط في أوله — فعّلها فقط لو خط الأساس عندك تدفق نقدي وليس نسبة إنجاز فعلية.</div>
+              </div>
+
+              <div class="gen-sec">
+                <h6><input type="checkbox" id="gMobOn"> فترة تعبئة في البداية (اختياري)</h6>
+                <div class="gen-grid">
+                  <div><label class="fld">عدد الشهور</label>
+                       <input type="number" id="gMobMonths" value="2" min="1" max="12" disabled></div>
+                  <div><label class="fld">نسبتها % من الإجمالي</label>
+                       <input type="number" id="gMobPct" value="5" min="0" max="40" step="0.5" disabled></div>
+                </div>
+                <div class="pm-msg mt-1">تُوزَّع بالتساوي على أول شهور، والمنحنى يبدأ بعدها — تعالج بداية المنحنى شديدة الانخفاض.</div>
+              </div>
+
+              <div class="gen-grid mt-2">
+                <div style="grid-column:1/-1">
+                  <label style="font-size:.78rem;font-weight:600;display:flex;align-items:center;gap:.35rem">
+                    <input type="checkbox" id="gSyncCv"> اجعل «قيمة العقد الأصلية» تساوي أساس التوزيع
+                    <span class="pm-msg">(حتى تنتهي النسبة المخططة عند 100% بالضبط)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="warn-box" id="gWarn" hidden></div>
+            </div>
+
+            <div>
+              <div id="genChart"></div>
+              <div class="gen-prev" id="gPrev"></div>
+            </div>
+          </div>
+        </div>
+        <div class="pm-foot">
+          <button class="btn-cf primary" id="gApply">✔ توليد وحفظ</button>
+          <button class="btn-cf" id="gCancel">إلغاء</button>
+          <span class="pm-msg" id="gSummary" style="margin-inline-start:auto"></span>
+        </div>
+      </div>
     </div>
 
     <!-- ============ نافذة اللصق من إكسيل ============ -->
@@ -265,7 +412,8 @@ function setState(msg, cls){ const e = $('#saveState'); e.textContent = msg || '
 /* ============ تحميل ============ */
 async function loadProject(p){
     ST.project = p;
-    if(!p){ $('#metaBox').hidden = $('#tablePanel').hidden = $('#chartPanel').hidden = true; return; }
+    if(!p){ $('#metaBox').hidden = $('#tablePanel').hidden = $('#chartPanel').hidden = true;
+            $('#srcBadge').hidden = true; return; }
     setState('جاري التحميل…');
     try{
         const j = await (await fetch('/api/cashflow?project=' + encodeURIComponent(p))).json();
@@ -275,7 +423,9 @@ async function loadProject(p){
         $('#mRv').value = j.meta.revised_value || 0;
         $('#mStart').value = j.meta.start_month;
         $('#mEnd').value = j.meta.end_month;
+        $('#mSrc').value = j.meta.baseline_source || 'manual';
         $('#metaBox').hidden = $('#tablePanel').hidden = $('#chartPanel').hidden = false;
+        srcBadge();
         render();
         setState(j.meta.is_new ? 'مشروع جديد — القيم مقترحة من بيانات المشروع، راجعها واحفظ الإعدادات' : 'جاهز', 'ok');
     }catch(e){ setState('خطأ في الاتصال: ' + e.message, 'err'); }
@@ -711,17 +861,35 @@ function saveCells(cells, okMsg){
 $('#projSel').addEventListener('change', e => loadProject(e.target.value));
 ['mCv','mRv','mDev'].forEach(id => $('#' + id).addEventListener('change', render));
 
-$('#btnMeta').addEventListener('click', async () => {
-    setState('جاري حفظ الإعدادات…');
+async function saveMeta(keepRows){
+    if(!ST.project) return;
+    if(!keepRows) setState('جاري حفظ الإعدادات…');
     try{
         const j = await (await fetch('/api/cashflow/meta', {method:'POST', headers:{'Content-Type':'application/json'},
             body:JSON.stringify({project:ST.project, contract_value:num($('#mCv').value),
-                revised_value:num($('#mRv').value), start_month:$('#mStart').value, end_month:$('#mEnd').value})})).json();
+                revised_value:num($('#mRv').value), start_month:$('#mStart').value, end_month:$('#mEnd').value,
+                baseline_source:$('#mSrc').value})})).json();
         if(!j.success){ setState(j.error || 'فشل', 'err'); return; }
-        ST.meta = j.meta; ST.rows = j.rows.map(normRow); render();
-        setState('تم حفظ الإعدادات ✓', 'ok');
+        ST.meta = j.meta;
+        if(!keepRows){ ST.rows = j.rows.map(normRow); render(); setState('تم حفظ الإعدادات ✓', 'ok'); }
+        srcBadge();
     }catch(e){ setState('خطأ: ' + e.message, 'err'); }
-});
+}
+$('#btnMeta').addEventListener('click', () => saveMeta(false));
+$('#mSrc').addEventListener('change', () => { srcBadge(); saveMeta(true); });
+
+/** شارة توضّح إن كان خط الأساس من برنامج معتمد أم تقديري — حتى لا يُقارَن الانحراف بغير محلّه */
+function srcBadge(){
+    const b = $('#srcBadge');
+    const s = $('#mSrc').value || 'manual';
+    const labs = {programme:'خط الأساس: برنامج زمني معتمد', auto:'خط الأساس: منحنى تقديري مولَّد',
+                  stages:'خط الأساس: أوزان مراحل تقديرية', manual:'خط الأساس: إدخال يدوي'};
+    b.hidden = !ST.project;
+    b.className = 'src-badge ' + (s === 'programme' ? 'programme' : 'est');
+    b.textContent = (s === 'programme' ? '✔ ' : '⚠️ ') + labs[s];
+    b.title = s === 'programme' ? 'الانحراف و SPI محسوبان على برنامج معتمد'
+                                : 'الانحراف و SPI هنا مؤشرات استرشادية لأن خط الأساس تقديري';
+}
 
 $('#btnAddMonth').addEventListener('click', () => {
     const last = ST.rows.length ? ST.rows[ST.rows.length - 1].ym : $('#mStart').value;
@@ -794,6 +962,307 @@ $('#btnCollapseAll').addEventListener('click', () => {
     else ST.rows.forEach((r, i) => { if(r.has_weeks) ST.expanded.add(i); });
     render();
 });
+
+/* ============ مولّد خط الأساس التقديري ============ */
+/* كل الأشكال تخرج من دالة واحدة: نسبة الإنجاز التراكمية عند الزمن t (من 0 إلى 1).
+   sig(t,a,k): a = حِدّة الانحناء · k = الميل (أقل من 1 = بداية أثقل، أكبر = نهاية أثقل). */
+function sigC(t, a, k){
+    if(t <= 0) return 0; if(t >= 1) return 1;
+    const u = Math.pow(t, k);
+    const p = Math.pow(u, a), q = Math.pow(1 - u, a);
+    return p / (p + q);
+}
+function trapzC(t, r){
+    r = Math.min(Math.max(r || .25, .05), .49);
+    const A = 1 - r;
+    if(t <= 0) return 0; if(t >= 1) return 1;
+    if(t <= r)     return (t * t / (2 * r)) / A;
+    if(t <= 1 - r) return (r / 2 + (t - r)) / A;
+    return (A - Math.pow(1 - t, 2) / (2 * r)) / A;
+}
+const CURVES = [
+    {k:'linear',  n:'خطي (توزيع متساوٍ)',            f:t => t},
+    {k:'rampup',  n:'تصاعد خطي (يزيد كل شهر)',        f:t => t * t},
+    {k:'rampdn',  n:'تناقص خطي (يقل كل شهر)',         f:t => 1 - (1 - t) * (1 - t)},
+    {k:'trapz',   n:'شبه منحرف (تعبئة – ذروة – إغلاق)', f:t => trapzC(t, .25)},
+    {k:'trapzw',  n:'شبه منحرف بذروة طويلة',          f:t => trapzC(t, .15)},
+    {k:'s_soft',  n:'S معتدل',                        f:t => sigC(t, 1.6, 1)},
+    {k:'s_std',   n:'S قياسي (الأكثر استخداماً)',      f:t => sigC(t, 2, 1)},
+    {k:'s_steep', n:'S حاد (تنفيذ مركّز في المنتصف)',  f:t => sigC(t, 3, 1)},
+    {k:'s_vst',   n:'S حاد جداً',                     f:t => sigC(t, 4, 1)},
+    {k:'front',   n:'مائل للبداية',                   f:t => sigC(t, 2, .72)},
+    {k:'front2',  n:'مائل للبداية بقوة',              f:t => sigC(t, 2, .55)},
+    {k:'back',    n:'مائل للنهاية (تشطيبات ثقيلة)',    f:t => sigC(t, 2, 1.40)},
+    {k:'back2',   n:'مائل للنهاية بقوة',              f:t => sigC(t, 2, 1.90)},
+    {k:'custom',  n:'مخصص (تحكم يدوي بالمعاملين)',     f:null},
+    {k:'stages',  n:'حسب أوزان المراحل',              f:null}
+];
+const GS = {stages: [], chart: null, months: [], plan: []};
+
+function curveFn(){
+    const k = $('#gCurve').value;
+    if(k === 'custom'){
+        const a = +$('#gA').value, kk = +$('#gK').value;
+        return t => sigC(t, a, kk);
+    }
+    const c = CURVES.find(c => c.k === k);
+    return (c && c.f) ? c.f : (t => t);
+}
+
+function defaultStages(n){
+    return [
+        {name:'تعبئة وأعمال تمهيدية', w:8},
+        {name:'أعمال ترابية وأساسات', w:17},
+        {name:'الهيكل الإنشائي',      w:35},
+        {name:'التشطيبات والأعمال الكهروميكانيكية', w:30},
+        {name:'الاختبارات والتسليم',  w:10}
+    ].map((s, i, arr) => ({...s, m: Math.max(1, Math.round(n * s.w / 100))}));
+}
+function renderStages(){
+    const n = GS.months.length || 1;
+    $('#stgBody').innerHTML = GS.stages.map((s, i) => `
+      <tr>
+        <td><input type="text" data-s="${i}" data-k="name" value="${String(s.name||'').replace(/"/g,'&quot;')}"></td>
+        <td><input type="number" data-s="${i}" data-k="w" step="0.5" min="0" value="${s.w}"></td>
+        <td><input type="number" data-s="${i}" data-k="m" step="1" min="1" value="${s.m}"></td>
+        <td class="del"><button type="button" data-del="${i}" title="حذف">✕</button></td>
+      </tr>`).join('');
+    $('#stgBody').querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+        const s = GS.stages[+inp.dataset.s], k = inp.dataset.k;
+        s[k] = (k === 'name') ? inp.value : Math.max(k === 'm' ? 1 : 0, num(inp.value) || 0);
+        renderStages(); refreshGen();
+    }));
+    $('#stgBody').querySelectorAll('button[data-del]').forEach(b => b.addEventListener('click', () => {
+        GS.stages.splice(+b.dataset.del, 1); renderStages(); refreshGen();
+    }));
+    const sw = GS.stages.reduce((a, s) => a + (s.w || 0), 0);
+    const sm = GS.stages.reduce((a, s) => a + (s.m || 0), 0);
+    const okW = Math.abs(sw - 100) < .01, okM = sm === n;
+    $('#stgSum').className = 'stg-sum ' + (okW && okM ? 'ok' : 'bad');
+    $('#stgSum').textContent = `مجموع الأوزان ${sw.toFixed(1)}% ${okW ? '✓' : '(لازم 100%)'} · `
+                             + `مجموع الشهور ${sm} من ${n} ${okM ? '✓' : '(اضغط «ضبط الشهور تلقائياً»)'}`;
+}
+
+/** يوزّع مبلغاً على عدد شهور حسب الشكل المختار ويعيد مصفوفة المبالغ الشهرية */
+function spread(total, n, f){
+    if(n <= 0 || !(total > 0)) return new Array(Math.max(0, n)).fill(0);
+    const out = [];
+    let prev = 0;
+    for(let i = 1; i <= n; i++){ const c = f(i / n); out.push((c - prev) * total); prev = c; }
+    return out;
+}
+
+/** يبني خطة الشهور كاملة من كل الخيارات — النتيجة مجموعها = الإجمالي بالضبط */
+function buildPlan(){
+    const months = GS.months, n = months.length;
+    if(!n) return [];
+    const total = num($('#gTotal').value) || 0;
+    const mode  = $('#gCurve').value;
+    const step  = +$('#gRound').value || 1;
+    const out   = new Array(n).fill(0);
+
+    const advOn = $('#gAdvOn').checked, mobOn = $('#gMobOn').checked && mode !== 'stages';
+    const adv   = advOn ? total * (num($('#gAdvPct').value) || 0) / 100 : 0;
+    const mobM  = mobOn ? Math.min(n - 1, Math.max(1, Math.round(num($('#gMobMonths').value) || 0))) : 0;
+    const mob   = mobOn ? total * (num($('#gMobPct').value) || 0) / 100 : 0;
+    let rest = total - adv - mob;
+    if(rest < 0) rest = 0;
+
+    if(adv){
+        const ai = Math.max(0, months.indexOf($('#gAdvMonth').value));
+        out[ai] += adv;
+    }
+    for(let i = 0; i < mobM; i++) out[i] += mob / mobM;
+
+    if(mode === 'stages'){
+        let at = 0;
+        const sw = GS.stages.reduce((a, s) => a + (s.w || 0), 0) || 1;
+        GS.stages.forEach(s => {
+            const cnt = Math.min(Math.max(1, s.m || 1), Math.max(0, n - at));
+            const amt = rest * (s.w || 0) / sw;
+            for(let i = 0; i < cnt; i++) if(at + i < n) out[at + i] += amt / cnt;
+            at += cnt;
+        });
+        if(at < n){ /* شهور متبقية بلا مرحلة تبقى صفراً */ }
+    }else{
+        const cn = n - mobM;
+        spread(rest, cn, curveFn()).forEach((v, i) => { out[mobM + i] += v; });
+    }
+
+    // تقريب مع استيعاب الفرق في أكبر شهر حتى يبقى المجموع = الإجمالي بالضبط
+    const r = out.map(v => Math.round(v / step) * step);
+    const diff = +(total - r.reduce((a, b) => a + b, 0)).toFixed(2);
+    if(Math.abs(diff) > 0.004){
+        let mi = 0; r.forEach((v, i) => { if(v > r[mi]) mi = i; });
+        r[mi] = +(r[mi] + diff).toFixed(2);
+    }
+    return r;
+}
+
+function refreshGen(){
+    const mode = $('#gCurve').value;
+    $('#gCustomBox').hidden = mode !== 'custom';
+    $('#gStagesBox').hidden = mode !== 'stages';
+    $('#gaVal').textContent = (+$('#gA').value).toFixed(1);
+    $('#gkVal').textContent = (+$('#gK').value).toFixed(2);
+    ['gAdvPct','gAdvMonth'].forEach(id => $('#' + id).disabled = !$('#gAdvOn').checked);
+    ['gMobMonths','gMobPct'].forEach(id => $('#' + id).disabled = !$('#gMobOn').checked);
+    if(mode === 'stages' && !GS.stages.length){ GS.stages = defaultStages(GS.months.length); renderStages(); }
+
+    const plan = GS.plan = buildPlan();
+    const total = num($('#gTotal').value) || 0;
+    const cvNow = num($('#mCv').value) || 0;
+
+    // معاينة
+    let cum = 0;
+    const rowsHtml = GS.months.map((ym, i) => {
+        cum += plan[i];
+        return `<tr><td>${ym}</td><td>${fmtN(plan[i])}</td><td>${fmtN(cum)}</td>
+                    <td>${cvNow ? (cum / cvNow * 100).toFixed(1) + '%' : '—'}</td></tr>`;
+    }).join('');
+    $('#gPrev').innerHTML = `<table class="pm-tbl"><thead><tr><th>الشهر</th><th>الشهري</th>
+        <th>التراكمي</th><th>% مخططة</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+
+    // رسم
+    if(typeof ApexCharts !== 'undefined'){
+        const cumSeries = []; let c2 = 0;
+        plan.forEach(v => { c2 += v; cumSeries.push(Math.round(c2)); });
+        const opt = {
+            chart:{height:220, type:'line', fontFamily:'Tajawal, sans-serif', toolbar:{show:false}, animations:{enabled:false}},
+            series:[{name:'التراكمي', type:'line', data:cumSeries},
+                    {name:'الشهري',   type:'column', data:plan.map(v => Math.round(v))}],
+            colors:['#1a2b4c', '#d4a373'],
+            stroke:{curve:'smooth', width:[3, 0]},
+            xaxis:{categories:GS.months, labels:{show:GS.months.length <= 24, rotate:-45, style:{fontSize:'9px'}}},
+            yaxis:[{labels:{formatter:v => (v/1e6).toFixed(1) + 'م'}},
+                   {show:false, labels:{formatter:v => (v/1e6).toFixed(1) + 'م'}}],
+            legend:{position:'top', fontSize:'11px'},
+            grid:{borderColor:'#e3e7ef'},
+            dataLabels:{enabled:false},
+            tooltip:{shared:true, y:{formatter:v => Number(v).toLocaleString('en-US')}}
+        };
+        if(GS.chart) GS.chart.destroy();
+        GS.chart = new ApexCharts($('#genChart'), opt);
+        GS.chart.render();
+    }
+
+    // تنبيهات
+    const warns = [];
+    const existing = ST.rows.filter(r => GS.months.includes(r.ym) && has(r.plan_amount)).length;
+    if(existing) warns.push(`سيتم استبدال خطة ${existing} شهر مُدخلة مسبقاً.`);
+    const split = ST.rows.filter(r => GS.months.includes(r.ym) && r.has_weeks).length;
+    if(split) warns.push(`${split} شهر مقسَّم أسبوعياً — سيبقى التقسيم وسيُوزَّع مبلغ كل شهر على أسابيعه بالتساوي.`);
+    if(cvNow && Math.abs(total - cvNow) > Math.max(1, cvNow * .001) && !$('#gSyncCv').checked)
+        warns.push(`أساس التوزيع (${fmtN(total)}) يخالف قيمة العقد الأصلية (${fmtN(cvNow)}) — النسبة المخططة ستنتهي عند `
+                 + `${(total / cvNow * 100).toFixed(1)}% بدل 100%. فعّل الخيار بالأسفل لتوحيدهما.`);
+    if(mode === 'stages'){
+        const sw = GS.stages.reduce((a, s) => a + (s.w || 0), 0);
+        if(Math.abs(sw - 100) > .01) warns.push(`مجموع أوزان المراحل ${sw.toFixed(1)}% — سيُعاد توزيعها نسبياً لتصل 100%.`);
+    }
+    $('#gWarn').hidden = !warns.length;
+    $('#gWarn').innerHTML = warns.map(w => '⚠️ ' + w).join('<br>');
+    $('#gSummary').innerHTML = `${GS.months.length} شهر · الإجمالي <b>${fmtN(plan.reduce((a,b)=>a+b,0))}</b>`;
+}
+
+function fillMonthSelects(){
+    const opts = ST.rows.map(r => `<option value="${r.ym}">${r.ym}</option>`).join('');
+    ['#gFrom', '#gTo', '#gAdvMonth'].forEach(s => $(s).innerHTML = opts);
+    $('#gFrom').value = ST.rows[0] ? ST.rows[0].ym : '';
+    $('#gTo').value   = ST.rows.length ? ST.rows[ST.rows.length - 1].ym : '';
+    $('#gAdvMonth').value = $('#gFrom').value;
+}
+function syncRange(){
+    const a = $('#gFrom').value, b = $('#gTo').value;
+    GS.months = ST.rows.map(r => r.ym).filter(y => y >= a && y <= b);
+    if(!GS.months.length) GS.months = ST.rows.map(r => r.ym);
+    if(!GS.months.includes($('#gAdvMonth').value)) $('#gAdvMonth').value = GS.months[0];
+    if($('#gCurve').value === 'stages'){ GS.stages = defaultStages(GS.months.length); renderStages(); }
+}
+
+function openGen(){
+    if(!ST.rows.length){ setState('اضبط مدى الشهور أولاً', 'err'); return; }
+    $('#gCurve').innerHTML = CURVES.map(c => `<option value="${c.k}">${c.n}</option>`).join('');
+    $('#gCurve').value = 's_std';
+    fillMonthSelects();
+    syncRange();
+    GS.stages = [];
+    $('#gBase').value = 'cv';
+    $('#gTotal').value = Math.round(num($('#mCv').value) || 0);
+    $('#gSyncCv').checked = false;
+    $('#genModal').hidden = false;
+    setTimeout(refreshGen, 60);
+}
+function closeGen(){ $('#genModal').hidden = true; if(GS.chart){ GS.chart.destroy(); GS.chart = null; } }
+
+async function applyGen(){
+    const plan = GS.plan;
+    if(!plan || !plan.length){ setState('لا يوجد ما يُولَّد', 'err'); return; }
+    const total = num($('#gTotal').value) || 0;
+    if($('#gSyncCv').checked && total > 0) $('#mCv').value = Math.round(total);
+    const cv = num($('#mCv').value) || 0, rv = num($('#mRv').value) || cv;
+
+    const idx = new Map(ST.rows.map((r, i) => [r.ym, i]));
+    GS.months.forEach((ym, k) => {
+        const i = idx.get(ym); if(i === undefined) return;
+        const m = ST.rows[i];
+        m.plan_amount = plan[k];
+        if(m.has_weeks){                                   // وزّع مبلغ الشهر على أسابيعه بالتساوي
+            const base = Math.round(plan[k] / WK * 100) / 100;
+            for(let w = 1; w <= WK; w++){
+                if(!m.weeks[w - 1]) m.weeks[w - 1] = emptyWeek(ym, w);
+                m.weeks[w - 1].plan_amount = (w === WK) ? +(plan[k] - base * (WK - 1)).toFixed(2) : base;
+            }
+            aggMonth(m);
+        }
+    });
+
+    // حدِّث مصدر خط الأساس تلقائياً
+    $('#mSrc').value = ($('#gCurve').value === 'stages') ? 'stages' : 'auto';
+
+    const cells = [];
+    let cum = 0;
+    ST.rows.forEach(m => {
+        cum += (m.plan_amount || 0);
+        cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount,
+                    plan_pct: cv > 0 ? +(cum / cv * 100).toFixed(4) : null});
+        if(m.has_weeks) m.weeks.forEach((w, k) => { if(w)
+            cells.push({ym:m.ym, wk:k + 1, plan_amount:w.plan_amount}); });
+    });
+
+    closeGen();
+    render();
+    await saveCells(cells, `تم توليد خط الأساس لـ ${GS.months.length} شهر ✓`);
+    await saveMeta(true);
+}
+
+$('#btnGen').addEventListener('click', openGen);
+$('#gClose').addEventListener('click', closeGen);
+$('#gCancel').addEventListener('click', closeGen);
+$('#gApply').addEventListener('click', applyGen);
+$('#gBase').addEventListener('change', () => {
+    $('#gTotal').value = Math.round(($('#gBase').value === 'rv'
+        ? (num($('#mRv').value) || num($('#mCv').value) || 0)
+        : (num($('#mCv').value) || 0)));
+    $('#gSyncCv').checked = $('#gBase').value === 'rv';
+    refreshGen();
+});
+['gFrom','gTo'].forEach(id => $('#' + id).addEventListener('change', () => { syncRange(); refreshGen(); }));
+['gTotal','gCurve','gRound','gA','gK','gAdvOn','gAdvPct','gAdvMonth','gMobOn','gMobMonths','gMobPct','gSyncCv']
+    .forEach(id => { $('#' + id).addEventListener('input', refreshGen); $('#' + id).addEventListener('change', refreshGen); });
+$('#stgAdd').addEventListener('click', () => {
+    GS.stages.push({name:'مرحلة جديدة', w:0, m:1}); renderStages(); refreshGen();
+});
+$('#stgFit').addEventListener('click', () => {
+    const n = GS.months.length, sw = GS.stages.reduce((a, s) => a + (s.w || 0), 0) || 1;
+    let left = n;
+    GS.stages.forEach((s, i) => {
+        s.m = (i === GS.stages.length - 1) ? Math.max(1, left)
+                                           : Math.max(1, Math.round(n * (s.w || 0) / sw));
+        left -= s.m;
+    });
+    renderStages(); refreshGen();
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('#genModal').hidden) closeGen(); });
 
 /* ============ اللصق من إكسيل ============ */
 const PF = [['', '(تجاهل هذا العمود)'], ['ym', 'الشهر'], ['wk', 'الأسبوع (1-4)'],
