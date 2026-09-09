@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import secrets
 import string
 from urllib.parse import quote
@@ -723,6 +724,573 @@ async def builder_delete_layout(layout_id: int, request: Request, background_tas
         conn.close()
         background_tasks.add_task(log_audit, admin_user, "حذف قالب داشبورد", f"القالب رقم {layout_id}")
         return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+# ==================== التدفق النقدي ومنحنى الإنجاز (Cash Flow & S-Curve) ====================
+# صفحة إدارية مخفية عن مديري المشاريع. لإظهارها لهم لاحقاً كتبويب في صفحة التحديث
+# غيّر CASHFLOW_TAB_FOR_PM إلى True (ولا شيء آخر يحتاج تعديلاً).
+
+CASHFLOW_TAB_FOR_PM = False
+
+
+def _ym_add(ym, n):
+    """يضيف n شهراً إلى 'YYYY-MM'."""
+    y, m = int(ym[:4]), int(ym[5:7])
+    t = (y * 12 + (m - 1)) + n
+    return f"{t // 12:04d}-{t % 12 + 1:02d}"
+
+
+def _ym_range(start_ym, end_ym, cap=180):
+    out, cur = [], start_ym
+    while cur <= end_ym and len(out) < cap:
+        out.append(cur)
+        cur = _ym_add(cur, 1)
+    return out
+
+
+def _latest_project_row(project):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""SELECT contractor_val, contractor_mods_val, start_contractual, end_contractual,
+                             start_actual, end_expected, contractor_mods_end_date
+                      FROM project_updates WHERE project_name = %s
+                      ORDER BY current_data_date DESC LIMIT 1""", (project,))
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+
+def _suggest_meta(project):
+    """قيم مقترحة عند فتح مشروع لأول مرة: قيمة العقد ومدى الشهور من تواريخ العقد."""
+    row = _latest_project_row(project)
+    if not row:
+        today = datetime.utcnow().strftime("%Y-%m")
+        return {"contract_value": 0, "revised_value": 0, "start_month": today,
+                "end_month": _ym_add(today, 11)}
+    base = float(row[0] or 0)
+    revised = base + float(row[1] or 0)
+    starts = [d for d in (row[2], row[4]) if d]
+    ends = [d for d in (row[3], row[5], row[6]) if d]
+    start_ym = min(str(d)[:7] for d in starts) if starts else datetime.utcnow().strftime("%Y-%m")
+    end_ym = max(str(d)[:7] for d in ends) if ends else _ym_add(start_ym, 11)
+    if end_ym < start_ym: end_ym = _ym_add(start_ym, 11)
+    return {"contract_value": base, "revised_value": revised,
+            "start_month": start_ym, "end_month": end_ym}
+
+
+WEEKS_PER_MONTH = 4          # الشهر يُقسَّم إلى 4 أسابيع (قسمة تلقائية)
+
+
+def _merge_weeks(month, wks):
+    """يدمج تفصيل الأسابيع في صف الشهر.
+
+    القاعدة: المخطط الشهري = مجموع أسابيعه (قيم تُجمَّع)،
+    والنسبة الفعلية = نسبة آخر أسبوع مُدخل (نِسَب تراكمية لا تُجمَّع).
+    """
+    out = dict(month)
+    out["weeks"] = [None] * WEEKS_PER_MONTH
+    out["has_weeks"] = False
+    if not wks:
+        return out
+    for k, v in wks.items():
+        out["weeks"][k - 1] = v
+    out["has_weeks"] = True
+
+    plans = [v["plan_amount"] for _, v in sorted(wks.items()) if v["plan_amount"] is not None]
+    acts  = [v["act_pct"]     for _, v in sorted(wks.items()) if v["act_pct"] is not None]
+    if plans:
+        out["plan_amount"] = round(sum(plans), 2)
+    if acts:
+        out["act_pct"] = acts[-1]
+    return out
+
+
+def _cashflow_payload(project):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""SELECT contract_value, revised_value, start_month, end_month, locked, updated_at
+                      FROM cashflow_meta WHERE project_name = %s""", (project,))
+    m = cursor.fetchone()
+    if m:
+        meta = {"contract_value": float(m[0] or 0), "revised_value": float(m[1] or 0),
+                "start_month": m[2], "end_month": m[3], "locked": bool(m[4]),
+                "updated_at": str(m[5]), "is_new": False}
+    else:
+        meta = _suggest_meta(project)
+        meta.update({"locked": False, "updated_at": None, "is_new": True})
+
+    cursor.execute("""SELECT ym, COALESCE(wk, 0), plan_amount, plan_pct, act_pct, act_amount, note
+                      FROM cashflow_rows WHERE project_name = %s ORDER BY ym, COALESCE(wk, 0)""",
+                   (project,))
+    rows, weeks = {}, {}
+    for r in cursor.fetchall():
+        rec = {"ym": r[0], "wk": int(r[1] or 0),
+               "plan_amount": None if r[2] is None else float(r[2]),
+               "plan_pct":    None if r[3] is None else float(r[3]),
+               "act_pct":     None if r[4] is None else float(r[4]),
+               "act_amount":  None if r[5] is None else float(r[5]),
+               "note": r[6]}
+        if rec["wk"] == 0:
+            rows[r[0]] = rec
+        elif 1 <= rec["wk"] <= WEEKS_PER_MONTH:
+            weeks.setdefault(r[0], {})[rec["wk"]] = rec
+    conn.close()
+
+    months = _ym_range(meta["start_month"], meta["end_month"])
+    for ym in sorted(set(list(rows.keys()) + list(weeks.keys()))):   # شهور خارج المدى تبقى ظاهرة
+        if ym not in months: months.append(ym)
+    months.sort()
+    data = []
+    for ym in months:
+        base = rows.get(ym, {"ym": ym, "wk": 0, "plan_amount": None, "plan_pct": None,
+                             "act_pct": None, "act_amount": None, "note": None})
+        data.append(_merge_weeks(base, weeks.get(ym)))
+    return {"success": True, "project": project, "meta": meta, "rows": data}
+
+
+@app.get("/admin-cashflow", response_class=HTMLResponse)
+async def admin_cashflow_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user: return RedirectResponse(url="/admin", status_code=303)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT project_name FROM project_updates WHERE project_name IS NOT NULL ORDER BY project_name")
+    projects = [r[0] for r in cursor.fetchall()]
+    conn.close()
+    return templates.TemplateResponse(request, "admin_cashflow.html", {
+        "admin_user": admin_user, "projects": projects, "active_page": "cashflow"})
+
+
+@app.get("/api/cashflow")
+async def api_cashflow(project: str, request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        return _cashflow_payload(project)
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/meta")
+async def api_cashflow_meta(request: Request, background_tasks: BackgroundTasks):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        if not project:
+            return JSONResponse({"success": False, "error": "المشروع مطلوب"}, status_code=400)
+        cv = float(b.get("contract_value") or 0)
+        rv = float(b.get("revised_value") or 0) or cv
+        sm = (b.get("start_month") or "")[:7]
+        em = (b.get("end_month") or "")[:7]
+        if not sm or not em or em < sm:
+            return JSONResponse({"success": False, "error": "مدى الشهور غير صحيح"}, status_code=400)
+        locked = bool(b.get("locked"))
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""INSERT INTO cashflow_meta
+                            (project_name, contract_value, revised_value, start_month, end_month, locked, updated_by, updated_at)
+                          VALUES (%s,%s,%s,%s,%s,%s,%s,NOW())
+                          ON CONFLICT (project_name) DO UPDATE SET
+                            contract_value=EXCLUDED.contract_value, revised_value=EXCLUDED.revised_value,
+                            start_month=EXCLUDED.start_month, end_month=EXCLUDED.end_month,
+                            locked=EXCLUDED.locked, updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
+                       (project, cv, rv, sm, em, locked, admin_user))
+        conn.commit(); conn.close()
+        background_tasks.add_task(log_audit, admin_user, "إعدادات التدفق النقدي", f"مشروع {project}")
+        return _cashflow_payload(project)
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/cell")
+async def api_cashflow_cell(request: Request, background_tasks: BackgroundTasks):
+    """حفظ تلقائي لخانة واحدة. القيم المشتقة تُحسب في الواجهة وتُرسل معها لتخزينها جاهزة."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        ym = (b.get("ym") or "")[:7]
+        try:
+            wk = int(b.get("wk") or 0)
+        except (TypeError, ValueError):
+            wk = 0
+        if wk < 0 or wk > WEEKS_PER_MONTH:
+            wk = 0
+        if not project or len(ym) != 7:
+            return JSONResponse({"success": False, "error": "بيانات ناقصة"}, status_code=400)
+
+        fields, values = [], []
+        for k in ("plan_amount", "plan_pct", "act_pct", "act_amount", "note"):
+            if k in b:
+                fields.append(k)
+                v = b[k]
+                if k != "note":
+                    v = None if (v is None or v == "") else float(v)
+                values.append(v)
+        if not fields:
+            return JSONResponse({"success": False, "error": "لا يوجد ما يُحفظ"}, status_code=400)
+
+        cols = ", ".join(fields)
+        marks = ", ".join(["%s"] * len(fields))
+        upd = ", ".join(f"{f}=EXCLUDED.{f}" for f in fields)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"""INSERT INTO cashflow_rows (project_name, ym, wk, {cols}, updated_by, updated_at)
+                           VALUES (%s, %s, %s, {marks}, %s, NOW())
+                           ON CONFLICT (project_name, ym, wk) DO UPDATE SET
+                             {upd}, updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
+                       [project, ym, wk] + values + [admin_user])
+        conn.commit(); conn.close()
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/cells")
+async def api_cashflow_cells(request: Request):
+    """حفظ دفعة واحدة من الخانات (يُستخدم في التقسيم الأسبوعي التلقائي)."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        cells = b.get("cells") or []
+        if not project or not isinstance(cells, list):
+            return JSONResponse({"success": False, "error": "بيانات ناقصة"}, status_code=400)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        n = 0
+        for c in cells[:800]:
+            ym = (c.get("ym") or "")[:7]
+            if len(ym) != 7:
+                continue
+            try:
+                wk = int(c.get("wk") or 0)
+            except (TypeError, ValueError):
+                wk = 0
+            if wk < 0 or wk > WEEKS_PER_MONTH:
+                wk = 0
+            fields, values = [], []
+            for k in ("plan_amount", "plan_pct", "act_pct", "act_amount", "note"):
+                if k in c:
+                    fields.append(k)
+                    v = c[k]
+                    if k != "note":
+                        v = None if (v is None or v == "") else float(v)
+                    values.append(v)
+            if not fields:
+                continue
+            cols = ", ".join(fields)
+            marks = ", ".join(["%s"] * len(fields))
+            upd = ", ".join(f"{f}=EXCLUDED.{f}" for f in fields)
+            cursor.execute(f"""INSERT INTO cashflow_rows (project_name, ym, wk, {cols}, updated_by, updated_at)
+                               VALUES (%s, %s, %s, {marks}, %s, NOW())
+                               ON CONFLICT (project_name, ym, wk) DO UPDATE SET
+                                 {upd}, updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
+                           [project, ym, wk] + values + [admin_user])
+            n += 1
+        conn.commit(); conn.close()
+        return {"success": True, "saved": n}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/unsplit")
+async def api_cashflow_unsplit(request: Request):
+    """يحذف التفصيل الأسبوعي لشهر (أو لكل الشهور) ويُبقي صف الشهر كما هو."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        ym = (b.get("ym") or "")[:7]
+        if not project:
+            return JSONResponse({"success": False, "error": "المشروع مطلوب"}, status_code=400)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if len(ym) == 7:
+            cursor.execute("DELETE FROM cashflow_rows WHERE project_name=%s AND ym=%s AND COALESCE(wk,0)>0",
+                           (project, ym))
+        else:
+            cursor.execute("DELETE FROM cashflow_rows WHERE project_name=%s AND COALESCE(wk,0)>0", (project,))
+        conn.commit(); conn.close()
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/import-weekly")
+async def api_cashflow_import_weekly(request: Request, background_tasks: BackgroundTasks):
+    """يقترح نسب الإنجاز الفعلية الشهرية من آخر تحديث أسبوعي داخل كل شهر (لا يحفظ شيئاً)."""
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""SELECT current_data_date, act_prog_cur FROM project_updates
+                          WHERE project_name = %s AND current_data_date IS NOT NULL
+                          ORDER BY current_data_date ASC""", (project,))
+        by_month, by_week = {}, {}
+        for d, pct in cursor.fetchall():
+            ym = str(d)[:7]
+            v = float(pct or 0)
+            v = round((v * 100 if v <= 1.0001 else v), 2)
+            by_month[ym] = v                                   # آخر قيمة في الشهر
+            day = int(str(d)[8:10] or 1)
+            wk = min(WEEKS_PER_MONTH, max(1, (day + 6) // 7))   # 1-7→1، 8-14→2، 15-21→3، الباقي→4
+            by_week.setdefault(ym, {})[str(wk)] = v             # آخر قيمة داخل الأسبوع
+        conn.close()
+        return {"success": True, "months": by_month, "weeks": by_week}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/cashflow/data")
+async def api_cashflow_data(project: str, request: Request):
+    """مصدر بيانات جاهز للداشبورد: منحنى مخطط وفعلي بالنسبة والمبلغ."""
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        p = _cashflow_payload(project)
+        cv = p["meta"]["contract_value"] or 0
+        rv = p["meta"]["revised_value"] or cv
+        out, cum_plan = [], 0.0
+        for r in p["rows"]:
+            cum_plan += float(r["plan_amount"] or 0)
+            plan_pct = r["plan_pct"] if r["plan_pct"] is not None else (cum_plan / cv * 100 if cv else 0)
+            act_pct = r["act_pct"]
+            act_amt = r["act_amount"] if r["act_amount"] is not None else (
+                (act_pct or 0) / 100 * rv if act_pct is not None else None)
+            out.append({"ym": r["ym"], "plan_amount": float(r["plan_amount"] or 0),
+                        "plan_cum": round(cum_plan, 2), "plan_pct": round(float(plan_pct or 0), 2),
+                        "act_pct": None if act_pct is None else round(float(act_pct), 2),
+                        "act_cum": None if act_amt is None else round(float(act_amt), 2)})
+        return {"success": True, "project": project, "meta": p["meta"], "series": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/cashflow/excel")
+async def api_cashflow_excel(project: str, request: Request, background_tasks: BackgroundTasks):
+    """تصدير جدول التدفق النقدي ومنحنى الإنجاز كملف إكسيل بمعادلات حية ورسم بياني."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.chart import LineChart, Reference
+        from openpyxl.utils import get_column_letter
+        import io
+
+        p = _cashflow_payload(project)
+        meta, rows = p["meta"], p["rows"]
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "التدفق النقدي"
+        ws.sheet_view.rightToLeft = True
+
+        NAVY = "1A2B4C"; GOLD = "D4A373"; GREEN = "1F4D3D"; PURPLE = "4A3B6B"
+        MUTED = "EEF1F6"
+        f_title = Font(name="Arial", size=14, bold=True, color=NAVY)
+        f_head  = Font(name="Arial", size=10, bold=True, color="FFFFFF")
+        f_cell  = Font(name="Arial", size=10)
+        f_input = Font(name="Arial", size=10, color="0000FF")      # المدخلات بالأزرق
+        f_lab   = Font(name="Arial", size=10, bold=True)
+        thin    = Side(style="thin", color="D9DEE8")
+        border  = Border(left=thin, right=thin, top=thin, bottom=thin)
+        center  = Alignment(horizontal="center", vertical="center")
+
+        ws["A1"] = f"التدفق النقدي ومنحنى الإنجاز — {project}"
+        ws["A1"].font = f_title
+        ws.merge_cells("A1:J1")
+
+        # ---- الإعدادات (مدخلات) ----
+        ws["A3"] = "قيمة العقد الأصلية"; ws["A3"].font = f_lab
+        ws["B3"] = float(meta.get("contract_value") or 0); ws["B3"].font = f_input
+        ws["B3"].number_format = "#,##0"
+        ws["A4"] = "القيمة بعد أوامر التغيير"; ws["A4"].font = f_lab
+        ws["B4"] = float(meta.get("revised_value") or meta.get("contract_value") or 0); ws["B4"].font = f_input
+        ws["B4"].number_format = "#,##0"
+        ws["D3"] = "الخانات الزرقاء مدخلات — البقية معادلات تُحسب تلقائياً"
+        ws["D3"].font = Font(name="Arial", size=9, italic=True, color="6C7A91")
+        ws["D4"] = f"صُدِّر بواسطة {admin_user} — {datetime.utcnow().strftime('%Y-%m-%d')}"
+        ws["D4"].font = Font(name="Arial", size=9, italic=True, color="6C7A91")
+
+        # ---- رؤوس الجدول ----
+        HR = 6                       # صف مجموعات الأعمدة
+        HR2 = 7                      # صف أسماء الأعمدة
+        groups = [("الشهر", 1, 1, NAVY), ("خط الأساس (المخطط)", 2, 4, GOLD),
+                  ("الفعلي", 5, 7, GREEN), ("التحليل", 8, 10, PURPLE)]
+        for label, c1, c2, color in groups:
+            cell = ws.cell(row=HR, column=c1, value=label)
+            cell.font = f_head; cell.alignment = center
+            cell.fill = PatternFill("solid", fgColor=color)
+            if c2 > c1:
+                ws.merge_cells(start_row=HR, start_column=c1, end_row=HR, end_column=c2)
+                for c in range(c1 + 1, c2 + 1):
+                    ws.cell(row=HR, column=c).fill = PatternFill("solid", fgColor=color)
+
+        headers = ["الشهر", "المخطط الشهري", "التراكمي المخطط", "% مخططة",
+                   "% فعلية", "التراكمي الفعلي", "الفعلي الشهري",
+                   "الانحراف (نقطة)", "SPI", "ملاحظة"]
+        colors  = [NAVY, GOLD, GOLD, GOLD, GREEN, GREEN, GREEN, PURPLE, PURPLE, PURPLE]
+        for i, (h, col) in enumerate(zip(headers, colors), start=1):
+            c = ws.cell(row=HR2, column=i, value=h)
+            c.font = f_head; c.alignment = center; c.border = border
+            c.fill = PatternFill("solid", fgColor=col)
+
+        # ---- الصفوف بمعادلات حية ----
+        first = HR2 + 1
+        for i, r in enumerate(rows):
+            rw = first + i
+            ws.cell(row=rw, column=1, value=r["ym"]).font = f_lab
+            ws.cell(row=rw, column=1).alignment = center
+
+            a = ws.cell(row=rw, column=2, value=float(r["plan_amount"] or 0))   # مدخل
+            a.font = f_input; a.number_format = "#,##0"
+
+            prev_cum = f"C{rw-1}" if i > 0 else "0"
+            ws.cell(row=rw, column=3, value=f"={prev_cum}+B{rw}").number_format = "#,##0"
+            ws.cell(row=rw, column=4, value=f"=IF($B$3=0,0,C{rw}/$B$3)").number_format = "0.0%"
+
+            if r["act_pct"] is None:
+                ws.cell(row=rw, column=5, value=None)
+            else:
+                ws.cell(row=rw, column=5, value=float(r["act_pct"]) / 100.0)     # مدخل ككسر
+            ws.cell(row=rw, column=5).font = f_input
+            ws.cell(row=rw, column=5).number_format = "0.0%"
+
+            ws.cell(row=rw, column=6, value=f'=IF(E{rw}="","",E{rw}*$B$4)').number_format = "#,##0"
+            prev_amt = f"F{rw-1}" if i > 0 else "0"
+            ws.cell(row=rw, column=7,
+                    value=f'=IF(E{rw}="","",F{rw}-IF({prev_amt}="",0,{prev_amt}))').number_format = "#,##0"
+            ws.cell(row=rw, column=8, value=f'=IF(E{rw}="","",(E{rw}-D{rw})*100)').number_format = "+0.0;-0.0;0.0"
+            ws.cell(row=rw, column=9, value=f'=IF(OR(E{rw}="",D{rw}=0),"",E{rw}/D{rw})').number_format = "0.00"
+            ws.cell(row=rw, column=10, value=r.get("note") or "")
+
+            for c in range(1, 11):
+                cell = ws.cell(row=rw, column=c)
+                cell.border = border
+                if cell.font is None or cell.font.color is None or cell.font.color.rgb != "000000FF":
+                    if c not in (2, 5):
+                        cell.font = f_cell
+                if c not in (1, 10):
+                    cell.alignment = center
+
+        last = first + len(rows) - 1
+
+        # ---- صف الإجمالي ----
+        tot = last + 1
+        ws.cell(row=tot, column=1, value="الإجمالي").font = f_lab
+        ws.cell(row=tot, column=2, value=f"=SUM(B{first}:B{last})").number_format = "#,##0"
+        ws.cell(row=tot, column=2).font = f_lab
+        ws.cell(row=tot, column=3, value=f"=C{last}").number_format = "#,##0"
+        ws.cell(row=tot, column=3).font = f_lab
+        for c in range(1, 11):
+            ws.cell(row=tot, column=c).fill = PatternFill("solid", fgColor=MUTED)
+            ws.cell(row=tot, column=c).border = border
+
+        ws.cell(row=tot + 2, column=1, value="فرق مجموع الخطة عن قيمة العقد").font = f_lab
+        ws.cell(row=tot + 2, column=3, value=f"=B{tot}-$B$3").number_format = "#,##0;-#,##0;0"
+
+        widths = [11, 16, 17, 11, 11, 17, 16, 15, 9, 26]
+        for i, w in enumerate(widths, start=1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+        ws.freeze_panes = ws.cell(row=first, column=2)
+
+        # ---- رسم منحنى الإنجاز ----
+        chart = LineChart()
+        chart.title = "منحنى الإنجاز التراكمي (S-Curve)"
+        chart.style = 2
+        chart.y_axis.title = "نسبة الإنجاز التراكمية"
+        chart.x_axis.title = "الشهر"
+        chart.height = 10; chart.width = 24
+        data = Reference(ws, min_col=4, max_col=5, min_row=HR2, max_row=last)
+        cats = Reference(ws, min_col=1, min_row=first, max_row=last)
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        chart.series[0].graphicalProperties.line.dashStyle = "dash"
+        chart.series[0].graphicalProperties.line.width = 28000
+        chart.series[1].graphicalProperties.line.width = 28000
+        ws.add_chart(chart, f"A{tot + 5}")
+
+        # ---- ورقة التفصيل الأسبوعي (تظهر فقط للشهور المقسَّمة) ----
+        split_months = [r for r in rows if r.get("has_weeks")]
+        if split_months:
+            w2 = wb.create_sheet("التفصيل الأسبوعي")
+            w2.sheet_view.rightToLeft = True
+            w2["A1"] = f"التفصيل الأسبوعي — {project}"
+            w2["A1"].font = f_title
+            w2.merge_cells("A1:F1")
+            w2["A2"] = "المخطط الأسبوعي يُجمَع ليعطي المخطط الشهري · النسبة الفعلية تراكمية فتُؤخذ من آخر أسبوع مُدخل"
+            w2["A2"].font = Font(name="Arial", size=9, italic=True, color="6C7A91")
+
+            wheads = ["الشهر", "الأسبوع", "المخطط الأسبوعي", "% فعلية", "التراكمي الفعلي", "ملاحظة"]
+            wcolors = [NAVY, NAVY, GOLD, GREEN, GREEN, PURPLE]
+            for i, (h, col) in enumerate(zip(wheads, wcolors), start=1):
+                c = w2.cell(row=4, column=i, value=h)
+                c.font = f_head; c.alignment = center; c.border = border
+                c.fill = PatternFill("solid", fgColor=col)
+
+            rv_ref = float(meta.get("revised_value") or meta.get("contract_value") or 0)
+            rw = 5
+            for r in split_months:
+                m_first = rw
+                for wi in range(1, WEEKS_PER_MONTH + 1):
+                    wrec = (r.get("weeks") or [None] * WEEKS_PER_MONTH)[wi - 1] or {}
+                    w2.cell(row=rw, column=1, value=r["ym"]).alignment = center
+                    w2.cell(row=rw, column=2, value=f"أسبوع {wi}").alignment = center
+                    a = w2.cell(row=rw, column=3, value=float(wrec.get("plan_amount") or 0))
+                    a.font = f_input; a.number_format = "#,##0"
+                    ap = wrec.get("act_pct")
+                    b_ = w2.cell(row=rw, column=4, value=None if ap is None else float(ap) / 100.0)
+                    b_.font = f_input; b_.number_format = "0.0%"
+                    w2.cell(row=rw, column=5,
+                            value=f'=IF(D{rw}="","",D{rw}*{rv_ref})').number_format = "#,##0"
+                    w2.cell(row=rw, column=6, value=wrec.get("note") or "")
+                    for c in range(1, 7):
+                        w2.cell(row=rw, column=c).border = border
+                    rw += 1
+                t = w2.cell(row=rw, column=2, value="مجموع الشهر"); t.font = f_lab; t.alignment = center
+                s = w2.cell(row=rw, column=3, value=f"=SUM(C{m_first}:C{rw-1})")
+                s.font = f_lab; s.number_format = "#,##0"
+                lp = w2.cell(row=rw, column=4, value=f'=IF(COUNT(D{m_first}:D{rw-1})=0,"",LOOKUP(2,1/(D{m_first}:D{rw-1}<>""),D{m_first}:D{rw-1}))')
+                lp.font = f_lab; lp.number_format = "0.0%"
+                for c in range(1, 7):
+                    w2.cell(row=rw, column=c).fill = PatternFill("solid", fgColor=MUTED)
+                    w2.cell(row=rw, column=c).border = border
+                rw += 1
+
+            for i, w in enumerate([11, 12, 17, 11, 17, 26], start=1):
+                w2.column_dimensions[get_column_letter(i)].width = w
+            w2.freeze_panes = w2.cell(row=5, column=3)
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        background_tasks.add_task(log_audit, admin_user, "تصدير التدفق النقدي", f"مشروع {project}")
+        # اسم الملف بالعربية عبر ترميز RFC 5987 مع بديل لاتيني للمتصفحات القديمة
+        from urllib.parse import quote as _q
+        safe = re.sub(r'[^A-Za-z0-9]+', '_', project).strip('_')[:40] or 'project'
+        pretty = _q(f"التدفق_النقدي_{project}.xlsx")
+        return StreamingResponse(
+            buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition":
+                     f"attachment; filename=\"cashflow_{safe}.xlsx\"; filename*=UTF-8''{pretty}"})
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
