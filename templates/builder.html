@@ -46,6 +46,10 @@ button{font-family:inherit;}
 }
 .tb-select option{color:#111;}
 .tb-input::placeholder{color:rgba(255,255,255,.5);}
+.fetch-time{font-size:.7rem; color:rgba(255,255,255,.62); white-space:nowrap;}
+#btnRefresh.busy{opacity:.6; pointer-events:none;}
+#btnRefresh.busy #refreshIcon{display:inline-block; animation:spin 0.9s linear infinite;}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 .scope-chip{
   font-size:.72rem; font-weight:700; padding:4px 9px; border-radius:20px; white-space:nowrap;
   background:rgba(212,163,115,.18); color:var(--ui-gold); border:1px solid rgba(212,163,115,.45);
@@ -283,6 +287,27 @@ input[type=range]{width:100%;}
 .lay-item .li-name{font-weight:700; font-size:.85rem;}
 .lay-item .li-sub{font-size:.72rem; color:var(--ui-muted);}
 
+/* ===== وضع العرض / ملء الشاشة ===== */
+body.presenting .topbar,
+body.presenting .sidebar{display:none !important;}
+body.presenting .workspace{height:100vh;}
+body.presenting .canvas-area{padding:12px; align-items:center; background:#11151c;}
+body.presenting .bw-tools,
+body.presenting .hnd,
+body.presenting .bw-drag{display:none !important;}
+body.presenting .bw.selected,
+body.presenting .bw.primary{outline:none !important;}
+body.presenting #page.show-grid::before{display:none;}
+body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rgba(0,0,0,.55);}
+.present-exit{
+  position:fixed; top:14px; inset-inline-end:14px; z-index:950; cursor:pointer;
+  background:rgba(15,26,46,.82); color:#fff; border:1px solid rgba(255,255,255,.25);
+  border-radius:9px; padding:7px 14px; font-family:inherit; font-size:.8rem; font-weight:700;
+  opacity:.25; transition:.2s;
+}
+.present-exit:hover{opacity:1;}
+.present-exit[hidden]{display:none !important;}
+
 .toast{
   position:fixed; bottom:22px; inset-inline-start:22px; background:var(--ui-bar); color:#fff; padding:11px 18px;
   border-radius:10px; font-size:.83rem; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:999;
@@ -310,6 +335,10 @@ input[type=range]{width:100%;}
   <span class="scope-chip" id="scopeChip">—</span>
   <button class="tb-btn" id="btnUnlink" hidden title="حذف التخصيص والرجوع للقالب العام">إلغاء التخصيص</button>
   <div class="sep"></div>
+  <button class="tb-btn" id="btnRefresh" title="تحديث البيانات من قاعدة البيانات (بدون فقدان التصميم)">
+    <span id="refreshIcon">🔄</span> تحديث البيانات</button>
+  <span class="fetch-time" id="fetchTime"></span>
+  <div class="sep"></div>
   <button class="tb-btn" id="btnLang" title="لغة عرض الداشبورد">🌐 <span id="langLabel">عربي</span></button>
   <div class="sep"></div>
   <button class="tb-btn" id="btnUndo" title="تراجع (Ctrl+Z)">↶</button>
@@ -318,7 +347,8 @@ input[type=range]{width:100%;}
   <button class="tb-btn" id="btnZoomOut" title="تصغير">−</button>
   <span id="zoomLabel" style="font-size:.78rem;min-width:42px;text-align:center;">100%</span>
   <button class="tb-btn" id="btnZoomIn" title="تكبير">+</button>
-  <button class="tb-btn ghost" id="btnZoomFit" title="ملاءمة الشاشة">⤢</button>
+  <button class="tb-btn ghost" id="btnZoomFit" title="ملاءمة الشاشة (تكبير التصميم ليملأ المساحة)">⤢</button>
+  <button class="tb-btn ghost" id="btnPresent" title="ملء الشاشة — عرض الداشبورد بدون أدوات التحرير (Esc للخروج)">⛶</button>
   <div class="spacer"></div>
   <button class="tb-btn" id="btnNew">جديد</button>
   <button class="tb-btn" id="btnOpen">القوالب المحفوظة</button>
@@ -352,6 +382,8 @@ input[type=range]{width:100%;}
     <div class="modal-foot"><button class="sbtn" style="flex:0 0 110px" id="btnCloseModal">إغلاق</button></div>
   </div>
 </div>
+
+<button class="present-exit" id="btnExitPresent" hidden title="خروج من ملء الشاشة (Esc)">✕ خروج</button>
 
 <div class="toast" id="toast"></div>
 
@@ -500,10 +532,10 @@ const S = {
   project:'', mode:'single', records:[], latest:null, pm:null,
   projLatest:[], projNames:[],
   layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
-  page:{lang:'ar', preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
+  page:{lang:'ar', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
         theme:'navy', grid:10, snap:true, snapMode:'grid', showGrid:true, noOverlap:false},
   widgets:[], selected:null, multi:[], zoom:1, seq:1,
-  charts:{}, undo:[], redo:[], dirty:false
+  charts:{}, undo:[], redo:[], dirty:false, lastFetch:null, autoTimer:null
 };
 
 const $ = s => document.querySelector(s);
@@ -2003,7 +2035,10 @@ function applyZoom(){
 }
 function zoomFit(){
   const a = $('#canvasArea');
-  S.zoom = Math.min(1, Math.max(.2, (a.clientWidth - 60) / S.page.w));
+  const pad = document.body.classList.contains('presenting') ? 24 : 60;
+  const zx = (a.clientWidth  - pad) / S.page.w;
+  const zy = (a.clientHeight - pad) / S.page.h;
+  S.zoom = Math.max(.15, Math.min(3, Math.min(zx, zy)));   // تملأ الشاشة بالعرض والارتفاع معاً
   applyZoom();
 }
 function applyThemeToAll(){
@@ -2697,6 +2732,20 @@ function buildPageTab(){
   const p = S.page;
   el.innerHTML = `
     <div class="grp">
+      <div class="grp-h">تحديث البيانات</div>
+      <div class="row"><label>تلقائي كل</label><div class="ctl"><select id="pgAuto">
+        <option value="0"  ${!p.autoRefresh ? 'selected' : ''}>إيقاف</option>
+        <option value="5"  ${p.autoRefresh == 5  ? 'selected' : ''}>٥ دقائق</option>
+        <option value="15" ${p.autoRefresh == 15 ? 'selected' : ''}>١٥ دقيقة</option>
+        <option value="30" ${p.autoRefresh == 30 ? 'selected' : ''}>٣٠ دقيقة</option>
+        <option value="60" ${p.autoRefresh == 60 ? 'selected' : ''}>ساعة</option>
+      </select></div></div>
+      <button class="sbtn" id="btnRefreshNow" style="width:100%;">🔄 تحديث البيانات الآن</button>
+      <div class="hint" style="margin-top:8px;">التحديث يجلب أحدث بيانات من قاعدة البيانات ويعيد رسم
+      القوالب فقط — التصميم والمشروع المفتوح لا يتأثران. مفيد لو تركت الشاشة معروضة على تلفزيون.</div>
+    </div>
+
+    <div class="grp">
       <div class="grp-h">لغة الداشبورد</div>
       <div class="btn-row">
         <button class="sbtn ${p.lang !== 'en' ? 'on' : ''}" data-lang="ar">🇸🇦 العربية</button>
@@ -2767,7 +2816,12 @@ function buildPageTab(){
   }
   paintThemePrev();
   $('#pgTheme').addEventListener('change', e => { S.page.theme = e.target.value; paintThemePrev(); });
-  el.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+  el.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { setLang(b.dataset.lang); saveSession(); }));
+  $('#pgAuto').addEventListener('change', e => {
+    setAutoRefresh(e.target.value);
+    toast(S.page.autoRefresh ? `التحديث التلقائي كل ${S.page.autoRefresh} دقيقة` : 'تم إيقاف التحديث التلقائي');
+  });
+  $('#btnRefreshNow').addEventListener('click', () => refreshData(false));
   $('#btnApplyTheme').addEventListener('click', applyThemeToAll);
   $('#pgPreset').addEventListener('change', e => {
     snapshot(); const k = e.target.value; S.page.preset = k;
@@ -2824,10 +2878,52 @@ async function loadProject(name, opts){
     }
     if(opts.resolve !== false) await resolveLayout(name);
     renderAll(); updateScopeUI();
-    toast(S.mode === 'all'
+    S.lastFetch = new Date(); updateFetchLabel(); saveSession();
+    if(!opts.silent) toast(S.mode === 'all'
       ? `تم تجميع ${S.projLatest.length} مشروع عبر ${S.records.length} تاريخ تحديث`
       : `تم تحميل ${S.records.length} تحديث للمشروع`);
   }catch(e){ toast('خطأ في الاتصال: ' + e.message, true); }
+}
+
+function updateFetchLabel(){
+  const el = $('#fetchTime'); if(!el) return;
+  if(!S.lastFetch){ el.textContent = ''; return; }
+  const d = S.lastFetch;
+  const hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
+  el.textContent = (isEN() ? 'updated ' : 'آخر تحديث ') + hh + ':' + mm;
+}
+
+/* تحديث البيانات فقط — التصميم والمشروع والتحديد كما هي */
+async function refreshData(silent){
+  if(!S.project){ if(!silent) toast('اختر مشروعاً أولاً', true); return; }
+  const btn = $('#btnRefresh');
+  if(btn) btn.classList.add('busy');
+  try{
+    await loadProject(S.project, {resolve:false, silent:true});
+    S.lastFetch = new Date(); updateFetchLabel();
+    if(!silent) toast(isEN() ? 'Data refreshed ✓' : 'تم تحديث البيانات من قاعدة البيانات ✓');
+  }finally{
+    if(btn) btn.classList.remove('busy');
+  }
+}
+
+function setAutoRefresh(min){
+  S.page.autoRefresh = min = parseInt(min) || 0;
+  if(S.autoTimer){ clearInterval(S.autoTimer); S.autoTimer = null; }
+  if(min > 0) S.autoTimer = setInterval(() => refreshData(true), min * 60000);
+}
+
+/* حفظ آخر مشروع وقالب مفتوح حتى لا يضيع العمل عند تحديث المتصفح */
+const SESSION_KEY = 'pmis_builder_last';
+function saveSession(){
+  try{
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      project:S.project || '', layoutId:S.layoutId || null, lang:S.page.lang || 'ar'
+    }));
+  }catch(e){}
+}
+function loadSession(){
+  try{ return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }catch(e){ return null; }
 }
 
 /* يجيب القالب المطبَّق على المشروع: المخصص له إن وُجد، وإلا القالب العام */
@@ -2885,6 +2981,7 @@ async function saveLayout(){
     if(!j.success){ toast(j.error || 'فشل الحفظ', true); return; }
     S.layoutId = j.id; S.dirty = false;
     S.source = (j.scope === 'default') ? 'default' : 'project';
+    saveSession();
     updateScopeUI();
     toast(S.scope === 'default'
       ? 'تم حفظ القالب العام — سينطبق على كل المشاريع التي ليس لها قالب مخصص ✓'
@@ -2932,7 +3029,8 @@ async function loadLayout(id){
       $('#projectSel').value = L.project_name;
       await loadProject(L.project_name, {resolve:false});
     } else renderAll();
-    buildPageTab(); buildPropsTab(); updateScopeUI(); zoomFit();
+    buildPageTab(); buildPropsTab(); updateScopeUI(); zoomFit(); saveSession();
+    setAutoRefresh(S.page.autoRefresh || 0);
     toast('تم فتح القالب: ' + L.name);
   }catch(e){ toast('خطأ: ' + e.message, true); }
 }
@@ -2994,7 +3092,29 @@ $('#btnOpen').addEventListener('click', openLayouts);
 $('#btnNew').addEventListener('click', newLayout);
 $('#btnCloseModal').addEventListener('click', () => $('#modalBack').classList.remove('open'));
 $('#modalBack').addEventListener('click', e => { if(e.target.id === 'modalBack') e.currentTarget.classList.remove('open'); });
-$('#btnLang').addEventListener('click', () => setLang(isEN() ? 'ar' : 'en'));
+async function setPresent(on){
+  document.body.classList.toggle('presenting', on);
+  $('#btnExitPresent').hidden = !on;
+  if(on){
+    select(null);
+    try{ if(!document.fullscreenElement) await document.documentElement.requestFullscreen(); }catch(e){}
+  }else{
+    try{ if(document.fullscreenElement) await document.exitFullscreen(); }catch(e){}
+  }
+  setTimeout(() => { zoomFit(); renderAll(); }, 150);   // إعادة رسم نظيفة بدل تكرار الرسم
+}
+function togglePresent(){ setPresent(!document.body.classList.contains('presenting')); }
+
+$('#btnPresent').addEventListener('click', togglePresent);
+$('#btnExitPresent').addEventListener('click', () => setPresent(false));
+document.addEventListener('fullscreenchange', () => {          // مزامنة عند الخروج بـ Esc
+  if(!document.fullscreenElement && document.body.classList.contains('presenting')) setPresent(false);
+});
+window.addEventListener('resize', () => {
+  if(document.body.classList.contains('presenting')) zoomFit();
+});
+$('#btnRefresh').addEventListener('click', () => refreshData(false));
+$('#btnLang').addEventListener('click', () => { setLang(isEN() ? 'ar' : 'en'); saveSession(); });
 $('#btnUndo').addEventListener('click', doUndo);
 $('#btnRedo').addEventListener('click', doRedo);
 $('#btnZoomIn').addEventListener('click', () => { S.zoom = Math.min(2, S.zoom + .1); applyZoom(); });
@@ -3053,7 +3173,13 @@ document.addEventListener('keydown', e => {
     S.multi = S.widgets.map(w => w.id); S.selected = S.multi[S.multi.length - 1];
     paintSelection(); buildPropsTab(); buildLayersList(); return;
   }
-  if(e.key === 'Escape'){ select(null); return; }
+  if(e.key === 'Escape'){
+    if(document.body.classList.contains('presenting')){ setPresent(false); return; }
+    select(null); return;
+  }
+  if(e.key === 'F11' || (e.key.toLowerCase() === 'p' && (e.ctrlKey || e.metaKey))){
+    e.preventDefault(); togglePresent(); return;
+  }
   if(!S.multi.length) return;
   if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); removeSelected(); return; }
   // الأسهم تتحرك بمقدار مقاس الخلية عند تفعيل الالتصاق، و Shift للتحريك الدقيق بكسل واحد
@@ -3071,7 +3197,25 @@ window.addEventListener('beforeunload', e => {
 
 /* التشغيل */
 buildTemplatesTab(); buildPageTab(); buildPropsTab(); applyPageStyle(); updateScopeUI(); zoomFit();
-resolveLayout('').then(() => { renderAll(); updateScopeUI(); zoomFit(); });  // افتح القالب العام مباشرة
+
+(async function boot(){
+  const sess = loadSession();
+  const sel = $('#projectSel');
+  const known = Array.from(sel.options).some(o => o.value === (sess && sess.project));
+  if(sess && sess.project && known){
+    sel.value = sess.project;
+    await loadProject(sess.project, {silent:true});          // يستعيد المشروع وقالبه المطبَّق
+    if(sess.layoutId && sess.layoutId !== S.layoutId){
+      try{ await loadLayout(sess.layoutId); }catch(e){}      // القالب الذي كان مفتوحاً تحديداً
+    }
+    toast(isEN() ? 'Restored your last session' : 'تم استرجاع آخر مشروع وقالب كنت تعمل عليهما');
+  }else{
+    await resolveLayout('');                                  // القالب العام
+    renderAll();
+  }
+  setAutoRefresh(S.page.autoRefresh || 0);
+  updateScopeUI(); updateFetchLabel(); zoomFit();
+})();
 </script>
 </body>
 </html>
