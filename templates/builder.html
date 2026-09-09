@@ -81,14 +81,15 @@ button{font-family:inherit;}
 .side-body::-webkit-scrollbar-thumb{background:#cbd4e2;border-radius:4px;}
 
 .canvas-area{
-  flex:1; overflow:auto; padding:26px; display:flex; justify-content:center; align-items:flex-start;
+  flex:1; overflow:auto; padding:26px; display:flex; justify-content:flex-start; align-items:flex-start;
   background:
     linear-gradient(90deg,rgba(0,0,0,.03) 1px,transparent 1px) 0 0/24px 24px,
     linear-gradient(rgba(0,0,0,.03) 1px,transparent 1px) 0 0/24px 24px, var(--ui-bg);
 }
-.page-shell{transform-origin:top center;}
+.page-shell{margin:auto; flex:0 0 auto; position:relative;}   /* margin:auto يوسّط بأمان حتى عند التمرير */
 #page{
-  position:relative; background:#fff; box-shadow:0 10px 40px rgba(15,26,46,.18); overflow:hidden;
+  /* موضع صريح من الركن الأيسر: في صفحة RTL كان الصندوق يلتصق باليمين فينزاح بعد التكبير */
+  position:absolute; left:0; top:0; background:#fff; box-shadow:0 10px 40px rgba(15,26,46,.18); overflow:hidden;
   border-radius:6px;
 }
 #page.show-grid::before{
@@ -291,7 +292,7 @@ input[type=range]{width:100%;}
 body.presenting .topbar,
 body.presenting .sidebar{display:none !important;}
 body.presenting .workspace{height:100vh;}
-body.presenting .canvas-area{padding:12px; align-items:center; background:#11151c;}
+body.presenting .canvas-area{padding:12px; background:#11151c;}
 body.presenting .bw-tools,
 body.presenting .hnd,
 body.presenting .bw-drag{display:none !important;}
@@ -2028,9 +2029,12 @@ function applyPageStyle(){
   applyZoom();
 }
 function applyZoom(){
-  $('#pageShell').style.transform = `scale(${S.zoom})`;
-  $('#pageShell').style.width = (S.page.w * S.zoom) + 'px';
-  $('#pageShell').style.height = (S.page.h * S.zoom) + 'px';
+  const shell = $('#pageShell');
+  shell.style.transform = 'none';                 // الحاوية لا تُكبَّر (كان يتضاعف التكبير)
+  shell.style.width  = Math.round(S.page.w * S.zoom) + 'px';
+  shell.style.height = Math.round(S.page.h * S.zoom) + 'px';
+  page.style.transformOrigin = 'top left';
+  page.style.transform = `scale(${S.zoom})`;      // الصفحة تُكبَّر من الركن فتملأ الحاوية بالضبط
   $('#zoomLabel').textContent = Math.round(S.zoom * 100) + '%';
 }
 function zoomFit(){
