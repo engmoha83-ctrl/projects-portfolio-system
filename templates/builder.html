@@ -410,7 +410,9 @@ const T = {
     noObstacles:'لا توجد معوقات مسجّلة في آخر تحديث ✅',
     impact:{'كبير':'كبير','متوسط':'متوسط','منخفض':'منخفض','غير مؤثر':'غير مؤثر'},
     vsPrev:'عن التحديث السابق', currency:'ر.س', dayUnit:'يوم', pointUnit:'نقطة',
-    ranking:'الترتيب', pickFields:'اختر حقلين أو أكثر من قائمة الحقول في الشريط الجانبي للمقارنة بينهم', cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
+    ranking:'الترتيب', renderError:'تعذر عرض القالب',
+    editTitleTip:'اكتب العنوان — Enter للحفظ، Esc للإلغاء',
+    editTextTip:'اكتب النص — Ctrl+Enter للحفظ، Esc للإلغاء', pickFields:'اختر حقلين أو أكثر من قائمة الحقول في الشريط الجانبي للمقارنة بينهم', cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
     cumFinance:'التقدم المالي التراكمي', cumFinanceVal:'المصروف التراكمي',
     noTimeline:'لا توجد تحديثات كافية لرسم المنحنى التراكمي',
     million:'مليون', thousand:'ألف', billion:'مليار',
@@ -442,7 +444,9 @@ const T = {
     noObstacles:'No obstacles recorded in the latest update ✅',
     impact:{'كبير':'High','متوسط':'Medium','منخفض':'Low','غير مؤثر':'No impact'},
     vsPrev:'vs previous update', currency:'SAR', dayUnit:'days', pointUnit:'pts',
-    ranking:'Ranking', pickFields:'Pick two or more fields from the sidebar list to compare them', cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
+    ranking:'Ranking', renderError:'Could not render this visual',
+    editTitleTip:'Type the title — Enter to save, Esc to cancel',
+    editTextTip:'Type your text — Ctrl+Enter to save, Esc to cancel', pickFields:'Pick two or more fields from the sidebar list to compare them', cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
     cumFinance:'Cumulative financial progress', cumFinanceVal:'Cumulative invoiced',
     noTimeline:'Not enough updates to draw the cumulative curve',
     million:'M', thousand:'K', billion:'B',
@@ -848,7 +852,7 @@ const VISUALS = {
         if(Math.abs(d) > 0.0000001){
           const shown = meta.type === 'percent' ? (Math.abs(d)*100).toFixed(1)+'%' :
                         Math.abs(d).toLocaleString('en-US',{maximumFractionDigits:2});
-          delta = `<div class="kpi-delta ${d>0?'up':'down'}">${d>0?'▲':'▼'} ${shown} عن التحديث السابق</div>`;
+          delta = `<div class="kpi-delta ${d>0?'up':'down'}">${d>0?'▲':'▼'} ${shown} ${tr('vsPrev')}</div>`;
         }
       }
       const color = w.opts.valueColor || theme().palette[0];
@@ -945,7 +949,7 @@ const VISUALS = {
                  labels:{style:{colors:theme().text, fontSize:'10px'}}},
           yaxis:{labels:{formatter:v => num(v).toFixed(2), style:{colors:theme().text, fontSize:'10px'}}},
           annotations:{yaxis:[{y:1, borderColor:'#6c7a91', strokeDashArray:4,
-                               label:{text:'الهدف 1.00', style:{fontSize:'10px', background:'#6c7a91', color:'#fff'}}}]},
+                               label:{text:`${tr('target')} ${good}`, style:{fontSize:'10px', background:'#6c7a91', color:'#fff'}}}]},
           grid:{borderColor:'rgba(125,125,125,.18)'},
           legend:{show:false}
         }, {host:body.querySelector('.gauge-chart'), reserve:measureSpiBase(body)});
@@ -1126,8 +1130,8 @@ const VISUALS = {
     render(body, w){
       if(!S.latest) return empty(body);
       const rows = (w.opts.fields || []).map(f => {
-        const m = FIELD_MAP[f] || {label:f, type:'text'};
-        return `<tr><td>${m.label}</td><td>${fmtValue(S.latest[f], m.type, {})}</td></tr>`;
+        const m = FIELD_MAP[f] || {type:'text'};
+        return `<tr><td>${lbl(f)}</td><td>${fmtValue(S.latest[f], m.type || 'text', {})}</td></tr>`;
       }).join('');
       body.innerHTML = `<table class="tbl">${rows}</table>`;
     }
@@ -1467,8 +1471,8 @@ const VISUALS = {
     }
   },
   text:{
-    name:'نص حر', icon:'🔤', w:280, h:110,
-    opts:{content:'اكتب النص هنا', size:15, color:'', align:'start', font:"'Tajawal',sans-serif", weight:500},
+    name:'نص حر', title:'نص', title_en:'Text', icon:'🔤', w:280, h:110,
+    opts:{content:'', content_en:'', size:15, color:'', align:'start', font:"'Tajawal',sans-serif", weight:500},
     title:'', titleShow:false,
     render(body, w){
       const txt = bi(w.opts, 'content');
@@ -1659,7 +1663,7 @@ function drawWidget(w){
 
   const body = el.querySelector('.bw-body');
   try{ VISUALS[w.type].render(body, w); }
-  catch(err){ body.innerHTML = `<div class="empty-note">تعذر عرض القالب: ${err.message}</div>`; }
+  catch(err){ body.innerHTML = `<div class="empty-note">${tr('renderError')}: ${err.message}</div>`; }
 }
 /* الكتابة مباشرة داخل العنصر على الصفحة (ضغطتين على النص أو على شريط العنوان) */
 function startInlineEdit(w, node, field){
@@ -1677,9 +1681,7 @@ function startInlineEdit(w, node, field){
 
   const tip = document.createElement('div');
   tip.className = 'bw-edit-tip';
-  tip.textContent = field === 'title'
-    ? 'اكتب العنوان — Enter للحفظ، Esc للإلغاء'
-    : 'اكتب النص — Ctrl+Enter للحفظ، Esc للإلغاء';
+  tip.textContent = field === 'title' ? tr('editTitleTip') : tr('editTextTip');
   el.appendChild(tip);
 
   node.focus();
