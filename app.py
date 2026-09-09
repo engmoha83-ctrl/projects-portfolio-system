@@ -819,16 +819,20 @@ def _cashflow_payload(project):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""SELECT contract_value, revised_value, start_month, end_month, locked, updated_at,
-                             COALESCE(baseline_source, 'manual')
+                             COALESCE(baseline_source, 'manual'), plan_base
                       FROM cashflow_meta WHERE project_name = %s""", (project,))
     m = cursor.fetchone()
     if m:
         meta = {"contract_value": float(m[0] or 0), "revised_value": float(m[1] or 0),
                 "start_month": m[2], "end_month": m[3], "locked": bool(m[4]),
-                "updated_at": str(m[5]), "baseline_source": m[6], "is_new": False}
+                "updated_at": str(m[5]), "baseline_source": m[6],
+                "plan_base": None if m[7] is None else float(m[7]), "is_new": False}
     else:
         meta = _suggest_meta(project)
-        meta.update({"locked": False, "updated_at": None, "baseline_source": "manual", "is_new": True})
+        meta.update({"locked": False, "updated_at": None, "baseline_source": "manual",
+                     "plan_base": None, "is_new": True})
+    # فارغ = النسبة المخططة تُحسب على قيمة العقد الأصلية
+    if not meta.get("plan_base"): meta["plan_base"] = meta["contract_value"]
     meta["baseline_source_label"] = BASELINE_SOURCES.get(meta["baseline_source"], BASELINE_SOURCES["manual"])
 
     cursor.execute("""SELECT ym, COALESCE(wk, 0), plan_amount, plan_pct, act_pct, act_amount, note
@@ -902,19 +906,23 @@ async def api_cashflow_meta(request: Request, background_tasks: BackgroundTasks)
         locked = bool(b.get("locked"))
         src = b.get("baseline_source") or "manual"
         if src not in BASELINE_SOURCES: src = "manual"
+        pb = b.get("plan_base")
+        pb = None if (pb is None or pb == "") else float(pb)
+        if not pb: pb = cv
 
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""INSERT INTO cashflow_meta
                             (project_name, contract_value, revised_value, start_month, end_month, locked,
-                             baseline_source, updated_by, updated_at)
-                          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+                             baseline_source, plan_base, updated_by, updated_at)
+                          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
                           ON CONFLICT (project_name) DO UPDATE SET
                             contract_value=EXCLUDED.contract_value, revised_value=EXCLUDED.revised_value,
                             start_month=EXCLUDED.start_month, end_month=EXCLUDED.end_month,
                             locked=EXCLUDED.locked, baseline_source=EXCLUDED.baseline_source,
+                            plan_base=EXCLUDED.plan_base,
                             updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
-                       (project, cv, rv, sm, em, locked, src, admin_user))
+                       (project, cv, rv, sm, em, locked, src, pb, admin_user))
         conn.commit(); conn.close()
         background_tasks.add_task(log_audit, admin_user, "إعدادات التدفق النقدي", f"مشروع {project}")
         return _cashflow_payload(project)
@@ -1053,12 +1061,13 @@ def _snapshot_capture(project, name, user, conn=None):
     if own: conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""SELECT contract_value, revised_value, start_month, end_month, locked,
-                             COALESCE(baseline_source,'manual')
+                             COALESCE(baseline_source,'manual'), plan_base
                       FROM cashflow_meta WHERE project_name = %s""", (project,))
     m = cursor.fetchone()
     meta = None if not m else {"contract_value": float(m[0] or 0), "revised_value": float(m[1] or 0),
                                "start_month": m[2], "end_month": m[3], "locked": bool(m[4]),
-                               "baseline_source": m[5]}
+                               "baseline_source": m[5],
+                               "plan_base": None if m[6] is None else float(m[6])}
     cursor.execute("""SELECT ym, COALESCE(wk,0), plan_amount, plan_pct, act_pct, act_amount, note
                       FROM cashflow_rows WHERE project_name = %s ORDER BY ym, COALESCE(wk,0)""", (project,))
     rows = [[r[0], int(r[1] or 0)] + [None if v is None else float(v) for v in r[2:6]] + [r[6]]
@@ -1147,19 +1156,76 @@ async def api_cashflow_snapshot_restore(request: Request, background_tasks: Back
         if m:
             cursor.execute("""INSERT INTO cashflow_meta
                                 (project_name, contract_value, revised_value, start_month, end_month,
-                                 locked, baseline_source, updated_by, updated_at)
-                              VALUES (%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+                                 locked, baseline_source, plan_base, updated_by, updated_at)
+                              VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
                               ON CONFLICT (project_name) DO UPDATE SET
                                 contract_value=EXCLUDED.contract_value, revised_value=EXCLUDED.revised_value,
                                 start_month=EXCLUDED.start_month, end_month=EXCLUDED.end_month,
                                 locked=EXCLUDED.locked, baseline_source=EXCLUDED.baseline_source,
+                                plan_base=EXCLUDED.plan_base,
                                 updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
                            (project, m.get("contract_value") or 0, m.get("revised_value") or 0,
                             m.get("start_month"), m.get("end_month"), bool(m.get("locked")),
-                            m.get("baseline_source") or "manual", admin_user))
+                            m.get("baseline_source") or "manual", m.get("plan_base"), admin_user))
         conn.commit(); conn.close()
         background_tasks.add_task(log_audit, admin_user, "استرجاع نسخة تدفق نقدي",
                                   f"مشروع {project} — {snap_name}")
+        return _cashflow_payload(project)
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/wipe")
+async def api_cashflow_wipe(request: Request, background_tasks: BackgroundTasks):
+    """مسح بيانات التدفق النقدي — للمشرف الرئيسي وحده، ودائماً بعد أخذ نسخة يمكن الرجوع إليها."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if admin_user != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "هذه العملية متاحة للمشرف الرئيسي فقط"},
+                            status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        scope = b.get("scope") or "all"                 # actual | plan | all
+        all_projects = bool(b.get("all_projects"))
+        if scope not in ("actual", "plan", "all"):
+            return JSONResponse({"success": False, "error": "نطاق غير معروف"}, status_code=400)
+        if not all_projects and not project:
+            return JSONResponse({"success": False, "error": "المشروع مطلوب"}, status_code=400)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if all_projects:
+            cursor.execute("""SELECT project_name FROM cashflow_rows
+                              UNION SELECT project_name FROM cashflow_meta""")
+            targets = [r[0] for r in cursor.fetchall()][:50]
+        else:
+            targets = [project]
+
+        label = {"actual": "قبل مسح البيانات الفعلية", "plan": "قبل مسح خط الأساس",
+                 "all": "قبل مسح كل بيانات التدفق النقدي"}[scope]
+        for p in targets:
+            _snapshot_capture(p, label, admin_user, conn)
+
+        n = 0
+        for p in targets:
+            if scope == "actual":
+                cursor.execute("""UPDATE cashflow_rows SET act_pct = NULL, act_amount = NULL,
+                                         updated_by = %s, updated_at = NOW()
+                                  WHERE project_name = %s""", (admin_user, p))
+            elif scope == "plan":
+                cursor.execute("""UPDATE cashflow_rows SET plan_amount = NULL, plan_pct = NULL,
+                                         updated_by = %s, updated_at = NOW()
+                                  WHERE project_name = %s""", (admin_user, p))
+            else:
+                cursor.execute("DELETE FROM cashflow_rows WHERE project_name = %s", (p,))
+                cursor.execute("DELETE FROM cashflow_meta WHERE project_name = %s", (p,))
+            n += cursor.rowcount or 0
+        conn.commit(); conn.close()
+
+        background_tasks.add_task(log_audit, admin_user, "مسح بيانات التدفق النقدي",
+                                  f"{'كل المشاريع' if all_projects else project} — {scope}")
+        if all_projects:
+            return {"success": True, "projects": len(targets), "rows": n}
         return _cashflow_payload(project)
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
@@ -1219,10 +1285,11 @@ async def api_cashflow_data(project: str, request: Request):
         p = _cashflow_payload(project)
         cv = p["meta"]["contract_value"] or 0
         rv = p["meta"]["revised_value"] or cv
+        pb = p["meta"].get("plan_base") or cv          # أساس النسبة المخططة
         out, cum_plan = [], 0.0
         for r in p["rows"]:
             cum_plan += float(r["plan_amount"] or 0)
-            plan_pct = r["plan_pct"] if r["plan_pct"] is not None else (cum_plan / cv * 100 if cv else 0)
+            plan_pct = r["plan_pct"] if r["plan_pct"] is not None else (cum_plan / pb * 100 if pb else 0)
             act_pct = r["act_pct"]
             act_amt = r["act_amount"] if r["act_amount"] is not None else (
                 (act_pct or 0) / 100 * rv if act_pct is not None else None)
@@ -1278,6 +1345,11 @@ async def api_cashflow_excel(project: str, request: Request, background_tasks: B
         ws["A4"] = "القيمة بعد أوامر التغيير"; ws["A4"].font = f_lab
         ws["B4"] = float(meta.get("revised_value") or meta.get("contract_value") or 0); ws["B4"].font = f_input
         ws["B4"].number_format = "#,##0"
+        ws["A6"] = "أساس النسبة المخططة"; ws["A6"].font = f_lab
+        ws["B6"] = float(meta.get("plan_base") or meta.get("contract_value") or 0)
+        ws["B6"].font = f_input; ws["B6"].number_format = "#,##0"
+        ws["D6"] = "النسبة المخططة = التراكمي المخطط ÷ هذه القيمة (قد تختلف عن قيمة العقد بعد أوامر التغيير)"
+        ws["D6"].font = Font(name="Arial", size=9, italic=True, color="6C7A91")
         ws["A5"] = "مصدر خط الأساس"; ws["A5"].font = f_lab
         _src = meta.get("baseline_source") or "manual"
         ws["B5"] = BASELINE_SOURCES.get(_src, BASELINE_SOURCES["manual"])
@@ -1292,8 +1364,8 @@ async def api_cashflow_excel(project: str, request: Request, background_tasks: B
         ws["D4"].font = Font(name="Arial", size=9, italic=True, color="6C7A91")
 
         # ---- رؤوس الجدول ----
-        HR = 7                       # صف مجموعات الأعمدة
-        HR2 = 8                      # صف أسماء الأعمدة
+        HR = 8                       # صف مجموعات الأعمدة
+        HR2 = 9                      # صف أسماء الأعمدة
         groups = [("الشهر", 1, 1, NAVY), ("خط الأساس (المخطط)", 2, 4, GOLD),
                   ("الفعلي", 5, 7, GREEN), ("التحليل", 8, 10, PURPLE)]
         for label, c1, c2, color in groups:
@@ -1326,7 +1398,7 @@ async def api_cashflow_excel(project: str, request: Request, background_tasks: B
 
             prev_cum = f"C{rw-1}" if i > 0 else "0"
             ws.cell(row=rw, column=3, value=f"={prev_cum}+B{rw}").number_format = "#,##0"
-            ws.cell(row=rw, column=4, value=f"=IF($B$3=0,0,C{rw}/$B$3)").number_format = "0.0%"
+            ws.cell(row=rw, column=4, value=f"=IF($B$6=0,0,C{rw}/$B$6)").number_format = "0.0%"
 
             if r["act_pct"] is None:
                 ws.cell(row=rw, column=5, value=None)
@@ -1365,8 +1437,8 @@ async def api_cashflow_excel(project: str, request: Request, background_tasks: B
             ws.cell(row=tot, column=c).fill = PatternFill("solid", fgColor=MUTED)
             ws.cell(row=tot, column=c).border = border
 
-        ws.cell(row=tot + 2, column=1, value="فرق مجموع الخطة عن قيمة العقد").font = f_lab
-        ws.cell(row=tot + 2, column=3, value=f"=B{tot}-$B$3").number_format = "#,##0;-#,##0;0"
+        ws.cell(row=tot + 2, column=1, value="فرق مجموع الخطة عن أساس النسبة المخططة").font = f_lab
+        ws.cell(row=tot + 2, column=3, value=f"=B{tot}-$B$6").number_format = "#,##0;-#,##0;0"
 
         widths = [11, 16, 17, 11, 11, 17, 16, 15, 9, 26]
         for i, w in enumerate(widths, start=1):
