@@ -781,6 +781,15 @@ def _suggest_meta(project):
 
 WEEKS_PER_MONTH = 4          # الشهر يُقسَّم إلى 4 أسابيع (قسمة تلقائية)
 
+# مصدر خط الأساس — يُظهر بوضوح هل المنحنى المخطط مأخوذ من برنامج زمني معتمد أم مولَّد تقديرياً،
+# حتى لا يُقارَن انحراف مشروع له برنامج معتمد بانحراف مشروع خط أساسه تقديري.
+BASELINE_SOURCES = {
+    "programme": "برنامج زمني معتمد",
+    "auto":      "منحنى تقديري مولَّد",
+    "stages":    "أوزان مراحل تقديرية",
+    "manual":    "إدخال يدوي",
+}
+
 
 def _merge_weeks(month, wks):
     """يدمج تفصيل الأسابيع في صف الشهر.
@@ -809,16 +818,18 @@ def _merge_weeks(month, wks):
 def _cashflow_payload(project):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""SELECT contract_value, revised_value, start_month, end_month, locked, updated_at
+    cursor.execute("""SELECT contract_value, revised_value, start_month, end_month, locked, updated_at,
+                             COALESCE(baseline_source, 'manual')
                       FROM cashflow_meta WHERE project_name = %s""", (project,))
     m = cursor.fetchone()
     if m:
         meta = {"contract_value": float(m[0] or 0), "revised_value": float(m[1] or 0),
                 "start_month": m[2], "end_month": m[3], "locked": bool(m[4]),
-                "updated_at": str(m[5]), "is_new": False}
+                "updated_at": str(m[5]), "baseline_source": m[6], "is_new": False}
     else:
         meta = _suggest_meta(project)
-        meta.update({"locked": False, "updated_at": None, "is_new": True})
+        meta.update({"locked": False, "updated_at": None, "baseline_source": "manual", "is_new": True})
+    meta["baseline_source_label"] = BASELINE_SOURCES.get(meta["baseline_source"], BASELINE_SOURCES["manual"])
 
     cursor.execute("""SELECT ym, COALESCE(wk, 0), plan_amount, plan_pct, act_pct, act_amount, note
                       FROM cashflow_rows WHERE project_name = %s ORDER BY ym, COALESCE(wk, 0)""",
@@ -889,17 +900,21 @@ async def api_cashflow_meta(request: Request, background_tasks: BackgroundTasks)
         if not sm or not em or em < sm:
             return JSONResponse({"success": False, "error": "مدى الشهور غير صحيح"}, status_code=400)
         locked = bool(b.get("locked"))
+        src = b.get("baseline_source") or "manual"
+        if src not in BASELINE_SOURCES: src = "manual"
 
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""INSERT INTO cashflow_meta
-                            (project_name, contract_value, revised_value, start_month, end_month, locked, updated_by, updated_at)
-                          VALUES (%s,%s,%s,%s,%s,%s,%s,NOW())
+                            (project_name, contract_value, revised_value, start_month, end_month, locked,
+                             baseline_source, updated_by, updated_at)
+                          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,NOW())
                           ON CONFLICT (project_name) DO UPDATE SET
                             contract_value=EXCLUDED.contract_value, revised_value=EXCLUDED.revised_value,
                             start_month=EXCLUDED.start_month, end_month=EXCLUDED.end_month,
-                            locked=EXCLUDED.locked, updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
-                       (project, cv, rv, sm, em, locked, admin_user))
+                            locked=EXCLUDED.locked, baseline_source=EXCLUDED.baseline_source,
+                            updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
+                       (project, cv, rv, sm, em, locked, src, admin_user))
         conn.commit(); conn.close()
         background_tasks.add_task(log_audit, admin_user, "إعدادات التدفق النقدي", f"مشروع {project}")
         return _cashflow_payload(project)
@@ -1125,14 +1140,22 @@ async def api_cashflow_excel(project: str, request: Request, background_tasks: B
         ws["A4"] = "القيمة بعد أوامر التغيير"; ws["A4"].font = f_lab
         ws["B4"] = float(meta.get("revised_value") or meta.get("contract_value") or 0); ws["B4"].font = f_input
         ws["B4"].number_format = "#,##0"
+        ws["A5"] = "مصدر خط الأساس"; ws["A5"].font = f_lab
+        _src = meta.get("baseline_source") or "manual"
+        ws["B5"] = BASELINE_SOURCES.get(_src, BASELINE_SOURCES["manual"])
+        ws["B5"].font = Font(name="Arial", size=10, bold=True,
+                             color=("1F4D3D" if _src == "programme" else "9A6A00"))
+        if _src != "programme":
+            ws["D5"] = "تنبيه: خط الأساس هنا تقديري وليس من برنامج زمني معتمد — الانحراف و SPI مؤشرات استرشادية"
+            ws["D5"].font = Font(name="Arial", size=9, italic=True, bold=True, color="9A6A00")
         ws["D3"] = "الخانات الزرقاء مدخلات — البقية معادلات تُحسب تلقائياً"
         ws["D3"].font = Font(name="Arial", size=9, italic=True, color="6C7A91")
         ws["D4"] = f"صُدِّر بواسطة {admin_user} — {datetime.utcnow().strftime('%Y-%m-%d')}"
         ws["D4"].font = Font(name="Arial", size=9, italic=True, color="6C7A91")
 
         # ---- رؤوس الجدول ----
-        HR = 6                       # صف مجموعات الأعمدة
-        HR2 = 7                      # صف أسماء الأعمدة
+        HR = 7                       # صف مجموعات الأعمدة
+        HR2 = 8                      # صف أسماء الأعمدة
         groups = [("الشهر", 1, 1, NAVY), ("خط الأساس (المخطط)", 2, 4, GOLD),
                   ("الفعلي", 5, 7, GREEN), ("التحليل", 8, 10, PURPLE)]
         for label, c1, c2, color in groups:
