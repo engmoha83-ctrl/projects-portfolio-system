@@ -899,6 +899,41 @@ function metricName(k){ const m = METRICS[k]; return m ? (isEN() ? m.en : m.ar) 
 function isMetric(k){ return !!METRICS[k]; }
 function fieldOrMetricName(k){ return isMetric(k) ? metricName(k) : lbl(k); }
 function fieldOrMetricType(k){ return isMetric(k) ? METRICS[k].type : ((FIELD_MAP[k] || {}).type || 'number'); }
+/* مقارنة الفرز حسب نوع العمود: الأرقام والنسب والمبالغ عددياً، التواريخ زمنياً،
+   والنصوص أبجدياً بترتيب اللغة (مع معالجة الأرقام داخل النص). القيم الفارغة تُدفع للآخر. */
+function sortKeyType(k){
+  if(k === '@key') return 'text';
+  if(isMetric(k)) return 'number';
+  const ty = (FIELD_MAP[k] || {}).type || 'text';
+  return (ty === 'percent' || ty === 'currency' || ty === 'number') ? 'number' : ty;
+}
+function sortCmp(a, b, k){
+  const ty = sortKeyType(k);
+  if(k === '@key')
+    return String(a.k).localeCompare(String(b.k), isEN() ? 'en' : 'ar', {numeric:true, sensitivity:'base'});
+  if(ty === 'number'){
+    const x = valueOf(a.r, k), y = valueOf(b.r, k);
+    const nx = !isFinite(x), ny = !isFinite(y);
+    if(nx && ny) return 0;
+    if(nx) return 1;                       // الفارغ في الآخر مهما كان الاتجاه
+    if(ny) return -1;
+    return x - y;
+  }
+  if(ty === 'date'){
+    const x = Date.parse(a.r[k] || ''), y = Date.parse(b.r[k] || '');
+    const nx = isNaN(x), ny = isNaN(y);
+    if(nx && ny) return 0;
+    if(nx) return 1;
+    if(ny) return -1;
+    return x - y;
+  }
+  const sx = String(a.r[k] == null ? '' : a.r[k]).trim();
+  const sy = String(b.r[k] == null ? '' : b.r[k]).trim();
+  if(!sx && !sy) return 0;
+  if(!sx) return 1;
+  if(!sy) return -1;
+  return sx.localeCompare(sy, isEN() ? 'en' : 'ar', {numeric:true, sensitivity:'base'});
+}
 function valueOf(rec, k){
   if(isMetric(k)) return +METRICS[k].calc(rec).toFixed(3);
   const ty = (FIELD_MAP[k] || {}).type;
@@ -1918,7 +1953,7 @@ const VISUALS = {
       }
       if(o.sortBy){
         const dir = o.sortDir === 'asc' ? 1 : -1;
-        rows.sort((a, b) => (valueOf(a.r, o.sortBy) - valueOf(b.r, o.sortBy)) * dir);
+        rows.sort((a, b) => sortCmp(a, b, o.sortBy) * dir);
       }
       if(o.rowsMax > 0) rows = rows.slice(0, o.rowsMax);
       S.lastItems[w.id] = rows.map(x => x.k);
@@ -2119,6 +2154,27 @@ function getW(id){ return S.widgets.find(w => w.id === id); }
 
 function snap(v){ return S.page.snap ? Math.round(v / S.page.grid) * S.page.grid : Math.round(v); }
 
+/* هل وقع الضغط على شريط تمرير داخلي؟ (الشريط خارج clientWidth/clientHeight،
+   وفي RTL يكون الشريط الرأسي على اليسار فتصبح offsetX سالبة) */
+function onScrollbar(ev){
+  const n = ev.target;
+  if(!n || n.nodeType !== 1) return false;
+  const vs = n.scrollHeight > n.clientHeight, hs = n.scrollWidth > n.clientWidth;
+  return (vs && (ev.offsetX > n.clientWidth  || ev.offsetX < 0)) ||
+         (hs && (ev.offsetY > n.clientHeight || ev.offsetY < 0));
+}
+/* إعادة الرسم تمسح محتوى العنصر، فنحفظ مواضع التمرير الداخلية ونعيدها بعدها */
+const SCROLL_SEL = '.dt-wrap,.rk-wrap,.obs-scroll,.obs-cards,.txt-visual';
+function grabScroll(box){
+  return box ? Array.from(box.querySelectorAll(SCROLL_SEL)).map(n => [n.scrollTop, n.scrollLeft]) : null;
+}
+function putScroll(box, saved){
+  if(!box || !saved || !saved.length) return;
+  Array.from(box.querySelectorAll(SCROLL_SEL)).forEach((n, i) => {
+    if(saved[i]){ n.scrollTop = saved[i][0]; n.scrollLeft = saved[i][1]; }
+  });
+}
+
 function drawWidget(w){
   let el = document.getElementById(w.id);
   if(!el){
@@ -2147,6 +2203,7 @@ function drawWidget(w){
       if(ev.target.closest('.hnd, .bw-tools')) return;             // تُعالَج في مكانها
       if(document.body.classList.contains('presenting')) return;   // وضع العرض: لا سحب
       if(el.classList.contains('editing')){ smartSelect(w.id, ev); return; }  // كتابة داخل العنصر
+      if(onScrollbar(ev)){ smartSelect(w.id, ev); return; }        // سحب شريط التمرير لا يحرّك القالب
       startDrag(ev, w.id);                                          // يستدعي التحديد بنفسه
     });
     el.addEventListener('dblclick', function(ev){
@@ -2183,8 +2240,10 @@ function drawWidget(w){
   } else tEl.style.display = 'none';
 
   const body = el.querySelector('.bw-body');
+  const keepScroll = grabScroll(body);
   try{ VISUALS[w.type].render(body, w); }
   catch(err){ body.innerHTML = `<div class="empty-note">${tr('renderError')}: ${err.message}</div>`; }
+  putScroll(body, keepScroll);                // لا يقفز الجدول لأوله مع كل تحديث
   setTimeout(() => refreshParts(w), 0);       // أجزاء HTML جاهزة فوراً
 }
 /* الكتابة مباشرة داخل العنصر على الصفحة (ضغطتين على النص أو على شريط العنوان) */
@@ -2420,7 +2479,8 @@ function startDrag(e, id){
   function up(){
     document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
     clearGuides();
-    if(moved && S.page.noOverlap && !group.length) resolveOverlap(w);
+    if(!moved) return;                      // ضغطة بلا حركة: لا تُعِد الرسم إطلاقاً
+    if(S.page.noOverlap && !group.length) resolveOverlap(w);
     drawWidget(w); group.forEach(o => drawWidget(o.w)); buildPropsTab();
   }
   document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
@@ -2698,7 +2758,28 @@ function ctlColor(label, val, cb, id){
      <div class="swatches">${SWATCHES.map(c => `<div class="sw" style="background:${c}" data-sw="${id}" data-c="${c}"></div>`).join('')}</div>
    </div></div>`;
 }
+/* إعادة بناء اللوحة كانت تُرجع قوائم الاختيار لأولها بعد كل تأشير — في كل القوالب */
+const PANEL_SCROLL_SEL = '.fld-list,.pick-list';
+function grabPanelScroll(){
+  const el = $('#tab-props'); if(!el) return null;
+  const sb = el.closest('.side-body');
+  return {body: sb ? sb.scrollTop : 0,
+          lists: Array.from(el.querySelectorAll(PANEL_SCROLL_SEL)).map(n => n.scrollTop)};
+}
+function putPanelScroll(s){
+  const el = $('#tab-props'); if(!s || !el) return;
+  Array.from(el.querySelectorAll(PANEL_SCROLL_SEL)).forEach((n, i) => {
+    if(s.lists[i] != null) n.scrollTop = s.lists[i];
+  });
+  const sb = el.closest('.side-body');
+  if(sb) sb.scrollTop = s.body;
+}
 function buildPropsTab(){
+  const keep = grabPanelScroll();
+  buildPropsBody();
+  putPanelScroll(keep);
+}
+function buildPropsBody(){
   const el = $('#tab-props');
   if(S.multi.length > 1){ buildMultiProps(el); return; }
   const w = getW(S.selected);
@@ -3100,7 +3181,7 @@ function optionsHtml(w){
     const sel = o.customFields || ['act_prog_cur','plan_prog_cur'];
     const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
     const picker = (o.group === 'custom') ? `
-      <div style="max-height:230px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
+      <div class="pick-list" style="max-height:230px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
         ${nums.map(f => `<label class="chk" style="margin-bottom:4px;font-weight:500;">
             <input type="checkbox" data-cfld="${f.key}" ${sel.includes(f.key) ? 'checked' : ''}> ${f.label}</label>`).join('')}
       </div>
@@ -3170,7 +3251,7 @@ function optionsHtml(w){
     const fieldsPicker = `
       <div class="hint" style="margin-bottom:6px;">المُختار الآن: <b>${sel.length}</b> حقل —
       علّم على الحقول التي تريد ترتيبها معاً (حقلان على الأقل).</div>
-      <div style="max-height:210px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
+      <div class="pick-list" style="max-height:210px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
         ${nums.map(f => `<label class="chk" style="margin-bottom:4px;font-weight:500;">
             <input type="checkbox" data-cfld="${f.key}" ${sel.includes(f.key) ? 'checked' : ''}> ${f.label}</label>`).join('')}
       </div>`;
@@ -3303,6 +3384,8 @@ function optionsHtml(w){
       </div>
       <div class="row"><label>الفرز حسب</label><div class="ctl"><select data-p="opts.sortBy">
         <option value="">بدون فرز</option>
+        <option value="@key" ${o.sortBy === '@key' ? 'selected' : ''}>${
+          o.source === 'updates' ? tr('colDate') : tr('colProject')}</option>
         ${sortables.map(k => `<option value="${k}" ${o.sortBy === k ? 'selected' : ''}>${fieldOrMetricName(k)}</option>`).join('')}
       </select></div></div>
       <div class="row2">
@@ -3376,7 +3459,7 @@ function optionsHtml(w){
   }
   if(w.type === 'info_table'){
     const sel = o.fields || [];
-    return `<div style="max-height:230px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;">
+    return `<div class="pick-list" style="max-height:230px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;">
       ${FIELD_META.filter(f => f.type !== 'image' && f.type !== 'json').map(f =>
         `<label class="chk" style="margin-bottom:4px;font-weight:500;">
            <input type="checkbox" data-fld="${f.key}" ${sel.includes(f.key)?'checked':''}> ${f.label}</label>`).join('')}
