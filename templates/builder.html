@@ -136,7 +136,7 @@ button{font-family:inherit;}
 /* ============ الـ Visuals ============ */
 .bw{
   position:absolute; z-index:1; display:flex; flex-direction:column; overflow:visible;
-  background:#fff; transition:box-shadow .12s;
+  background:#fff; transition:box-shadow .12s; cursor:move;
 }
 .bw.selected{outline:2px dashed #74b3e0; outline-offset:1px; z-index:5;}
 .bw.selected.primary{outline:2px solid var(--ui-accent);}
@@ -145,8 +145,9 @@ button{font-family:inherit;}
   text-overflow:ellipsis; white-space:nowrap;
 }
 .bw-body{flex:1 1 auto; min-height:0; position:relative; overflow:hidden; padding:6px;}
-.bw-drag{position:absolute; inset:0; cursor:move; z-index:3;}
-.bw.selected .bw-drag{cursor:move;}
+/* لا غطاء شفاف فوق المحتوى: السحب من جسم العنصر نفسه حتى يعمل شريط
+   التمرير وعجلة الفأرة داخل الجداول والقوائم */
+.bw.editing{cursor:auto;}
 .bw-tools{
   position:absolute; top:-30px; inset-inline-start:0; display:none; gap:4px; z-index:20;
 }
@@ -172,7 +173,6 @@ button{font-family:inherit;}
 
 /* وضع الكتابة المباشرة داخل العنصر */
 .bw.editing{outline:2px dashed var(--ui-accent); outline-offset:2px; z-index:8;}
-.bw.editing .bw-drag{display:none;}          /* رفع الغطاء الشفاف حتى يمكن الكتابة */
 .bw.editing .hnd{display:none;}
 .bw [contenteditable="true"]{outline:none; cursor:text; white-space:pre-wrap; overflow:auto;}
 .bw-edit-tip{
@@ -291,9 +291,6 @@ button{font-family:inherit;}
 .part-tab.on{background:var(--ui-navy,#1a2b4c); border-color:var(--ui-navy,#1a2b4c); color:#fff;}
 .hint-inline{font-size:.62rem; font-weight:600; color:var(--ui-muted); margin-inline-start:6px;}
 .mini-val{font-size:.68rem; color:var(--ui-muted); font-weight:700; min-width:44px; text-align:center;}
-/* وميض خفيف على الجزء المختار داخل القالب */
-.part-flash{animation:partFlash .9s ease-out;}
-@keyframes partFlash{ from{filter:drop-shadow(0 0 6px #d4a373) brightness(1.35);} to{filter:none;} }
 .grp-h{
   font-size:.72rem; font-weight:800; color:var(--ui-muted); letter-spacing:.02em; margin-bottom:8px;
   padding-bottom:5px; border-bottom:1px solid var(--ui-line); display:flex; align-items:center; gap:6px;
@@ -361,8 +358,8 @@ body.presenting .sidebar{display:none !important;}
 body.presenting .workspace{height:100vh;}
 body.presenting .canvas-area{padding:12px; background:#11151c;}
 body.presenting .bw-tools,
-body.presenting .hnd,
-body.presenting .bw-drag{display:none !important;}
+body.presenting .hnd{display:none !important;}
+body.presenting .bw{cursor:default;}
 body.presenting .bw.selected,
 body.presenting .bw.primary{outline:none !important;}
 body.presenting #page.show-grid::before{display:none;}
@@ -626,6 +623,7 @@ const S = {
   page:{lang:'ar', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
         theme:'navy', grid:10, snap:true, snapMode:'grid', showGrid:true, noOverlap:false},
   widgets:[], selected:null, multi:[], zoom:1, seq:1, activePart:null, lastItems:{},
+  partsSeen:{}, itemIdx:0,
   charts:{}, undo:[], redo:[], dirty:false, lastFetch:null, autoTimer:null
 };
 
@@ -956,16 +954,15 @@ const GAUGE_PAIRS = {
 
 /* تنسيق موحّد لـ Data Labels (حجم/لون/خلفية) */
 const DL_DEFAULT = {show:true, size:11, weight:700, color:'', bg:false, bgColor:'#1a2b4c'};
+/* «إظهار الأرقام» وحده يبقى في خيارات القالب؛ كل التنسيق مصدره الوحيد
+   هو «تنسيق أجزاء القالب» — لا مصدرَين متعارضين. */
 function dlOf(w){
-  const d = Object.assign({}, DL_DEFAULT, w.opts.dl || {});
-  const P = partOf(w, 'dataLabels');            // تنسيق الجزء يعلو على الافتراضي
-  if(P._set){
-    if(P.size)   d.size   = P.size;
-    if(P.weight) d.weight = P.weight;
-    if(P.color)  d.color  = P.color;
-    if(P.bg && P.bg !== 'none'){ d.bg = true; d.bgColor = P.bg; }
-  }
-  return d;
+  const raw = Object.assign({}, DL_DEFAULT, w.opts.dl || {});
+  const P = partOf(w, 'dataLabels');
+  const bgOn = !!(P.bg && P.bg !== 'none');
+  return {show: raw.show !== false, size: P.size, weight: P.weight || 700,
+          color: P.color || '', bg: bgOn, bgColor: bgOn ? P.bg : '#1a2b4c',
+          pos: P.pos || ''};
 }
 function dlOpts(w, fallbackColor, formatter){
   const d = dlOf(w);
@@ -1008,7 +1005,7 @@ const PART_DEFS = {
   yaxis:     {ar:'مسميات المحور الرأسي',  en:'Y-axis labels', d:-3, caps:['size','color','weight','align','offset']},
   legend:    {ar:'وسيلة الإيضاح',         en:'Legend',        d:0,  caps:['size','color','weight','legendPos']},
   tableHead: {ar:'رؤوس الجدول',           en:'Table header',  d:0,  caps:['size','color','weight','align','bg']},
-  tableCell: {ar:'خلايا الجدول',          en:'Table cells',   d:0,  caps:['size','color','weight','align']},
+  tableCell: {ar:'خلايا الجدول',          en:'Table cells',   d:0,  caps:['size','color','weight','align','bg']},
   cardValue: {ar:'الرقم الرئيسي',         en:'Main value',    d:0,  caps:['size','color','weight','align']},
   cardLabel: {ar:'النص تحت الرقم',        en:'Sub label',     d:-2, caps:['size','color','weight','align']},
   strip:     {ar:'شريط القيم',            en:'Values strip',  d:-1, caps:['size','color','weight','align']}
@@ -1016,7 +1013,7 @@ const PART_DEFS = {
 /* أي أجزاء يعرضها كل قالب */
 const PARTS_OF = {
   kpi:              ['cardValue','cardLabel'],
-  gauge:            ['dataLabels','legend','strip'],
+  gauge:            ['dataLabels','strip'],
   spi:              ['dataLabels','xaxis','yaxis','cardValue','cardLabel','strip'],
   progress_line:    ['dataLabels','xaxis','yaxis','legend'],
   bars:             ['dataLabels','xaxis','yaxis'],
@@ -1031,6 +1028,54 @@ const PARTS_OF = {
   image:            ['cardLabel'],
   text:             []
 };
+const PART_ORDER = Object.keys(PART_DEFS);
+/* ما يظهره القالب من أجزاء يعتمد على إعداداته الحالية، لا على نوعه فقط.
+   لذلك نقرأ الأجزاء من الرسم نفسه بعد كل تحديث: أي جزء غير موجود على
+   الشاشة لا يظهر له تبويب في «تنسيق أجزاء القالب». */
+const APEX_PART_PROBE = [
+  /* في الرادار تحمل مسميات المحور نفس صنف أرقام البيانات، ويفرّق بينهما
+     المجموعة الأب: g.apexcharts-xaxis للمسميات و g.apexcharts-datalabels للأرقام. */
+  ['dataLabels', '.apexcharts-datalabels text, .apexcharts-datalabel-value, .apexcharts-datalabel-label'],
+  ['xaxis',      '.apexcharts-xaxis-label, .apexcharts-xaxis-texts-g text, .apexcharts-xaxis text'],
+  ['yaxis',      '.apexcharts-yaxis-label'],
+  ['legend',     '.apexcharts-legend-text']
+];
+/* استثناء: في القالب الدائري، .apexcharts-datalabel-value هو رقم المنتصف
+   (الرقم الرئيسي) بينما أرقام الشرائح داخل g.apexcharts-datalabels */
+const APEX_PROBE_BY_TYPE = {
+  pie: [['dataLabels', '.apexcharts-datalabels text'],
+        ['cardValue',  '.apexcharts-datalabel-value, .apexcharts-datalabel-label'],
+        ['legend',     '.apexcharts-legend-text']]
+};
+function scanParts(w){
+  const el = document.getElementById(w.id);
+  const body = el && el.querySelector('.bw-body');
+  if(!body) return null;
+  const set = new Set();
+  body.querySelectorAll('[data-part]').forEach(n => {
+    if(PART_DEFS[n.dataset.part]) set.add(n.dataset.part);
+  });
+  (APEX_PROBE_BY_TYPE[w.type] || APEX_PART_PROBE)
+    .forEach(([k, sel]) => { if(body.querySelector(sel)) set.add(k); });
+  return set;
+}
+/** الأجزاء المعروضة لهذا القالب الآن (تقاطع المعلن مع الموجود فعلاً) */
+function partsOfWidget(w){
+  const dec = PARTS_OF[w.type] || [];
+  const seen = S.partsSeen && S.partsSeen[w.id];
+  if(!seen) return dec.slice();
+  return PART_ORDER.filter(k => seen.has(k) && dec.indexOf(k) >= 0);
+}
+/** يُستدعى بعد كل رسم: يحدّث القائمة ويعيد بناء اللوحة إن تغيّرت */
+function refreshParts(w){
+  if(!w || !S.partsSeen) return;
+  const set = scanParts(w);
+  if(!set) return;
+  const prev = S.partsSeen[w.id];
+  S.partsSeen[w.id] = set;
+  const same = prev && prev.size === set.size && Array.from(set).every(k => prev.has(k));
+  if(!same && S.selected === w.id && S.multi.length === 1) buildPropsTab();
+}
 function partName(k){ const p = PART_DEFS[k] || {}; return (isEN() ? p.en : p.ar) || k; }
 function partCaps(k){ return (PART_DEFS[k] || {}).caps || []; }
 
@@ -1077,7 +1122,7 @@ function legendStyle(w, base){
 function partCss(w, key, extra){
   const p = partOf(w, key);
   let css = `font-size:${p.size}px;`;
-  if(p.color)  css += `color:${p.color};`;
+  if(p.color)  css += `color:${p.color};opacity:1;`;   // اللون الصريح يلغي التعتيم الافتراضي
   if(p.weight) css += `font-weight:${p.weight};`;
   if(p.align)  css += `text-align:${p.align};`;
   if(p.bg)     css += `background:${p.bg};`;
@@ -1275,9 +1320,12 @@ const VISUALS = {
         }, {host:body.querySelector('.gauge-chart'), reserve:measureSpiBase(body)});
         return;
       }
-      const d = dlOf(w);
+      const pv = partOf(w, 'cardValue');
+      const vsz = (w.parts && w.parts.cardValue && w.parts.cardValue.size)
+                    ? pv.size : Math.max(24, Math.round(wSize(w) * 2.6));
       body.innerHTML = `<div class="spi-card">
-          <div class="spi-val" style="color:${d.color || color};font-size:${Math.max(24, d.size * 3)}px">${shown}</div>
+          <div class="spi-val" data-part="cardValue" style="color:${pv.color || color};font-size:${vsz}px;${
+            pv.weight ? 'font-weight:' + pv.weight + ';' : ''}${pv.align ? 'text-align:' + pv.align + ';' : ''}">${shown}</div>
           <div class="spi-status" data-part="cardLabel" style="background:${color};${
             partCss(w,'cardLabel')}">${status}</div>${base}</div>`;
     }
@@ -1895,8 +1943,8 @@ const VISUALS = {
         fs.map(f => `<th data-part="tableHead" style="${hCss}">${fieldOrMetricName(f)}</th>`).join('') + `</tr>`;
 
       const bodyRows = rows.map((x, i) => `<tr${o.zebra && i % 2 ? ' class="zeb"' : ''}>
-        ${o.showIndex ? `<td class="t-idx" style="${cCss}">${i + 1}</td>` : ''}
-        <td class="t-key" data-part="tableHead" style="${hCss}">${esc(x.k)}</td>` +
+        ${o.showIndex ? `<td class="t-idx" data-part="tableCell" style="${cCss}">${i + 1}</td>` : ''}
+        <td class="t-key" data-part="tableCell" style="${cCss}">${esc(x.k)}</td>` +
         fs.map(f => {
           const ty = fieldOrMetricType(f);
           const v  = valueOf(x.r, f);
@@ -1986,7 +2034,10 @@ function mkChart(body, w, opt, extra){
   const h = Math.max(60, w.h - (w.title.show ? 38 : 0) - 14 - (extra.reserve || 0));
   opt.chart = Object.assign({height:h, width:'100%'}, opt.chart);
   if(S.charts[w.id]){ try{ S.charts[w.id].destroy(); }catch(e){} }
-  const c = new ApexCharts(host, opt); c.render(); S.charts[w.id] = c;
+  const c = new ApexCharts(host, opt);
+  const done = c.render(); S.charts[w.id] = c;
+  if(done && done.then) done.then(() => refreshParts(w)).catch(() => {});
+  setTimeout(() => refreshParts(w), 400);     // احتياط لو تأخّر الرسم
 }
 
 /* =====================================================================
@@ -2051,6 +2102,7 @@ function nudgeSelected(dx, dy){
 function removeWidget(id){
   snapshot();
   if(S.charts[id]){ try{ S.charts[id].destroy(); }catch(e){} delete S.charts[id]; }
+  if(S.partsSeen) delete S.partsSeen[id];
   S.widgets = S.widgets.filter(w => w.id !== id);
   const el = document.getElementById(id); if(el) el.remove();
   S.multi = S.multi.filter(x => x !== id);
@@ -2072,7 +2124,7 @@ function drawWidget(w){
   if(!el){
     el = document.createElement('div');
     el.className = 'bw'; el.id = w.id;
-    el.innerHTML = `<div class="bw-title"></div><div class="bw-body"></div><div class="bw-drag"></div>
+    el.innerHTML = `<div class="bw-title"></div><div class="bw-body"></div>
       <div class="bw-tools">
         <button data-a="dup" title="تكرار">⧉</button>
         <button data-a="front" title="للأمام">↑</button>
@@ -2081,7 +2133,6 @@ function drawWidget(w){
       </div>` +
       ['nw','n','ne','e','se','s','sw','w'].map(d => `<div class="hnd" data-d="${d}"></div>`).join('');
     page.appendChild(el);
-    el.querySelector('.bw-drag').addEventListener('mousedown', e => startDrag(e, w.id));
     el.querySelectorAll('.hnd').forEach(h =>
       h.addEventListener('mousedown', e => startResize(e, w.id, h.dataset.d)));
     el.querySelectorAll('.bw-tools button').forEach(b => b.addEventListener('mousedown', e => {
@@ -2093,26 +2144,10 @@ function drawWidget(w){
       else if(a === 'back'){ snapshot(); page.insertBefore(el, page.firstChild); reorderModel(w.id, -1); }
     }));
     el.addEventListener('mousedown', ev => {
-      if(ev.target.closest('.bw-drag, .hnd, .bw-tools')) return;   // تُعالَج في مكانها
-      smartSelect(w.id, ev);
-    });
-    // الضغط على جزء داخل القالب يفتح تحكّمه في الشريط الجانبي
-    el.addEventListener('click', ev => {
-      if(ev.target.closest('.bw-drag, .hnd, .bw-tools')) return;
-      if(el.classList.contains('editing')) return;
-      const hit = hitPart(w, ev.target);
-      if(!hit) return;
-      if(hit.part && (PARTS_OF[w.type] || []).includes(hit.part)){
-        S.activePart = hit.part;
-        if(S.selected !== w.id) select(w.id); else buildPropsTab();
-        flashPart(w, hit.part);
-        toast(partName(hit.part) + ' — عدّله من الشريط الجانبي');
-      }else if(hit.item !== undefined){
-        S.activePart = null;
-        if(S.selected !== w.id) select(w.id); else buildPropsTab();
-        const inp = $('#tab-props').querySelector(`[data-cb="opts.itemColors.${hit.item}"]`);
-        if(inp){ inp.scrollIntoView({block:'center'}); inp.focus(); inp.click(); }
-      }
+      if(ev.target.closest('.hnd, .bw-tools')) return;             // تُعالَج في مكانها
+      if(document.body.classList.contains('presenting')) return;   // وضع العرض: لا سحب
+      if(el.classList.contains('editing')){ smartSelect(w.id, ev); return; }  // كتابة داخل العنصر
+      startDrag(ev, w.id);                                          // يستدعي التحديد بنفسه
     });
     el.addEventListener('dblclick', function(ev){
       if(el.classList.contains('editing')) return;
@@ -2150,6 +2185,7 @@ function drawWidget(w){
   const body = el.querySelector('.bw-body');
   try{ VISUALS[w.type].render(body, w); }
   catch(err){ body.innerHTML = `<div class="empty-note">${tr('renderError')}: ${err.message}</div>`; }
+  setTimeout(() => refreshParts(w), 0);       // أجزاء HTML جاهزة فوراً
 }
 /* الكتابة مباشرة داخل العنصر على الصفحة (ضغطتين على النص أو على شريط العنوان) */
 function startInlineEdit(w, node, field){
@@ -2213,8 +2249,22 @@ function normalizeWidget(w){
   const t = VISUALS[w.type];
   if(!t) return w;
   w.opts  = Object.assign(clone(t.opts || {}), w.opts || {});
-  if(DL_TYPES.indexOf(w.type) >= 0) w.opts.dl = Object.assign({}, DL_DEFAULT, w.opts.dl || {});
   w.parts = w.parts || {};                       // تنسيق الأجزاء — فارغ = يرث من القالب
+  if(DL_TYPES.indexOf(w.type) >= 0){
+    w.opts.dl = Object.assign({}, DL_DEFAULT, w.opts.dl || {});
+    /* قوالب محفوظة بنسخة أقدم كانت تحفظ تنسيق الأرقام داخل opts.dl —
+       ننقله مرة واحدة إلى parts.dataLabels ليصبح المصدر واحداً. */
+    const d = w.opts.dl;
+    if(!w.parts.dataLabels){
+      const mig = {};
+      if(d.size   && d.size   !== DL_DEFAULT.size)   mig.size   = +d.size;
+      if(d.weight && d.weight !== DL_DEFAULT.weight) mig.weight = +d.weight;
+      if(d.color)                                    mig.color  = d.color;
+      if(d.bg && d.bgColor)                          mig.bg     = d.bgColor;
+      if(Object.keys(mig).length) w.parts.dataLabels = mig;
+    }
+    w.opts.dl = {show: d.show !== false};
+  }
   w.opts.itemColors = w.opts.itemColors || {};   // ألوان مستقلة لكل عمود/شريحة
   w.style = Object.assign({bg:theme().widgetBg, color:theme().text, font:FONTS[0].v, fontSize:13,
                            opacity:1, radius:10, shadow:true}, w.style || {});
@@ -2229,7 +2279,7 @@ function normalizeWidget(w){
 
 function renderAll(){
   Object.values(S.charts).forEach(c => { try{ c.destroy(); }catch(e){} });
-  S.charts = {}; page.innerHTML = '';
+  S.charts = {}; S.partsSeen = {}; page.innerHTML = '';
   applyPageStyle();
   S.widgets.forEach(normalizeWidget);
   S.widgets.forEach(drawWidget);
@@ -2250,42 +2300,6 @@ setInterval(() => {
   });
 }, 60000);
 
-/* ===== الاختيار بالضغط على جزء داخل القالب ===== */
-/* الرسومات SVG تُعاد كتابتها مع كل تحديث، فلا نعدّلها مباشرة — نحدّد الجزء ونحرّره من اللوحة */
-const APEX_PART_MAP = [
-  ['.apexcharts-xaxis-label, .apexcharts-xaxis-title', 'xaxis'],
-  ['.apexcharts-yaxis-label, .apexcharts-yaxis-title', 'yaxis'],
-  ['.apexcharts-datalabel, .apexcharts-datalabels text, .apexcharts-datalabel-value, .apexcharts-datalabel-label', 'dataLabels'],
-  ['.apexcharts-legend-series, .apexcharts-legend-text, .apexcharts-legend-marker', 'legend']
-];
-/** يحدّد أي جزء ضُغط عليه داخل القالب — يعيد {part} أو {item:index} */
-function hitPart(w, target){
-  if(!target || !target.closest) return null;
-  const dp = target.closest('[data-part]');
-  if(dp) return {part: dp.dataset.part};
-  // شريحة أو عمود ← لون مستقل
-  const area = target.closest('.apexcharts-bar-area, .apexcharts-pie-area, .apexcharts-radialBar-area');
-  if(area){
-    const j = area.getAttribute('j') || area.getAttribute('data:realIndex') ||
-              area.getAttribute('index');
-    const i = parseInt(j);
-    if(!isNaN(i)) return {item: i};
-  }
-  for(const [sel, key] of APEX_PART_MAP)
-    if(target.closest(sel)) return {part: key};
-  return null;
-}
-/** وميض قصير على الجزء المختار حتى يعرف المستخدم أين هو */
-function flashPart(w, key){
-  const el = document.getElementById(w.id);
-  if(!el || !key) return;
-  const sels = {xaxis:'.apexcharts-xaxis-label', yaxis:'.apexcharts-yaxis-label',
-                dataLabels:'.apexcharts-datalabels text, .apexcharts-datalabel',
-                legend:'.apexcharts-legend-series'};
-  const nodes = el.querySelectorAll(sels[key] || `[data-part="${key}"]`);
-  nodes.forEach(nd => { nd.classList.remove('part-flash'); void nd.offsetWidth; nd.classList.add('part-flash'); });
-}
-
 function paintSelection(){
   document.querySelectorAll('.bw').forEach(e => {
     e.classList.toggle('selected', S.multi.indexOf(e.id) >= 0);
@@ -2302,6 +2316,7 @@ function selBounds(){
   };
 }
 function select(id, additive){
+  if(id !== S.selected) S.itemIdx = 0;          // اختيار عنصر آخر يبدأ من أول لون
   if(!id){ S.multi = []; S.selected = null; }
   else if(additive){
     const i = S.multi.indexOf(id);
@@ -2791,19 +2806,9 @@ function dataLabelsHtml(w){
   const d = dlOf(w);
   return `
     <div class="grp">
-      <div class="grp-h">🔖 Data Labels (الأرقام على الرسم)</div>
+      <div class="grp-h">🔖 الأرقام على الرسم</div>
       <label class="chk"><input type="checkbox" data-p="opts.dl.show" ${d.show !== false ? 'checked' : ''}> إظهار الأرقام</label>
-      <div class="row2">
-        <div class="mini"><span>حجم الخط</span><input type="number" min="7" max="40" data-p="opts.dl.size" value="${d.size}"></div>
-        <div class="mini"><span>السماكة</span><select data-p="opts.dl.weight">
-          <option value="400" ${d.weight == 400 ? 'selected' : ''}>عادي</option>
-          <option value="700" ${d.weight == 700 ? 'selected' : ''}>عريض</option>
-          <option value="900" ${d.weight == 900 ? 'selected' : ''}>عريض جداً</option>
-        </select></div>
-      </div>
-      ${ctlColor('لون الأرقام', d.color || theme().text, null, 'opts.dl.color')}
-      <label class="chk"><input type="checkbox" data-p="opts.dl.bg" ${d.bg ? 'checked' : ''}> خلفية خلف الأرقام (لو غير واضحة)</label>
-      ${ctlColor('لون الخلفية', d.bgColor || '#1a2b4c', null, 'opts.dl.bgColor')}
+      <div class="hint">حجم الخط ولونه وسماكته وخلفيته من «تنسيق أجزاء القالب» بالأسفل.</div>
     </div>`;
 }
 
@@ -2816,7 +2821,7 @@ const LEG_POS = [['','تلقائي'], ['top-center','أعلى وسط'], ['top-le
 const DL_POS = [['','وسط العمود'], ['top','أعلى العمود'], ['center','وسط العمود'], ['bottom','أسفل العمود']];
 
 function partsHtml(w){
-  const keys = PARTS_OF[w.type] || [];
+  const keys = partsOfWidget(w);
   if(!keys.length) return '';
   const open = S.activePart && keys.includes(S.activePart) ? S.activePart : keys[0];
   const tabs = keys.map(k => `<button class="part-tab ${k === open ? 'on' : ''}" data-part-tab="${k}">${
@@ -2862,7 +2867,7 @@ function partsHtml(w){
       `<div class="btn-row"><button class="sbtn" data-part-clearbg="${open}">بدون خلفية</button></div>`;
 
   return `<div class="grp">
-      <div class="grp-h">🎨 تنسيق أجزاء القالب <span class="hint-inline">اضغط أي جزء داخل القالب لتحديده</span></div>
+      <div class="grp-h">🎨 تنسيق أجزاء القالب <span class="hint-inline">اختر الجزء ثم عدّله</span></div>
       <div class="part-tabs">${tabs}</div>
       ${body}
       <div class="btn-row"><button class="sbtn" data-part-reset="${open}">إرجاع هذا الجزء للافتراضي</button></div>
@@ -2874,14 +2879,31 @@ function itemColorsHtml(w){
   const n = (S.lastItems && S.lastItems[w.id]) || [];
   if(!n.length) return '';
   const cur = w.opts.itemColors || {};
+  const q = t => String(t == null ? '' : t).replace(/[<>&"]/g,
+              c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+  let i = +S.itemIdx || 0;
+  if(!(i >= 0 && i < n.length)) i = 0;
+  const pal = theme().palette;
+  const changed = Object.keys(cur).length;
   return `<div class="grp">
-      <div class="grp-h">🎨 لون كل عنصر على حدة</div>
-      ${n.map((nm, i) => `<div class="row"><label title="${String(nm).replace(/"/g,'&quot;')}">${
-          String(nm).length > 14 ? String(nm).slice(0, 14) + '…' : nm}</label><div class="ctl">
-          <input type="color" value="${cur[i] || theme().palette[i % theme().palette.length]}" data-cb="opts.itemColors.${i}">
-          <button class="sbtn" data-item-clear="${i}" title="إرجاع اللون الافتراضي">↺</button>
-        </div></div>`).join('')}
-      <div class="btn-row"><button class="sbtn" data-items-reset="1">إرجاع كل الألوان للافتراضي</button></div>
+      <div class="grp-h">🎨 لون كل عنصر على حدة${
+        changed ? ` <span class="hint-inline">${changed} معدّل</span>` : ''}</div>
+      <div class="row"><label>العنصر</label><div class="ctl">
+        <select data-item-sel>${n.map((nm, j) => {
+          const t = String(nm); const shown = t.length > 30 ? t.slice(0, 30) + '…' : t;
+          return `<option value="${j}" ${j === i ? 'selected' : ''}>${
+            (cur[j] ? '● ' : '') + q(shown)}</option>`;
+        }).join('')}</select>
+      </div></div>
+      <div class="row"><label>اللون</label><div class="ctl">
+        <input type="color" value="${cur[i] || pal[i % pal.length]}" data-cb="opts.itemColors.${i}">
+        <div class="swatches">${SWATCHES.map(c =>
+          `<div class="sw" style="background:${c}" data-sw="opts.itemColors.${i}" data-c="${c}"></div>`).join('')}</div>
+      </div></div>
+      <div class="btn-row">
+        <button class="sbtn" data-item-clear="${i}">إرجاع لون هذا العنصر</button>
+        <button class="sbtn" data-items-reset="1">إرجاع كل الألوان</button>
+      </div>
     </div>`;
 }
 
@@ -3441,7 +3463,7 @@ function bindProps(el, w){
   el.querySelectorAll('[data-al]').forEach(b => b.addEventListener('click', () => alignSelected(b.dataset.al)));
   // ── تبويبات أجزاء القالب ──
   el.querySelectorAll('[data-part-tab]').forEach(b => b.addEventListener('click', () => {
-    S.activePart = b.dataset.partTab; buildPropsTab(); flashPart(w, S.activePart);
+    S.activePart = b.dataset.partTab; buildPropsTab();
   }));
   el.querySelectorAll('[data-part-reset]').forEach(b => b.addEventListener('click', () => {
     snapshot();
@@ -3452,6 +3474,8 @@ function bindProps(el, w){
     snapshot(); setPath(w, 'parts.' + b.dataset.partClearbg + '.bg', ''); drawWidget(w); buildPropsTab();
   }));
   // ── ألوان العناصر المستقلة ──
+  const isel = el.querySelector('[data-item-sel]');
+  if(isel) isel.addEventListener('change', () => { S.itemIdx = +isel.value || 0; buildPropsTab(); });
   el.querySelectorAll('[data-item-clear]').forEach(b => b.addEventListener('click', () => {
     snapshot();
     if(w.opts.itemColors) delete w.opts.itemColors[b.dataset.itemClear];
