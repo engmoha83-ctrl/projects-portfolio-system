@@ -380,11 +380,11 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
   <button class="tb-btn" id="btnRedo" title="إعادة (Ctrl+Y)">↷</button>
   <div class="sep"></div>
   <div class="zoom-box" title="التكبير — اسحب المؤشر أو اكتب النسبة (Ctrl + عجلة الفأرة فوق اللوحة)">
-    <button class="tb-btn" id="btnZoomOut" title="تصغير">−</button>
-    <input type="range" id="zoomSlider" min="15" max="300" step="1" value="100" aria-label="نسبة التكبير">
+    <button class="tb-btn" id="btnZoomIn" title="تكبير">+</button>
     <span class="zoom-val"><input type="number" id="zoomInput" min="15" max="300" step="1" value="100"
            aria-label="نسبة التكبير بالرقم"><b>%</b></span>
-    <button class="tb-btn" id="btnZoomIn" title="تكبير">+</button>
+    <input type="range" id="zoomSlider" min="15" max="300" step="1" value="100" aria-label="نسبة التكبير">
+    <button class="tb-btn" id="btnZoomOut" title="تصغير">−</button>
   </div>
   <button class="tb-btn ghost" id="btnZoomFit" title="ملاءمة الشاشة (تكبير التصميم ليملأ المساحة)">⤢</button>
   <button class="tb-btn ghost" id="btnPresent" title="ملء الشاشة — عرض الداشبورد بدون أدوات التحرير (Esc للخروج)">⛶</button>
