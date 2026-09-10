@@ -263,9 +263,12 @@ button{font-family:inherit;}
 .grp{margin-bottom:16px;}
 .dt-wrap{height:100%; overflow:auto;}
 .dt-tbl{width:100%;}
+/* رأس الجدول ثابت أثناء التمرير — لا بد من خلفية معتمة صريحة وz-index،
+   وإلا مرّت الصفوف من تحته فتداخل النص. اللون يُحقن من خلفية القالب نفسه. */
 .dt-tbl th{padding:5px 7px; text-align:start; white-space:nowrap; position:sticky; top:0;
-           background:inherit; border-bottom:2px solid rgba(128,128,128,.3);}
+           z-index:2; background:#fff; border-bottom:2px solid rgba(128,128,128,.3);}
 .dt-tbl thead{background:var(--ui-card,#fff);}
+.dt-tbl tbody td{background-clip:padding-box;}
 .dt-tbl td{white-space:nowrap; text-align:center;}
 .dt-tbl td.t-key{text-align:start; white-space:normal; width:auto;}
 .dt-tbl td.t-idx{width:1%; opacity:.6;}
@@ -1973,9 +1976,11 @@ const VISUALS = {
         return `background:rgba(30,142,90,${(0.06 + t * 0.32).toFixed(3)});`;
       };
 
-      const head = `<tr>${o.showIndex ? `<th style="${hCss}">#</th>` : ''}
-        <th data-part="tableHead" style="${hCss}">${firstLabel}</th>` +
-        fs.map(f => `<th data-part="tableHead" style="${hCss}">${fieldOrMetricName(f)}</th>`).join('') + `</tr>`;
+      // خلفية الرأس الثابت: خلفية القالب ما لم يحدّد المستخدم لوناً للرؤوس
+      const hBg = `background:${partOf(w, 'tableHead').bg || (w.style && w.style.bg) || '#ffffff'};`;
+      const head = `<tr>${o.showIndex ? `<th style="${hBg}${hCss}">#</th>` : ''}
+        <th data-part="tableHead" style="${hBg}${hCss}">${firstLabel}</th>` +
+        fs.map(f => `<th data-part="tableHead" style="${hBg}${hCss}">${fieldOrMetricName(f)}</th>`).join('') + `</tr>`;
 
       const bodyRows = rows.map((x, i) => `<tr${o.zebra && i % 2 ? ' class="zeb"' : ''}>
         ${o.showIndex ? `<td class="t-idx" data-part="tableCell" style="${cCss}">${i + 1}</td>` : ''}
