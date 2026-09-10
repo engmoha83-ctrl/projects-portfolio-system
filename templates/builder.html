@@ -270,6 +270,18 @@ button{font-family:inherit;}
 .dt-tbl td.t-key{text-align:start; white-space:normal; width:auto;}
 .dt-tbl td.t-idx{width:1%; opacity:.6;}
 .dt-tbl tr.zeb td{background:rgba(128,128,128,.055);}
+.fld-list{
+  max-height:220px; overflow-y:auto; border:1px solid var(--ui-line); border-radius:8px;
+  padding:5px; margin-bottom:8px; background:var(--ui-card);
+}
+.fld-item{
+  display:flex; align-items:center; gap:7px; padding:4px 6px; border-radius:6px;
+  font-size:.75rem; font-weight:500; cursor:pointer; line-height:1.45;
+}
+.fld-item:hover{background:rgba(128,128,128,.09);}
+.fld-item input{flex:0 0 auto; margin:0;}
+.fld-item span{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fld-count{font-size:.7rem; font-weight:800; color:var(--ui-muted);}
 .part-tabs{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:9px;}
 .part-tab{
   border:1px solid var(--ui-line); background:var(--ui-card); border-radius:7px; padding:4px 9px;
@@ -944,13 +956,19 @@ const GAUGE_PAIRS = {
 
 /* تنسيق موحّد لـ Data Labels (حجم/لون/خلفية) */
 const DL_DEFAULT = {show:true, size:11, weight:700, color:'', bg:false, bgColor:'#1a2b4c'};
-function dlOf(w){ return Object.assign({}, DL_DEFAULT, w.opts.dl || {}); }
+function dlOf(w){
+  const d = Object.assign({}, DL_DEFAULT, w.opts.dl || {});
+  const P = partOf(w, 'dataLabels');            // تنسيق الجزء يعلو على الافتراضي
+  if(P._set){
+    if(P.size)   d.size   = P.size;
+    if(P.weight) d.weight = P.weight;
+    if(P.color)  d.color  = P.color;
+    if(P.bg && P.bg !== 'none'){ d.bg = true; d.bgColor = P.bg; }
+  }
+  return d;
+}
 function dlOpts(w, fallbackColor, formatter){
   const d = dlOf(w);
-  const P = partOf(w, 'dataLabels');          // تنسيق الجزء يعلو على الافتراضي
-  if(P._set){ d.size = P.size; d.weight = P.weight || d.weight;
-              if(P.color) d.color = P.color;
-              if(P.bg && P.bg !== 'none'){ d.bg = true; d.bgColor = P.bg; } }
   const textC = d.color || fallbackColor || theme().text;
   const bgC   = d.bgColor || '#1a2b4c';
   /* ملاحظة ApexCharts: عند تفعيل الخلفية يصبح style.colors هو لون *المستطيل*
@@ -1172,7 +1190,8 @@ const VISUALS = {
           dataLabels:{show:d.show !== false,
             name:{show:!(longName && w.opts.showValues), fontSize:Math.max(10, d.size - 1) + 'px',
                   offsetY:-6, color:d.color || theme().text},
-            value:{fontSize:(Math.max(11, d.size) + 7) + 'px', fontWeight:900, offsetY:longName ? -2 : 4,
+            value:{fontSize:(partOf(w,'dataLabels')._set ? d.size : Math.max(11, d.size) + 7) + 'px',
+                   fontWeight:d.weight || 900, offsetY:longName ? -2 : 4,
                    color:d.color || theme().text, formatter:v => v + '%'},
             total:{show:series.length > 1, label:labels[0], color:d.color || theme().text,
                    formatter:() => series[0] + '%'}}}},
@@ -1281,8 +1300,8 @@ const VISUALS = {
         markers:{size:w.opts.chartType === 'line' ? 4 : 0},
         xaxis:{categories:cats, labels:Object.assign(axisStyle(w,'xaxis'), {rotate:partOf(w,'xaxis').rotate})},
         yaxis:{max:100, min:0, tickAmount:5, decimalsInFloat:0,
-               labels:{formatter:v => Math.round(v) + '%',
-                       style:{colors:theme().text, fontSize:Math.max(9, wSize(w) - 3) + 'px'}}},
+               labels:Object.assign(axisStyle(w, 'yaxis'),
+                     {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})},
         grid:{borderColor:'rgba(125,125,125,.18)'},
         legend:legendStyle(w, {position:'top', horizontalAlign:'center'}),
         tooltip:{y:{formatter:v => v + '%'}}
@@ -1399,7 +1418,8 @@ const VISUALS = {
         markers:{size:4}, yaxis:{show:false},
         plotOptions:{radar:{size:rsize,
           polygons:{strokeColors:'rgba(125,125,125,.25)', connectorColors:'rgba(125,125,125,.25)'}}},
-        xaxis:{labels:{style:{colors:Array(4).fill(theme().text), fontSize:Math.max(9, wSize(w) - 2) + 'px'}}}
+        xaxis:{labels:{style:Object.assign({}, axisStyle(w, 'xaxis').style,
+                       {colors:Array(4).fill(partOf(w, 'xaxis').color || theme().text)})}}
       }, {host:body.querySelector('.gauge-chart'), reserve});
     }
   },
@@ -2937,27 +2957,6 @@ function buildMultiProps(el){
     if(b.dataset.mact === 'del') removeSelected(); else duplicateSelected();
   }));
   el.querySelectorAll('[data-al]').forEach(b => b.addEventListener('click', () => alignSelected(b.dataset.al)));
-  // ── تبويبات أجزاء القالب ──
-  el.querySelectorAll('[data-part-tab]').forEach(b => b.addEventListener('click', () => {
-    S.activePart = b.dataset.partTab; buildPropsTab(); flashPart(w, S.activePart);
-  }));
-  el.querySelectorAll('[data-part-reset]').forEach(b => b.addEventListener('click', () => {
-    snapshot();
-    if(w.parts) delete w.parts[b.dataset.partReset];
-    drawWidget(w); buildPropsTab();
-  }));
-  el.querySelectorAll('[data-part-clearbg]').forEach(b => b.addEventListener('click', () => {
-    snapshot(); setPath(w, 'parts.' + b.dataset.partClearbg + '.bg', ''); drawWidget(w); buildPropsTab();
-  }));
-  // ── ألوان العناصر المستقلة ──
-  el.querySelectorAll('[data-item-clear]').forEach(b => b.addEventListener('click', () => {
-    snapshot();
-    if(w.opts.itemColors) delete w.opts.itemColors[b.dataset.itemClear];
-    drawWidget(w); buildPropsTab();
-  }));
-  el.querySelectorAll('[data-items-reset]').forEach(b => b.addEventListener('click', () => {
-    snapshot(); w.opts.itemColors = {}; drawWidget(w); buildPropsTab();
-  }));
   el.querySelectorAll('[data-dist]').forEach(b => b.addEventListener('click', () => distributeSelected(b.dataset.dist)));
   el.querySelectorAll('[data-size]').forEach(b => b.addEventListener('click', () => sameSizeSelected(b.dataset.size)));
 
@@ -3237,8 +3236,8 @@ function optionsHtml(w){
       <div class="hint">٠ = كل المشاريع. الباقي بعد العدد يُجمَّع في شريحة «أخرى».</div>` : `
       <div class="grp-h" style="margin-top:4px">الحقول المعروضة (<b>${sel.size}</b>)</div>
       <div class="fld-list">
-        ${nums.map(f => `<label class="fld-item"><input type="checkbox" data-cfld2="${f.key}" ${
-          sel.has(f.key) ? 'checked' : ''}> ${f.label}</label>`).join('')}
+        ${nums.map(f => `<label class="fld-item" title="${f.label}"><input type="checkbox" data-cfld2="${f.key}" ${
+          sel.has(f.key) ? 'checked' : ''}><span>${f.label}</span></label>`).join('')}
       </div>`}
       <div class="row"><label>الشكل</label><div class="ctl"><select data-p="opts.shape">
         <option value="donut" ${o.shape === 'donut' ? 'selected' : ''}>دونات (مفرغ)</option>
@@ -3275,10 +3274,10 @@ function optionsHtml(w){
       </select></div></div>
       <div class="grp-h" style="margin-top:4px">الأعمدة (<b>${sel.size}</b>)</div>
       <div class="fld-list">
-        ${Object.keys(METRICS).map(k => `<label class="fld-item"><input type="checkbox" data-cfld2="${k}" ${
-          sel.has(k) ? 'checked' : ''}> ${metricName(k)}</label>`).join('')}
-        ${usable.map(f => `<label class="fld-item"><input type="checkbox" data-cfld2="${f.key}" ${
-          sel.has(f.key) ? 'checked' : ''}> ${f.label}</label>`).join('')}
+        ${Object.keys(METRICS).map(k => `<label class="fld-item" title="${metricName(k)}"><input type="checkbox" data-cfld2="${k}" ${
+          sel.has(k) ? 'checked' : ''}><span>⚙️ ${metricName(k)}</span></label>`).join('')}
+        ${usable.map(f => `<label class="fld-item" title="${f.label}"><input type="checkbox" data-cfld2="${f.key}" ${
+          sel.has(f.key) ? 'checked' : ''}><span>${f.label}</span></label>`).join('')}
       </div>
       <div class="row"><label>الفرز حسب</label><div class="ctl"><select data-p="opts.sortBy">
         <option value="">بدون فرز</option>
@@ -3440,6 +3439,27 @@ function bindProps(el, w){
     snapshot(); setPath(w, b.dataset.set, b.dataset.v); drawWidget(w); buildPropsTab();
   }));
   el.querySelectorAll('[data-al]').forEach(b => b.addEventListener('click', () => alignSelected(b.dataset.al)));
+  // ── تبويبات أجزاء القالب ──
+  el.querySelectorAll('[data-part-tab]').forEach(b => b.addEventListener('click', () => {
+    S.activePart = b.dataset.partTab; buildPropsTab(); flashPart(w, S.activePart);
+  }));
+  el.querySelectorAll('[data-part-reset]').forEach(b => b.addEventListener('click', () => {
+    snapshot();
+    if(w.parts) delete w.parts[b.dataset.partReset];
+    drawWidget(w); buildPropsTab();
+  }));
+  el.querySelectorAll('[data-part-clearbg]').forEach(b => b.addEventListener('click', () => {
+    snapshot(); setPath(w, 'parts.' + b.dataset.partClearbg + '.bg', ''); drawWidget(w); buildPropsTab();
+  }));
+  // ── ألوان العناصر المستقلة ──
+  el.querySelectorAll('[data-item-clear]').forEach(b => b.addEventListener('click', () => {
+    snapshot();
+    if(w.opts.itemColors) delete w.opts.itemColors[b.dataset.itemClear];
+    drawWidget(w); buildPropsTab();
+  }));
+  el.querySelectorAll('[data-items-reset]').forEach(b => b.addEventListener('click', () => {
+    snapshot(); w.opts.itemColors = {}; drawWidget(w); buildPropsTab();
+  }));
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
     if(b.dataset.act === 'del') removeWidget(w.id); else duplicateWidget(w.id);
   }));
