@@ -40,6 +40,40 @@ button{font-family:inherit;}
 .tb-btn.primary{background:var(--ui-gold); border-color:var(--ui-gold); color:#22160a; font-weight:700;}
 .tb-btn.primary:hover{background:#e0b98d;}
 .tb-btn.ghost{background:transparent;}
+
+/* ===== شريط التكبير ===== */
+.zoom-box{
+  display:flex; align-items:center; gap:6px; padding:3px 6px; border-radius:9px;
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+}
+.zoom-box .tb-btn{padding:2px 8px; font-size:.9rem; line-height:1.15; border-radius:6px;}
+.zoom-box .zoom-val{
+  display:flex; align-items:center; gap:1px; direction:ltr;
+  background:rgba(0,0,0,.22); border-radius:6px; padding:2px 5px;
+}
+.zoom-box .zoom-val b{font-size:.7rem; color:rgba(255,255,255,.65); font-weight:600;}
+#zoomInput{
+  width:34px; background:transparent; border:none; color:#fff; font-family:inherit;
+  font-size:.78rem; font-weight:700; text-align:center; padding:1px 0; -moz-appearance:textfield;
+}
+#zoomInput::-webkit-outer-spin-button,#zoomInput::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+#zoomInput:focus{outline:1px solid var(--ui-gold); outline-offset:1px; border-radius:4px;}
+#zoomSlider{
+  -webkit-appearance:none; appearance:none; width:118px; height:4px; border-radius:4px;
+  background:rgba(255,255,255,.25); cursor:pointer; direction:ltr; margin:0;
+}
+#zoomSlider:focus{outline:none;}
+#zoomSlider::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%;
+  background:var(--ui-gold); border:2px solid #fff; cursor:grab; box-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+#zoomSlider::-webkit-slider-thumb:active{cursor:grabbing; transform:scale(1.12);}
+#zoomSlider::-moz-range-thumb{
+  width:12px; height:12px; border-radius:50%; background:var(--ui-gold);
+  border:2px solid #fff; cursor:grab; box-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+#zoomSlider::-moz-range-track{height:4px; border-radius:4px; background:rgba(255,255,255,.25);}
+@media (max-width:1200px){ #zoomSlider{width:76px;} }
 .tb-input,.tb-select{
   background:rgba(255,255,255,.10); color:#fff; border:1px solid rgba(255,255,255,.2);
   border-radius:8px; padding:6px 10px; font-size:.82rem; font-family:inherit; max-width:210px;
@@ -345,9 +379,13 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
   <button class="tb-btn" id="btnUndo" title="تراجع (Ctrl+Z)">↶</button>
   <button class="tb-btn" id="btnRedo" title="إعادة (Ctrl+Y)">↷</button>
   <div class="sep"></div>
-  <button class="tb-btn" id="btnZoomOut" title="تصغير">−</button>
-  <span id="zoomLabel" style="font-size:.78rem;min-width:42px;text-align:center;">100%</span>
-  <button class="tb-btn" id="btnZoomIn" title="تكبير">+</button>
+  <div class="zoom-box" title="التكبير — اسحب المؤشر أو اكتب النسبة (Ctrl + عجلة الفأرة فوق اللوحة)">
+    <button class="tb-btn" id="btnZoomOut" title="تصغير">−</button>
+    <input type="range" id="zoomSlider" min="15" max="300" step="1" value="100" aria-label="نسبة التكبير">
+    <span class="zoom-val"><input type="number" id="zoomInput" min="15" max="300" step="1" value="100"
+           aria-label="نسبة التكبير بالرقم"><b>%</b></span>
+    <button class="tb-btn" id="btnZoomIn" title="تكبير">+</button>
+  </div>
   <button class="tb-btn ghost" id="btnZoomFit" title="ملاءمة الشاشة (تكبير التصميم ليملأ المساحة)">⤢</button>
   <button class="tb-btn ghost" id="btnPresent" title="ملء الشاشة — عرض الداشبورد بدون أدوات التحرير (Esc للخروج)">⛶</button>
   <div class="spacer"></div>
@@ -410,6 +448,12 @@ const T = {
     noObstacles:'لا توجد معوقات مسجّلة في آخر تحديث ✅',
     impact:{'كبير':'كبير','متوسط':'متوسط','منخفض':'منخفض','غير مؤثر':'غير مؤثر'},
     vsPrev:'عن التحديث السابق', currency:'ر.س', dayUnit:'يوم', pointUnit:'نقطة',
+    updField:'⏱ تاريخ ووقت آخر تحديث', updSubmitted:'آخر إدخال من مدير المشروع',
+    updDataDate:'تاريخ البيانات', updFetched:'وقت جلب البيانات على هذه الشاشة',
+    updNone:'لا يوجد تحديث مسجَّل', updNow:'الآن',
+    updAgo:(n, u) => 'منذ ' + n + ' ' + u, updAgoOne:{m:'دقيقة', h:'ساعة', d:'يوم'},
+    updAgoTwo:{m:'دقيقتين', h:'ساعتين', d:'يومين'},
+    updAgoFew:{m:'دقائق', h:'ساعات', d:'أيام'}, updAgoMany:{m:'دقيقة', h:'ساعة', d:'يوم'},
     ranking:'الترتيب', renderError:'تعذر عرض القالب',
     editTitleTip:'اكتب العنوان — Enter للحفظ، Esc للإلغاء',
     editTextTip:'اكتب النص — Ctrl+Enter للحفظ، Esc للإلغاء', pickFields:'اختر حقلين أو أكثر من قائمة الحقول في الشريط الجانبي للمقارنة بينهم', cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
@@ -444,6 +488,11 @@ const T = {
     noObstacles:'No obstacles recorded in the latest update ✅',
     impact:{'كبير':'High','متوسط':'Medium','منخفض':'Low','غير مؤثر':'No impact'},
     vsPrev:'vs previous update', currency:'SAR', dayUnit:'days', pointUnit:'pts',
+    updField:'⏱ Last update date & time', updSubmitted:'Last entry by the project manager',
+    updDataDate:'Data date', updFetched:'Data fetched on this screen', updNone:'No update recorded',
+    updNow:'just now', updAgo:(n, u) => n + ' ' + u + ' ago',
+    updAgoOne:{m:'minute', h:'hour', d:'day'}, updAgoTwo:{m:'minutes', h:'hours', d:'days'},
+    updAgoFew:{m:'minutes', h:'hours', d:'days'}, updAgoMany:{m:'minutes', h:'hours', d:'days'},
     ranking:'Ranking', renderError:'Could not render this visual',
     editTitleTip:'Type the title — Enter to save, Esc to cancel',
     editTextTip:'Type your text — Ctrl+Enter to save, Esc to cancel', pickFields:'Pick two or more fields from the sidebar list to compare them', cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
@@ -746,6 +795,71 @@ const METRICS = {
   '@remaining': {ar:'المتبقي من الإنجاز', en:'Remaining to complete', type:'percent',
                  calc:r => 100 - pct(r.act_prog_cur)}
 };
+/* ===== حقل «تاريخ ووقت آخر تحديث» في بطاقة المؤشر ===== */
+const UPD_FIELD = '@updated';
+/** يضبط عنوان بطاقة المؤشر تلقائياً مع تغيير الحقل، ما لم يكن المستخدم قد كتب عنواناً بنفسه */
+function kpiAutoTitle(w, field){
+  if(!w.title) return;
+  const auto = k => k === UPD_FIELD ? {ar:'آخر تحديث للبيانات', en:'Last data update'}
+                                    : {ar:(FIELD_MAP[k] || {}).label || k,
+                                       en:(FIELD_MAP[k] || {}).label_en || (FIELD_MAP[k] || {}).label || k};
+  const cur = String(w.title.text || '').trim();
+  const known = FIELD_META.map(f => f.label).concat(['آخر تحديث للبيانات', 'الإنجاز الفعلي', VISUALS.kpi.title]);
+  if(cur && known.indexOf(cur) < 0) return;      // عنوان كتبه المستخدم — لا نلمسه
+  const a = auto(field);
+  w.title.text = a.ar; w.title.text_en = a.en;
+}
+const UPD_SOURCES = ['submitted', 'data_date', 'fetched'];
+function updSourceName(k){
+  return {submitted:tr('updSubmitted'), data_date:tr('updDataDate'), fetched:tr('updFetched')}[k] || k;
+}
+/** يعيد لحظة آخر تحديث حسب المصدر المختار — Date أو null */
+function updMoment(src){
+  if(src === 'fetched') return S.lastFetch ? new Date(S.lastFetch) : null;
+  const r = S.latest;
+  if(!r) return null;
+  if(src === 'data_date'){
+    const d = r.current_data_date ? new Date(String(r.current_data_date).slice(0,10) + 'T00:00:00') : null;
+    return (d && !isNaN(d.getTime())) ? d : null;
+  }
+  // submitted: تاريخ الإرسال + وقته إن وُجد، وإلا تاريخ البيانات
+  const day = r.submission_date || r.current_data_date;
+  if(!day) return null;
+  const t = String(r.submission_time || '').trim();
+  const hm = /^\d{1,2}:\d{2}/.test(t) ? (t.length === 4 ? '0' + t : t.slice(0,5)) : '00:00';
+  const d = new Date(String(day).slice(0,10) + 'T' + hm + ':00');
+  return isNaN(d.getTime()) ? null : d;
+}
+function updRelative(d){
+  if(!d) return '';
+  let diff = (Date.now() - d.getTime()) / 1000;
+  if(diff < 0) diff = 0;
+  if(diff < 60) return tr('updNow');
+  const pick = (n, u) => {
+    if(isEN()) return tr('updAgo')(n, n === 1 ? tr('updAgoOne')[u] : tr('updAgoTwo')[u]);
+    if(n === 1) return 'منذ ' + tr('updAgoOne')[u];
+    if(n === 2) return 'منذ ' + tr('updAgoTwo')[u];
+    return tr('updAgo')(n, n <= 10 ? tr('updAgoFew')[u] : tr('updAgoMany')[u]);
+  };
+  if(diff < 3600)  return pick(Math.floor(diff / 60), 'm');
+  if(diff < 86400) return pick(Math.floor(diff / 3600), 'h');
+  return pick(Math.floor(diff / 86400), 'd');
+}
+function updFormat(d, fmt, withTime){
+  if(!d) return tr('updNone');
+  const loc = isEN() ? 'en-GB' : 'ar-EG';
+  const dOpt = {year:'numeric', month:'long', day:'numeric'};
+  const tOpt = {hour:'2-digit', minute:'2-digit'};
+  let out;
+  try{
+    out = d.toLocaleDateString(loc, dOpt);
+    if(withTime) out += ' — ' + d.toLocaleTimeString(loc, tOpt);
+  }catch(e){ out = d.toISOString().slice(0, withTime ? 16 : 10).replace('T', ' '); }
+  if(fmt === 'rel')     return updRelative(d);
+  if(fmt === 'both')    return out + ' (' + updRelative(d) + ')';
+  return out;
+}
+
 function metricName(k){ const m = METRICS[k]; return m ? (isEN() ? m.en : m.ar) : k; }
 function isMetric(k){ return !!METRICS[k]; }
 function fieldOrMetricName(k){ return isMetric(k) ? metricName(k) : lbl(k); }
@@ -839,9 +953,26 @@ function wSize(w){ return (w.style && w.style.fontSize) || 13; }
 const VISUALS = {
   kpi:{
     name:'بطاقة مؤشر', icon:'📌', w:250, h:150,
-    opts:{field:'act_prog_cur', decimals:null, compact:false, showLabel:false, showDelta:true, valueSize:30, valueColor:''},
+    opts:{field:'act_prog_cur', decimals:null, compact:false, showLabel:false, showDelta:true,
+          valueSize:30, valueColor:'', updSource:'submitted', updFormat:'datetime'},
     title:'الإنجاز الفعلي', title_en:'Actual progress',
     render(body, w){
+      // حقل خاص: تاريخ ووقت آخر تحديث — يتجدّد تلقائياً مع كل جلب للبيانات
+      if(w.opts.field === UPD_FIELD){
+        const src = w.opts.updSource || 'submitted';
+        const d = updMoment(src);
+        const fmt = w.opts.updFormat || 'datetime';
+        const txt = updFormat(d, fmt === 'rel' ? 'rel' : (fmt === 'both' ? 'both' : null),
+                              fmt === 'datetime' || fmt === 'both');
+        const col = w.opts.valueColor || theme().palette[0];
+        const size = Math.max(11, Math.round((w.opts.valueSize || 30) * (fmt === 'rel' ? 1 : .62)));
+        const sub = w.opts.showLabel ? `<div class="kpi-label">${updSourceName(src)}</div>` : '';
+        const ago = (fmt === 'datetime' && d) ? `<div class="kpi-delta">${updRelative(d)}</div>` : '';
+        body.innerHTML = `<div class="kpi-wrap">
+            <div class="kpi-value" style="font-size:${size}px;color:${col};line-height:1.35;
+                 white-space:normal;unicode-bidi:plaintext">${txt}</div>${sub}${ago}</div>`;
+        return;
+      }
       if(!S.latest) return empty(body);
       const f = w.opts.field, meta = FIELD_MAP[f] || {type:'number', label:f};
       const val = S.latest[f];
@@ -1750,6 +1881,18 @@ function renderAll(){
   paintSelection();
   buildLayersList();
 }
+/* «منذ كذا» يتقادم مع الوقت — نُحدِّث بطاقات التاريخ وحدها كل دقيقة بلا إعادة رسم كاملة */
+setInterval(() => {
+  if(document.hidden) return;
+  const live = S.widgets.filter(w => w.type === 'kpi' && w.opts && w.opts.field === UPD_FIELD
+                                && ['rel','both','datetime'].includes(w.opts.updFormat || 'datetime'));
+  live.forEach(w => {
+    const el = document.getElementById(w.id);
+    const body = el && el.querySelector('.bw-body');
+    if(body) try{ VISUALS.kpi.render(body, w); }catch(e){}
+  });
+}, 60000);
+
 function paintSelection(){
   document.querySelectorAll('.bw').forEach(e => {
     e.classList.toggle('selected', S.multi.indexOf(e.id) >= 0);
@@ -2037,7 +2180,34 @@ function applyZoom(){
   shell.style.height = Math.round(S.page.h * S.zoom) + 'px';
   page.style.transformOrigin = 'top left';
   page.style.transform = `scale(${S.zoom})`;      // الصفحة تُكبَّر من الركن فتملأ الحاوية بالضبط
-  $('#zoomLabel').textContent = Math.round(S.zoom * 100) + '%';
+  const pct = Math.round(S.zoom * 100);
+  const sl = $('#zoomSlider'), inp = $('#zoomInput');
+  if(sl) sl.value = Math.min(ZMAX * 100, Math.max(ZMIN * 100, pct));
+  // نُحدِّث الخانة دائماً إلا أثناء الكتابة فيها نفسها (وإلا أُعيد تنسيق ما يكتبه المستخدم)
+  if(inp && !ZTYPING) inp.value = pct;
+}
+
+const ZMIN = .15, ZMAX = 3;
+let ZTYPING = false;          // يُرفع أثناء الكتابة في خانة النسبة فقط
+const clampZoom = z => Math.max(ZMIN, Math.min(ZMAX, z));
+/** يضبط التكبير مع إبقاء نقطة محدّدة من اللوحة ثابتة تحت المؤشر (للتكبير بالعجلة) */
+function setZoom(z, anchor){
+  const a = $('#canvasArea');
+  const prev = S.zoom;
+  S.zoom = clampZoom(z);
+  if(S.zoom === prev) { applyZoom(); return; }
+  let keep = null;
+  if(anchor && a){
+    const r = a.getBoundingClientRect();
+    keep = {ox: anchor.x - r.left + a.scrollLeft, oy: anchor.y - r.top + a.scrollTop,
+            vx: anchor.x - r.left, vy: anchor.y - r.top};
+  }
+  applyZoom();
+  if(keep && a){
+    const k = S.zoom / prev;
+    a.scrollLeft = keep.ox * k - keep.vx;
+    a.scrollTop  = keep.oy * k - keep.vy;
+  }
 }
 function zoomFit(){
   const a = $('#canvasArea');
@@ -2345,18 +2515,34 @@ function optionsHtml(w){
   const o = w.opts;
   if(w.type === 'kpi'){
     const usable = FIELD_META.filter(f => ['number','percent','currency','days','date','text'].includes(f.type));
+    const isUpd = o.field === UPD_FIELD;
+    const updHtml = !isUpd ? '' : `
+      <div class="row"><label>مصدر التاريخ</label><div class="ctl"><select data-p="opts.updSource">
+        ${UPD_SOURCES.map(k => `<option value="${k}" ${(o.updSource||'submitted')===k?'selected':''}>${updSourceName(k)}</option>`).join('')}
+      </select></div></div>
+      <div class="row"><label>الصيغة</label><div class="ctl"><select data-p="opts.updFormat">
+        <option value="datetime" ${(o.updFormat||'datetime')==='datetime'?'selected':''}>تاريخ ووقت</option>
+        <option value="date" ${o.updFormat==='date'?'selected':''}>تاريخ فقط</option>
+        <option value="rel" ${o.updFormat==='rel'?'selected':''}>منذ كذا (نسبي)</option>
+        <option value="both" ${o.updFormat==='both'?'selected':''}>تاريخ + منذ كذا</option>
+      </select></div></div>`;
     return `
       <div class="row"><label>الحقل</label><div class="ctl"><select data-p="opts.field">
+        <option value="${UPD_FIELD}" ${isUpd?'selected':''}>${tr('updField')}</option>
         ${usable.map(f => `<option value="${f.key}" ${o.field===f.key?'selected':''}>${f.label}</option>`).join('')}
       </select></div></div>
-      <div class="row2">
+      ${updHtml}
+      <div class="row2" ${isUpd?'hidden':''}>
         <div class="mini"><span>خانات عشرية</span><input type="number" min="0" max="4" data-p="opts.decimals"
              value="${o.decimals === null || o.decimals === undefined ? autoDecimals((FIELD_MAP[o.field]||{}).type) : o.decimals}"></div>
         <div class="mini"><span>حجم الرقم</span><input type="number" min="12" max="80" data-p="opts.valueSize" value="${o.valueSize}"></div>
       </div>
-      <label class="chk"><input type="checkbox" data-p="opts.compact" ${o.compact?'checked':''}> اختصار الأرقام الكبيرة (مليون/ألف)</label>
-      <label class="chk"><input type="checkbox" data-p="opts.showLabel" ${o.showLabel?'checked':''}> إظهار اسم الحقل تحت الرقم</label>
-      <label class="chk"><input type="checkbox" data-p="opts.showDelta" ${o.showDelta?'checked':''}> إظهار الفرق عن التحديث السابق</label>
+      <label class="chk" ${isUpd?'hidden':''}><input type="checkbox" data-p="opts.compact" ${o.compact?'checked':''}> اختصار الأرقام الكبيرة (مليون/ألف)</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showLabel" ${o.showLabel?'checked':''}> ${isUpd?'إظهار مصدر التاريخ تحته':'إظهار اسم الحقل تحت الرقم'}</label>
+      <label class="chk" ${isUpd?'hidden':''}><input type="checkbox" data-p="opts.showDelta" ${o.showDelta?'checked':''}> إظهار الفرق عن التحديث السابق</label>
+      <div class="row2" ${isUpd?'':'hidden'}>
+        <div class="mini"><span>حجم الخط</span><input type="number" min="12" max="80" data-p="opts.valueSize" value="${o.valueSize}"></div>
+      </div>
       ${ctlColor('لون الرقم', o.valueColor || theme().palette[0], null, 'opts.valueColor')}`;
   }
   if(w.type === 'gauge'){
@@ -2667,6 +2853,8 @@ function bindProps(el, w){
       if(inp.type === 'number' || inp.type === 'range') v = parseFloat(v) || 0;
       if(['title.weight','opts.weight'].includes(inp.dataset.p)) v = parseInt(v);
       setPath(w, inp.dataset.p, v);
+      // عنوان بطاقة المؤشر يتبع الحقل ما دام المستخدم لم يكتب عنواناً خاصاً به
+      if(inp.dataset.p === 'opts.field' && w.type === 'kpi') kpiAutoTitle(w, v);
       if(['x','y','w','h'].includes(inp.dataset.p)){
         w[inp.dataset.p] = S.page.snap ? snap(v) : Math.round(v);   // القيم المكتوبة تلتصق بالشبكة أيضاً
         if(inp.dataset.p === 'w') w.w = Math.max(90, w.w);
@@ -2883,8 +3071,10 @@ async function loadProject(name, opts){
       S.pm = j.pm || null;
     }
     if(opts.resolve !== false) await resolveLayout(name);
+    // وقت الجلب يُسجَّل قبل الرسم حتى تعرضه بطاقة «تاريخ ووقت آخر تحديث» محدَّثاً لا متأخراً بدورة
+    S.lastFetch = new Date();
     renderAll(); updateScopeUI();
-    S.lastFetch = new Date(); updateFetchLabel(); saveSession();
+    updateFetchLabel(); saveSession();
     if(!opts.silent) toast(S.mode === 'all'
       ? `تم تجميع ${S.projLatest.length} مشروع عبر ${S.records.length} تاريخ تحديث`
       : `تم تحميل ${S.records.length} تحديث للمشروع`);
@@ -3123,9 +3313,38 @@ $('#btnRefresh').addEventListener('click', () => refreshData(false));
 $('#btnLang').addEventListener('click', () => { setLang(isEN() ? 'ar' : 'en'); saveSession(); });
 $('#btnUndo').addEventListener('click', doUndo);
 $('#btnRedo').addEventListener('click', doRedo);
-$('#btnZoomIn').addEventListener('click', () => { S.zoom = Math.min(2, S.zoom + .1); applyZoom(); });
-$('#btnZoomOut').addEventListener('click', () => { S.zoom = Math.max(.2, S.zoom - .1); applyZoom(); });
+$('#btnZoomIn').addEventListener('click', () => setZoom(S.zoom + .05));
+$('#btnZoomOut').addEventListener('click', () => setZoom(S.zoom - .05));
 $('#btnZoomFit').addEventListener('click', zoomFit);
+
+/* شريط التكبير + الإدخال اليدوي */
+$('#zoomSlider').addEventListener('input', e => setZoom(+e.target.value / 100));
+$('#zoomInput').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  if(isNaN(v) || v < ZMIN * 100 || v > ZMAX * 100) return;   // قيمة ناقصة أثناء الكتابة — ننتظر
+  ZTYPING = true; setZoom(v / 100); ZTYPING = false;
+});
+$('#zoomInput').addEventListener('change', e => {         // عند الخروج: صحّح أي قيمة خارج المدى
+  const v = parseFloat(e.target.value);
+  setZoom(isNaN(v) ? S.zoom : v / 100);
+  e.target.value = Math.round(S.zoom * 100);
+});
+$('#zoomInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); e.target.blur(); }
+  if(e.key === 'Escape'){ e.target.value = Math.round(S.zoom * 100); e.target.blur(); }
+  if(e.key === 'ArrowUp' || e.key === 'ArrowDown'){
+    e.preventDefault();
+    setZoom(S.zoom + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? .1 : .01));
+    e.target.value = Math.round(S.zoom * 100);
+  }
+});
+$('#zoomInput').addEventListener('focus', e => e.target.select());
+// Ctrl + عجلة الفأرة فوق اللوحة — التكبير حول موضع المؤشر
+$('#canvasArea').addEventListener('wheel', e => {
+  if(!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  setZoom(S.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1), {x: e.clientX, y: e.clientY});
+}, {passive:false});
 $('#layoutName').addEventListener('change', e => S.layoutName = e.target.value);
 
 $('#canvasArea').addEventListener('mousedown', e => {
