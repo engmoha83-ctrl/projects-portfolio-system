@@ -1190,6 +1190,10 @@ function partBaseDelta(w, key){
     if(w.type === 'gauge') return 5;                                   // الرقم داخل الدائرة
     if(w.type === 'spi' && (w.opts || {}).mode === 'gauge') return 10;  // رقم SPI داخل الدائرة
   }
+  if(key === 'cardValue'){
+    if(w.type === 'kpi') return 17;   // ٣٠px — نفس الحجم الذي كان في «حجم الرقم»
+    if(w.type === 'spi') return 21;   // ٣٤px — نفس حجم رقم SPI الكبير
+  }
   return (PART_DEFS[key] || {}).d || 0;
 }
 function partOf(w, key){
@@ -1250,11 +1254,19 @@ function seriesColors(w, n, fallback){
 }
 
 /* فلاتر عرض الصورة — ضبط إظهار لا تعديل صور */
-/* سُمك العمود: كلما زاد قلّت المسافة بين الأعمدة */
-function barW(w){
-  const v = num((w.opts || {}).barW);
-  return (isFinite(v) && v >= 10 && v <= 100) ? Math.round(v) : 58;
+/* المسافة بين الأعمدة (٪ من عرض الخانة). السُمك = ١٠٠ − المسافة، ونحدّه بـ٩٠٪
+   لأن المكتبة تُصفّر عرض أول عمود عند ١٠٠٪ فيختفي. والنسبة تُحسب من عرض الخانة
+   فالسُمك يكبر ويصغر مع القالب تلقائياً ولا يتداخل عموداً بعمود. */
+function barGap(w){
+  const o = w.opts || {};
+  let g = num(o.barGap);
+  if(!isFinite(g)){                       // ترحيل من «سُمك العمود» القديم
+    const old = num(o.barW);
+    g = isFinite(old) ? 100 - old : 42;
+  }
+  return Math.max(10, Math.min(80, Math.round(g)));
 }
+function barW(w){ return Math.max(20, Math.min(90, 100 - barGap(w))); }
 /* هدف كل عنصر في الرادار: المحفوظ، وإلا 100 للنِسب، وإلا القيمة الحالية تقريباً */
 function radarTarget(w, k){
   const t = num(((w.opts || {}).targets || {})[k]);
@@ -1380,7 +1392,7 @@ const VISUALS = {
   kpi:{
     name:'بطاقة مؤشر', icon:'📌', w:250, h:150,
     opts:{field:'act_prog_cur', decimals:null, compact:false, showLabel:false, showDelta:true,
-          valueSize:30, valueColor:'', updSource:'submitted', updFormat:'datetime'},
+          valueColor:'', updSource:'submitted', updFormat:'datetime'},
     title:'الإنجاز الفعلي', title_en:'Actual progress',
     render(body, w){
       // حقل خاص: تاريخ ووقت آخر تحديث — يتجدّد تلقائياً مع كل جلب للبيانات
@@ -1392,8 +1404,7 @@ const VISUALS = {
                               fmt === 'datetime' || fmt === 'both');
         const pv = partOf(w, 'cardValue'), pl = partOf(w, 'cardLabel');
         const col = pv.color || w.opts.valueColor || theme().palette[0];
-        const size = pv._set ? pv.size
-                   : Math.max(11, Math.round((w.opts.valueSize || 30) * (fmt === 'rel' ? 1 : .62)));
+        const size = Math.max(11, Math.round(pv.size * (fmt === 'rel' ? 1 : .62)));
         const alg = pv.align ? `text-align:${pv.align};width:100%;` : '';
         const sub = w.opts.showLabel
           ? `<div class="kpi-label" data-part="cardLabel" style="${partCss(w,'cardLabel')}">${updSourceName(src)}</div>` : '';
@@ -1420,7 +1431,7 @@ const VISUALS = {
       }
       const pv2 = partOf(w, 'cardValue');
       const color = pv2.color || w.opts.valueColor || theme().palette[0];
-      const vSize = pv2._set ? pv2.size : w.opts.valueSize;
+      const vSize = pv2.size;
       const vAlg = pv2.align ? `text-align:${pv2.align};width:100%;` : '';
       const label = w.opts.showLabel
         ? `<div class="kpi-label" data-part="cardLabel" style="${partCss(w,'cardLabel')}">${meta.label || f}</div>` : '';
@@ -1570,8 +1581,7 @@ const VISUALS = {
         return;
       }
       const pv = partOf(w, 'cardValue');
-      const vsz = (w.parts && w.parts.cardValue && w.parts.cardValue.size)
-                    ? pv.size : Math.max(24, Math.round(wSize(w) * 2.6));
+      const vsz = pv.size;
       body.innerHTML = `<div class="spi-card">
           <div class="spi-val" data-part="cardValue" style="color:${pv.color || color};font-size:${vsz}px;${
             pv.weight ? 'font-weight:' + pv.weight + ';' : ''}${pv.align ? 'text-align:' + pv.align + ';' : ''}">${shown}</div>
@@ -2654,7 +2664,17 @@ function normalizeWidget(w){
   const t = VISUALS[w.type];
   if(!t) return w;
   w.opts  = Object.assign(clone(t.opts || {}), w.opts || {});
-  w.parts = w.parts || {};                       // تنسيق الأجزاء — فارغ = يرث من القالب
+  w.parts = w.parts || {};                       // تنسيق الأجزاء: المصدر الوحيد للأحجام
+  /* أُلغي «حجم الخط الأساسي» و«حجم الرقم»، فكل الأحجام من «تنسيق أجزاء القالب».
+     ننقل ما كان محفوظاً مرة واحدة كي لا يتغيّر مظهر أي داشبورد قائم. */
+  if(w.opts && w.opts.valueSize !== undefined){
+    if(!(w.parts.cardValue && w.parts.cardValue.size)){
+      const v = num(w.opts.valueSize);
+      if(isFinite(v) && v > 0)
+        w.parts.cardValue = Object.assign({}, w.parts.cardValue, {size: Math.round(v)});
+    }
+    delete w.opts.valueSize;
+  }
   if(DL_TYPES.indexOf(w.type) >= 0){
     w.opts.dl = Object.assign({}, DL_DEFAULT, w.opts.dl || {});
     /* قوالب محفوظة بنسخة أقدم كانت تحفظ تنسيق الأرقام داخل opts.dl —
@@ -3198,10 +3218,6 @@ function buildPropsBody(){
       <div class="row"><label>خط القالب</label><div class="ctl"><select data-p="style.font">
         ${FONTS.map(f => `<option value="${f.v}" ${(w.style.font || FONTS[0].v) === f.v ? 'selected' : ''}>${f.n}</option>`).join('')}
       </select></div></div>
-      <div class="row"><label>حجم الخط الأساسي</label><div class="ctl">
-        <input type="number" min="8" max="30" data-p="style.fontSize" value="${w.style.fontSize || 13}"></div></div>
-      <div class="hint">كل أجزاء القالب ترث حجمها من هنا (المحاور أصغر منه، الأرقام كذلك).
-      لتثبيت حجم جزء بعينه استخدم «تنسيق أجزاء القالب» بالأسفل.</div>
       <div class="row"><label>الشفافية</label><div class="ctl">
         <input type="range" min="0.2" max="1" step="0.05" data-p="style.opacity" value="${w.style.opacity}"></div></div>
       <div class="row"><label>الاستدارة</label><div class="ctl">
@@ -3266,9 +3282,8 @@ function partsHtml(w){
                  partName(k, w)}</button>`).join('');
   const p = partOf(w, open), caps = partCapsOf(w, open), pre = 'parts.' + open + '.';
   const has = c => caps.includes(c);
-  const inherited = !(w.parts && w.parts[open] && w.parts[open].size);
   let body = `<div class="row2">
-      <div class="mini"><span>حجم الخط${inherited ? ' <b class="inh">(موروث)</b>' : ''}</span>
+      <div class="mini"><span>حجم الخط</span>
         <input type="number" min="7" max="60" data-p="${pre}size" value="${p.size}"></div>
       <div class="mini"><span>السماكة</span><select data-p="${pre}weight">
         <option value="0"   ${!p.weight ? 'selected' : ''}>افتراضي</option>
@@ -3392,10 +3407,8 @@ function buildMultiProps(el){
       <div class="row"><label>خط القالب</label><div class="ctl"><select data-m="style.font">
         ${FONTS.map(f => `<option value="${f.v}" ${(p.style.font || FONTS[0].v) === f.v ? 'selected' : ''}>${f.n}</option>`).join('')}
       </select></div></div>
-      <div class="row2">
-        <div class="mini"><span>حجم النص</span><input type="number" min="8" max="30" data-m="style.fontSize" value="${p.style.fontSize || 13}"></div>
-        <div class="mini"><span>الاستدارة</span><input type="number" min="0" max="30" data-m="style.radius" value="${p.style.radius}"></div>
-      </div>
+      <div class="row"><label>الاستدارة</label><div class="ctl">
+        <input type="number" min="0" max="30" data-m="style.radius" value="${p.style.radius}"></div></div>
       <label class="chk"><input type="checkbox" data-m="style.shadow" ${p.style.shadow ? 'checked' : ''}> ظل خفيف</label>
       <label class="chk"><input type="checkbox" data-m="style.border.show" ${p.style.border.show ? 'checked' : ''}> إطار</label>
       <div class="row"><label>سماكة الإطار</label><div class="ctl">
@@ -3470,14 +3483,10 @@ function optionsHtml(w){
       <div class="row2" ${isUpd?'hidden':''}>
         <div class="mini"><span>خانات عشرية</span><input type="number" min="0" max="4" data-p="opts.decimals"
              value="${o.decimals === null || o.decimals === undefined ? autoDecimals((FIELD_MAP[o.field]||{}).type) : o.decimals}"></div>
-        <div class="mini"><span>حجم الرقم</span><input type="number" min="12" max="80" data-p="opts.valueSize" value="${o.valueSize}"></div>
       </div>
       <label class="chk" ${isUpd?'hidden':''}><input type="checkbox" data-p="opts.compact" ${o.compact?'checked':''}> اختصار الأرقام الكبيرة (مليون/ألف)</label>
       <label class="chk"><input type="checkbox" data-p="opts.showLabel" ${o.showLabel?'checked':''}> ${isUpd?'إظهار مصدر التاريخ تحته':'إظهار اسم الحقل تحت الرقم'}</label>
       <label class="chk" ${isUpd?'hidden':''}><input type="checkbox" data-p="opts.showDelta" ${o.showDelta?'checked':''}> إظهار الفرق عن التحديث السابق</label>
-      <div class="row2" ${isUpd?'':'hidden'}>
-        <div class="mini"><span>حجم الخط</span><input type="number" min="12" max="80" data-p="opts.valueSize" value="${o.valueSize}"></div>
-      </div>
       ${ctlColor('لون الرقم', o.valueColor || theme().palette[0], null, 'opts.valueColor')}`;
   }
   if(w.type === 'gauge'){
@@ -3558,8 +3567,9 @@ function optionsHtml(w){
       </select></div></div>
       ${picker}
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>
-      ${ctlRange('سُمك العمود', 'opts.barW', barW(w), 20, 100, 5, '%')}
-      <div class="hint">كلما زاد السُمك قلّت المسافة بين الأعمدة. للعناوين الطويلة جرّب «أعمدة أفقية».</div>`;
+      ${ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%')}
+      <div class="hint">المسافة نسبة من عرض الخانة، فسُمك العمود يكبر ويصغر مع القالب تلقائياً
+      بلا تداخل. للعناوين الطويلة جرّب «أعمدة أفقية».</div>`;
   }
   if(w.type === 'radar_eval'){
     const sel = new Set(o.fields || []);
@@ -3696,7 +3706,7 @@ function optionsHtml(w){
         <input type="number" min="0" max="50" data-p="opts.topN" value="${o.topN}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal ? 'checked' : ''}> أعمدة أفقية</label>
       <label class="chk"><input type="checkbox" data-p="opts.showAvg" ${o.showAvg ? 'checked' : ''}> خط المتوسط</label>
-      ${ctlRange('سُمك العمود', 'opts.barW', barW(w), 20, 100, 5, '%')}
+      ${ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%')}
       ${fieldOrMetricType(o.field) === 'points' ? `
       <div class="row"><label>وحدة الفرق</label><div class="ctl"><select data-p="opts.pointsAs">
         <option value="pts" ${(o.pointsAs||'pts') === 'pts' ? 'selected' : ''}>نقطة مئوية (+6.0 نقطة)</option>
@@ -3933,8 +3943,7 @@ function bindProps(el, w){
       });
       const lab = inp.parentElement && inp.parentElement.querySelector('.mini-val');
       if(lab) lab.textContent = inp.value + (/\.rotate$/.test(inp.dataset.p) ? '°' : '');
-      if(inp.dataset.p === 'style.fontSize' || /^parts\..+\.size$/.test(inp.dataset.p))
-        syncInherited(el, w);
+      if(/^parts\..+\.size$/.test(inp.dataset.p)) syncInherited(el, w);
       if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs'].includes(inp.dataset.p)) buildPropsTab();
     }
 
