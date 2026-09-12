@@ -156,6 +156,9 @@ button{font-family:inherit;}
   background:var(--ui-bar); color:#fff; border:none; border-radius:6px; width:26px; height:26px;
   font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
 }
+.bw-tools button[data-swap]{width:22px; height:22px; margin-top:2px; font-size:.62rem; opacity:.92;}
+.bw-tools button[data-swap]:hover{opacity:1; background:var(--ui-accent,#1a2b4c);}
+.tool-sep{width:1px; height:18px; margin:4px 2px 0; background:rgba(255,255,255,.35); align-self:flex-start;}
 .bw-tools button:hover{background:var(--ui-accent);}
 .bw-tools button.del:hover{background:var(--ui-danger);}
 .hnd{position:absolute; width:10px; height:10px; background:#fff; border:2px solid var(--ui-accent);
@@ -205,8 +208,9 @@ button{font-family:inherit;}
 .gauge-wrap{height:100%; display:flex; flex-direction:column; min-height:0;}
 .gauge-chart{flex:1 1 auto; min-height:0; overflow:hidden;}
 .gauge-vals{
-  flex:0 0 auto; overflow:hidden; display:flex; flex-wrap:wrap; gap:2px 10px; justify-content:center;
-  padding:1px 2px 0; line-height:1.3;
+  flex:0 0 auto; overflow-y:auto; display:flex; flex-wrap:wrap; gap:3px 10px;
+  justify-content:center; align-content:flex-start;
+  padding:4px 2px 5px; line-height:1.35;
 }
 .gauge-vals span{display:inline-flex; align-items:center; gap:4px; white-space:nowrap;}
 .gauge-vals i{width:9px; height:9px; border-radius:3px; display:inline-block;}
@@ -343,6 +347,9 @@ input[type=range]{width:100%;}
 .layer.on{background:#eef5fb; border-color:#74b3e0; font-weight:700;}
 .layer.on.pri{border-color:var(--ui-accent); box-shadow:0 0 0 1px var(--ui-accent);}
 .layer .lyr-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.lyr-btn{flex:0 0 auto; width:20px; height:20px; border:1px solid var(--ui-line); background:#fff;
+  border-radius:5px; cursor:pointer; font-size:.7rem; line-height:1; color:var(--ui-text);}
+.lyr-btn:hover{background:var(--ui-navy,#1a2b4c); color:#fff; border-color:var(--ui-navy,#1a2b4c);}
 
 /* ============ نافذة منبثقة ============ */
 .modal-back{
@@ -1231,6 +1238,35 @@ function radarChoices(){
   return Object.keys(METRICS).map(k => ({key:k, label:'⚙️ ' + metricName(k)}))
     .concat(FIELD_META.filter(f => ok.includes(f.type)).map(f => ({key:f.key, label:f.label})));
 }
+/* يلفّ نصاً طويلاً إلى سطرين على أقرب مسافة، أو يقصّه إن كانت كلمة واحدة */
+/* أقصى قيمة للمحور الرأسي: «ثابت» يعرض ٠–١٠٠٪ دائماً، و«تلقائي» يلائم أكبر
+   قيمة مع هامش بسيط حتى تظهر الأعمدة القصيرة بوضوح. */
+function progMax(w, series){
+  if((w.opts.yScale || 'auto') === 'fixed') return 100;
+  let mx = 0;
+  (series || []).forEach(s => (s.data || []).forEach(v => { const n = +v; if(isFinite(n) && n > mx) mx = n; }));
+  if(!(mx > 0)) return 100;
+  return Math.max(5, Math.min(100, Math.ceil(mx * 1.18 / 5) * 5));
+}
+function wrapLabel(t, n){
+  const v = String(t);
+  if(v.length <= n) return [v];
+  const words = v.split(/\s+/).filter(Boolean);
+  if(words.length < 2) return [v.slice(0, Math.max(2, n - 1)) + '…'];
+  const out = []; let cur = '';
+  words.forEach(word => {
+    if(!cur) cur = word;
+    else if((cur + ' ' + word).length <= n) cur += ' ' + word;
+    else { out.push(cur); cur = word; }
+  });
+  if(cur) out.push(cur);
+  if(out.length > 2){
+    const rest = out.slice(1).join(' ');
+    out.length = 1;
+    out.push(rest.length > n ? rest.slice(0, Math.max(2, n - 1)) + '…' : rest);
+  }
+  return out.map(x => x.length > n ? x.slice(0, Math.max(2, n - 1)) + '…' : x);
+}
 function imgFilter(w){
   const o = w.opts || {};
   const f = [];
@@ -1328,7 +1364,7 @@ const VISUALS = {
         : '';
       body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${strip}</div>`;
       const host = body.querySelector('.gauge-chart');
-      const reserve = measureStrip(body);
+      const reserve = measureStrip(body, Math.round((w.h - (w.title.show ? 38 : 0) - 14) * 0.34));
       const longName = (labels[0] || '').length > 14;
       /* الرقم يبقى في منتصف الدائرة مهما تغيّر حجم الخط: كل الإزاحات نِسب من
          حجم الرقم نفسه، لا أرقام ثابتة. */
@@ -1446,7 +1482,8 @@ const VISUALS = {
   },
   progress_line:{
     name:'مسار الإنجاز', icon:'📈', w:520, h:290,
-    opts:{chartType:'line', smooth:true, showPlanned:true, dl:Object.assign({}, DL_DEFAULT, {show:false})},
+    opts:{chartType:'line', smooth:true, showPlanned:true, yScale:'auto',
+          dl:Object.assign({}, DL_DEFAULT, {show:false})},
     title:'مسار الإنجاز الفعلي مقابل المخطط', title_en:'Actual vs planned progress',
     render(body, w){
       if(!S.records.length) return empty(body);
@@ -1461,7 +1498,7 @@ const VISUALS = {
         dataLabels:dlOpts(w, theme().text, v => v + '%'),
         markers:{size:w.opts.chartType === 'line' ? 4 : 0},
         xaxis:{categories:cats, labels:Object.assign(axisStyle(w,'xaxis'), {rotate:partOf(w,'xaxis').rotate})},
-        yaxis:{max:100, min:0, tickAmount:5, decimalsInFloat:0,
+        yaxis:{max:progMax(w, series), min:0, tickAmount:5, decimalsInFloat:0,
                labels:Object.assign(axisStyle(w, 'yaxis'),
                      {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})},
         grid:{borderColor:'rgba(125,125,125,.18)'},
@@ -1517,11 +1554,24 @@ const VISUALS = {
       const valAxis = {formatter:numFmt, style:(hz ? axX.style : axY.style),
                        offsetX:(hz ? axX : axY).offsetX, offsetY:(hz ? axX : axY).offsetY,
                        align:(hz ? pX.align : pY.align) || undefined};
-      const catAxis = {rotate:(hz ? pY.rotate : pX.rotate) !== null ? (hz ? pY.rotate : pX.rotate)
-                              : ((!hz && cats.length > 4) ? -35 : 0),
-                       rotateAlways:(!hz && cats.length > 4),
+      /* المكتبة تتجاهل قيمة الميل إن لم يُرفع rotateAlways — وكان محسوباً بشرط
+         «أكثر من ٤ أعمدة»، فميل المستخدم لا يظهر مع الأعمدة القليلة. */
+      const setRot  = (hz ? pY.rotate : pX.rotate);
+      const userRot = setRot !== null && setRot !== undefined;
+      const autoRot = (!hz && cats.length > 4);
+      const catAxis = {rotate:userRot ? setRot : (autoRot ? -35 : 0),
+                       rotateAlways:userRot ? (setRot !== 0) : autoRot,
                        trim:true, maxHeight:76, style:(hz ? axY.style : axX.style),
                        offsetX:(hz ? axY : axX).offsetX, offsetY:(hz ? axY : axX).offsetY};
+      /* الاسم الطويل يُلَفّ سطرين بدل قصّه — فقط حين لا يوجد ميل ولا عرض أفقي */
+      if(!hz && !catAxis.rotateAlways){
+        const per = (w.w - 60) / Math.max(1, cats.length);
+        const chw = Math.max(1, (pX.size || 10) * 0.42);
+        const mx  = Math.max(4, Math.floor(per / chw));
+        const wrapped = cats.map(c => wrapLabel(String(c), mx));
+        if(wrapped.some(x => x.length > 1)){ catAxis.trim = false; catAxis.maxHeight = 110; }
+        cats = wrapped;
+      }
       if(hz){ catAxis.maxWidth = Math.max(80, Math.round(w.w * 0.32));
               catAxis.align = pY.align || 'right'; }
 
@@ -1582,8 +1632,9 @@ const VISUALS = {
             shown(i)}</b>${useT && tgOf(keys[i]) !== 100 ? ` / ${tgOf(keys[i])}` : ''}</span>`).join('') +
           `</div>` : '';
       body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${strip}</div>`;
-      const reserve = measureStrip(body);
-      const avail = Math.min(w.w - 20, w.h - (w.title.show ? 38 : 0) - 14 - reserve);
+      const inner   = w.h - (w.title.show ? 38 : 0) - 14;
+      const reserve = measureStrip(body, Math.round(inner * 0.34));
+      const avail = Math.min(w.w - 20, inner - reserve);
       /* المسميات تُرسم خارج الشكل. بدل ما تتمدّد وتغطّي الرسم: نحجز لها شريطاً
          محدوداً حول الدائرة، ونقصّ الاسم على قدر الشريط، والقيمة تنزل سطراً
          ثانياً فيقلّ العرض للنصف. النص الكامل يظهر عند المرور بالماوس. */
@@ -2198,9 +2249,12 @@ function measureSpiBase(body){
   const el = body.querySelector('.spi-base');
   return el ? el.offsetHeight + 6 : 0;
 }
-function measureStrip(body){
+/* الشريط لا يأكل الرسم: له سقف يتمرر بعده، ومسافة تفصله عن حافة القالب */
+function measureStrip(body, cap){
   const el = body.querySelector('.gauge-vals');
-  return el ? el.offsetHeight + 2 : 0;   // مسافة أقل تحت الدائرة = دائرة أكبر
+  if(!el) return 0;
+  if(cap){ el.style.maxHeight = Math.max(24, Math.round(cap)) + 'px'; }
+  return Math.min(el.offsetHeight, cap || el.offsetHeight) + 6;
 }
 function mkChart(body, w, opt, extra){
   extra = extra || {};
@@ -2330,8 +2384,12 @@ function drawWidget(w){
     el.innerHTML = `<div class="bw-title"></div><div class="bw-body"></div>
       <div class="bw-tools">
         <button data-a="dup" title="تكرار">⧉</button>
-        <button data-a="front" title="للأمام">↑</button>
-        <button data-a="back" title="للخلف">↓</button>
+        <span class="tool-sep"></span>
+        <button data-swap="up"    title="تبديل المكان مع الذي بالأعلى">▲</button>
+        <button data-swap="down"  title="تبديل المكان مع الذي بالأسفل">▼</button>
+        <button data-swap="left"  title="تبديل المكان مع الذي على اليسار">◀</button>
+        <button data-swap="right" title="تبديل المكان مع الذي على اليمين">▶</button>
+        <span class="tool-sep"></span>
         <button data-a="del" class="del" title="حذف">🗑</button>
       </div>` +
       ['nw','n','ne','e','se','s','sw','w'].map(d => `<div class="hnd" data-d="${d}"></div>`).join('');
@@ -2341,10 +2399,9 @@ function drawWidget(w){
     el.querySelectorAll('.bw-tools button').forEach(b => b.addEventListener('mousedown', e => {
       e.stopPropagation(); e.preventDefault();
       const a = b.dataset.a;
-      if(a === 'del') removeWidget(w.id);
+      if(b.dataset.swap) swapNeighbour(w.id, b.dataset.swap);
+      else if(a === 'del') removeWidget(w.id);
       else if(a === 'dup') duplicateWidget(w.id);
-      else if(a === 'front'){ snapshot(); page.appendChild(el); reorderModel(w.id, 1); }
-      else if(a === 'back'){ snapshot(); page.insertBefore(el, page.firstChild); reorderModel(w.id, -1); }
     }));
     el.addEventListener('mousedown', ev => {
       if(ev.target.closest('.hnd, .bw-tools')) return;             // تُعالَج في مكانها
@@ -2444,6 +2501,42 @@ function startInlineEdit(w, node, field){
   node.addEventListener('keydown', onKey);
 }
 
+/* تبديل المكان مع أقرب قالب في اتجاه السهم — الموضع فقط، كل قالب يحتفظ
+   بمقاسه. الاختيار يفضّل ما يتقاطع معه على المحور العمودي على الاتجاه. */
+function swapNeighbour(id, dir){
+  const a = getW(id); if(!a) return;
+  const ac = {x:a.x + a.w / 2, y:a.y + a.h / 2};
+  let best = null, bestScore = Infinity;
+  S.widgets.forEach(b => {
+    if(b.id === id) return;
+    const bc = {x:b.x + b.w / 2, y:b.y + b.h / 2};
+    const dx = bc.x - ac.x, dy = bc.y - ac.y;
+    let along, across, overlap;
+    if(dir === 'up'){    along = -dy; across = Math.abs(dx);
+                         overlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x); }
+    else if(dir === 'down'){ along = dy; across = Math.abs(dx);
+                         overlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x); }
+    else if(dir === 'left'){ along = -dx; across = Math.abs(dy);
+                         overlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y); }
+    else {                along = dx; across = Math.abs(dy);
+                         overlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y); }
+    if(along <= 4) return;                       // ليس في هذا الاتجاه
+    if(across > along * 2.2 && overlap <= 0) return;   // منحرف جداً ولا يتقاطع
+    const score = along + across * (overlap > 0 ? 0.15 : 1.2);
+    if(score < bestScore){ bestScore = score; best = b; }
+  });
+  if(!best){ toast('لا يوجد قالب في هذا الاتجاه', true); return; }
+  snapshot();
+  const px = a.x, py = a.y;
+  a.x = best.x; a.y = best.y;
+  best.x = px;  best.y = py;
+  [a, best].forEach(o => {
+    o.x = Math.max(0, Math.min(S.page.w - o.w, o.x));
+    o.y = Math.max(0, Math.min(S.page.h - o.h, o.y));
+    drawWidget(o);
+  });
+  paintSelection(); buildPropsTab();
+}
 function reorderModel(id, dir){
   const i = S.widgets.findIndex(w => w.id === id); if(i < 0) return;
   const [w] = S.widgets.splice(i, 1);
@@ -2886,13 +2979,27 @@ function buildTemplatesTab(){
 function buildLayersList(){
   const box = $('#layersList'); if(!box) return;
   if(!S.widgets.length){ box.innerHTML = '<div class="hint">لا توجد عناصر بعد.</div>'; return; }
-  box.innerHTML = S.widgets.map(w =>
+  box.innerHTML = `<div class="hint" style="margin-bottom:6px;">الأعلى في القائمة = الأمام.
+      استخدم ↑ و↓ لترتيب التراكب، وأسهم شريط القالب لتبديل المكان.</div>` +
+    S.widgets.slice().reverse().map(w =>
     `<div class="layer ${S.multi.indexOf(w.id) >= 0 ? 'on' : ''}${w.id === S.selected ? ' pri' : ''}" data-id="${w.id}">
        <span>${VISUALS[w.type].icon}</span>
        <span class="lyr-name">${w.title.show && bi(w.title, 'text') ? bi(w.title, 'text') : VISUALS[w.type].name}</span>
+       <button class="lyr-btn" data-lyr="front" data-id="${w.id}" title="للأمام">↑</button>
+       <button class="lyr-btn" data-lyr="back"  data-id="${w.id}" title="للخلف">↓</button>
      </div>`).join('');
   box.querySelectorAll('.layer').forEach(l => l.addEventListener('click', ev => {
+    if(ev.target.closest('.lyr-btn')) return;
     select(l.dataset.id, ev.ctrlKey || ev.metaKey || ev.shiftKey); switchTab('props');
+  }));
+  box.querySelectorAll('.lyr-btn').forEach(btn => btn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const id = btn.dataset.id, el = document.getElementById(id);
+    if(!el) return;
+    snapshot();
+    if(btn.dataset.lyr === 'front'){ page.appendChild(el); reorderModel(id, 1); }
+    else { page.insertBefore(el, page.firstChild); reorderModel(id, -1); }
+    buildLayersList();
   }));
 }
 
@@ -3324,7 +3431,13 @@ function optionsHtml(w){
         <option value="bar"  ${o.chartType==='bar'?'selected':''}>أعمدة</option>
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned?'checked':''}> إظهار المخطط</label>
-      <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>`;
+      <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>
+      <div class="row"><label>مقياس المحور الرأسي</label><div class="ctl"><select data-p="opts.yScale">
+        <option value="auto"  ${(o.yScale||'auto') === 'auto'  ? 'selected' : ''}>تلقائي (يلائم أكبر قيمة)</option>
+        <option value="fixed" ${o.yScale === 'fixed' ? 'selected' : ''}>ثابت ٠ – ١٠٠٪</option>
+      </select></div></div>
+      <div class="hint">«تلقائي» يكبّر الأعمدة القصيرة فتُقرأ بوضوح. «ثابت» يُبقي المقياس
+      ٠–١٠٠٪ دائماً، وهو الأصدق لو بتقارن صورة الأسبوع بصورة أسبوع آخر.</div>`;
   }
   if(w.type === 'bars'){
     const sel = o.customFields || ['act_prog_cur','plan_prog_cur'];
