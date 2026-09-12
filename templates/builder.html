@@ -295,7 +295,13 @@ button{font-family:inherit;}
 .part-tab:hover{border-color:var(--ui-gold); color:var(--ui-text);}
 .part-tab.on{background:var(--ui-navy,#1a2b4c); border-color:var(--ui-navy,#1a2b4c); color:#fff;}
 .hint-inline{font-size:.62rem; font-weight:600; color:var(--ui-muted); margin-inline-start:6px;}
+.inh{font-weight:700; color:var(--ui-gold,#b8860b); font-size:.92em;}
 .mini-val{font-size:.68rem; color:var(--ui-muted); font-weight:700; min-width:44px; text-align:center;}
+.ctl.rng{display:flex; align-items:center; gap:8px; flex-wrap:nowrap;}
+.ctl.rng input[type=range]{flex:1 1 auto; min-width:0;}
+.num-box{flex:0 0 84px; display:inline-flex; align-items:center; justify-content:center; gap:2px;}
+.num-box input{width:56px; text-align:center;}
+.num-box i{font-style:normal; font-size:.68rem; color:var(--ui-muted); font-weight:700;}
 .grp-h{
   font-size:.72rem; font-weight:800; color:var(--ui-muted); letter-spacing:.02em; margin-bottom:8px;
   padding-bottom:5px; border-bottom:1px solid var(--ui-line); display:flex; align-items:center; gap:6px;
@@ -1118,7 +1124,15 @@ function refreshParts(w){
   const same = prev && prev.size === set.size && Array.from(set).every(k => prev.has(k));
   if(!same && S.selected === w.id && S.multi.length === 1) buildPropsTab();
 }
-function partName(k){ const p = PART_DEFS[k] || {}; return (isEN() ? p.en : p.ar) || k; }
+/* بعض القوالب تسمّي الجزء تسمية أدقّ: الرادار لا محور أفقي فيه */
+const PART_NAME_BY_TYPE = {
+  radar_eval:{xaxis:{ar:'مسميات محاور الرادار', en:'Radar axis labels'}}
+};
+function partName(k, w){
+  const ov = w && (PART_NAME_BY_TYPE[w.type] || {})[k];
+  const p  = ov || PART_DEFS[k] || {};
+  return (isEN() ? p.en : p.ar) || k;
+}
 function partCaps(k){ return (PART_DEFS[k] || {}).caps || []; }
 /* في الرادار تتوزّع المسميات حول دائرة، فالإزاحة الواحدة تحرّكها كلها في اتجاه
    واحد — بلا فائدة؛ والمكتبة أصلاً لا تدعم الميل هناك. فنُخفي الخيارين. */
@@ -1577,9 +1591,12 @@ const VISUALS = {
       const half    = Math.round(avail / 2);
       const band    = Math.max(30, Math.round(half * 0.45));
       const rsize   = Math.max(40, half - band);
-      /* كلما زاد عدد العناصر ضاقت المساحة المتاحة لكل مسمّى حول الدائرة */
-      const capCh   = keys.length >= 7 ? 9 : (keys.length >= 5 ? 12 : 16);
-      const maxCh   = Math.max(6, Math.min(capCh, Math.floor(band / (axSize * 0.42))));
+      /* أقصى طول للمسمّى يُحسب من المساحة الفعلية وحجم الخط الحالي — لا برقم
+         ثابت. حدّان: عرض الشريط المحجوز، وطول القوس المتاح لكل مسمّى حول
+         الدائرة (يضيق كلما زاد عدد العناصر). فتصغير الخط يُظهر حروفاً أكثر. */
+      const arcCh   = (2 * Math.PI * (rsize + band * 0.5)) / Math.max(1, keys.length);
+      const maxCh   = Math.max(6, Math.floor(Math.min(band / (axSize * 0.42),
+                                                      arcCh / (axSize * 0.55))));
       /* المكتبة تُوسّط المسمّى على رأسه، فالرؤوس القريبة من الأفقي (يمين/يسار)
          يزحف نصف نصّها داخل الشكل. نقصّها وحدها أكثر بدل تصغير الرسم كله. */
       const angOf   = i => ((-90 + i * 360 / keys.length) % 360 + 360) % 360;
@@ -2882,6 +2899,15 @@ function buildLayersList(){
 /* =====================================================================
    الشريط الجانبي — الخصائص
    ===================================================================== */
+/* شريط مع خانة رقمية: الاثنان مربوطان بنفس المسار فيتزامنان تلقائياً،
+   ويمكن كتابة الرقم مباشرة بدل السحب. */
+function ctlRange(label, path, val, min, max, step, unit){
+  return `<div class="row"><label>${label}</label><div class="ctl rng">
+     <input type="range" min="${min}" max="${max}" step="${step}" data-p="${path}" value="${val}">
+     <span class="num-box"><input type="number" min="${min}" max="${max}" step="${step}"
+        data-p="${path}" value="${val}"><i>${unit || ''}</i></span>
+   </div></div>`;
+}
 function ctlColor(label, val, cb, id){
   return `<div class="row"><label>${label}</label><div class="ctl">
      <input type="color" value="${val || '#ffffff'}" data-cb="${id}">
@@ -2962,8 +2988,10 @@ function buildPropsBody(){
       <div class="row"><label>خط القالب</label><div class="ctl"><select data-p="style.font">
         ${FONTS.map(f => `<option value="${f.v}" ${(w.style.font || FONTS[0].v) === f.v ? 'selected' : ''}>${f.n}</option>`).join('')}
       </select></div></div>
-      <div class="row"><label>حجم النص</label><div class="ctl">
+      <div class="row"><label>حجم الخط الأساسي</label><div class="ctl">
         <input type="number" min="8" max="30" data-p="style.fontSize" value="${w.style.fontSize || 13}"></div></div>
+      <div class="hint">كل أجزاء القالب ترث حجمها من هنا (المحاور أصغر منه، الأرقام كذلك).
+      لتثبيت حجم جزء بعينه استخدم «تنسيق أجزاء القالب» بالأسفل.</div>
       <div class="row"><label>الشفافية</label><div class="ctl">
         <input type="range" min="0.2" max="1" step="0.05" data-p="style.opacity" value="${w.style.opacity}"></div></div>
       <div class="row"><label>الاستدارة</label><div class="ctl">
@@ -3025,11 +3053,13 @@ function partsHtml(w){
   if(!keys.length) return '';
   const open = S.activePart && keys.includes(S.activePart) ? S.activePart : keys[0];
   const tabs = keys.map(k => `<button class="part-tab ${k === open ? 'on' : ''}" data-part-tab="${k}">${
-                 partName(k)}</button>`).join('');
+                 partName(k, w)}</button>`).join('');
   const p = partOf(w, open), caps = partCapsOf(w, open), pre = 'parts.' + open + '.';
   const has = c => caps.includes(c);
+  const inherited = !(w.parts && w.parts[open] && w.parts[open].size);
   let body = `<div class="row2">
-      <div class="mini"><span>حجم الخط</span><input type="number" min="7" max="60" data-p="${pre}size" value="${p.size}"></div>
+      <div class="mini"><span>حجم الخط${inherited ? ' <b class="inh">(موروث)</b>' : ''}</span>
+        <input type="number" min="7" max="60" data-p="${pre}size" value="${p.size}"></div>
       <div class="mini"><span>السماكة</span><select data-p="${pre}weight">
         <option value="0"   ${!p.weight ? 'selected' : ''}>افتراضي</option>
         <option value="400" ${p.weight == 400 ? 'selected' : ''}>عادي</option>
@@ -3312,9 +3342,7 @@ function optionsHtml(w){
       </select></div></div>
       ${picker}
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>
-      <div class="row"><label>سُمك العمود</label><div class="ctl">
-        <input type="range" min="20" max="100" step="5" data-p="opts.barW" value="${barW(w)}">
-        <span class="mini-val">${barW(w)}%</span></div></div>
+      ${ctlRange('سُمك العمود', 'opts.barW', barW(w), 20, 100, 5, '%')}
       <div class="hint">كلما زاد السُمك قلّت المسافة بين الأعمدة. للعناوين الطويلة جرّب «أعمدة أفقية».</div>`;
   }
   if(w.type === 'radar_eval'){
@@ -3452,9 +3480,7 @@ function optionsHtml(w){
         <input type="number" min="0" max="50" data-p="opts.topN" value="${o.topN}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal ? 'checked' : ''}> أعمدة أفقية</label>
       <label class="chk"><input type="checkbox" data-p="opts.showAvg" ${o.showAvg ? 'checked' : ''}> خط المتوسط</label>
-      <div class="row"><label>سُمك العمود</label><div class="ctl">
-        <input type="range" min="20" max="100" step="5" data-p="opts.barW" value="${barW(w)}">
-        <span class="mini-val">${barW(w)}%</span></div></div>
+      ${ctlRange('سُمك العمود', 'opts.barW', barW(w), 20, 100, 5, '%')}
       ${fieldOrMetricType(o.field) === 'points' ? `
       <div class="row"><label>وحدة الفرق</label><div class="ctl"><select data-p="opts.pointsAs">
         <option value="pts" ${(o.pointsAs||'pts') === 'pts' ? 'selected' : ''}>نقطة مئوية (+6.0 نقطة)</option>
@@ -3596,18 +3622,11 @@ function optionsHtml(w){
         <option value="right"  ${o.pos === 'right'  ? 'selected' : ''}>يمين</option>
         <option value="left"   ${o.pos === 'left'   ? 'selected' : ''}>يسار</option>
       </select></div></div>
-      <div class="row"><label>الشفافية</label><div class="ctl">
-        <input type="range" min="0.1" max="1" step="0.05" data-p="opts.imgOpacity" value="${o.imgOpacity}"></div></div>
+      ${ctlRange('الشفافية', 'opts.imgOpacity', o.imgOpacity, 0.1, 1, 0.05, '')}
       <label class="chk"><input type="checkbox" data-p="opts.grayscale" ${o.grayscale ? 'checked' : ''}> أبيض وأسود</label>
-      <div class="row"><label>السطوع</label><div class="ctl">
-        <input type="range" min="20" max="200" step="5" data-p="opts.bright" value="${num(o.bright) || 100}">
-        <span class="mini-val">${num(o.bright) || 100}%</span></div></div>
-      <div class="row"><label>التباين</label><div class="ctl">
-        <input type="range" min="20" max="200" step="5" data-p="opts.contrast" value="${num(o.contrast) || 100}">
-        <span class="mini-val">${num(o.contrast) || 100}%</span></div></div>
-      <div class="row"><label>التشبّع</label><div class="ctl">
-        <input type="range" min="0" max="200" step="5" data-p="opts.saturate" value="${num(o.saturate) || 100}">
-        <span class="mini-val">${num(o.saturate) || 100}%</span></div></div>
+      ${ctlRange('السطوع',  'opts.bright',   num(o.bright)   || 100, 20, 200, 5, '%')}
+      ${ctlRange('التباين', 'opts.contrast', num(o.contrast) || 100, 20, 200, 5, '%')}
+      ${ctlRange('التشبّع', 'opts.saturate', num(o.saturate) || 100,  0, 200, 5, '%')}
       <div class="btn-row"><button class="sbtn" data-imgreset="1">إرجاع الصورة لطبيعتها</button></div>
       <label class="chk"><input type="checkbox" data-p="opts.captionShow" ${o.captionShow ? 'checked' : ''}> إظهار تعليق أسفل الصورة</label>
       <div class="mini"><span>نص التعليق ${isEN() ? '(بالإنجليزية)' : '(بالعربية)'}</span>
@@ -3657,6 +3676,20 @@ function setPath(obj, path, val){
   }
   o[parts[parts.length-1]] = val;
 }
+/* يحدّث حجم الجزء الموروث وعلامته فور تغيير الحجم الأساسي — بلا إعادة بناء
+   اللوحة حتى لا يضيع تركيز الكتابة. */
+function syncInherited(el, w){
+  const box = el.querySelector('[data-p^="parts."][data-p$=".size"]');
+  if(!box) return;
+  const key = box.dataset.p.split('.')[1];
+  const explicit = !!(w.parts && w.parts[key] && w.parts[key].size);
+  if(!explicit) box.value = partOf(w, key).size;
+  const cap = box.parentElement && box.parentElement.querySelector('span');
+  if(!cap) return;
+  const mark = cap.querySelector('.inh');
+  if(explicit && mark) mark.remove();
+  if(!explicit && !mark) cap.insertAdjacentHTML('beforeend', ' <b class="inh">(موروث)</b>');
+}
 function bindProps(el, w){
   el.querySelectorAll('[data-p]').forEach(inp => {
     const tag  = inp.tagName.toLowerCase();
@@ -3678,10 +3711,14 @@ function bindProps(el, w){
         inp.value = w[inp.dataset.p];
       }
       drawWidget(w); buildLayersList();
-      if(/^parts\./.test(inp.dataset.p)){
-        const lab = inp.parentElement && inp.parentElement.querySelector('.mini-val');
-        if(lab) lab.textContent = inp.value + '°';
-      }
+      // أي حقل آخر مربوط بنفس المسار (الشريط وخانته) يتبع فوراً
+      el.querySelectorAll(`[data-p="${inp.dataset.p}"]`).forEach(o => {
+        if(o !== inp && o.value !== String(inp.value)) o.value = inp.value;
+      });
+      const lab = inp.parentElement && inp.parentElement.querySelector('.mini-val');
+      if(lab) lab.textContent = inp.value + (/\.rotate$/.test(inp.dataset.p) ? '°' : '');
+      if(inp.dataset.p === 'style.fontSize' || /^parts\..+\.size$/.test(inp.dataset.p))
+        syncInherited(el, w);
       if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs'].includes(inp.dataset.p)) buildPropsTab();
     }
 
