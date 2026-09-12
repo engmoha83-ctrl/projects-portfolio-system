@@ -156,9 +156,17 @@ button{font-family:inherit;}
   background:var(--ui-bar); color:#fff; border:none; border-radius:6px; width:26px; height:26px;
   font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
 }
-.bw-tools button[data-swap]{width:22px; height:22px; margin-top:2px; font-size:.62rem; opacity:.92;}
-.bw-tools button[data-swap]:hover{opacity:1; background:var(--ui-accent,#1a2b4c);}
-.tool-sep{width:1px; height:18px; margin:4px 2px 0; background:rgba(255,255,255,.35); align-self:flex-start;}
+/* صليب اتجاهات: كل سهم في موضعه الحقيقي، فلا يلتبس الترتيب ولا ينعكس مع RTL */
+.dpad{
+  display:grid; direction:ltr;
+  grid-template-areas:". u ." "l . r" ". d .";
+  grid-template-columns:repeat(3, 17px); grid-template-rows:repeat(3, 15px);
+  gap:1px; margin:-8px 3px 0; align-self:flex-start;
+}
+.bw-tools .dpad button{
+  width:17px; height:15px; font-size:.5rem; border-radius:3px; opacity:.9; padding:0;
+}
+.bw-tools .dpad button:hover{opacity:1; background:var(--ui-gold,#b8860b);}
 .bw-tools button:hover{background:var(--ui-accent);}
 .bw-tools button.del:hover{background:var(--ui-danger);}
 .hnd{position:absolute; width:10px; height:10px; background:#fff; border:2px solid var(--ui-accent);
@@ -2384,12 +2392,12 @@ function drawWidget(w){
     el.innerHTML = `<div class="bw-title"></div><div class="bw-body"></div>
       <div class="bw-tools">
         <button data-a="dup" title="تكرار">⧉</button>
-        <span class="tool-sep"></span>
-        <button data-swap="up"    title="تبديل المكان مع الذي بالأعلى">▲</button>
-        <button data-swap="down"  title="تبديل المكان مع الذي بالأسفل">▼</button>
-        <button data-swap="left"  title="تبديل المكان مع الذي على اليسار">◀</button>
-        <button data-swap="right" title="تبديل المكان مع الذي على اليمين">▶</button>
-        <span class="tool-sep"></span>
+        <div class="dpad" title="تبديل المكان مع القالب المجاور">
+          <button data-swap="up"    style="grid-area:u" title="تبديل المكان مع الذي بالأعلى">▲</button>
+          <button data-swap="left"  style="grid-area:l" title="تبديل المكان مع الذي على اليسار">◀</button>
+          <button data-swap="right" style="grid-area:r" title="تبديل المكان مع الذي على اليمين">▶</button>
+          <button data-swap="down"  style="grid-area:d" title="تبديل المكان مع الذي بالأسفل">▼</button>
+        </div>
         <button data-a="del" class="del" title="حذف">🗑</button>
       </div>` +
       ['nw','n','ne','e','se','s','sw','w'].map(d => `<div class="hnd" data-d="${d}"></div>`).join('');
@@ -2501,41 +2509,58 @@ function startInlineEdit(w, node, field){
   node.addEventListener('keydown', onKey);
 }
 
-/* تبديل المكان مع أقرب قالب في اتجاه السهم — الموضع فقط، كل قالب يحتفظ
-   بمقاسه. الاختيار يفضّل ما يتقاطع معه على المحور العمودي على الاتجاه. */
-function swapNeighbour(id, dir){
-  const a = getW(id); if(!a) return;
+/* تبديل الخانة مع القالب المجاور في اتجاه السهم.
+   يُبدَّل الموضع **والمقاس** معاً: كل قالب يأخذ خانة الآخر بالضبط. تبديل الموضع
+   وحده كان يسبب تراكباً وفراغات حين يختلف مقاس القالبين — وهو ما حدث فعلاً.
+   واختيار الجار يتم على مرحلتين: من يتقاطع معك على المحور العمودي على الاتجاه
+   أولاً (وهو الجار الحقيقي في الشبكة)، وإلا الأقرب داخل مخروط ٤٥°. */
+function pickNeighbour(a, dir){
   const ac = {x:a.x + a.w / 2, y:a.y + a.h / 2};
-  let best = null, bestScore = Infinity;
+  const rows = [], cone = [];
   S.widgets.forEach(b => {
-    if(b.id === id) return;
+    if(b.id === a.id) return;
     const bc = {x:b.x + b.w / 2, y:b.y + b.h / 2};
     const dx = bc.x - ac.x, dy = bc.y - ac.y;
-    let along, across, overlap;
-    if(dir === 'up'){    along = -dy; across = Math.abs(dx);
-                         overlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x); }
-    else if(dir === 'down'){ along = dy; across = Math.abs(dx);
-                         overlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x); }
-    else if(dir === 'left'){ along = -dx; across = Math.abs(dy);
-                         overlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y); }
-    else {                along = dx; across = Math.abs(dy);
-                         overlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y); }
-    if(along <= 4) return;                       // ليس في هذا الاتجاه
-    if(across > along * 2.2 && overlap <= 0) return;   // منحرف جداً ولا يتقاطع
-    const score = along + across * (overlap > 0 ? 0.15 : 1.2);
-    if(score < bestScore){ bestScore = score; best = b; }
+    const vert = (dir === 'up' || dir === 'down');
+    const along  = (dir === 'up') ? -dy : (dir === 'down') ? dy : (dir === 'left') ? -dx : dx;
+    const across = vert ? Math.abs(dx) : Math.abs(dy);
+    const overlap = vert ? Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
+                         : Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+    if(along <= 4) return;
+    if(overlap > Math.min(vert ? a.w : a.h, vert ? b.w : b.h) * 0.25) rows.push({b, along, across});
+    else if(across <= along) cone.push({b, along, across});
   });
+  const pool = rows.length ? rows : cone;
+  if(!pool.length) return null;
+  pool.sort((p, q) => (p.along - q.along) || (p.across - q.across));
+  return pool[0].b;
+}
+function swapNeighbour(id, dir){
+  const a = getW(id); if(!a) return;
+  const best = pickNeighbour(a, dir);
   if(!best){ toast('لا يوجد قالب في هذا الاتجاه', true); return; }
   snapshot();
-  const px = a.x, py = a.y;
-  a.x = best.x; a.y = best.y;
-  best.x = px;  best.y = py;
+  const box = {x:a.x, y:a.y, w:a.w, h:a.h};
+  a.x = best.x; a.y = best.y; a.w = best.w; a.h = best.h;
+  best.x = box.x; best.y = box.y; best.w = box.w; best.h = box.h;
   [a, best].forEach(o => {
+    o.w = Math.max(90, Math.min(S.page.w, o.w));
+    o.h = Math.max(60, Math.min(S.page.h, o.h));
     o.x = Math.max(0, Math.min(S.page.w - o.w, o.x));
     o.y = Math.max(0, Math.min(S.page.h - o.h, o.y));
     drawWidget(o);
   });
   paintSelection(); buildPropsTab();
+}
+/* خطوة واحدة في ترتيب التراكب — لا قفز للمقدمة أو للخلف تماماً */
+function moveLayer(id, dir){
+  const i = S.widgets.findIndex(w => w.id === id);
+  const j = i + dir;
+  if(i < 0 || j < 0 || j >= S.widgets.length) return false;
+  snapshot();
+  const t = S.widgets[i]; S.widgets[i] = S.widgets[j]; S.widgets[j] = t;
+  S.widgets.forEach(w => { const el = document.getElementById(w.id); if(el) page.appendChild(el); });
+  return true;
 }
 function reorderModel(id, dir){
   const i = S.widgets.findIndex(w => w.id === id); if(i < 0) return;
@@ -2994,11 +3019,8 @@ function buildLayersList(){
   }));
   box.querySelectorAll('.lyr-btn').forEach(btn => btn.addEventListener('click', ev => {
     ev.stopPropagation();
-    const id = btn.dataset.id, el = document.getElementById(id);
-    if(!el) return;
-    snapshot();
-    if(btn.dataset.lyr === 'front'){ page.appendChild(el); reorderModel(id, 1); }
-    else { page.insertBefore(el, page.firstChild); reorderModel(id, -1); }
+    if(!moveLayer(btn.dataset.id, btn.dataset.lyr === 'front' ? 1 : -1))
+      toast(btn.dataset.lyr === 'front' ? 'العنصر في المقدمة بالفعل' : 'العنصر في الخلف بالفعل', true);
     buildLayersList();
   }));
 }
