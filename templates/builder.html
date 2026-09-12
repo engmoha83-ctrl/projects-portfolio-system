@@ -4508,15 +4508,28 @@ $('#canvasArea').addEventListener('mousedown', e => {
   document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
 });
 
+/* اختصارات لوحة المفاتيح مستقلة عن لغة الإدخال:
+   عند لغة غير لاتينية (عربي/روسي/…) يعطي المتصفح e.key الحرف المطبوع (مثلاً «ئ»
+   بدل z) فتفشل المقارنة بالحرف. الحل: نجرّب الحرف أولاً — فيبقى صحيحاً في
+   التخطيطات اللاتينية مثل AZERTY/QWERTZ — ثم نرجع إلى e.code أي موضع الزر نفسه. */
+function isKey(e, ch){
+  const k = (e.key || '').toLowerCase();
+  if(k === ch) return true;
+  if(/^[a-z]$/.test(k)) return false;                 // حرف لاتيني آخر: ليس المطلوب
+  const code = e.code || '';
+  return /^Key[A-Z]$/.test(code) && code.charAt(3).toLowerCase() === ch;
+}
+
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if(tag === 'input' || tag === 'textarea' || tag === 'select') return;
   if(e.target.isContentEditable) return;        // أثناء الكتابة المباشرة داخل عنصر
-  if(e.ctrlKey && e.key.toLowerCase() === 'z'){ e.preventDefault(); doUndo(); return; }
-  if(e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); doRedo(); return; }
-  if(e.ctrlKey && e.key.toLowerCase() === 's'){ e.preventDefault(); saveLayout(); return; }
-  if(e.ctrlKey && e.key.toLowerCase() === 'd'){ e.preventDefault(); duplicateSelected(); return; }
-  if(e.ctrlKey && e.key.toLowerCase() === 'a'){      // تحديد الكل
+  const CTRL = e.ctrlKey || e.metaKey;
+  if(CTRL && isKey(e, 'z')){ e.preventDefault(); if(e.shiftKey) doRedo(); else doUndo(); return; }
+  if(CTRL && isKey(e, 'y')){ e.preventDefault(); doRedo(); return; }
+  if(CTRL && isKey(e, 's')){ e.preventDefault(); saveLayout(); return; }
+  if(CTRL && isKey(e, 'd')){ e.preventDefault(); duplicateSelected(); return; }
+  if(CTRL && isKey(e, 'a')){      // تحديد الكل
     e.preventDefault();
     if(!S.widgets.length) return;
     S.multi = S.widgets.map(w => w.id); S.selected = S.multi[S.multi.length - 1];
@@ -4526,7 +4539,7 @@ document.addEventListener('keydown', e => {
     if(document.body.classList.contains('presenting')){ setPresent(false); return; }
     select(null); return;
   }
-  if(e.key === 'F11' || (e.key.toLowerCase() === 'p' && (e.ctrlKey || e.metaKey))){
+  if(e.key === 'F11' || (CTRL && isKey(e, 'p'))){
     e.preventDefault(); togglePresent(); return;
   }
   if(!S.multi.length) return;
