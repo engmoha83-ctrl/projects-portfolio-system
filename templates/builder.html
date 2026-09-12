@@ -1027,7 +1027,29 @@ function dlOf(w){
           color: P.color || '', bg: bgOn, bgColor: bgOn ? P.bg : '#1a2b4c',
           pos: P.pos || ''};
 }
-function dlOpts(w, fallbackColor, formatter){
+/* الوسم الأبيض داخل عمود ارتفاعه صفر يقع على خلفية الرسم البيضاء فيختفي.
+   نحسب لوناً لكل نقطة: الأبيض داخل الأعمدة الكافية، ولون النص للصفرية والقصيرة. */
+function nearWhite(c){
+  const m = String(c || '').trim().match(/^#?([0-9a-f]{6})$/i);
+  if(!m) return false;
+  const v = parseInt(m[1], 16);
+  const r = (v >> 16) & 255, g = (v >> 8) & 255, b = v & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 215;     // فاتح جداً
+}
+function dlPointColors(w, data, insideColor){
+  const nums = (data || []).map(v => {
+    const n = (v && typeof v === 'object') ? v.y : v;
+    return Math.abs(+n || 0);
+  });
+  const mx = Math.max.apply(null, nums.concat([0]));
+  /* لون الوسم خارج العمود: لون المستخدم إن كان مقروءاً على الخلفية، وإلا لون
+     نص الثيم. اللون الأبيض هو الافتراضي *داخل* العمود، ولا يُقرأ خارجه. */
+  const set  = (w.parts && w.parts.dataLabels && w.parts.dataLabels.color) || '';
+  const outC = (set && !nearWhite(set)) ? set : theme().text;
+  if(!nums.length) return [insideColor || outC];
+  return nums.map(v => (!mx || v / mx < 0.12) ? outC : (insideColor || outC));
+}
+function dlOpts(w, fallbackColor, formatter, pointData){
   const d = dlOf(w);
   const textC = d.color || fallbackColor || theme().text;
   const bgC   = d.bgColor || '#1a2b4c';
@@ -1037,7 +1059,8 @@ function dlOpts(w, fallbackColor, formatter){
     enabled: d.show !== false,
     style:{fontSize:(d.size || 11) + 'px', fontWeight:d.weight || 700,
            fontFamily:w.style.font || FONTS[0].v,
-           colors:[d.bg ? bgC : textC]},
+           colors: d.bg ? [bgC]
+                   : (pointData ? dlPointColors(w, pointData, textC) : [textC])},
     background:{enabled: !!d.bg, foreColor: textC, borderColor: bgC, borderWidth: 0,
                 borderRadius:4, padding:4, opacity:0.95, dropShadow:{enabled:false}}
   };
@@ -1256,11 +1279,14 @@ function progMax(w, series){
   if(!(mx > 0)) return 100;
   return Math.max(5, Math.min(100, Math.ceil(mx * 1.18 / 5) * 5));
 }
-function wrapLabel(t, n){
-  const v = String(t);
+/* يلفّ النص أسطراً على حدود الكلمات — **بلا قصّ إطلاقاً**. إن بقي سطر أطول
+   من الحدّ (كلمة واحدة طويلة) فالمنادي هو من يقرّر: ميل أو قصّ. */
+function wrapLabel(t, n, maxLines){
+  const v = String(t == null ? '' : t).trim();
+  const L = Math.max(1, maxLines || 2);
+  if(!v) return [''];
   if(v.length <= n) return [v];
   const words = v.split(/\s+/).filter(Boolean);
-  if(words.length < 2) return [v.slice(0, Math.max(2, n - 1)) + '…'];
   const out = []; let cur = '';
   words.forEach(word => {
     if(!cur) cur = word;
@@ -1268,12 +1294,77 @@ function wrapLabel(t, n){
     else { out.push(cur); cur = word; }
   });
   if(cur) out.push(cur);
-  if(out.length > 2){
-    const rest = out.slice(1).join(' ');
-    out.length = 1;
-    out.push(rest.length > n ? rest.slice(0, Math.max(2, n - 1)) + '…' : rest);
+  if(out.length > L){ out[L - 1] = out.slice(L - 1).join(' '); out.length = L; }
+  return out;
+}
+/* قياس عرض النص بالبكسل فعلياً بدل تقدير «عرض الحرف» — التقدير كان يفشل مع
+   الحروف اللاتينية الكبيرة فتقصّ المكتبة النص قبل أن نلفّه. */
+let _measCtx = null;
+function textPx(t, size, font){
+  if(!_measCtx){ const c = document.createElement('canvas'); _measCtx = c.getContext('2d'); }
+  _measCtx.font = Math.max(6, size || 10) + 'px ' + (font || 'sans-serif');
+  /* قياس اللوحة يقلّ قليلاً عن رسم SVG (تتبُّع الحروف والتشكيل)، فنضيف هامش
+     أمان حتى لا تقصّ المكتبة نصاً قدّرناه أنه يسع. */
+  return _measCtx.measureText(String(t == null ? '' : t)).width * 1.14 + 2;
+}
+/** لفّ بالبكسل: لا قصّ، والسطر يُكسر عند أقرب كلمة تتجاوز العرض المتاح */
+function wrapPx(t, maxPx, size, font, maxLines){
+  const v = String(t == null ? '' : t).trim();
+  if(!v) return [''];
+  if(textPx(v, size, font) <= maxPx) return [v];
+  const words = v.split(/\s+/).filter(Boolean);
+  const out = []; let cur = '';
+  words.forEach(word => {
+    const cand = cur ? cur + ' ' + word : word;
+    if(!cur || textPx(cand, size, font) <= maxPx) cur = cand;
+    else { out.push(cur); cur = word; }
+  });
+  if(cur) out.push(cur);
+  const L = Math.max(1, maxLines || 2);
+  if(out.length > L){ out[L - 1] = out.slice(L - 1).join(' '); out.length = L; }
+  return out;
+}
+/* إعداد موحّد لمسميات محاور الفئات في كل قوالب الأعمدة: لا قصّ — نلفّ على قدر
+   المساحة المقاسة، وإن لم تكفِ نميل النص. كان كل قالب يفعل شيئاً مختلفاً. */
+function fitCats(w, names, hz, size, userRot, explicitSize){
+  const n    = Math.max(1, names.length);
+  const font = wFont(w);
+  const budget = hz ? Math.max(90, Math.round(w.w * 0.34))
+                    : Math.max(30, Math.round((w.w - 56) / n) - 4);
+  /* لو لم يثبّت المستخدم حجم الخط، نصغّره تدريجياً حتى يسع الاسم كاملاً —
+     تصغير الخط أرحم من القصّ أو التشابك. */
+  let sz = Math.max(7, size || 10), lines, worstPx;
+  for(;;){
+    lines = names.map(t => wrapPx(t, budget, sz, font, 3));
+    worstPx = lines.reduce((m, a) =>
+        Math.max(m, a.reduce((k, x) => Math.max(k, textPx(x, sz, font)), 0)), 0);
+    if(worstPx <= budget + 1 || explicitSize || sz <= 7) break;
+    sz -= 1;
   }
-  return out.map(x => x.length > n ? x.slice(0, Math.max(2, n - 1)) + '…' : x);
+  /* لا تدع منطقة المسميات تأكل الرسم في القوالب الصغيرة، ودع المكتبة تُخفي
+     ما يتراكب منها بدل أن تتشابك. */
+  const capH = Math.max(34, Math.round(w.h * 0.38));
+  const out = {trim:false, maxHeight:Math.min(hz ? 96 : 120, capH), size:sz,
+               hideOverlappingLabels:true, rotate:0, rotateAlways:false, cats:lines};
+  if(hz){
+    // وسّع المساحة المحجوزة لتكفي أطول سطر، فلا تقصّه المكتبة
+    out.maxWidth = Math.min(Math.round(w.w * 0.50), Math.max(90, Math.ceil(worstPx) + 14));
+    return out;
+  }
+  if(userRot !== null && userRot !== undefined){
+    out.rotate = userRot; out.rotateAlways = (userRot !== 0);
+    if(out.rotateAlways) out.cats = names.map(x => String(x));
+    return out;
+  }
+  if(worstPx > budget + 1 && capH >= 50){
+    /* الميل التلقائي بلا rotateAlways: تقرّر المكتبة الميل عند الحاجة وتُخفي ما
+       يتراكب — أفضل من إظهار الكل متشابكاً. الميل الذي يحدّده المستخدم فقط
+       هو الذي يُفرض دائماً (فوق). */
+    out.rotate = -40; out.rotateAlways = false; out.cats = names.map(x => String(x));
+  }
+  /* في القوالب الصغيرة جداً لا ارتفاع يكفي للميل: نترك الأسطر الملفوفة وندع
+     المكتبة تُخفي ما لا يسع — إخفاء مسمّى أفضل من تشابك غير مقروء. */
+  return out;
 }
 function imgFilter(w){
   const o = w.opts || {};
@@ -1564,24 +1655,17 @@ const VISUALS = {
                        align:(hz ? pX.align : pY.align) || undefined};
       /* المكتبة تتجاهل قيمة الميل إن لم يُرفع rotateAlways — وكان محسوباً بشرط
          «أكثر من ٤ أعمدة»، فميل المستخدم لا يظهر مع الأعمدة القليلة. */
-      const setRot  = (hz ? pY.rotate : pX.rotate);
-      const userRot = setRot !== null && setRot !== undefined;
-      const autoRot = (!hz && cats.length > 4);
-      const catAxis = {rotate:userRot ? setRot : (autoRot ? -35 : 0),
-                       rotateAlways:userRot ? (setRot !== 0) : autoRot,
-                       trim:true, maxHeight:76, style:(hz ? axY.style : axX.style),
+      const catKey = hz ? 'yaxis' : 'xaxis';
+      const fit = fitCats(w, cats, hz, (hz ? pY : pX).size, (hz ? pY : pX).rotate,
+                          !!(w.parts && w.parts[catKey] && w.parts[catKey].size));
+      cats = fit.cats;
+      const catAxis = {rotate:fit.rotate, rotateAlways:fit.rotateAlways, trim:fit.trim,
+                       maxHeight:fit.maxHeight, maxWidth:fit.maxWidth,
+                       hideOverlappingLabels:true,
+                       style:Object.assign({}, (hz ? axY.style : axX.style), {fontSize:fit.size + 'px'}),
                        offsetX:(hz ? axY : axX).offsetX, offsetY:(hz ? axY : axX).offsetY};
-      /* الاسم الطويل يُلَفّ سطرين بدل قصّه — فقط حين لا يوجد ميل ولا عرض أفقي */
-      if(!hz && !catAxis.rotateAlways){
-        const per = (w.w - 60) / Math.max(1, cats.length);
-        const chw = Math.max(1, (pX.size || 10) * 0.42);
-        const mx  = Math.max(4, Math.floor(per / chw));
-        const wrapped = cats.map(c => wrapLabel(String(c), mx));
-        if(wrapped.some(x => x.length > 1)){ catAxis.trim = false; catAxis.maxHeight = 110; }
-        cats = wrapped;
-      }
-      if(hz){ catAxis.maxWidth = Math.max(80, Math.round(w.w * 0.32));
-              catAxis.align = pY.align || 'right'; }
+      if(hz) catAxis.align = pY.align || 'right';
+      if(hz) catAxis.align = pY.align || 'right';   // العرض محسوب في fitCats
 
       let hostEl = null;
       if(hz){                                   // الأعمدة الأفقية تُرسم LTR حتى لا تتداخل التسميات مع الأعمدة
@@ -1595,7 +1679,7 @@ const VISUALS = {
         plotOptions:{bar:{horizontal:w.opts.horizontal, distributed:true, borderRadius:5,
                           columnWidth:barW(w) + '%', barHeight:barW(w) + '%',
                           dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}},
-        dataLabels:dlOpts(w, '#ffffff', fmt),
+        dataLabels:dlOpts(w, '#ffffff', fmt, data),
         xaxis:{categories:cats, labels:hz ? valAxis : catAxis},
         yaxis:{logarithmic:useLog, forceNiceScale:!useLog, labels:hz ? catAxis : valAxis},
         grid:{borderColor:'rgba(125,125,125,.18)'},
@@ -1661,23 +1745,14 @@ const VISUALS = {
       const angOf   = i => ((-90 + i * 360 / keys.length) % 360 + 360) % 360;
       const sideAt  = i => { const a = angOf(i);
                              return Math.min(Math.abs(a), Math.abs(a - 180), Math.abs(a - 360)) < 34; };
-      const cut     = (t, n) => { const v = String(t); return v.length > n ? v.slice(0, n - 1) + '…' : v; };
+      /* لا قصّ إلا لكلمة واحدة أطول من ضعف المساحة — الاسم يبقى كاملاً */
+      const cut     = (t, n) => { const v = String(t);
+                                  return v.length > n * 1.7 ? v.slice(0, Math.round(n * 1.7)) + '…' : v; };
       /* بدل قصّ الاسم على الجانبين، نلفّه سطرين قصيرين: يبقى الاسم كاملاً
          ويقلّ عرضه للنصف فيخرج من فوق الشكل. */
-      const wrap    = (t, n) => {
-        const words = String(t).split(/\s+/).filter(Boolean);
-        const out = []; let cur = '';
-        words.forEach(word => {
-          if(!cur) cur = word;
-          else if((cur + ' ' + word).length <= n) cur += ' ' + word;
-          else { out.push(cur); cur = word; }
-        });
-        if(cur) out.push(cur);
-        if(out.length > 2){ out[1] = cut(out.slice(1).join(' '), n); out.length = 2; }
-        return out.map(x => cut(x, n));
-      };
+      const wrap    = (t, n) => wrapLabel(t, n, 3).map(x => cut(x, n));
       const nameAt  = i => sideAt(i) ? wrap(names[i], Math.max(7, Math.round(maxCh * 0.6)))
-                                     : [cut(names[i], maxCh)];
+                                     : wrap(names[i], maxCh);
       cats = names.map((n, i) => {
         const lines = nameAt(i);
         const vCh = sideAt(i) ? Math.max(7, Math.round(maxCh * 0.6)) : maxCh;
@@ -1720,7 +1795,7 @@ const VISUALS = {
         return `<tr><td data-part="tableHead" style="${hCss}">${lbl(f)}</td>` +
                `<td data-part="tableCell" style="${cCss}">${fmtValue(S.latest[f], m.type || 'text', {})}</td></tr>`;
       }).join('');
-      body.innerHTML = `<table class="tbl">${rows}</table>`;
+      body.innerHTML = `<div class="dt-wrap"><table class="tbl">${rows}</table></div>`;
     }
   },
   scurve:{
@@ -1869,12 +1944,15 @@ const VISUALS = {
                           : ftype === 'currency' ? compactNum(num(v))
                           : ftype === 'ratio' ? num(v).toFixed(2)
                           : Math.round(num(v)).toLocaleString('en-US'));
-        const catAxis = {trim:true, maxHeight:76, style:(hz ? axY2.style : axX2.style),
-                         rotate:(hz ? pY2.rotate : pX2.rotate) !== null ? (hz ? pY2.rotate : pX2.rotate)
-                                : ((!hz && items.length > 4) ? -35 : 0),
-                         rotateAlways:(!hz && items.length > 4)};
-        if(hz){ catAxis.maxWidth = Math.max(90, Math.round(w.w * 0.34));
-                catAxis.align = pY2.align || 'right'; }
+        const catKey2 = hz ? 'yaxis' : 'xaxis';
+        const fit2 = fitCats(w, items.map(i => i.n), hz, (hz ? pY2 : pX2).size,
+                             (hz ? pY2 : pX2).rotate,
+                             !!(w.parts && w.parts[catKey2] && w.parts[catKey2].size));
+        const catAxis = {trim:fit2.trim, maxHeight:fit2.maxHeight, maxWidth:fit2.maxWidth,
+                         hideOverlappingLabels:true,
+                         style:Object.assign({}, (hz ? axY2.style : axX2.style), {fontSize:fit2.size + 'px'}),
+                         rotate:fit2.rotate, rotateAlways:fit2.rotateAlways};
+        if(hz) catAxis.align = pY2.align || 'right';  // العرض محسوب في fitCats
         const numAxis = {formatter:numFmt, style:(hz ? axX2.style : axY2.style),
                          align:(hz ? pX2.align : pY2.align) || undefined};
         let hostEl = null;
@@ -1891,8 +1969,8 @@ const VISUALS = {
           dataLabels:dlOpts(w, '#ffffff', (v, o) => {
             const i = o && o.dataPointIndex;
             return (i !== undefined && items[i]) ? fmtOne(items[i]) : v;
-          }),
-          xaxis:{categories:items.map(i => i.n), labels:hz ? numAxis : catAxis},
+          }, items.map(i => i.v)),
+          xaxis:{categories:fit2.cats, labels:hz ? numAxis : catAxis},
           yaxis:{labels:hz ? catAxis : numAxis},
           grid:{borderColor:'rgba(125,125,125,.18)'},
           legend:{show:false},
@@ -1948,12 +2026,15 @@ const VISUALS = {
       const numFmt = (ftype === 'percent' || ftype === 'points') ? (v => Math.round(v) + (ftype === 'percent' ? '%' : ''))
                    : (ftype === 'ratio' ? (v => num(v).toFixed(2))
                    : (ftype === 'currency' ? (v => compactNum(num(v))) : (v => Math.round(num(v)).toLocaleString('en-US'))));
-      const catAxis = {trim:true, maxHeight:76, style:(hz ? axY3.style : axX3.style),
-                       rotate:(hz ? pY3.rotate : pX3.rotate) !== null ? (hz ? pY3.rotate : pX3.rotate)
-                              : ((!hz && items.length > 4) ? -35 : 0),
-                       rotateAlways:(!hz && items.length > 4)};
-      if(hz){ catAxis.maxWidth = Math.max(90, Math.round(w.w * 0.34));
-              catAxis.align = pY3.align || 'right'; }
+      const catKey3 = hz ? 'yaxis' : 'xaxis';
+      const fit3 = fitCats(w, items.map(i => i.n), hz, (hz ? pY3 : pX3).size,
+                           (hz ? pY3 : pX3).rotate,
+                           !!(w.parts && w.parts[catKey3] && w.parts[catKey3].size));
+      const catAxis = {trim:fit3.trim, maxHeight:fit3.maxHeight, maxWidth:fit3.maxWidth,
+                       hideOverlappingLabels:true,
+                       style:Object.assign({}, (hz ? axY3.style : axX3.style), {fontSize:fit3.size + 'px'}),
+                       rotate:fit3.rotate, rotateAlways:fit3.rotateAlways};
+      if(hz) catAxis.align = pY3.align || 'right';  // العرض محسوب في fitCats
       const valAxis = {formatter:numFmt, style:(hz ? axX3.style : axY3.style),
                        align:(hz ? pX3.align : pY3.align) || undefined};
 
@@ -1976,8 +2057,8 @@ const VISUALS = {
         dataLabels:dlOpts(w, '#ffffff', (v, o) => {
           const i = o && o.dataPointIndex;
           return fmt((i !== undefined && i !== null && items[i]) ? items[i].v : v);
-        }),
-        xaxis:{categories:items.map(i => i.n), labels:hz ? valAxis : catAxis},
+        }, items.map(i => i.v)),
+        xaxis:{categories:fit3.cats, labels:hz ? valAxis : catAxis},
         yaxis:{labels:hz ? catAxis : valAxis},
         annotations:w.opts.showAvg ? (hz
           ? {xaxis:[{x:avg, borderColor:'#6c7a91', strokeDashArray:4,
