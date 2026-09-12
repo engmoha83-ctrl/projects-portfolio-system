@@ -188,7 +188,9 @@ button{font-family:inherit;}
 .guide.h{height:1px; left:0; right:0;}
 
 /* محتوى القوالب */
-.kpi-wrap{height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:2px; padding:2px;}
+.kpi-wrap{height:100%; overflow:auto; display:flex; flex-direction:column; justify-content:center;
+  align-items:center; text-align:center; gap:2px; padding:2px;}
+.kpi-value{max-width:100%;}
 .kpi-value{font-weight:900; line-height:1.15; word-break:break-word;}
 .kpi-label{font-size:.96em; color:inherit; opacity:.72;}
 .kpi-delta{font-size:.92em; font-weight:700;}
@@ -203,8 +205,8 @@ button{font-family:inherit;}
 .gauge-wrap{height:100%; display:flex; flex-direction:column; min-height:0;}
 .gauge-chart{flex:1 1 auto; min-height:0; overflow:hidden;}
 .gauge-vals{
-  flex:0 0 auto; overflow:hidden; display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:center;
-  padding:4px 2px 2px; line-height:1.5;
+  flex:0 0 auto; overflow:hidden; display:flex; flex-wrap:wrap; gap:2px 10px; justify-content:center;
+  padding:1px 2px 0; line-height:1.3;
 }
 .gauge-vals span{display:inline-flex; align-items:center; gap:4px; white-space:nowrap;}
 .gauge-vals i{width:9px; height:9px; border-radius:3px; display:inline-block;}
@@ -476,6 +478,7 @@ const T = {
     ahead:'متقدم على البرنامج', onTrack:'مطابق تقريباً للبرنامج', behind:'متأخر عن البرنامج',
     target:'الهدف', scale:'المقياس', progressPct:'تقدُّم', delayPct:'تأخر',
     metTarget:'اكتمل مقابل الهدف', exactTarget:'مطابق للهدف تماماً', ofTarget:'من الهدف',
+    radarNeeds3:'اختر ٣ عناصر على الأقل من الشريط الجانبي للمقارنة بينها', pctOfTarget:'نسبة من الهدف',
     divides:'÷', spiBase:(a,b) => `الفعلي <b>${a}</b> ÷ المخطط <b>${b}</b>`,
     total:'الإجمالي', open:'مفتوح', closed:'تم الحل', standing:'قائم', resolved:'تم الحل',
     noObstacles:'لا توجد معوقات مسجّلة في آخر تحديث ✅',
@@ -518,6 +521,7 @@ const T = {
     ahead:'Ahead of schedule', onTrack:'On track', behind:'Behind schedule',
     target:'target', scale:'Scale', progressPct:'ahead', delayPct:'behind',
     metTarget:'Target met', exactTarget:'Exactly on target', ofTarget:'of target',
+    radarNeeds3:'Pick at least 3 items from the sidebar to compare', pctOfTarget:'% of target',
     divides:'÷', spiBase:(a,b) => `Actual <b>${a}</b> ÷ Planned <b>${b}</b>`,
     total:'Total', open:'Open', closed:'Resolved', standing:'Open', resolved:'Resolved',
     noObstacles:'No obstacles recorded in the latest update ✅',
@@ -1116,12 +1120,30 @@ function refreshParts(w){
 }
 function partName(k){ const p = PART_DEFS[k] || {}; return (isEN() ? p.en : p.ar) || k; }
 function partCaps(k){ return (PART_DEFS[k] || {}).caps || []; }
+/* في الرادار تتوزّع المسميات حول دائرة، فالإزاحة الواحدة تحرّكها كلها في اتجاه
+   واحد — بلا فائدة؛ والمكتبة أصلاً لا تدعم الميل هناك. فنُخفي الخيارين. */
+function partCapsOf(w, k){
+  const caps = partCaps(k);
+  if(w && w.type === 'radar_eval' && k === 'xaxis')
+    return caps.filter(c => c !== 'rotate' && c !== 'offset');
+  return caps;
+}
 
 /** التنسيق الفعّال لجزء: المحفوظ إن وُجد، وإلا مشتق من تنسيق القالب */
+/* بعض القوالب ترسم الجزء بحجم مختلف عن الافتراضي العام (الرقم داخل الدائرة
+   مثلاً أكبر بكثير). لا بد أن يكون الرقم المعروض في اللوحة هو الرقم المرسوم
+   فعلاً، وإلا قفز الحجم عند الضغط على «إرجاع للافتراضي». */
+function partBaseDelta(w, key){
+  if(key === 'dataLabels'){
+    if(w.type === 'gauge') return 5;                                   // الرقم داخل الدائرة
+    if(w.type === 'spi' && (w.opts || {}).mode === 'gauge') return 10;  // رقم SPI داخل الدائرة
+  }
+  return (PART_DEFS[key] || {}).d || 0;
+}
 function partOf(w, key){
   const def = PART_DEFS[key] || {d:0};
   const saved = (w.parts && w.parts[key]) || {};
-  const base = Math.max(7, wSize(w) + (def.d || 0));
+  const base = Math.max(7, wSize(w) + partBaseDelta(w, key));
   return {
     size:   saved.size   || base,
     color:  saved.color  || '',
@@ -1175,6 +1197,36 @@ function seriesColors(w, n, fallback){
   return out;
 }
 
+/* فلاتر عرض الصورة — ضبط إظهار لا تعديل صور */
+/* سُمك العمود: كلما زاد قلّت المسافة بين الأعمدة */
+function barW(w){
+  const v = num((w.opts || {}).barW);
+  return (isFinite(v) && v >= 10 && v <= 100) ? Math.round(v) : 58;
+}
+/* هدف كل عنصر في الرادار: المحفوظ، وإلا 100 للنِسب، وإلا القيمة الحالية تقريباً */
+function radarTarget(w, k){
+  const t = num(((w.opts || {}).targets || {})[k]);
+  if(isFinite(t) && t > 0) return +t;
+  const ty = fieldOrMetricType(k);
+  if(ty === 'percent' || ty === 'points' || /^eval_/.test(k)) return 100;
+  const v = S.latest ? valueOf(S.latest, k) : 0;
+  return (isFinite(v) && v > 0) ? +Math.abs(v).toFixed(2) : 100;
+}
+function radarChoices(){
+  const ok = ['percent','number','currency','days','points'];
+  return Object.keys(METRICS).map(k => ({key:k, label:'⚙️ ' + metricName(k)}))
+    .concat(FIELD_META.filter(f => ok.includes(f.type)).map(f => ({key:f.key, label:f.label})));
+}
+function imgFilter(w){
+  const o = w.opts || {};
+  const f = [];
+  const b = num(o.bright), c = num(o.contrast), st = num(o.saturate);
+  if(isFinite(b)  && b  !== 100) f.push(`brightness(${b}%)`);
+  if(isFinite(c)  && c  !== 100) f.push(`contrast(${c}%)`);
+  if(isFinite(st) && st !== 100) f.push(`saturate(${st}%)`);
+  if(o.grayscale) f.push('grayscale(1)');
+  return f.length ? f.join(' ') : 'none';
+}
 const VISUALS = {
   kpi:{
     name:'بطاقة مؤشر', icon:'📌', w:250, h:150,
@@ -1264,6 +1316,12 @@ const VISUALS = {
       const host = body.querySelector('.gauge-chart');
       const reserve = measureStrip(body);
       const longName = (labels[0] || '').length > 14;
+      /* الرقم يبقى في منتصف الدائرة مهما تغيّر حجم الخط: كل الإزاحات نِسب من
+         حجم الرقم نفسه، لا أرقام ثابتة. */
+      const nameShown = !(longName && w.opts.showValues);
+      const nameSize  = Math.max(9, Math.round(d.size * 0.58));
+      const nameOff   = nameShown ? -Math.round(d.size * 0.55) : 0;
+      const valueOff  = nameShown ? Math.round(d.size * 0.30) : Math.round(d.size * 0.34);
 
       mkChart(body, w, {
         chart:{type:'radialBar', fontFamily:wFont(w), background:'transparent'},
@@ -1271,10 +1329,10 @@ const VISUALS = {
         plotOptions:{radialBar:{hollow:{size:series.length > 1 ? '42%' : '55%'},
           track:{background:'rgba(125,125,125,.15)'},
           dataLabels:{show:d.show !== false,
-            name:{show:!(longName && w.opts.showValues), fontSize:Math.max(10, d.size - 1) + 'px',
-                  offsetY:-6, color:d.color || theme().text},
-            value:{fontSize:(partOf(w,'dataLabels')._set ? d.size : Math.max(11, d.size) + 7) + 'px',
-                   fontWeight:d.weight || 900, offsetY:longName ? -2 : 4,
+            name:{show:nameShown, fontSize:nameSize + 'px',
+                  offsetY:nameOff, color:d.color || theme().text},
+            value:{fontSize:d.size + 'px',
+                   fontWeight:d.weight || 900, offsetY:valueOff,
                    color:d.color || theme().text, formatter:v => v + '%'},
             total:{show:series.length > 1, label:labels[0], color:d.color || theme().text,
                    formatter:() => series[0] + '%'}}}},
@@ -1351,8 +1409,12 @@ const VISUALS = {
           series:[fill], labels:['SPI'], colors:[color],
           plotOptions:{radialBar:{hollow:{size:'58%'}, track:{background:'rgba(125,125,125,.15)'},
             dataLabels:{show:d.show !== false,
-              name:{fontSize:Math.max(11, d.size) + 'px', color:d.color || theme().text},
-              value:{fontSize:(Math.max(11, d.size) + 12) + 'px', fontWeight:900,
+              /* معايرة مقاسة: عند إظهار الاسم تضيف المكتبة إزاحة تتناقص مع كبر
+                 الخط (≈ 17.5 − 0.39×الحجم)، فنطرحها ليبقى الرقم في المنتصف. */
+              name:{fontSize:Math.max(9, Math.round(d.size * 0.58)) + 'px',
+                    offsetY:-Math.round(d.size * 0.62) - 10, color:d.color || theme().text},
+              value:{fontSize:d.size + 'px', fontWeight:d.weight || 900,
+                     offsetY:Math.round(d.size * 0.39) - 17,
                      color:d.color || color, formatter:() => shown}}}},
           legend:{show:false}
         }, {host:body.querySelector('.gauge-chart'), reserve:measureSpiBase(body)});
@@ -1431,7 +1493,7 @@ const VISUALS = {
         };
       }
       const hz = !!w.opts.horizontal;
-      const useLog = !!w.opts.logScale && !hz;        // المقياس اللوغاريتمي للأعمدة الرأسية فقط
+      const useLog = false;                          // أُزيل المقياس اللوغاريتمي — لا فائدة منه هنا
       const axX = axisStyle(w, 'xaxis'), axY = axisStyle(w, 'yaxis');
       const axFont = axX.style;
       const numFmt = gtype === 'percent' ? (v => Math.round(v) + '%')
@@ -1458,7 +1520,8 @@ const VISUALS = {
       mkChart(body, w, {
         chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
         series:[{name:groupName(w.opts.group), data}], colors:seriesColors(w, data.length),
-        plotOptions:{bar:{horizontal:w.opts.horizontal, distributed:true, borderRadius:5, columnWidth:'58%',
+        plotOptions:{bar:{horizontal:w.opts.horizontal, distributed:true, borderRadius:5,
+                          columnWidth:barW(w) + '%', barHeight:barW(w) + '%',
                           dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}},
         dataLabels:dlOpts(w, '#ffffff', fmt),
         xaxis:{categories:cats, labels:hz ? valAxis : catAxis},
@@ -1470,42 +1533,102 @@ const VISUALS = {
     }
   },
   radar_eval:{
-    name:'التقييم الفني', icon:'🕸️', w:360, h:310,
-    opts:{numMode:'axis', showValues:false,
-          dl:Object.assign({}, DL_DEFAULT, {show:true, size:11, bg:true, bgColor:'#ffffff'})},
+    name:'مقارنة تقييمات (رادار)', icon:'🕸️', w:380, h:330,
+    opts:{numMode:'axis', showValues:false, scaleMode:'target',
+          fields:['eval_labor','eval_equip','eval_financial','eval_hse'],
+          targets:{},
+          dl:Object.assign({}, DL_DEFAULT, {show:true, bg:true, bgColor:'#ffffff'})},
     title:'التقييم الفني للمشروع', title_en:'Technical evaluation',
     render(body, w){
       if(!S.latest) return empty(body);
-      const fields = ['eval_labor','eval_equip','eval_financial','eval_hse'];
-      const names  = [tr('manpower'), tr('equipment'), tr('financial'), tr('hse')];
-      const data   = fields.map(f => num(S.latest[f]));
-      const mode   = w.opts.numMode || 'axis';
+      const o = w.opts;
+      const keys = (o.fields || []).slice(0, 10);
+      if(keys.length < 3){
+        body.innerHTML = `<div class="empty-note">${tr('radarNeeds3')}</div>`; return;
+      }
+      const tgOf  = k => radarTarget(w, k);
+      const raw   = keys.map(k => valueOf(S.latest, k));
+      const names = keys.map(k => fieldOrMetricName(k));
+      // «نسبة من الهدف» يوحّد مقاييس مختلفة على رسم واحد (إنجاز ٪ مع عدد مخالفات مثلاً)
+      const useT  = (o.scaleMode || 'target') === 'target';
+      const data  = keys.map((k, i) => {
+        const t = tgOf(k);
+        if(!useT) return +(+raw[i] || 0).toFixed(2);
+        return t ? +Math.max(0, (+raw[i] || 0) / t * 100).toFixed(1) : 0;
+      });
+      const shown = i => fmtValue(raw[i], fieldOrMetricType(keys[i]) || 'number',
+                                  {compact:true, decimals:1});
+      const mode  = o.numMode || 'axis';
 
-      // الأرقام مع أسماء المحاور: لا تتداخل أبداً مع النص
-      const cats = (mode === 'axis') ? names.map((n, i) => `${n}: ${data[i]}`) : names;
+      let cats = names;                       // تُبنى بعد حساب المساحة المتاحة
 
-      const strip = w.opts.showValues
+      const strip = o.showValues
         ? `<div class="gauge-vals" data-part="strip" style="${partCss(w,'strip')}">` +
-          names.map((n, i) => `<span><i style="background:${theme().palette[0]}"></i>${n}: <b>${data[i]}</b></span>`).join('') +
+          names.map((n, i) => `<span><i style="background:${theme().palette[0]}"></i>${n}: <b>${
+            shown(i)}</b>${useT && tgOf(keys[i]) !== 100 ? ` / ${tgOf(keys[i])}` : ''}</span>`).join('') +
           `</div>` : '';
       body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${strip}</div>`;
       const reserve = measureStrip(body);
       const avail = Math.min(w.w - 20, w.h - (w.title.show ? 38 : 0) - 14 - reserve);
-      // مساحة إضافية للرؤوس عندما تُرسم الأرقام على الرسم نفسه
-      const inset = (mode === 'chart') ? 62 : 42;
-      const rsize = Math.max(45, Math.round(avail / 2) - inset);
+      /* المسميات تُرسم خارج الشكل. بدل ما تتمدّد وتغطّي الرسم: نحجز لها شريطاً
+         محدوداً حول الدائرة، ونقصّ الاسم على قدر الشريط، والقيمة تنزل سطراً
+         ثانياً فيقلّ العرض للنصف. النص الكامل يظهر عند المرور بالماوس. */
+      const axSize  = partOf(w, 'xaxis').size || 10;
+      const half    = Math.round(avail / 2);
+      const band    = Math.max(30, Math.round(half * 0.45));
+      const rsize   = Math.max(40, half - band);
+      /* كلما زاد عدد العناصر ضاقت المساحة المتاحة لكل مسمّى حول الدائرة */
+      const capCh   = keys.length >= 7 ? 9 : (keys.length >= 5 ? 12 : 16);
+      const maxCh   = Math.max(6, Math.min(capCh, Math.floor(band / (axSize * 0.42))));
+      /* المكتبة تُوسّط المسمّى على رأسه، فالرؤوس القريبة من الأفقي (يمين/يسار)
+         يزحف نصف نصّها داخل الشكل. نقصّها وحدها أكثر بدل تصغير الرسم كله. */
+      const angOf   = i => ((-90 + i * 360 / keys.length) % 360 + 360) % 360;
+      const sideAt  = i => { const a = angOf(i);
+                             return Math.min(Math.abs(a), Math.abs(a - 180), Math.abs(a - 360)) < 34; };
+      const cut     = (t, n) => { const v = String(t); return v.length > n ? v.slice(0, n - 1) + '…' : v; };
+      /* بدل قصّ الاسم على الجانبين، نلفّه سطرين قصيرين: يبقى الاسم كاملاً
+         ويقلّ عرضه للنصف فيخرج من فوق الشكل. */
+      const wrap    = (t, n) => {
+        const words = String(t).split(/\s+/).filter(Boolean);
+        const out = []; let cur = '';
+        words.forEach(word => {
+          if(!cur) cur = word;
+          else if((cur + ' ' + word).length <= n) cur += ' ' + word;
+          else { out.push(cur); cur = word; }
+        });
+        if(cur) out.push(cur);
+        if(out.length > 2){ out[1] = cut(out.slice(1).join(' '), n); out.length = 2; }
+        return out.map(x => cut(x, n));
+      };
+      const nameAt  = i => sideAt(i) ? wrap(names[i], Math.max(7, Math.round(maxCh * 0.6)))
+                                     : [cut(names[i], maxCh)];
+      cats = names.map((n, i) => {
+        const lines = nameAt(i);
+        const vCh = sideAt(i) ? Math.max(7, Math.round(maxCh * 0.6)) : maxCh;
+        return (mode === 'axis') ? lines.concat([cut(shown(i), vCh)]) : lines;
+      });
 
       mkChart(body, w, {
         chart:{type:'radar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
-        series:[{name:tr('evaluation'), data}], labels:cats, colors:[theme().palette[0]],
+        series:[{name:useT ? tr('pctOfTarget') : tr('evaluation'), data}],
+        labels:cats, colors:[theme().palette[0]],
         dataLabels:(mode === 'chart')
-          ? dlOpts(w, theme().text, v => num(v).toLocaleString('en-US'))
+          ? dlOpts(w, theme().text, (v, ctx) => {
+              const i = ctx && ctx.dataPointIndex;
+              return (i === undefined || i === null || !keys[i]) ? v : shown(i);
+            })
           : {enabled:false},
         markers:{size:4}, yaxis:{show:false},
+        tooltip:{y:{formatter:(v, ctx) => {
+          const i = ctx && ctx.dataPointIndex;
+          if(i === undefined || i === null || !keys[i]) return v;
+          const t = tgOf(keys[i]);
+          return shown(i) + (useT ? ` (${v}% ${tr('ofTarget')} ${t})` : '');
+        }}},
         plotOptions:{radar:{size:rsize,
           polygons:{strokeColors:'rgba(125,125,125,.25)', connectorColors:'rgba(125,125,125,.25)'}}},
         xaxis:{labels:{style:Object.assign({}, axisStyle(w, 'xaxis').style,
-                       {colors:Array(4).fill(partOf(w, 'xaxis').color || theme().text)})}}
+                       {colors:Array(keys.length).fill(partOf(w, 'xaxis').color || theme().text)})}}
       }, {host:body.querySelector('.gauge-chart'), reserve});
     }
   },
@@ -1772,7 +1895,7 @@ const VISUALS = {
             ? (it.v >= (ftype === 'ratio' ? 1 : 0) ? '#1e8e5a' : '#d9463f')   // أخضر للموجب/المتقدم
             : theme().palette[idx % theme().palette.length])),
         plotOptions:{bar:{horizontal:hz, distributed:true, borderRadius:5,
-                          columnWidth:'60%', barHeight:'62%',
+                          columnWidth:barW(w) + '%', barHeight:barW(w) + '%',
                           dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}},
         dataLabels:dlOpts(w, '#ffffff', (v, o) => {
           const i = o && o.dataPointIndex;
@@ -1856,7 +1979,7 @@ const VISUALS = {
   },
   pie:{
     name:'رسم دائري', icon:'🥧', w:400, h:300,
-    opts:{source:'fields', fields:['contractor_val','consultant_val'], field:'contractor_val',
+    opts:{source:'fields', fields:['plan_prog_cur','act_prog_cur'], field:'act_prog_cur',
           shape:'donut', showAs:'percent', showLegend:true, showTotal:true, donutSize:'62%', dlOutside:'auto',
           topN:0, dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
     title:'التوزيع النسبي', title_en:'Share breakdown',
@@ -1880,7 +2003,8 @@ const VISUALS = {
         types = items.map(() => ft);
       }else{                                              // شريحة لكل حقل
         if(!S.latest) return empty(body);
-        const fs = (o.fields && o.fields.length) ? o.fields : ['contractor_val','consultant_val'];
+        const fs = o.fields || [];
+        if(!fs.length){ body.innerHTML = `<div class="empty-note">${tr('pickFields')}</div>`; return; }
         labels = fs.map(lbl);
         types  = fs.map(f => (FIELD_MAP[f] || {}).type || 'number');
         vals   = fs.map((f, i) => Math.max(0, types[i] === 'percent' ? pct(S.latest[f]) : num(S.latest[f])));
@@ -2001,7 +2125,8 @@ const VISUALS = {
   image:{
     name:'صورة / لوجو', icon:'🖼️', w:300, h:220,
     opts:{src:'field', field:'master_plan_link', url:'', fit:'contain', pos:'center',
-          caption:'', captionShow:false, imgOpacity:1, grayscale:false},
+          caption:'', captionShow:false, imgOpacity:1, grayscale:false,
+          bright:100, contrast:100, saturate:100},
     title:'صورة', title_en:'Image', titleShow:false,
     render(body, w){
       let url = '';
@@ -2021,7 +2146,7 @@ const VISUALS = {
       body.innerHTML = `<div class="img-wrap">
           <img src="${String(url).replace(/"/g, '&quot;')}" alt=""
                style="object-fit:${w.opts.fit};object-position:${w.opts.pos};
-                      opacity:${w.opts.imgOpacity};filter:${w.opts.grayscale ? 'grayscale(1)' : 'none'}"
+                      opacity:${w.opts.imgOpacity};filter:${imgFilter(w)}"
                onerror="this.parentNode.innerHTML='<div class=\\'empty-note\\'>' + tr('imgError') + '</div>'">
           ${cap}</div>`;
     }
@@ -2058,7 +2183,7 @@ function measureSpiBase(body){
 }
 function measureStrip(body){
   const el = body.querySelector('.gauge-vals');
-  return el ? el.offsetHeight + 6 : 0;
+  return el ? el.offsetHeight + 2 : 0;   // مسافة أقل تحت الدائرة = دائرة أكبر
 }
 function mkChart(body, w, opt, extra){
   extra = extra || {};
@@ -2861,17 +2986,6 @@ function buildPropsBody(){
         <div class="mini"><span>الارتفاع</span><input type="number" min="60" step="${S.page.grid || 1}" data-p="h" value="${w.h}"></div>
       </div>
       <div class="hint" style="margin-bottom:8px;">الخطوة الحالية ${S.page.grid || 1} بكسل (مقاس خلية الشبكة).</div>
-      <div class="grp-h" style="margin-top:10px;">محاذاة داخل الصفحة</div>
-      <div class="btn-row" style="margin-bottom:6px;">
-        <button class="sbtn" data-al="start">يمين</button>
-        <button class="sbtn" data-al="hcenter">وسط أفقي</button>
-        <button class="sbtn" data-al="end">يسار</button>
-      </div>
-      <div class="btn-row">
-        <button class="sbtn" data-al="top">أعلى</button>
-        <button class="sbtn" data-al="vcenter">وسط رأسي</button>
-        <button class="sbtn" data-al="bottom">أسفل</button>
-      </div>
     </div>
 
     <div class="grp">
@@ -2912,7 +3026,7 @@ function partsHtml(w){
   const open = S.activePart && keys.includes(S.activePart) ? S.activePart : keys[0];
   const tabs = keys.map(k => `<button class="part-tab ${k === open ? 'on' : ''}" data-part-tab="${k}">${
                  partName(k)}</button>`).join('');
-  const p = partOf(w, open), caps = partCaps(open), pre = 'parts.' + open + '.';
+  const p = partOf(w, open), caps = partCapsOf(w, open), pre = 'parts.' + open + '.';
   const has = c => caps.includes(c);
   let body = `<div class="row2">
       <div class="mini"><span>حجم الخط</span><input type="number" min="7" max="60" data-p="${pre}size" value="${p.size}"></div>
@@ -3198,13 +3312,37 @@ function optionsHtml(w){
       </select></div></div>
       ${picker}
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal?'checked':''}> أعمدة أفقية</label>
-      <label class="chk"><input type="checkbox" data-p="opts.logScale" ${o.logScale?'checked':''}> مقياس لوغاريتمي</label>
-      <div class="hint">فعّل المقياس اللوغاريتمي لو قارنت أرقاماً متباعدة جداً (مبلغ بالملايين مع عدد صغير)
-      حتى لا تختفي الأعمدة الصغيرة — الأرقام المعروضة تبقى القيم الحقيقية.
-      وللعناوين الطويلة جرّب «أعمدة أفقية» (المقياس اللوغاريتمي لا يعمل معها).</div>`;
+      <div class="row"><label>سُمك العمود</label><div class="ctl">
+        <input type="range" min="20" max="100" step="5" data-p="opts.barW" value="${barW(w)}">
+        <span class="mini-val">${barW(w)}%</span></div></div>
+      <div class="hint">كلما زاد السُمك قلّت المسافة بين الأعمدة. للعناوين الطويلة جرّب «أعمدة أفقية».</div>`;
   }
   if(w.type === 'radar_eval'){
+    const sel = new Set(o.fields || []);
+    const full = sel.size >= 10;
+    const items = radarChoices();
+    const useT = (o.scaleMode || 'target') === 'target';
     return `
+      <div class="grp-h" style="margin-top:2px">العناصر المقارَنة (<b>${sel.size}</b> / ١٠)</div>
+      <div class="pick-list" style="max-height:200px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
+        ${items.map(f => `<label class="fld-item" title="${f.label}"><input type="checkbox" data-cfld2="${f.key}" ${
+          sel.has(f.key) ? 'checked' : (full ? 'disabled' : '')}><span>${f.label}</span></label>`).join('')}
+      </div>
+      ${full ? `<div class="hint">وصلت إلى الحد الأقصى (١٠ عناصر). أزل عنصراً لإضافة غيره.</div>` : ''}
+      <div class="row"><label>المقياس</label><div class="ctl"><select data-p="opts.scaleMode">
+        <option value="target" ${useT ? 'selected' : ''}>نسبة من الهدف (يوحّد مقاييس مختلفة)</option>
+        <option value="raw"    ${!useT ? 'selected' : ''}>القيم كما هي</option>
+      </select></div></div>
+      ${useT && sel.size ? `
+      <div class="grp-h" style="margin-top:8px">هدف كل عنصر</div>
+      <div class="pick-list" style="max-height:190px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:6px;margin-bottom:8px;">
+        ${(o.fields || []).map(k => `<div class="row" style="margin-bottom:4px">
+            <label title="${fieldOrMetricName(k)}">${fieldOrMetricName(k)}</label><div class="ctl">
+            <input type="number" min="0.01" step="any" style="max-width:90px"
+                   data-p="opts.targets.${k}" value="${radarTarget(w, k)}"></div></div>`).join('')}
+      </div>
+      <div class="hint">كل عنصر يُرسم بنسبة قيمته إلى هدفه، فتقدر تجمع عناصر أهدافها مختلفة
+      على رسم واحد. الأرقام المعروضة تبقى القيم الحقيقية.</div>` : ''}
       <div class="row"><label>مكان الأرقام</label><div class="ctl"><select data-p="opts.numMode">
         <option value="axis"  ${(o.numMode||'axis') === 'axis'  ? 'selected' : ''}>مع أسماء المحاور (بدون تداخل)</option>
         <option value="chart" ${o.numMode === 'chart' ? 'selected' : ''}>على رؤوس الرسم</option>
@@ -3212,8 +3350,8 @@ function optionsHtml(w){
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showValues" ${o.showValues?'checked':''}> إظهار قائمة القيم أسفل الرسم</label>
       <div class="hint">«مع أسماء المحاور» هو الخيار الآمن — الأرقام تظهر بجانب الاسم فلا تغطّيه.
-      «على رؤوس الرسم» يضع الأرقام على الرؤوس، ويُفضَّل معه تفعيل خلفية الأرقام من قسم Data Labels
-      حتى تُقرأ فوق أسماء المحاور.</div>`;
+      «على رؤوس الرسم» يضع الأرقام على الرؤوس، ويُفضَّل معه تفعيل خلفية الأرقام
+      من «تنسيق أجزاء القالب» حتى تُقرأ فوق أسماء المحاور.</div>`;
   }
   if(w.type === 'scurve'){
     return `
@@ -3314,6 +3452,9 @@ function optionsHtml(w){
         <input type="number" min="0" max="50" data-p="opts.topN" value="${o.topN}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.horizontal" ${o.horizontal ? 'checked' : ''}> أعمدة أفقية</label>
       <label class="chk"><input type="checkbox" data-p="opts.showAvg" ${o.showAvg ? 'checked' : ''}> خط المتوسط</label>
+      <div class="row"><label>سُمك العمود</label><div class="ctl">
+        <input type="range" min="20" max="100" step="5" data-p="opts.barW" value="${barW(w)}">
+        <span class="mini-val">${barW(w)}%</span></div></div>
       ${fieldOrMetricType(o.field) === 'points' ? `
       <div class="row"><label>وحدة الفرق</label><div class="ctl"><select data-p="opts.pointsAs">
         <option value="pts" ${(o.pointsAs||'pts') === 'pts' ? 'selected' : ''}>نقطة مئوية (+6.0 نقطة)</option>
@@ -3458,6 +3599,16 @@ function optionsHtml(w){
       <div class="row"><label>الشفافية</label><div class="ctl">
         <input type="range" min="0.1" max="1" step="0.05" data-p="opts.imgOpacity" value="${o.imgOpacity}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.grayscale" ${o.grayscale ? 'checked' : ''}> أبيض وأسود</label>
+      <div class="row"><label>السطوع</label><div class="ctl">
+        <input type="range" min="20" max="200" step="5" data-p="opts.bright" value="${num(o.bright) || 100}">
+        <span class="mini-val">${num(o.bright) || 100}%</span></div></div>
+      <div class="row"><label>التباين</label><div class="ctl">
+        <input type="range" min="20" max="200" step="5" data-p="opts.contrast" value="${num(o.contrast) || 100}">
+        <span class="mini-val">${num(o.contrast) || 100}%</span></div></div>
+      <div class="row"><label>التشبّع</label><div class="ctl">
+        <input type="range" min="0" max="200" step="5" data-p="opts.saturate" value="${num(o.saturate) || 100}">
+        <span class="mini-val">${num(o.saturate) || 100}%</span></div></div>
+      <div class="btn-row"><button class="sbtn" data-imgreset="1">إرجاع الصورة لطبيعتها</button></div>
       <label class="chk"><input type="checkbox" data-p="opts.captionShow" ${o.captionShow ? 'checked' : ''}> إظهار تعليق أسفل الصورة</label>
       <div class="mini"><span>نص التعليق ${isEN() ? '(بالإنجليزية)' : '(بالعربية)'}</span>
         <input type="text" data-p="opts.${biKey('caption')}" value="${(o[biKey('caption')] || '').replace(/"/g, '&quot;')}"></div>`;
@@ -3569,6 +3720,11 @@ function bindProps(el, w){
     if(w.opts.itemColors) delete w.opts.itemColors[b.dataset.itemClear];
     drawWidget(w); buildPropsTab();
   }));
+  el.querySelectorAll('[data-imgreset]').forEach(b => b.addEventListener('click', () => {
+    snapshot();
+    Object.assign(w.opts, {bright:100, contrast:100, saturate:100, grayscale:false, imgOpacity:1});
+    drawWidget(w); buildPropsTab();
+  }));
   el.querySelectorAll('[data-items-reset]').forEach(b => b.addEventListener('click', () => {
     snapshot(); w.opts.itemColors = {}; drawWidget(w); buildPropsTab();
   }));
@@ -3606,7 +3762,12 @@ function bindProps(el, w){
     const set = new Set(w.opts.fields || []);
     c.checked ? set.add(c.dataset.cfld2) : set.delete(c.dataset.cfld2);
     const order = Object.keys(METRICS).concat(FIELD_META.map(f => f.key));
-    w.opts.fields = order.filter(k => set.has(k));
+    let next = order.filter(k => set.has(k));
+    if(w.type === 'radar_eval' && next.length > 10){     // حد الرادار عشرة عناصر
+      toast('الحد الأقصى ١٠ عناصر للمقارنة', true);
+      c.checked = false; return;
+    }
+    w.opts.fields = next;
     w.opts.itemColors = {};                     // ترتيب الشرائح تغيّر فتُلغى الألوان المثبّتة
     drawWidget(w); buildPropsTab();
   }));
