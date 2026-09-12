@@ -651,6 +651,7 @@ const S = {
   page:{lang:'ar', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
         theme:'navy', grid:10, snap:true, snapMode:'grid', showGrid:true, noOverlap:false},
   widgets:[], selected:null, multi:[], zoom:1, seq:1, activePart:null, lastItems:{},
+  itemKeys:{}, itemDefs:{}, itemSig:{},
   partsSeen:{}, itemIdx:0,
   charts:{}, undo:[], redo:[], dirty:false, lastFetch:null, autoTimer:null
 };
@@ -1160,7 +1161,13 @@ function refreshParts(w){
   const prev = S.partsSeen[w.id];
   S.partsSeen[w.id] = set;
   const same = prev && prev.size === set.size && Array.from(set).every(k => prev.has(k));
-  if(!same && S.selected === w.id && S.multi.length === 1) buildPropsTab();
+  /* قائمة العناصر القابلة للتلوين تُبنى أثناء الرسم، فلو تغيّرت (قالب جديد، أو
+     تغيّر عدد السلاسل) نعيد بناء اللوحة لتظهر ألوانها فوراً. */
+  const sig  = (S.lastItems[w.id] || []).join('|');
+  const psig = S.itemSig && S.itemSig[w.id];
+  if(!S.itemSig) S.itemSig = {};
+  S.itemSig[w.id] = sig;
+  if((!same || sig !== psig) && S.selected === w.id && S.multi.length === 1) buildPropsTab();
 }
 /* بعض القوالب تسمّي الجزء تسمية أدقّ: الرادار لا محور أفقي فيه */
 const PART_NAME_BY_TYPE = {
@@ -1244,12 +1251,31 @@ function partCss(w, key, extra){
   if(p.bg)     css += `background:${p.bg};`;
   return css + (extra || '');
 }
-/** لون العنصر رقم i مع مراعاة الألوان المستقلة لكل عمود/شريحة */
+/** يسجّل العناصر القابلة للتلوين في هذا القالب: أسماؤها للعرض، ومفاتيح ثابتة
+    تُحفظ بها الألوان، وألوانها الافتراضية. المفتاح الثابت (لا رقم الترتيب) هو ما
+    يمنع انتقال اللون إلى سلسلة أخرى عند إظهار سلسلة أو إخفائها. */
+function regItems(w, names, keys, defs){
+  S.lastItems[w.id] = (names || []).slice();
+  S.itemKeys[w.id]  = keys ? keys.slice() : null;
+  S.itemDefs[w.id]  = defs ? defs.slice() : null;
+}
+/** مفتاح حفظ لون العنصر رقم i: الثابت إن وُجد، وإلا رقم الترتيب (القوالب الأقدم) */
+function itemKeyAt(w, i){
+  const ks = S.itemKeys && S.itemKeys[w.id];
+  return (ks && ks[i] != null) ? ks[i] : i;
+}
+/** اللون الذي اختاره المستخدم لهذا العنصر، أو undefined إن لم يختر */
+function itemColorAt(w, i){
+  const c = (w.opts && w.opts.itemColors) || {};
+  const ks = S.itemKeys && S.itemKeys[w.id];
+  if(ks && ks[i] != null && c[ks[i]] != null) return c[ks[i]];
+  return c[i];
+}
+/** لون العنصر رقم i مع مراعاة الألوان المستقلة لكل عمود/شريحة/سلسلة */
 function seriesColors(w, n, fallback){
   const pal = fallback || theme().palette;
-  const custom = (w.opts && w.opts.itemColors) || {};
   const out = [];
-  for(let i = 0; i < n; i++) out.push(custom[i] || pal[i % pal.length]);
+  for(let i = 0; i < n; i++) out.push(itemColorAt(w, i) || pal[i % pal.length]);
   return out;
 }
 
@@ -1467,9 +1493,13 @@ const VISUALS = {
 
       const d = dlOf(w);
       const vals = [{f:fa, t:ta, v:rawA}, {f:fb, t:tb, v:rawB}];
+      const gDefs = theme().palette.slice(0, series.length);
+      regItems(w, labels.slice(), labels.map((_, i) => 'g' + i), gDefs);
+      const gCols = seriesColors(w, series.length, gDefs);
+      const stripCol = i => itemColorAt(w, i) || theme().palette[i] || theme().palette[0];
       const strip = w.opts.showValues
         ? `<div class="gauge-vals" data-part="strip" style="${partCss(w,'strip')}">` +
-          vals.map((x, i) => `<span><i style="background:${theme().palette[i] || theme().palette[0]}"></i>
+          vals.map((x, i) => `<span><i style="background:${stripCol(i)}"></i>
              ${lbl(x.f)}: <b>${fmtValue(x.v, x.t, {compact:true})}</b></span>`).join('') + `</div>`
         : '';
       body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${strip}</div>`;
@@ -1485,7 +1515,7 @@ const VISUALS = {
 
       mkChart(body, w, {
         chart:{type:'radialBar', fontFamily:wFont(w), background:'transparent'},
-        series, labels, colors:theme().palette.slice(0, series.length),
+        series, labels, colors:gCols,
         plotOptions:{radialBar:{hollow:{size:series.length > 1 ? '42%' : '55%'},
           track:{background:'rgba(125,125,125,.15)'},
           dataLabels:{show:d.show !== false,
@@ -1515,7 +1545,12 @@ const VISUALS = {
       };
       const val = spiOf(S.latest);
       const good = num(w.opts.good) || 1, warn = num(w.opts.warn) || 0.95;
-      const color = val >= good ? '#1e8e5a' : (val >= warn ? '#d99425' : '#d9463f');
+      /* ألوان الحالة قابلة للتغيير من «ألوان حالات الأداء»، وافتراضها كما كان */
+      const spiDefs = ['#1e8e5a', '#d99425', '#d9463f'];
+      regItems(w, [tr('ahead'), tr('onTrack'), tr('behind')],
+               ['spi_ahead', 'spi_ontrack', 'spi_behind'], spiDefs);
+      const spiCols = seriesColors(w, 3, spiDefs);
+      const color = val >= good ? spiCols[0] : (val >= warn ? spiCols[1] : spiCols[2]);
       const status = val >= good ? tr('ahead') : (val >= warn ? tr('onTrack') : tr('behind'));
       const shown = val.toFixed(w.opts.decimals);
       const base = w.opts.showBase
@@ -1599,9 +1634,12 @@ const VISUALS = {
       const cats = S.records.map(r => r.current_data_date || '');
       const series = [{name:tr('actual'), data:S.records.map(r => pct(r.act_prog_cur))}];
       if(w.opts.showPlanned) series.push({name:tr('planned'), data:S.records.map(r => pct(r.plan_prog_cur))});
+      const plKeys = ['pl_actual'].concat(w.opts.showPlanned ? ['pl_planned'] : []);
+      const plDefs = theme().palette.slice(0, series.length);
+      regItems(w, series.map(x => x.name), plKeys, plDefs);
       mkChart(body, w, {
         chart:{type:w.opts.chartType, fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
-        series, colors:theme().palette.slice(0, 2),
+        series, colors:seriesColors(w, series.length, plDefs),
         stroke:{curve:w.opts.smooth ? 'smooth' : 'straight', width:w.opts.chartType === 'bar' ? 0 : 3},
         fill:w.opts.chartType === 'area' ? {type:'gradient', gradient:{opacityFrom:.45, opacityTo:.05}} : {opacity:1},
         dataLabels:dlOpts(w, theme().text, v => v + '%'),
@@ -1769,10 +1807,13 @@ const VISUALS = {
         return (mode === 'axis') ? lines.concat([cut(shown(i), vCh)]) : lines;
       });
 
+      const radDefs = [theme().palette[0]];
+      regItems(w, [useT ? tr('pctOfTarget') : tr('evaluation')], ['r0'], radDefs);
+      const radCols = seriesColors(w, 1, radDefs);
       mkChart(body, w, {
         chart:{type:'radar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
         series:[{name:useT ? tr('pctOfTarget') : tr('evaluation'), data}],
-        labels:cats, colors:[theme().palette[0]],
+        labels:cats, colors:radCols,
         dataLabels:(mode === 'chart')
           ? dlOpts(w, theme().text, (v, ctx) => {
               const i = ctx && ctx.dataPointIndex;
@@ -1847,23 +1888,27 @@ const VISUALS = {
       };
       const barType = (w.opts.chartType === 'bar');
 
-      const series = [], colors = [], types = [];
+      const series = [], defs = [], types = [], skeys = [];
       if(w.opts.showActual){
         series.push({name:tr('cumActual'), type:barType ? 'column' : w.opts.chartType,
                      data:mono(rows.map(r => pct(r.act_prog_cur)))});
-        colors.push(theme().palette[0]); types.push('pct');
+        defs.push(theme().palette[0]); types.push('pct'); skeys.push('sc_actual');
       }
       if(w.opts.showPlanned){
         series.push({name:tr('cumPlanned'), type:'line', data:mono(rows.map(r => pct(r.plan_prog_cur)))});
-        colors.push(theme().palette[1]); types.push('pct');
+        defs.push(theme().palette[1]); types.push('pct'); skeys.push('sc_planned');
       }
       if(w.opts.showFinancial){
         series.push({name:asValue ? tr('cumFinanceVal') : tr('cumFinance'),
                      type:barType ? 'column' : 'line',
                      data:mono(rows.map(r => asValue ? finVal(r) : finPct(r)))});
-        colors.push(theme().palette[3] || '#1e8e5a'); types.push(asValue ? 'val' : 'pct');
+        defs.push(theme().palette[3] || '#1e8e5a'); types.push(asValue ? 'val' : 'pct');
+        skeys.push('sc_finance');
       }
       if(!series.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
+      /* المفتاح باسم السلسلة لا برقمها، فإخفاء «المخطط» لا ينقل لونه إلى «المالي» */
+      regItems(w, series.map(x => x.name), skeys, defs);
+      const colors = seriesColors(w, series.length, defs);
 
       const hasVal = types.indexOf('val') >= 0;
       const axFont = axisStyle(w, 'yaxis').style;
@@ -1971,7 +2016,7 @@ const VISUALS = {
         mkChart(body, w, {
           chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
           series:[{name:tr('ranking'), data:items.map(i => i.v)}],
-          colors:items.map((i, idx) => ((w.opts.itemColors || {})[idx]) ||
+          colors:items.map((i, idx) => itemColorAt(w, idx) ||
             (idx === 0 && w.opts.highlightTop ? (theme().palette[1] || '#d4a373')
                                               : (i.v < 0 ? '#d9463f' : theme().palette[0]))),
           plotOptions:{bar:{horizontal:hz, distributed:true, borderRadius:5, columnWidth:'58%', barHeight:'62%',
@@ -1995,7 +2040,7 @@ const VISUALS = {
         const pos = (w.opts.order === 'asc') ? i + 1 : i + 1;
         const medal = (w.opts.showRank && w.opts.highlightTop && i === 0) ? 'rk-first' : '';
         const barW = Math.round(Math.abs(it.v) / maxAbs * 100);
-        const barC = ((w.opts.itemColors || {})[i]) || (it.v < 0 ? '#d9463f'
+        const barC = itemColorAt(w, i) || (it.v < 0 ? '#d9463f'
                       : (i === 0 && w.opts.highlightTop ? (theme().palette[1] || '#d4a373')
                                                         : theme().palette[0]));
         const hC = partCss(w, 'tableHead'), cC = partCss(w, 'tableCell');
@@ -2057,7 +2102,7 @@ const VISUALS = {
       mkChart(body, w, {
         chart:{type:'bar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
         series:[{name:fieldOrMetricName(f), data:items.map(i => i.v)}],
-        colors:items.map((it, idx) => ((w.opts.itemColors || {})[idx]) ||
+        colors:items.map((it, idx) => itemColorAt(w, idx) ||
           ((ftype === 'points' || ftype === 'ratio')
             ? (it.v >= (ftype === 'ratio' ? 1 : 0) ? '#1e8e5a' : '#d9463f')   // أخضر للموجب/المتقدم
             : theme().palette[idx % theme().palette.length])),
@@ -2273,7 +2318,8 @@ const VISUALS = {
         <th data-part="tableHead" style="${hBg}${hCss}">${firstLabel}</th>` +
         fs.map(f => `<th data-part="tableHead" style="${hBg}${hCss}">${fieldOrMetricName(f)}</th>`).join('') + `</tr>`;
 
-      const bodyRows = rows.map((x, i) => `<tr${o.zebra && i % 2 ? ' class="zeb"' : ''}>
+      const bodyRows = rows.map((x, i) => `<tr${o.zebra && i % 2 ? ' class="zeb"' : ''}${
+        itemColorAt(w, i) ? ` style="background:${itemColorAt(w, i)}"` : ''}>
         ${o.showIndex ? `<td class="t-idx" data-part="tableCell" style="${cCss}">${i + 1}</td>` : ''}
         <td class="t-key" data-part="tableCell" style="${cCss}">${esc(x.k)}</td>` +
         fs.map(f => {
@@ -3329,7 +3375,20 @@ function partsHtml(w){
     </div>`;
 }
 
-/** ألوان مستقلة لكل عمود/شريحة */
+/** مسمّى قسم الألوان بحسب طبيعة القالب: أعمدة/شرائح/خطوط/سلاسل/حلقات/حالات */
+const ITEM_COLOR_WORDS = {
+  progress_line:   {h:'لون كل خط',            one:'الخط',     hint:'لكل خط (أو عمود) لونه: الفعلي والمخطط.'},
+  scurve:          {h:'لون كل سلسلة',         one:'السلسلة',  hint:'اللون يُحفظ باسم السلسلة، فإخفاء سلسلة لا ينقل لونها إلى غيرها.'},
+  gauge:           {h:'لون كل حلقة',          one:'الحلقة',   hint:'نقاط شريط القيم أسفل الرسم تتبع نفس الألوان.'},
+  spi:             {h:'ألوان حالات الأداء',   one:'الحالة',   hint:'اللون يتبع الحالة لا الرقم: متقدّم / في المسار / متأخر — ويظهر في البطاقة والحلقة والمنحنى.'},
+  radar_eval:      {h:'لون الرسم',            one:'الرسم',    hint:''},
+  table:           {h:'لون خلفية الصف',       one:'الصف',     hint:'لتمييز صف معيّن. التدرّج اللوني على عمود رقمي يُضبط من خيارات القالب.'},
+  pie:             {h:'لون كل شريحة',         one:'الشريحة',  hint:''},
+  bars:            {h:'لون كل عمود',          one:'العمود',   hint:''},
+  topn:            {h:'لون كل عمود',          one:'العمود',   hint:''},
+  projects_compare:{h:'لون كل مشروع',         one:'المشروع',  hint:''}
+};
+/** ألوان مستقلة لكل عمود/شريحة/سلسلة/حالة */
 function itemColorsHtml(w){
   const n = (S.lastItems && S.lastItems[w.id]) || [];
   if(!n.length) return '';
@@ -3338,27 +3397,31 @@ function itemColorsHtml(w){
               c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
   let i = +S.itemIdx || 0;
   if(!(i >= 0 && i < n.length)) i = 0;
-  const pal = theme().palette;
-  const changed = Object.keys(cur).length;
+  const pal  = theme().palette;
+  const defs = (S.itemDefs && S.itemDefs[w.id]) || null;
+  const dflt = j => (defs && defs[j]) || pal[j % pal.length];
+  const W    = ITEM_COLOR_WORDS[w.type] || {h:'لون كل عنصر على حدة', one:'العنصر', hint:''};
+  const key  = itemKeyAt(w, i);
+  const setN = n.filter((_, j) => cur[itemKeyAt(w, j)] != null).length;
   return `<div class="grp">
-      <div class="grp-h">🎨 لون كل عنصر على حدة${
-        changed ? ` <span class="hint-inline">${changed} معدّل</span>` : ''}</div>
-      <div class="row"><label>العنصر</label><div class="ctl">
+      <div class="grp-h">🎨 ${W.h}${setN ? ` <span class="hint-inline">${setN} معدّل</span>` : ''}</div>
+      <div class="row"><label>${W.one}</label><div class="ctl">
         <select data-item-sel>${n.map((nm, j) => {
           const t = String(nm); const shown = t.length > 30 ? t.slice(0, 30) + '…' : t;
           return `<option value="${j}" ${j === i ? 'selected' : ''}>${
-            (cur[j] ? '● ' : '') + q(shown)}</option>`;
+            (cur[itemKeyAt(w, j)] != null ? '● ' : '') + q(shown)}</option>`;
         }).join('')}</select>
       </div></div>
       <div class="row"><label>اللون</label><div class="ctl">
-        <input type="color" value="${cur[i] || pal[i % pal.length]}" data-cb="opts.itemColors.${i}">
+        <input type="color" value="${cur[key] != null ? cur[key] : dflt(i)}" data-cb="opts.itemColors.${key}">
         <div class="swatches">${SWATCHES.map(c =>
-          `<div class="sw" style="background:${c}" data-sw="opts.itemColors.${i}" data-c="${c}"></div>`).join('')}</div>
+          `<div class="sw" style="background:${c}" data-sw="opts.itemColors.${key}" data-c="${c}"></div>`).join('')}</div>
       </div></div>
       <div class="btn-row">
-        <button class="sbtn" data-item-clear="${i}">إرجاع لون هذا العنصر</button>
+        <button class="sbtn" data-item-clear="${key}">إرجاع لون ${W.one} هذا</button>
         <button class="sbtn" data-items-reset="1">إرجاع كل الألوان</button>
       </div>
+      ${W.hint ? `<div class="hint">${W.hint}</div>` : ''}
     </div>`;
 }
 
@@ -4030,7 +4093,11 @@ function bindProps(el, w){
       c.checked = false; return;
     }
     w.opts.fields = next;
-    w.opts.itemColors = {};                     // ترتيب الشرائح تغيّر فتُلغى الألوان المثبّتة
+    /* ترتيب الشرائح تغيّر فتُلغى الألوان المثبّتة بالرقم؛ أما المحفوظة بمفتاح ثابت
+       (لون رسم الرادار مثلاً) فتبقى لأنها لا تتعلق بالترتيب. */
+    const keep = {}, ic = w.opts.itemColors || {};
+    Object.keys(ic).forEach(k => { if(!/^[0-9]+$/.test(k)) keep[k] = ic[k]; });
+    w.opts.itemColors = keep;
     drawWidget(w); buildPropsTab();
   }));
   el.querySelectorAll('[data-fld]').forEach(c => c.addEventListener('change', () => {
