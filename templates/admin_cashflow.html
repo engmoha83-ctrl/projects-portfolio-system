@@ -1299,8 +1299,16 @@ async function doUndo(){
     saveMeta(true);
 }
 $('#btnUndo').addEventListener('click', doUndo);
+/* مستقل عن لغة الإدخال: عند لوحة مفاتيح عربية يعطي e.key الحرف المطبوع لا z */
+function isKey(e, ch){
+    const k = (e.key || '').toLowerCase();
+    if(k === ch) return true;
+    if(/^[a-z]$/.test(k)) return false;
+    const code = e.code || '';
+    return /^Key[A-Z]$/.test(code) && code.charAt(3).toLowerCase() === ch;
+}
 document.addEventListener('keydown', e => {
-    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'
+    if((e.ctrlKey || e.metaKey) && isKey(e, 'z')
        && !/^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || '')
        && $('#snapModal').hidden && $('#genModal').hidden && $('#pasteModal').hidden){
         e.preventDefault(); doUndo();
