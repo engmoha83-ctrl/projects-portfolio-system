@@ -128,6 +128,24 @@
         .gen-prev { max-height: 230px; overflow: auto; border: 1px solid var(--border-soft); border-radius: 8px; margin-top: .6rem; }
         .warn-box { background: var(--warning-bg); border: 1px solid rgba(217,148,37,.35); color: #7a5300;
                    border-radius: var(--radius-sm); padding: .55rem .75rem; font-size: .76rem; font-weight: 600; margin-top: .7rem; }
+        /* ===== استيراد XER ===== */
+        .x-drop { border: 2px dashed var(--border-soft); border-radius: 12px; padding: 1.4rem; text-align: center;
+                   cursor: pointer; display: flex; flex-direction: column; gap: .35rem; transition: .15s; }
+        .x-drop:hover, .x-drop.over { border-color: var(--primary, #1a2b4c); background: rgba(26,43,76,.04); }
+        .x-drop b { font-size: .9rem; color: var(--text-head, #1a2b4c); }
+        .x-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; margin: .7rem 0; }
+        .x-sum div { border: 1px solid var(--border-soft); border-radius: 8px; padding: .45rem .6rem; }
+        .x-sum span { display: block; font-size: .68rem; font-weight: 700; color: var(--text-muted, #6c7a91); }
+        .x-sum b { font-size: .84rem; font-weight: 800; }
+        .x-sum div.good { border-color: rgba(30,142,90,.45); background: rgba(30,142,90,.06); }
+        .x-sum div.warn { border-color: rgba(217,148,37,.45); background: var(--warning-bg); }
+        .x-tabs { display: flex; gap: .4rem; margin: .2rem 0 .7rem; }
+        .x-tab { border: 1px solid var(--border-soft); background: #fff; border-radius: 8px; padding: .35rem .9rem;
+                   font-size: .78rem; font-weight: 800; color: var(--text-body); cursor: pointer; }
+        .x-tab.on { background: var(--primary, #1a2b4c); color: #fff; border-color: transparent; }
+        .x-note { border-radius: var(--radius-sm); padding: .55rem .75rem; font-size: .76rem; font-weight: 600;
+                   background: rgba(30,142,90,.08); border: 1px solid rgba(30,142,90,.3); color: #17614a; }
+        .x-note.est { background: var(--warning-bg); border-color: rgba(217,148,37,.35); color: #7a5300; }
         .src-badge { display: inline-flex; align-items: center; gap: .3rem; border-radius: 20px; padding: .2rem .7rem;
                    font-size: .72rem; font-weight: 800; border: 1px solid transparent; }
         .src-badge.programme { background: var(--success-bg, #e2f2ea); color: var(--success); border-color: rgba(30,142,90,.3); }
@@ -240,6 +258,7 @@
             <button class="btn-cf" id="btnUndo" title="تراجع عن آخر تعديل (Ctrl+Z)" disabled>↶ تراجع</button>
             <button class="btn-cf" id="btnSnaps">🗂️ النسخ المحفوظة</button>
             <button class="btn-cf" id="btnImport">استيراد النسب الفعلية من التحديثات الأسبوعية</button>
+            <button class="btn-cf primary" id="btnXer">📂 استيراد من XER</button>
             <button class="btn-cf" id="btnAddMonth">+ إضافة شهر</button>
             <button class="btn-cf primary" id="btnGen">📈 توليد خط الأساس</button>
             <button class="btn-cf primary" id="btnPaste">📋 لصق من إكسيل</button>
@@ -528,6 +547,81 @@
           <span class="pm-msg" style="margin-inline-start:auto">
             لو فيه عمود «الشهر» ستُطابَق الصفوف بالشهر · وإلا ستُملأ بالترتيب من الشهر المحدد.
           </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ نافذة الاستيراد من ملف بريمافيرا (XER) ============ -->
+    <div class="pm-back" id="xerModal" hidden>
+      <div class="pm-box">
+        <div class="pm-head">
+          <span>📂 استيراد من ملف بريمافيرا P6 ‏(XER)</span>
+          <button type="button" id="xClose" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="pm-body">
+          <div class="x-drop" id="xDrop">
+            <input type="file" id="xFile" accept=".xer,.XER" hidden>
+            <b>اختر ملف ‎.xer‎ أو أفلته هنا</b>
+            <span class="pm-msg">الملف يُقرأ في متصفحك ولا يُرفَع إلى الخادم.</span>
+          </div>
+
+          <div id="xBody" hidden>
+            <div class="x-sum" id="xSum"></div>
+
+            <div class="x-tabs">
+              <button type="button" class="x-tab on" data-xtab="base">① خط الأساس</button>
+              <button type="button" class="x-tab" data-xtab="act">② التحديث الفعلي</button>
+            </div>
+
+            <div id="xPaneBase">
+              <div class="gen-grid">
+                <div><label class="fld">مشروع الملف</label><select id="xProj"></select></div>
+                <div>
+                  <label class="fld">مصدر قيمة النشاط</label>
+                  <select id="xWeight">
+                    <option value="auto">تلقائي — التكاليف إن وُجدت وإلا المدة</option>
+                    <option value="cost">التكلفة المخططة للأنشطة فقط</option>
+                    <option value="drtn">وزن المدة</option>
+                    <option value="qty">وزن الوحدات/الساعات المخططة</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="fld">إجمالي خط الأساس</label>
+                  <select id="xTotalBase">
+                    <option value="file">كما في الملف</option>
+                    <option value="cv">قيمة العقد الأصلية</option>
+                    <option value="rv">القيمة بعد أوامر التغيير</option>
+                  </select>
+                </div>
+                <div><label class="fld">الإجمالي الناتج</label><input type="text" id="xTotalOut" readonly></div>
+              </div>
+              <div class="pm-opts mt-1">
+                <label><input type="checkbox" id="xSkipMile" checked> استبعاد المعالم وأنشطة مستوى الجهد (LOE)</label>
+                <label><input type="checkbox" id="xWiden" checked> وسّع مدى الشهور ليطابق الملف</label>
+                <label><input type="checkbox" id="xPctBase" checked> اجعل المنحنى المخطط ينتهي عند 100%</label>
+              </div>
+              <div class="pm-msg">«ينتهي عند 100%» يضبط <b>أساس النسبة المخططة</b> على إجمالي خط الأساس —
+                <b>قيمة العقد الأصلية لا تُمَس</b>. والشهور التي لا يغطّيها الملف يُصفَّر مخططها.</div>
+              <div class="warn-box" id="xWarnBase" hidden></div>
+              <div class="pm-prev" id="xPrevBase"></div>
+            </div>
+
+            <div id="xPaneAct" hidden>
+              <div class="x-note" id="xActMode"></div>
+              <div class="pm-opts mt-1">
+                <label><input type="checkbox" id="xActPct" checked> النسبة الفعلية التراكمية</label>
+                <label><input type="checkbox" id="xActAmt" checked> التكلفة الفعلية للفترة</label>
+                <label><input type="checkbox" id="xActWiden" checked> وسّع مدى الشهور ليطابق الملف</label>
+              </div>
+              <div class="warn-box" id="xWarnAct" hidden></div>
+              <div class="pm-prev" id="xPrevAct"></div>
+            </div>
+          </div>
+        </div>
+        <div class="pm-foot">
+          <button class="btn-cf primary" id="xApply" disabled>✔ تطبيق وحفظ</button>
+          <button class="btn-cf" id="xCancel">إلغاء</button>
+          <span class="pm-msg" id="xSummary" style="margin-inline-start:auto"></span>
         </div>
       </div>
     </div>
@@ -2185,6 +2279,438 @@ $('#btnExcel').addEventListener('click', () => {
     if(!ST.project) return;
     window.location = '/api/cashflow/excel?project=' + encodeURIComponent(ST.project);
 });
+
+
+/* ============ استيراد من ملف بريمافيرا P6 ‏(XER) ============
+   الملف يُقرأ كاملاً داخل المتصفح ولا يُرفَع إلى الخادم. صيغة XER نصّية
+   مفصولة بـTab: ‎%T‎ اسم جدول · ‎%F‎ أسماء أعمدته · ‎%R‎ صف بيانات · ‎%E‎ نهاية.
+   الأسطر التي لا تبدأ بـ‎%‎ هي تتمّة قيمة متعددة الأسطر (ملاحظات) فنتجاهلها. */
+const XS = {db:null, projs:[], projId:'', base:null, act:null, tab:'base', name:''};
+
+function xerParse(text){
+    const out = {};
+    let tbl = null, fields = null;
+    const lines = text.split(/\r?\n/);
+    for(let i = 0; i < lines.length; i++){
+        const ln = lines[i];
+        if(!ln || ln.charCodeAt(0) !== 37) continue;          // 37 = '%'
+        const p = ln.split('\t');
+        const k = p[0];
+        if(k === '%T'){ tbl = (p[1] || '').trim(); fields = null; if(!out[tbl]) out[tbl] = []; }
+        else if(k === '%F'){ fields = p.slice(1).map(x => x.trim()); }
+        else if(k === '%R' && tbl && fields){
+            const o = {};
+            for(let j = 0; j < fields.length; j++) o[fields[j]] = p[j + 1] === undefined ? '' : p[j + 1];
+            out[tbl].push(o);
+        }
+    }
+    return out;
+}
+const xNum  = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+function xDate(v){
+    const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+}
+const xYm = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+function xYmAdd(ym, n){
+    const y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1 + n;
+    return (y + Math.floor(m / 12)) + '-' + String((m % 12 + 12) % 12 + 1).padStart(2, '0');
+}
+/** يوزّع قيمة نشاط على الشهور بنسبة أيام التقويم في كل شهر */
+function xSpread(bucket, s, e, val){
+    if(!(val > 0)) return;
+    if(!s && !e) return;
+    if(!s) s = e; if(!e) e = s;
+    if(e < s) e = s;
+    let days = Math.round((e - s) / 86400000) + 1;
+    if(!(days > 0)) days = 1;
+    if(days > 20000) days = 20000;                            // حارس ضد تواريخ تالفة
+    const per = val / days;
+    const d = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+    for(let i = 0; i < days; i++){
+        const k = xYm(d);
+        bucket[k] = (bucket[k] || 0) + per;
+        d.setDate(d.getDate() + 1);
+    }
+}
+const XSKIP = {TT_Mile:1, TT_FinMile:1, TT_LOE:1, TT_WBS:1};
+/** نسبة إنجاز النشاط بحسب طريقة القياس المعرَّفة في البرنامج */
+function xTaskPct(t, rq){
+    if(t.status_code === 'TK_NotStart') return 0;
+    if(t.status_code === 'TK_Complete') return 100;
+    const ty = t.complete_pct_type || 'CP_Drtn';
+    const cl = v => Math.max(0, Math.min(100, v));
+    if(ty === 'CP_Phys') return cl(xNum(t.phys_complete_pct));
+    if(ty === 'CP_Units' && rq){
+        const tot = rq.act + rq.rem;
+        return tot > 0 ? cl(rq.act / tot * 100) : 0;
+    }
+    const td = xNum(t.target_drtn_hr_cnt), rd = xNum(t.remain_drtn_hr_cnt);
+    return td > 0 ? cl((1 - rd / td) * 100) : 0;
+}
+
+/** يقرأ كل ما يلزم لمشروع واحد داخل الملف */
+function xerAnalyse(projId){
+    const db = XS.db;
+    const pr = (db.PROJECT || []).find(x => x.proj_id === projId) || {};
+    const tasks = (db.TASK || []).filter(t => t.proj_id === projId);
+    const cost = {}, qty = {}, aCost = {}, rq = {};
+    (db.TASKRSRC || []).forEach(r => {
+        if(r.proj_id !== projId) return;
+        cost[r.task_id]  = (cost[r.task_id]  || 0) + xNum(r.target_cost);
+        qty[r.task_id]   = (qty[r.task_id]   || 0) + xNum(r.target_qty);
+        aCost[r.task_id] = (aCost[r.task_id] || 0) + xNum(r.act_reg_cost) + xNum(r.act_ot_cost);
+        const o = rq[r.task_id] || (rq[r.task_id] = {act:0, rem:0});
+        o.act += xNum(r.act_reg_qty) + xNum(r.act_ot_qty);
+        o.rem += xNum(r.remain_qty);
+    });
+    (db.PROJCOST || []).forEach(r => {
+        if(r.proj_id !== projId) return;
+        cost[r.task_id]  = (cost[r.task_id]  || 0) + xNum(r.target_cost);
+        aCost[r.task_id] = (aCost[r.task_id] || 0) + xNum(r.act_cost);
+    });
+    const hasCost = Object.keys(cost).some(k => cost[k] > 0);
+    const hasQty  = Object.keys(qty).some(k => qty[k] > 0);
+    const dataDate = xDate(pr.last_recalc_date) || xDate(pr.plan_end_date);
+
+    // الفترات المالية المخزّنة — Stored Period Performance
+    const fins = (db.FINDATES || []).map(f => ({
+        id:f.fin_dates_id, name:f.fin_dates_name,
+        s:xDate(f.start_date), e:xDate(f.end_date)
+    })).filter(f => f.e).sort((a, b) => a.e - b.e);
+    const finMap = {};
+    let finCost = 0, finEv = 0, finRows = 0;
+    const addFin = (fid, c, ev) => {
+        const o = finMap[fid] || (finMap[fid] = {cost:0, ev:0});
+        o.cost += c; o.ev += ev; finCost += c; finEv += ev; finRows++;
+    };
+    const trFin = (db.TRSRCFIN || []).filter(r => r.proj_id === projId);
+    const tkFin = (db.TASKFIN  || []).filter(r => r.proj_id === projId);
+    if(trFin.length){
+        trFin.forEach(r => addFin(r.fin_dates_id, xNum(r.act_cost), 0));
+        // القيمة المكتسبة لا توجد في TRSRCFIN فنأخذها من TASKFIN إن وُجد
+        tkFin.forEach(r => { const o = finMap[r.fin_dates_id]; if(o){ o.ev += xNum(r.bcwp); finEv += xNum(r.bcwp); } });
+    }else if(tkFin.length){
+        tkFin.forEach(r => {
+            let c = 0;
+            for(const k in r) if(/^act_.*cost$/.test(k)) c += xNum(r[k]);
+            addFin(r.fin_dates_id, c, xNum(r.bcwp));
+        });
+    }
+    const periods = fins.filter(f => finMap[f.id])
+                        .map(f => ({ym:xYm(f.e), name:f.name, cost:finMap[f.id].cost, ev:finMap[f.id].ev}));
+
+    return {
+        pr, projId, tasks, cost, qty, aCost, rq, hasCost, hasQty, dataDate,
+        name:(pr.proj_short_name || projId),
+        actCostTotal:Object.keys(aCost).reduce((a, k) => a + aCost[k], 0),
+        periods, finRows, finCost, finEv
+    };
+}
+
+/** يبني توزيع خط الأساس الشهري من الأنشطة */
+function xerBaseline(A, mode, skip){
+    const bucket = {};
+    let used = 0, skipped = 0, noDate = 0;
+    const wOf = t => {
+        if(mode === 'cost') return A.cost[t.task_id] || 0;
+        if(mode === 'qty')  return A.qty[t.task_id] || 0;
+        if(mode === 'drtn') return Math.max(xNum(t.target_drtn_hr_cnt), 0);
+        return A.hasCost ? (A.cost[t.task_id] || 0)
+             : (A.hasQty ? (A.qty[t.task_id] || 0) : Math.max(xNum(t.target_drtn_hr_cnt), 0));
+    };
+    A.tasks.forEach(t => {
+        if(skip && XSKIP[t.task_type]){ skipped++; return; }
+        const w = wOf(t);
+        if(!(w > 0)) return;
+        const s = xDate(t.target_start_date), e = xDate(t.target_end_date);
+        if(!s && !e){ noDate++; return; }
+        xSpread(bucket, s, e, w);
+        used++;
+    });
+    const months = Object.keys(bucket).sort();
+    const sum = months.reduce((a, k) => a + bucket[k], 0);
+    const usedMode = mode === 'auto' ? (A.hasCost ? 'cost' : (A.hasQty ? 'qty' : 'drtn')) : mode;
+    return {bucket, months, sum, used, skipped, noDate, usedMode};
+}
+
+/** التحديث الفعلي: من الفترات المخزّنة إن وُجدت، وإلا شهر تاريخ البيانات وحده */
+function xerActual(A, mode, skip){
+    const wOf = t => (mode === 'cost' || (mode === 'auto' && A.hasCost)) ? (A.cost[t.task_id] || 0)
+                   : (mode === 'qty' || (mode === 'auto' && A.hasQty))  ? (A.qty[t.task_id] || 0)
+                   : Math.max(xNum(t.target_drtn_hr_cnt), 0);
+    let wSum = 0, wDone = 0;
+    A.tasks.forEach(t => {
+        if(skip && XSKIP[t.task_type]) return;
+        const w = wOf(t); if(!(w > 0)) return;
+        wSum += w; wDone += w * xTaskPct(t, A.rq[t.task_id]) / 100;
+    });
+    const pctNow = wSum > 0 ? +(wDone / wSum * 100).toFixed(2) : 0;
+    if(A.periods.length){
+        const by = {};
+        A.periods.forEach(p => {
+            const o = by[p.ym] || (by[p.ym] = {ym:p.ym, cost:0, ev:0, names:[]});
+            o.cost += p.cost; o.ev += p.ev; o.names.push(p.name);
+        });
+        const rows = Object.keys(by).sort().map(k => by[k]);
+        const useEv = rows.some(r => r.ev > 0);
+        let cum = 0;
+        rows.forEach(r => { cum += useEv ? r.ev : r.cost; r.cum = cum; });
+        return {kind:'periods', rows, useEv, total:cum, pctNow,
+                count:A.periods.length, finRows:A.finRows};
+    }
+    return {kind:'datedate', rows:[], pctNow, cost:A.actCostTotal,
+            ym:A.dataDate ? xYm(A.dataDate) : null};
+}
+
+/* ---------- واجهة النافذة ---------- */
+function openXer(){
+    if(!ST.project){ setState('اختر مشروعاً أولاً', 'err'); return; }
+    XS.db = null; XS.base = XS.act = null; XS.tab = 'base'; XS.cache = null;
+    xerTab('base');
+    $('#xBody').hidden = true; $('#xFile').value = '';
+    $('#xApply').disabled = true; $('#xSummary').textContent = '';
+    $('#xDrop').hidden = false;
+    $('#xerModal').hidden = false;
+}
+function closeXer(){ $('#xerModal').hidden = true; }
+
+function xerRead(file){
+    if(!file) return;
+    $('#xSummary').textContent = 'جارٍ قراءة الملف…';
+    const rd = new FileReader();
+    rd.onload = () => {
+        try{
+            const buf = new Uint8Array(rd.result);
+            let txt = new TextDecoder('utf-8', {fatal:false}).decode(buf);
+            // ملفات P6 تُكتب غالباً بترميز ويندوز المحلي لا UTF-8
+            if(txt.indexOf(' ') >= 0){
+                try{ txt = new TextDecoder('windows-1256').decode(buf); }
+                catch(e){ try{ txt = new TextDecoder('windows-1252').decode(buf); }catch(e2){} }
+            }
+            if(txt.slice(0, 6) !== 'ERMHDR'){
+                $('#xSummary').textContent = 'الملف لا يبدأ بـERMHDR — هل هو ملف XER فعلاً؟';
+            }
+            XS.db = xerParse(txt);
+            XS.name = file.name; XS.cache = null;
+            const projs = (XS.db.PROJECT || []);
+            if(!projs.length){
+                $('#xSummary').textContent = 'لم يُعثر على جدول PROJECT داخل الملف.';
+                return;
+            }
+            $('#xProj').innerHTML = projs.map(p =>
+                `<option value="${p.proj_id}">${(p.proj_short_name || p.proj_id)}</option>`).join('');
+            XS.projId = projs[0].proj_id;
+            $('#xDrop').hidden = true; $('#xBody').hidden = false;
+            xerRefresh();
+        }catch(e){ $('#xSummary').textContent = 'تعذّرت قراءة الملف: ' + e.message; }
+    };
+    rd.onerror = () => { $('#xSummary').textContent = 'تعذّرت قراءة الملف.'; };
+    rd.readAsArrayBuffer(file);
+}
+
+function xerRefresh(){
+    // التحليل ثقيل على الملفات الكبيرة، فيُحفَظ لكل مشروع ولا يُعاد مع كل خيار
+    if(!XS.cache || XS.cache.id !== XS.projId) XS.cache = {id:XS.projId, A:xerAnalyse(XS.projId)};
+    const A = XS.cache.A;
+    XS.A = A;
+    const skip = $('#xSkipMile').checked;
+    const B = xerBaseline(A, $('#xWeight').value, skip);
+    const C = xerActual(A, $('#xWeight').value, skip);
+    XS.base = B; XS.act = C;
+
+    const MODE = {cost:'التكاليف المخططة', qty:'الوحدات المخططة', drtn:'مدة الأنشطة'};
+    $('#xSum').innerHTML = `
+      <div><span>المشروع في الملف</span><b>${A.name}</b></div>
+      <div><span>الأنشطة</span><b>${A.tasks.length} (محسوبة ${B.used})</b></div>
+      <div><span>تاريخ البيانات</span><b>${A.dataDate ? xYm(A.dataDate) + '-' +
+            String(A.dataDate.getDate()).padStart(2, '0') : '—'}</b></div>
+      <div><span>مدى الشهور في الملف</span><b>${B.months.length ?
+            (B.months[0] + ' ← ' + B.months[B.months.length - 1]) : '—'}</b></div>
+      <div class="${A.hasCost ? 'good' : 'warn'}"><span>تكاليف محمّلة</span><b>${
+            A.hasCost ? fmtN(B.usedMode === 'cost' ? B.sum : 0) : 'لا توجد'}</b></div>
+      <div class="${C.kind === 'periods' ? 'good' : 'warn'}"><span>فترات مالية مخزّنة</span><b>${
+            C.kind === 'periods' ? (C.count + ' فترة') : 'غير موجودة'}</b></div>`;
+
+    // ── خط الأساس ──
+    const totalBase = $('#xTotalBase').value;
+    const fileTotal = B.usedMode === 'cost' ? B.sum : 0;
+    let total = totalBase === 'cv' ? (num($('#mCv').value) || 0)
+              : totalBase === 'rv' ? (num($('#mRv').value) || num($('#mCv').value) || 0)
+              : (fileTotal || num($('#mCv').value) || 0);
+    $('#xTotalOut').value = fmtN(total);
+    const warn = [];
+    if(!A.hasCost && totalBase === 'file')
+        warn.push('الملف غير محمّل بالتكاليف، فالإجمالي أُخذ من قيمة العقد والتوزيع بوزن ' + MODE[B.usedMode] + '.');
+    if(B.noDate)  warn.push(B.noDate + ' نشاطاً بلا تواريخ مخططة أُهملت.');
+    if(B.skipped) warn.push(B.skipped + ' معلماً/نشاط LOE استُبعد.');
+    const tblFirst = ST.rows.length ? ST.rows[0].ym : null;
+    const tblLast  = ST.rows.length ? ST.rows[ST.rows.length - 1].ym : null;
+    const outside = B.months.filter(m => tblFirst && (m < tblFirst || m > tblLast));
+    B.needWiden = outside.length > 0;
+    B.newStart = B.months.length ? (tblFirst && tblFirst < B.months[0] ? tblFirst : B.months[0]) : tblFirst;
+    B.newEnd   = B.months.length ? (tblLast && tblLast > B.months[B.months.length - 1]
+                                    ? tblLast : B.months[B.months.length - 1]) : tblLast;
+    if(outside.length)
+        warn.push(outside.length + ' شهراً من الملف خارج مدى الجدول الحالي — ' +
+                  ($('#xWiden').checked ? `سيتوسّع المدى إلى ${B.newStart} ← ${B.newEnd}.`
+                                        : 'ستُهمَل ما لم تفعّل توسيع المدى.'));
+    $('#xWarnBase').hidden = !warn.length;
+    $('#xWarnBase').innerHTML = warn.join('<br>');
+
+    B.total = total;
+    const scale = B.sum > 0 ? total / B.sum : 0;
+    B.plan = {}; B.months.forEach(m => { B.plan[m] = Math.round(B.bucket[m] * scale * 100) / 100; });
+    let cum = 0;
+    $('#xPrevBase').innerHTML = `<table class="cf"><thead><tr><th>الشهر</th><th>المخطط للفترة</th>
+        <th>التراكمي</th><th>% تراكمية</th></tr></thead><tbody>` +
+        B.months.map(m => { cum += B.plan[m];
+          return `<tr><td>${m}</td><td>${fmtN(B.plan[m])}</td><td>${fmtN(cum)}</td><td>${
+                  total > 0 ? fmtN(cum / total * 100, 1) + '%' : '—'}</td></tr>`; }).join('') +
+        `</tbody></table>`;
+
+    // ── التحديث الفعلي ──
+    const note = $('#xActMode');
+    if(C.kind === 'periods'){
+        note.className = 'x-note';
+        note.innerHTML = `✔ الملف فيه <b>أداء الفترات المخزّن</b> (Stored Period Performance):
+            ${C.count} فترة · ${C.finRows} سجل. الفعلي سيُبنى <b>شهراً بشهر</b> من بيانات حقيقية
+            ${C.useEv ? 'بالقيمة المكتسبة (BCWP)' : 'بالتكلفة الفعلية'} لا بالتقدير.`;
+    }else{
+        note.className = 'x-note est';
+        note.innerHTML = `⚠️ لا توجد فترات مالية مخزّنة في الملف، وملف XER لا يحفظ تاريخ الإنجاز
+            شهراً بشهر. لذلك سيُملأ <b>شهر تاريخ البيانات فقط</b> (${C.ym || '—'})
+            بالنسبة التراكمية ${C.pctNow}%، والشهور الأخرى تبقى كما هي.`;
+    }
+    const pb = planBase() || 1;
+    let arows = [];
+    if(C.kind === 'periods'){
+        arows = C.rows.map(r => ({ym:r.ym, amt:r.cost, pct:+(r.cum / pb * 100).toFixed(2)}));
+    }else if(C.ym){
+        arows = [{ym:C.ym, amt:C.cost, pct:C.pctNow}];
+    }
+    C.applyRows = arows;
+    const aOut = arows.filter(r => tblFirst && (r.ym < tblFirst || r.ym > tblLast));
+    C.needWiden = aOut.length > 0;
+    C.newStart = arows.length ? (tblFirst && tblFirst < arows[0].ym ? tblFirst : arows[0].ym) : tblFirst;
+    C.newEnd   = arows.length ? (tblLast && tblLast > arows[arows.length - 1].ym
+                                 ? tblLast : arows[arows.length - 1].ym) : tblLast;
+    $('#xWarnAct').hidden = !aOut.length;
+    $('#xWarnAct').innerHTML = aOut.length ? (aOut.length + ' شهراً خارج مدى الجدول الحالي.') : '';
+    $('#xPrevAct').innerHTML = `<table class="cf"><thead><tr><th>الشهر</th><th>الفعلي للفترة</th>
+        <th>% فعلية تراكمية</th></tr></thead><tbody>` +
+        (arows.length ? arows.map(r => `<tr><td>${r.ym}</td><td>${fmtN(r.amt)}</td>
+            <td>${fmtN(r.pct, 2)}%</td></tr>`).join('')
+          : `<tr><td colspan="3">لا توجد بيانات فعلية في الملف</td></tr>`) + `</tbody></table>`;
+
+    $('#xApply').disabled = XS.tab === 'base' ? !B.months.length : !arows.length;
+    $('#xSummary').textContent = XS.name + ' · ' +
+        (XS.tab === 'base' ? `${B.months.length} شهر · إجمالي ${fmtN(total)}`
+                           : `${arows.length} شهر فعلي`);
+}
+
+function xerTab(t){
+    XS.tab = t;
+    document.querySelectorAll('.x-tab').forEach(b => b.classList.toggle('on', b.dataset.xtab === t));
+    $('#xPaneBase').hidden = t !== 'base';
+    $('#xPaneAct').hidden  = t !== 'act';
+    if(XS.db) xerRefresh();
+}
+
+async function applyXer(){
+    if(!XS.db) return;
+    const isBase = XS.tab === 'base';
+    const D = isBase ? XS.base : XS.act;
+    if(!D) return;
+    const label = isBase ? 'استيراد خط الأساس من XER' : 'استيراد التحديث من XER';
+    pushUndo(label);
+    await autoSnapshot('قبل ' + label + ' — ' + XS.name);
+    const widen = isBase ? $('#xWiden').checked : $('#xActWiden').checked;
+    if(widen && D.needWiden && D.newStart && D.newEnd){
+        $('#mStart').value = D.newStart; $('#mEnd').value = D.newEnd;
+        await saveMeta(false);                       // يعيد تحميل الصفوف بالمدى الجديد
+    }
+    const idx = new Map(ST.rows.map((r, i) => [r.ym, i]));
+    const cells = [];
+
+    if(isBase){
+        // أساس النسبة المخططة وحده يتغيّر — قيمة العقد الأصلية لا تُمَس أبداً
+        if($('#xPctBase').checked && D.total > 0) $('#mPb').value = Math.round(D.total);
+        const cv = planBase();
+        ST.rows.forEach(m => {
+            const v = D.plan[m.ym];
+            m.plan_amount = (v === undefined) ? 0 : v;
+            if(m.has_weeks){
+                const base = Math.round(m.plan_amount / WK * 100) / 100;
+                for(let w = 1; w <= WK; w++){
+                    if(!m.weeks[w - 1]) m.weeks[w - 1] = emptyWeek(m.ym, w);
+                    m.weeks[w - 1].plan_amount = (w === WK)
+                        ? +(m.plan_amount - base * (WK - 1)).toFixed(2) : base;
+                }
+                aggMonth(m);
+            }
+        });
+        let cum = 0;
+        ST.rows.forEach(m => {
+            cum += (m.plan_amount || 0);
+            cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount,
+                        plan_pct: cv > 0 ? +(cum / cv * 100).toFixed(4) : null});
+            if(m.has_weeks) m.weeks.forEach((w, k) => { if(w)
+                cells.push({ym:m.ym, wk:k + 1, plan_amount:w.plan_amount}); });
+        });
+        $('#mSrc').value = 'programme';               // خط أساس من برنامج معتمد
+    }else{
+        const doPct = $('#xActPct').checked, doAmt = $('#xActAmt').checked;
+        const rv = num($('#mRv').value) || num($('#mCv').value) || 0;
+        D.applyRows.forEach(r => {
+            const i = idx.get(r.ym); if(i === undefined) return;
+            const m = ST.rows[i];
+            if(m.has_weeks){
+                if(doPct){
+                    if(!m.weeks[WK - 1]) m.weeks[WK - 1] = emptyWeek(m.ym, WK);
+                    m.weeks[WK - 1].act_pct = r.pct;
+                    m.weeks[WK - 1].act_amount = r.pct / 100 * rv;
+                    cells.push({ym:m.ym, wk:WK, act_pct:r.pct});
+                    aggMonth(m);
+                }
+                return;
+            }
+            const c = {ym:m.ym, wk:0};
+            if(doPct){ m.act_pct = r.pct; c.act_pct = r.pct; }
+            if(doAmt){ m.act_amount = r.amt; c.act_amount = r.amt; }
+            if(doPct || doAmt) cells.push(c);
+        });
+    }
+
+    closeXer();
+    render();
+    await saveCells(cells, isBase ? `تم استيراد خط الأساس من XER لـ ${D.months.length} شهر ✓`
+                                  : `تم استيراد التحديث من XER لـ ${D.applyRows.length} شهر ✓`);
+    await saveMeta(true);
+}
+
+$('#btnXer').addEventListener('click', openXer);
+$('#xClose').addEventListener('click', closeXer);
+$('#xCancel').addEventListener('click', closeXer);
+$('#xApply').addEventListener('click', applyXer);
+$('#xDrop').addEventListener('click', () => $('#xFile').click());
+$('#xFile').addEventListener('change', e => xerRead(e.target.files[0]));
+['dragenter', 'dragover'].forEach(ev => $('#xDrop').addEventListener(ev, e => {
+    e.preventDefault(); $('#xDrop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => $('#xDrop').addEventListener(ev, e => {
+    e.preventDefault(); $('#xDrop').classList.remove('over'); }));
+$('#xDrop').addEventListener('drop', e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) xerRead(f);
+});
+document.querySelectorAll('.x-tab').forEach(b =>
+    b.addEventListener('click', () => xerTab(b.dataset.xtab)));
+['xProj'].forEach(id => $('#' + id).addEventListener('change', () => {
+    XS.projId = $('#xProj').value; xerRefresh(); }));
+['xWeight', 'xTotalBase', 'xSkipMile', 'xWiden', 'xPctBase', 'xActPct', 'xActAmt', 'xActWiden']
+    .forEach(id => $('#' + id).addEventListener('change', xerRefresh));
+document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && !$('#xerModal').hidden) closeXer(); });
 
 $('#btnUnitPct').addEventListener('click', () => { ST.unit = 'pct'; renderChart(computed()); });
 $('#btnUnitVal').addEventListener('click', () => { ST.unit = 'val'; renderChart(computed()); });
