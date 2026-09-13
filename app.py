@@ -1662,9 +1662,14 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
         def clean_date(val):
             return val if val and str(val).strip() != "" else None
             
+        def clamped(val, lo, hi):
+            """حدّ أخير على الخادم: الواجهة تمنع، وهذا يضمن ألا تصل قاعدة البيانات
+            قيمة خارج المدى مهما كان مصدر الطلب."""
+            return max(lo, min(hi, clean_num(val)))
+
         def process_percentage(val):
             if val is None or str(val).strip() == "": return 0.0
-            try: return float(val) / 100.0
+            try: return max(0.0, min(100.0, float(val))) / 100.0
             except: return 0.0
 
         def clean_json(val):
@@ -1683,7 +1688,8 @@ async def submit_data(request: Request, background_tasks: BackgroundTasks):
             clean_date(form_data.get("start_contractual")), clean_date(form_data.get("end_contractual")), clean_date(form_data.get("start_actual")), clean_date(form_data.get("end_expected")),
             process_percentage(form_data.get("act_prog_cur")), process_percentage(form_data.get("act_prog_prev")), process_percentage(form_data.get("plan_prog_cur")), process_percentage(form_data.get("plan_prog_prev")),
             form_data.get("works_completed"), form_data.get("works_ongoing"), form_data.get("works_planned"), clean_json(form_data.get("obstacles_json")),
-            clean_num(form_data.get("eval_labor")), clean_num(form_data.get("eval_equip")), clean_num(form_data.get("eval_financial")), clean_num(form_data.get("eval_hse")),
+            clamped(form_data.get("eval_labor"), 0, 10), clamped(form_data.get("eval_equip"), 0, 10),
+            clamped(form_data.get("eval_financial"), 0, 10), clamped(form_data.get("eval_hse"), 0, 10),
             clean_num(form_data.get("drawings_sub")), clean_num(form_data.get("drawings_app")), clean_num(form_data.get("drawings_rev")),
             clean_num(form_data.get("ir_sub")), clean_num(form_data.get("ir_app")), clean_num(form_data.get("ir_rev")),
             clean_num(form_data.get("ncr_open")), clean_num(form_data.get("ncr_closed")),
