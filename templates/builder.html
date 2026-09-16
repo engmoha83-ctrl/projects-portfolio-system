@@ -1066,6 +1066,8 @@ function dlOpts(w, fallbackColor, formatter, pointData){
                 borderRadius:4, padding:4, opacity:0.95, dropShadow:{enabled:false}}
   };
   if(formatter) o.formatter = formatter;
+  /* الخطوط لا تفهم plotOptions.bar.dataLabels.position، فموضع الرقم عندها إزاحة رأسية */
+  if(isLineLike(w)) o.offsetY = dlLineOffsetY(w);
   return o;
 }
 function fmtByType(type, o){
@@ -1179,12 +1181,73 @@ function partName(k, w){
   return (isEN() ? p.en : p.ar) || k;
 }
 function partCaps(k){ return (PART_DEFS[k] || {}).caps || []; }
+/* «موضع الرقم» في المكتبة شيئان مختلفان: داخل العمود (plotOptions.bar) أو إزاحة
+   رأسية عند النقطة (dataLabels.offsetY). فنحدّد أولاً طبيعة الرسم الحالية —
+   وهي تتغيّر داخل القالب الواحد: «مسار الإنجاز» و«المنحنى التراكمي» أعمدة أو خطوط. */
+function isBarLike(w){
+  if(!w) return false;
+  const o = w.opts || {};
+  if(w.type === 'bars' || w.type === 'projects_compare') return true;
+  if(w.type === 'topn') return o.display === 'bars';
+  if(w.type === 'progress_line' || w.type === 'scurve') return o.chartType === 'bar';
+  return false;
+}
+function isLineLike(w){
+  if(!w) return false;
+  const o = w.opts || {};
+  if(w.type === 'spi') return o.mode === 'trend';
+  if(w.type === 'progress_line') return o.chartType !== 'bar';
+  if(w.type === 'scurve') return o.chartType !== 'bar';
+  if(w.type === 'radar_eval') return true;
+  return false;
+}
+/** سُمك خط المنحنى — مشترك بين كل القوالب الخطية */
+function lineW(w){
+  const v = num((w.opts || {}).lineW);
+  return (v === null || !isFinite(v)) ? 3 : Math.max(1, Math.min(8, Math.round(v)));
+}
+/** إزاحة رقم البيانات عند النقطة: فوقها أو عليها أو تحتها */
+function dlLineOffsetY(w){
+  const P = partOf(w, 'dataLabels');
+  const sz = P.size || 11;
+  if(P.pos === 'on')    return 0;
+  if(P.pos === 'below') return Math.round(sz * 0.9) + 6;
+  return -(Math.round(sz * 0.4) + 3);            // الافتراضي: فوق النقطة
+}
+/** أقل عدد خانات عشرية يجعل مسميات المحور مختلفة فعلاً.
+    مع قيم متقاربة (كلها حول ٠٫٩٢) يُظهر المحور نفس الرقم خمس مرات بلا هذا. */
+function axisDecimals(vals, ticks, userDec){
+  const ok = (vals || []).map(num).filter(v => v !== null && isFinite(v));
+  const d0 = Math.max(0, userDec || 0);
+  if(ok.length < 2) return d0;
+  const span = Math.max.apply(null, ok) - Math.min.apply(null, ok);
+  if(!(span > 0)) return d0;
+  const step = span / Math.max(1, ticks || 5);
+  return Math.max(d0, Math.min(6, Math.max(0, Math.ceil(-Math.log10(step)))));
+}
 /* في الرادار تتوزّع المسميات حول دائرة، فالإزاحة الواحدة تحرّكها كلها في اتجاه
    واحد — بلا فائدة؛ والمكتبة أصلاً لا تدعم الميل هناك. فنُخفي الخيارين. */
+/* محور التواريخ في القوالب الزمنية: تمرير rotate وحده لا يفعل شيئاً —
+   المكتبة تتجاهله ما لم يُرفع rotateAlways. ونمرّ على fitCats نفسها التي تستعملها
+   الأعمدة حتى يكون سلوك المحور واحداً في كل القوالب: لفّ النص وتصغير تلقائي
+   عند الضيق، وميل يدوي يُحترم. */
+function dateAxis(w, cats){
+  const pX = partOf(w, 'xaxis'), axX = axisStyle(w, 'xaxis');
+  const fit = fitCats(w, cats, false, pX.size, pX.rotate,
+                      !!(w.parts && w.parts.xaxis && w.parts.xaxis.size));
+  return {cats:fit.cats,
+          labels:{rotate:fit.rotate, rotateAlways:fit.rotateAlways, trim:fit.trim,
+                  maxHeight:fit.maxHeight, hideOverlappingLabels:true,
+                  style:Object.assign({}, axX.style, {fontSize:fit.size + 'px'}),
+                  offsetX:axX.offsetX, offsetY:axX.offsetY}};
+}
 function partCapsOf(w, k){
-  const caps = partCaps(k);
+  let caps = partCaps(k);
   if(w && w.type === 'radar_eval' && k === 'xaxis')
-    return caps.filter(c => c !== 'rotate' && c !== 'offset');
+    caps = caps.filter(c => c !== 'rotate' && c !== 'offset');
+  /* الحلقات والشرائح ليس لرقمها «موضع» تدعمه المكتبة، فلا نعرض خياراً ميتاً */
+  if(k === 'dataLabels' && !isBarLike(w) && !isLineLike(w))
+    caps = caps.filter(c => c !== 'pos');
   return caps;
 }
 
@@ -1237,7 +1300,10 @@ function legendStyle(w, base){
   if(p.legendPos){
     const [pos, ha] = p.legendPos.split('-');
     o.position = pos;
-    if(ha) o.horizontalAlign = ha;
+    /* المكتبة تنفّذ المحاذاة بـjustify-content، ومع صفحة عربية (dir=rtl) ينقلب
+       معنى flex-start/flex-end فيذهب «يمين» يساراً والعكس. فنبدّلهما عند RTL. */
+    if(ha) o.horizontalAlign = (!isEN() && (ha === 'left' || ha === 'right'))
+                               ? (ha === 'left' ? 'right' : 'left') : ha;
   }
   return o;
 }
@@ -1560,21 +1626,29 @@ const VISUALS = {
 
       if(w.opts.mode === 'trend'){
         const d = dlOf(w);
+        const dec  = Math.max(0, Math.min(4, num(w.opts.decimals) === null ? 2 : num(w.opts.decimals)));
+        const vals = S.records.map(spiOf);
+        /* القيم هنا متقاربة جداً، فلو عرضنا المحور بخانتين ظهر الرقم نفسه في كل
+           العلامات. نزيد خانات المحور وحده بما يكفي للتفريق — وأرقام البيانات تبقى
+           على اختيار المستخدم. */
+        const yDec = axisDecimals(vals, 5, dec);
         body.innerHTML = `<div class="gauge-wrap"><div class="gauge-chart"></div>${base}</div>`;
         mkChart(body, w, {
           chart:{type:'line', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
-          series:[{name:'SPI', data:S.records.map(spiOf)}],
-          colors:[color], stroke:{curve:'smooth', width:3}, markers:{size:4},
-          dataLabels:dlOpts(w, color, v => num(v).toFixed(2)),
-          xaxis:{categories:S.records.map(r => r.current_data_date || ''),
-                 labels:Object.assign(axisStyle(w, 'xaxis'), {rotate:partOf(w,'xaxis').rotate})},
-          yaxis:{labels:Object.assign(axisStyle(w, 'yaxis'),
-                        {formatter:v => num(v).toFixed(2), align:partOf(w,'yaxis').align || undefined})},
+          series:[{name:'SPI', data:vals}],
+          colors:[color], stroke:{curve:'smooth', width:lineW(w)}, markers:{size:4},
+          dataLabels:dlOpts(w, color, v => num(v).toFixed(dec)),
+          xaxis:Object.assign({}, (function(){ const a = dateAxis(w, S.records.map(r => r.current_data_date || ''));
+                 return {categories:a.cats, labels:a.labels}; })()),
+          yaxis:{decimalsInFloat:yDec,
+                 labels:Object.assign(axisStyle(w, 'yaxis'),
+                        {formatter:v => num(v).toFixed(yDec), align:partOf(w,'yaxis').align || undefined})},
           annotations:{yaxis:[{y:1, borderColor:'#6c7a91', strokeDashArray:4,
                                label:{text:`${tr('target')} ${good}`,
                                       style:{fontSize:partOf(w,'dataLabels').size + 'px',
                                              background:'#6c7a91', color:'#fff'}}}]},
           grid:{borderColor:'rgba(125,125,125,.18)'},
+          tooltip:{y:{formatter:v => num(v).toFixed(dec)}},
           legend:{show:false}
         }, {host:body.querySelector('.gauge-chart'), reserve:measureSpiBase(body)});
         return;
@@ -1634,17 +1708,22 @@ const VISUALS = {
       const cats = S.records.map(r => r.current_data_date || '');
       const series = [{name:tr('actual'), data:S.records.map(r => pct(r.act_prog_cur))}];
       if(w.opts.showPlanned) series.push({name:tr('planned'), data:S.records.map(r => pct(r.plan_prog_cur))});
+      const dtAx = dateAxis(w, cats);
       const plKeys = ['pl_actual'].concat(w.opts.showPlanned ? ['pl_planned'] : []);
       const plDefs = theme().palette.slice(0, series.length);
       regItems(w, series.map(x => x.name), plKeys, plDefs);
       mkChart(body, w, {
         chart:{type:w.opts.chartType, fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
         series, colors:seriesColors(w, series.length, plDefs),
-        stroke:{curve:w.opts.smooth ? 'smooth' : 'straight', width:w.opts.chartType === 'bar' ? 0 : 3},
+        stroke:{curve:w.opts.smooth ? 'smooth' : 'straight',
+                width:w.opts.chartType === 'bar' ? 0 : lineW(w)},
+        plotOptions:w.opts.chartType === 'bar'
+          ? {bar:{columnWidth:barW(w) + '%', borderRadius:4,
+                  dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}} : {},
         fill:w.opts.chartType === 'area' ? {type:'gradient', gradient:{opacityFrom:.45, opacityTo:.05}} : {opacity:1},
         dataLabels:dlOpts(w, theme().text, v => v + '%'),
         markers:{size:w.opts.chartType === 'line' ? 4 : 0},
-        xaxis:{categories:cats, labels:Object.assign(axisStyle(w,'xaxis'), {rotate:partOf(w,'xaxis').rotate})},
+        xaxis:{categories:dtAx.cats, labels:dtAx.labels},
         yaxis:{max:progMax(w, series), min:0, tickAmount:5, decimalsInFloat:0,
                labels:Object.assign(axisStyle(w, 'yaxis'),
                      {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})},
@@ -1813,7 +1892,7 @@ const VISUALS = {
       mkChart(body, w, {
         chart:{type:'radar', fontFamily:wFont(w), background:'transparent', toolbar:{show:false}},
         series:[{name:useT ? tr('pctOfTarget') : tr('evaluation'), data}],
-        labels:cats, colors:radCols,
+        labels:cats, colors:radCols, stroke:{width:lineW(w)},
         dataLabels:(mode === 'chart')
           ? dlOpts(w, theme().text, (v, ctx) => {
               const i = ctx && ctx.dataPointIndex;
@@ -1909,6 +1988,7 @@ const VISUALS = {
       /* المفتاح باسم السلسلة لا برقمها، فإخفاء «المخطط» لا ينقل لونه إلى «المالي» */
       regItems(w, series.map(x => x.name), skeys, defs);
       const colors = seriesColors(w, series.length, defs);
+      const scAx = dateAxis(w, cats);
 
       const hasVal = types.indexOf('val') >= 0;
       const axFont = axisStyle(w, 'yaxis').style;
@@ -1923,9 +2003,11 @@ const VISUALS = {
         chart:{type:barType ? 'bar' : 'line', fontFamily:wFont(w), background:'transparent',
                toolbar:{show:false}, stacked:false},
         series, colors,
-        plotOptions:barType ? {bar:{columnWidth:'55%', borderRadius:4}} : {},
+        plotOptions:barType ? {bar:{columnWidth:barW(w) + '%', borderRadius:4,
+                   dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}} : {},
         stroke:{curve:w.opts.smooth ? 'smooth' : 'straight',
-                width:series.map(sr => sr.type === 'column' ? 0 : (sr.type === 'area' ? 2 : 3)),
+                width:series.map(sr => sr.type === 'column' ? 0
+                         : (sr.type === 'area' ? Math.max(1, lineW(w) - 1) : lineW(w))),
                 dashArray:series.map((sr, i) => (types[i] === 'pct' && sr.type === 'line' && i === 1) ? 5 : 0)},
         fill:{colors:colors, type:'solid',
               opacity:series.map(sr => sr.type === 'area' ? 0.20 : (sr.type === 'column' ? 0.92 : 1))},
@@ -1934,7 +2016,7 @@ const VISUALS = {
           const i = o && o.seriesIndex;
           return (types[i] === 'val') ? compactNum(num(v)) : num(v).toFixed(1) + '%';
         }),
-        xaxis:{categories:cats, labels:Object.assign(axisStyle(w,'xaxis'), {rotate:partOf(w,'xaxis').rotate})},
+        xaxis:{categories:scAx.cats, labels:scAx.labels},
         yaxis:hasVal ? yaxes : {min:0, max:100, tickAmount:5,
                labels:Object.assign(axisStyle(w,'yaxis'),
                      {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})},
@@ -3318,7 +3400,11 @@ const AX_ALIGNS = [['','تلقائي'], ['right','يمين'], ['center','وسط'
 const LEG_POS = [['','تلقائي'], ['top-center','أعلى وسط'], ['top-left','أعلى يسار'], ['top-right','أعلى يمين'],
                  ['bottom-center','أسفل وسط'], ['bottom-left','أسفل يسار'], ['bottom-right','أسفل يمين'],
                  ['right','يمين'], ['left','يسار']];
-const DL_POS = [['','وسط العمود'], ['top','أعلى العمود'], ['center','وسط العمود'], ['bottom','أسفل العمود']];
+const DL_POS_BAR  = [['','تلقائي (وسط العمود)'], ['top','أعلى العمود'],
+                     ['center','وسط العمود'], ['bottom','أسفل العمود']];
+const DL_POS_LINE = [['','تلقائي (فوق النقطة)'], ['above','فوق النقطة'],
+                     ['on','على النقطة'], ['below','تحت النقطة']];
+const dlPosList = w => isBarLike(w) ? DL_POS_BAR : DL_POS_LINE;
 
 function partsHtml(w){
   const keys = partsOfWidget(w);
@@ -3352,7 +3438,8 @@ function partsHtml(w){
     </select></div></div>`;
   if(has('pos'))
     body += `<div class="row"><label>موضع الرقم</label><div class="ctl"><select data-p="${pre}pos">
-      ${DL_POS.map(([v, n]) => `<option value="${v}" ${p.pos === v ? 'selected' : ''}>${n}</option>`).join('')}
+      ${dlPosList(w).map(([v, n]) =>
+         `<option value="${v}" ${p.pos === v ? 'selected' : ''}>${n}</option>`).join('')}
     </select></div></div>`;
   if(has('rotate'))
     body += `<div class="row"><label>ميل النص</label><div class="ctl">
@@ -3584,6 +3671,7 @@ function optionsHtml(w){
       <div class="row"><label>حد التحذير</label><div class="ctl">
         <input type="number" step="0.01" data-p="opts.warn" value="${o.warn}"></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showBase" ${o.showBase ? 'checked' : ''}> إظهار النسب المستخدمة في الحساب</label>
+      ${o.mode === 'trend' ? ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px') : ''}
       ${o.mode === 'gauge' ? `
       <div class="grp-h" style="margin-top:10px;">مقياس ملء الحلقة</div>
       <div class="row"><label>الطريقة</label><div class="ctl"><select data-p="opts.scaleMode">
@@ -3607,6 +3695,8 @@ function optionsHtml(w){
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned?'checked':''}> إظهار المخطط</label>
       <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>
+      ${o.chartType === 'bar' ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%')
+                              : ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
       <div class="row"><label>مقياس المحور الرأسي</label><div class="ctl"><select data-p="opts.yScale">
         <option value="auto"  ${(o.yScale||'auto') === 'auto'  ? 'selected' : ''}>تلقائي (يلائم أكبر قيمة)</option>
         <option value="fixed" ${o.yScale === 'fixed' ? 'selected' : ''}>ثابت ٠ – ١٠٠٪</option>
@@ -3666,6 +3756,7 @@ function optionsHtml(w){
         <option value="off"   ${o.numMode === 'off'   ? 'selected' : ''}>بدون أرقام</option>
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showValues" ${o.showValues?'checked':''}> إظهار قائمة القيم أسفل الرسم</label>
+      ${ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
       <div class="hint">«مع أسماء المحاور» هو الخيار الآمن — الأرقام تظهر بجانب الاسم فلا تغطّيه.
       «على رؤوس الرسم» يضع الأرقام على الرؤوس، ويُفضَّل معه تفعيل خلفية الأرقام
       من «تنسيق أجزاء القالب» حتى تُقرأ فوق أسماء المحاور.</div>`;
@@ -3691,6 +3782,8 @@ function optionsHtml(w){
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth ? 'checked' : ''}> خطوط انسيابية</label>
       <label class="chk"><input type="checkbox" data-p="opts.forceMono" ${o.forceMono ? 'checked' : ''}> فرض التزايد التراكمي (منع الهبوط)</label>
+      ${ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
+      ${o.chartType === 'bar' ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%') : ''}
       <div class="hint">القيم تراكمية بطبيعتها فلا يفترض أن ينزل المنحنى. «فرض التزايد» يثبّت كل نقطة
       عند أعلى قيمة سابقة، فيعالج أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.
       <br><br>في وضع «كل المشاريع» يُحتسب لكل تاريخ آخر تحديث معروف لكل مشروع (وليس المشاريع التي
