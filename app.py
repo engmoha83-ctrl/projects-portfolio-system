@@ -771,9 +771,13 @@ def _suggest_meta(project):
     base = float(row[0] or 0)
     revised = base + float(row[1] or 0)
     starts = [d for d in (row[2], row[4]) if d]
-    ends = [d for d in (row[3], row[5], row[6]) if d]
+    # نهاية المدى: نهاية عقد المقاول المعدّلة (row[6]) أولاً، وإلا نهاية العقد الأصلية (row[3]).
+    # "النهاية المتوقعة" (row[5]) مقصودة الاستبعاد هنا لأنها تقدير إداري وليست تاريخاً تعاقدياً،
+    # وأخذها ضمن max() كان بيخلي مدى التدفق النقدي يتمدد لتاريخ غير مرتبط بعقد المقاول.
+    end_source = row[6] or row[3]
+    ends = [end_source] if end_source else []
     start_ym = min(str(d)[:7] for d in starts) if starts else datetime.utcnow().strftime("%Y-%m")
-    end_ym = max(str(d)[:7] for d in ends) if ends else _ym_add(start_ym, 11)
+    end_ym = str(ends[0])[:7] if ends else _ym_add(start_ym, 11)
     if end_ym < start_ym: end_ym = _ym_add(start_ym, 11)
     return {"contract_value": base, "revised_value": revised,
             "start_month": start_ym, "end_month": end_ym}
