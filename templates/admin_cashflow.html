@@ -971,7 +971,15 @@ function renderKpis(rows){
     const planSum = rows.reduce((a, r) => a + (r.plan_amount || 0), 0);
     const diff = planSum - cv;
     const withAct = rows.filter(r => r.act_pct !== null && r.act_pct !== undefined);
-    const last = withAct.length ? withAct[withAct.length - 1] : null;
+    let last = withAct.length ? withAct[withAct.length - 1] : null;
+    let lastLabel = last ? last.ym : null;
+    // لو آخر شهر فيه بيانات فعلية متقسِّم أسبوعياً، لازم ناخد آخر أسبوع فيه رقم حقيقي (مش الشهر
+    // كله)، عشان الـ SPI يتقارن بالخطة "لحد نفس الأسبوع" مش بخطة "لحد آخر الشهر" — نفس المشكلة
+    // اللي كانت بتخلي SPI يظهر أقل من الحقيقي وقت ما التحديث يكون في نص الشهر.
+    if(last && last.has_weeks && Array.isArray(last.wrows)){
+        const wk = [...last.wrows].reverse().find(w => has(w.act_pct));
+        if(wk){ last = wk; lastLabel = `${wk.ym} (أسبوع ${wk.wk})`; }
+    }
     const okPlan = cv > 0 && Math.abs(diff) < Math.max(1, cv * 0.001);
     $('#kpis').innerHTML = `
       <div class="kpi ${okPlan ? 'ok' : (cv ? 'warn' : '')}">
@@ -980,7 +988,7 @@ function renderKpis(rows){
         <div class="k-lab">${cv ? (okPlan ? 'مطابق لقيمة العقد ✓' : (diff > 0 ? 'يزيد ' : 'ينقص ') + fmtN(Math.abs(diff))) : ''}</div>
       </div>
       <div class="kpi"><div class="k-lab">عدد الشهور</div><div class="k-val">${rows.length}</div></div>
-      <div class="kpi"><div class="k-lab">آخر شهر مسجَّل</div><div class="k-val">${last ? last.ym : '—'}</div></div>
+      <div class="kpi"><div class="k-lab">آخر فترة مسجَّلة</div><div class="k-val">${lastLabel || '—'}</div></div>
       <div class="kpi"><div class="k-lab">النسبة الفعلية الحالية</div><div class="k-val">${last ? last.act_pct.toFixed(1) + '%' : '—'}</div></div>
       <div class="kpi ${last && last.spi !== null ? (last.spi >= 1 ? 'ok' : 'warn') : ''}">
         <div class="k-lab">SPI الحالي</div><div class="k-val">${last && last.spi !== null ? last.spi.toFixed(2) : '—'}</div></div>`;
