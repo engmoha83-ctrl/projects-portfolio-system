@@ -518,6 +518,12 @@ const T = {
     editTextTip:'اكتب النص — Ctrl+Enter للحفظ، Esc للإلغاء', pickFields:'اختر حقلين أو أكثر من قائمة الحقول في الشريط الجانبي للمقارنة بينهم', cumActual:'الإنجاز الفعلي التراكمي', cumPlanned:'الإنجاز المخطط التراكمي',
     cumFinance:'التقدم المالي التراكمي', cumFinanceVal:'المصروف التراكمي',
     noTimeline:'لا توجد تحديثات كافية لرسم المنحنى التراكمي',
+    dataSource:'مصدر البيانات', dsWeekly:'تحديثات مديري المشاريع الأسبوعية',
+    dsCashflow:'صفحة التدفق النقدي (خط الأساس المعتمد)',
+    rangeStart:'من شهر', rangeEnd:'إلى شهر', rangeNone:'بدون حد',
+    noCashflow:'لا توجد بيانات تدفق نقدي كافية لهذا المشروع بعد — أنشئها من صفحة التدفق النقدي أولاً',
+    cfAllOnly:'مصدر «التدفق النقدي» يعمل لمشروع واحد فقط — اختر مشروعاً محدداً من الشريط العلوي',
+    noRangeData:'لا توجد بيانات ضمن المدى الزمني المحدد — وسّع المدى من خصائص القالب',
     million:'مليون', thousand:'ألف', billion:'مليار',
     pickProject:'اختر مشروعاً من الشريط العلوي لعرض البيانات',
     noImage:'لا توجد صورة — اختر مرفقاً من المشروع أو ارفع لوجو من الشريط الجانبي',
@@ -560,6 +566,12 @@ const T = {
     editTextTip:'Type your text — Ctrl+Enter to save, Esc to cancel', pickFields:'Pick two or more fields from the sidebar list to compare them', cumActual:'Cumulative actual progress', cumPlanned:'Cumulative planned progress',
     cumFinance:'Cumulative financial progress', cumFinanceVal:'Cumulative invoiced',
     noTimeline:'Not enough updates to draw the cumulative curve',
+    dataSource:'Data source', dsWeekly:'Weekly project-manager updates',
+    dsCashflow:'Cash-flow page (approved baseline)',
+    rangeStart:'From month', rangeEnd:'To month', rangeNone:'No limit',
+    noCashflow:'No cash-flow data yet for this project — set it up on the Cash Flow page first',
+    cfAllOnly:'The “Cash flow” source works for a single project only — pick one from the top bar',
+    noRangeData:'No data in the selected date range — widen it from the visual’s properties',
     million:'M', thousand:'K', billion:'B',
     pickProject:'Select a project from the top bar to load data',
     noImage:'No image — pick a project attachment or upload a logo from the sidebar',
@@ -645,7 +657,7 @@ const PAGE_PRESETS = {
 
 /* ---------------- الحالة ---------------- */
 const S = {
-  project:'', mode:'single', records:[], latest:null, pm:null,
+  project:'', mode:'single', records:[], latest:null, pm:null, cashflow:null,
   projLatest:[], projNames:[],
   layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
   page:{lang:'ar', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
@@ -1930,57 +1942,128 @@ const VISUALS = {
   },
   scurve:{
     name:'المنحنى التراكمي', icon:'📉', w:560, h:320,
-    opts:{showActual:true, showPlanned:true, showFinancial:true, finSource:'contractor',
+    opts:{dataSource:'weekly', rangeStart:'', rangeEnd:'',
+          showActual:true, showPlanned:true, showFinancial:true, finSource:'contractor',
           finMode:'percent', chartType:'area', smooth:true, forceMono:true, showCount:false,
           dl:Object.assign({}, DL_DEFAULT, {show:false})},
     title:'المنحنى التراكمي للإنجاز والصرف', title_en:'Cumulative progress & spend curve',
     render(body, w){
-      if(!S.records || S.records.length < 2){
-        body.innerHTML = `<div class="empty-note">${tr('noTimeline')}</div>`;
+      const src = w.opts.dataSource || 'weekly';
+      const rs = w.opts.rangeStart || '', re = w.opts.rangeEnd || '';
+
+      // القيم تراكمية بطبيعتها؛ هذا يمنع أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.
+      // نسخة آمنة مع القيم المفقودة (null): لا تُحوَّل لصفر، بل تُترك فاضية كما هي —
+      // فارق عن الأسلوب الأصلي حيث كل تحديث تاريخي له قيمة دائماً.
+      const monoSafe = arr => {
+        if(!w.opts.forceMono) return arr;
+        let mx = -Infinity;
+        return arr.map(v => {
+          if(v === null || v === undefined) return null;
+          mx = Math.max(mx, num(v)); return +mx.toFixed(2);
+        });
+      };
+      const barType = (w.opts.chartType === 'bar');
+
+      /* ---------- مصدر «التدفق النقدي»: نسب مخططة/فعلية شهرية من خط الأساس المعتمد ---------- */
+      if(src === 'cashflow'){
+        if(S.mode === 'all'){ body.innerHTML = `<div class="empty-note">${tr('cfAllOnly')}</div>`; return; }
+        const cf = S.cashflow;
+        if(!cf || !cf.series || cf.series.length < 2){
+          body.innerHTML = `<div class="empty-note">${tr('noCashflow')}</div>`;
+          return;
+        }
+        let rows = cf.series;
+        if(rs) rows = rows.filter(r => r.ym >= rs);
+        if(re) rows = rows.filter(r => r.ym <= re);
+        if(rows.length < 2){
+          body.innerHTML = `<div class="empty-note">${tr('noRangeData')}</div>`;
+          return;
+        }
+        const cats = rows.map(r => r.ym);
+        const series = [], defs = [], skeys = [];
+        if(w.opts.showActual){
+          series.push({name:tr('cumActual'), type:barType ? 'column' : w.opts.chartType,
+                       data:monoSafe(rows.map(r => r.act_pct))});
+          defs.push(theme().palette[0]); skeys.push('sc_actual');
+        }
+        if(w.opts.showPlanned){
+          series.push({name:tr('cumPlanned'), type:'line', data:rows.map(r => r.plan_pct)});
+          defs.push(theme().palette[1]); skeys.push('sc_planned');
+        }
+        if(!series.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
+        regItems(w, series.map(x => x.name), skeys, defs);
+        const colors = seriesColors(w, series.length, defs);
+        const scAx = dateAxis(w, cats);
+        const axFont = axisStyle(w, 'yaxis').style;
+
+        mkChart(body, w, {
+          chart:{type:barType ? 'bar' : 'line', fontFamily:wFont(w), background:'transparent',
+                 toolbar:{show:false}, stacked:false},
+          series, colors,
+          plotOptions:barType ? {bar:{columnWidth:barW(w) + '%', borderRadius:4,
+                     dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}} : {},
+          stroke:{curve:w.opts.smooth ? 'smooth' : 'straight',
+                  width:series.map(sr => sr.type === 'column' ? 0
+                           : (sr.type === 'area' ? Math.max(1, lineW(w) - 1) : lineW(w))),
+                  dashArray:series.map((sr, i) => (sr.type === 'line' && i === 1) ? 5 : 0)},
+          fill:{colors:colors, type:'solid',
+                opacity:series.map(sr => sr.type === 'area' ? 0.20 : (sr.type === 'column' ? 0.92 : 1))},
+          markers:{size:barType ? 0 : 3},
+          dataLabels:dlOpts(w, theme().text, v => v === null ? '' : num(v).toFixed(1) + '%'),
+          xaxis:{categories:scAx.cats, labels:scAx.labels},
+          yaxis:{min:0, max:100, tickAmount:5,
+                 labels:Object.assign(axisStyle(w,'yaxis'),
+                       {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})},
+          grid:{borderColor:'rgba(125,125,125,.18)'},
+          legend:legendStyle(w, {position:'top', horizontalAlign:'center'}),
+          tooltip:{shared:!barType, intersect:barType,
+                   y:{formatter:v => v === null ? '—' : num(v).toFixed(1) + '%'}}
+        });
         return;
       }
-      const rows = S.records;
+
+      /* ---------- مصدر «تحديثات المشاريع الأسبوعية» (الأصلي) ---------- */
+      let rows = S.records || [];
+      const ym = r => (r.current_data_date || '').slice(0, 7);
+      if(rs) rows = rows.filter(r => ym(r) >= rs);
+      if(re) rows = rows.filter(r => ym(r) <= re);
+      if(!rows.length || rows.length < 2){
+        body.innerHTML = `<div class="empty-note">${(rs || re) ? tr('noRangeData') : tr('noTimeline')}</div>`;
+        return;
+      }
       const cats = rows.map(r => r.current_data_date || '');
       const finPct = r => {
-        const src = w.opts.finSource;
-        const inv = (src === 'consultant') ? num(r.cons_inv_val)
-                  : (src === 'both') ? num(r.cont_inv_val) + num(r.cons_inv_val)
+        const fsrc = w.opts.finSource;
+        const inv = (fsrc === 'consultant') ? num(r.cons_inv_val)
+                  : (fsrc === 'both') ? num(r.cont_inv_val) + num(r.cons_inv_val)
                   : num(r.cont_inv_val);
-        const con = (src === 'consultant') ? num(r.consultant_val)
-                  : (src === 'both') ? num(r.contractor_val) + num(r.consultant_val)
+        const con = (fsrc === 'consultant') ? num(r.consultant_val)
+                  : (fsrc === 'both') ? num(r.contractor_val) + num(r.consultant_val)
                   : num(r.contractor_val);
         return con > 0 ? +(inv / con * 100).toFixed(2) : 0;
       };
       const finVal = r => {
-        const src = w.opts.finSource;
-        return (src === 'consultant') ? num(r.cons_inv_val)
-             : (src === 'both') ? num(r.cont_inv_val) + num(r.cons_inv_val)
+        const fsrc = w.opts.finSource;
+        return (fsrc === 'consultant') ? num(r.cons_inv_val)
+             : (fsrc === 'both') ? num(r.cont_inv_val) + num(r.cons_inv_val)
              : num(r.cont_inv_val);
       };
       const asValue = (w.opts.finMode === 'value');
 
-      // القيم تراكمية بطبيعتها؛ هذا يمنع أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق
-      const mono = arr => {
-        if(!w.opts.forceMono) return arr;
-        let mx = -Infinity;
-        return arr.map(v => { mx = Math.max(mx, num(v)); return +mx.toFixed(2); });
-      };
-      const barType = (w.opts.chartType === 'bar');
-
       const series = [], defs = [], types = [], skeys = [];
       if(w.opts.showActual){
         series.push({name:tr('cumActual'), type:barType ? 'column' : w.opts.chartType,
-                     data:mono(rows.map(r => pct(r.act_prog_cur)))});
+                     data:monoSafe(rows.map(r => pct(r.act_prog_cur)))});
         defs.push(theme().palette[0]); types.push('pct'); skeys.push('sc_actual');
       }
       if(w.opts.showPlanned){
-        series.push({name:tr('cumPlanned'), type:'line', data:mono(rows.map(r => pct(r.plan_prog_cur)))});
+        series.push({name:tr('cumPlanned'), type:'line', data:monoSafe(rows.map(r => pct(r.plan_prog_cur)))});
         defs.push(theme().palette[1]); types.push('pct'); skeys.push('sc_planned');
       }
       if(w.opts.showFinancial){
         series.push({name:asValue ? tr('cumFinanceVal') : tr('cumFinance'),
                      type:barType ? 'column' : 'line',
-                     data:mono(rows.map(r => asValue ? finVal(r) : finPct(r)))});
+                     data:monoSafe(rows.map(r => asValue ? finVal(r) : finPct(r)))});
         defs.push(theme().palette[3] || '#1e8e5a'); types.push(asValue ? 'val' : 'pct');
         skeys.push('sc_finance');
       }
@@ -3762,9 +3845,20 @@ function optionsHtml(w){
       من «تنسيق أجزاء القالب» حتى تُقرأ فوق أسماء المحاور.</div>`;
   }
   if(w.type === 'scurve'){
+    const isCf = (o.dataSource === 'cashflow');
     return `
+      <div class="row"><label>مصدر البيانات</label><div class="ctl"><select data-p="opts.dataSource">
+        <option value="weekly"   ${!isCf ? 'selected' : ''}>تحديثات مديري المشاريع الأسبوعية</option>
+        <option value="cashflow" ${isCf ? 'selected' : ''}>صفحة التدفق النقدي (خط الأساس المعتمد)</option>
+      </select></div></div>
+      <div class="row"><label>من شهر</label><div class="ctl">
+        <input type="month" data-p="opts.rangeStart" value="${o.rangeStart || ''}"></div></div>
+      <div class="row"><label>إلى شهر</label><div class="ctl">
+        <input type="month" data-p="opts.rangeEnd" value="${o.rangeEnd || ''}"></div></div>
+      <div class="hint">اترك الحقلين فاضيين لعرض كل المدى المتاح. المدى يُطبَّق على أي مصدر بيانات.</div>
       <label class="chk"><input type="checkbox" data-p="opts.showActual" ${o.showActual ? 'checked' : ''}> الإنجاز الفعلي التراكمي</label>
       <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned ? 'checked' : ''}> الإنجاز المخطط التراكمي</label>
+      ${isCf ? '' : `
       <label class="chk"><input type="checkbox" data-p="opts.showFinancial" ${o.showFinancial ? 'checked' : ''}> التقدم المالي التراكمي</label>
       <div class="row"><label>مصدر الصرف</label><div class="ctl"><select data-p="opts.finSource">
         <option value="contractor" ${o.finSource === 'contractor' ? 'selected' : ''}>فواتير المقاول ÷ عقده</option>
@@ -3774,7 +3868,7 @@ function optionsHtml(w){
       <div class="row"><label>عرض الصرف</label><div class="ctl"><select data-p="opts.finMode">
         <option value="percent" ${o.finMode === 'percent' ? 'selected' : ''}>نسبة مئوية من العقد</option>
         <option value="value"   ${o.finMode === 'value'   ? 'selected' : ''}>قيمة بالريال (محور ثانٍ)</option>
-      </select></div></div>
+      </select></div></div>`}
       <div class="row"><label>شكل العرض</label><div class="ctl"><select data-p="opts.chartType">
         <option value="area" ${o.chartType === 'area' ? 'selected' : ''}>منحنى مساحي</option>
         <option value="line" ${o.chartType === 'line' ? 'selected' : ''}>منحنى خطي</option>
@@ -3784,8 +3878,9 @@ function optionsHtml(w){
       <label class="chk"><input type="checkbox" data-p="opts.forceMono" ${o.forceMono ? 'checked' : ''}> فرض التزايد التراكمي (منع الهبوط)</label>
       ${ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
       ${o.chartType === 'bar' ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%') : ''}
-      <div class="hint">القيم تراكمية بطبيعتها فلا يفترض أن ينزل المنحنى. «فرض التزايد» يثبّت كل نقطة
-      عند أعلى قيمة سابقة، فيعالج أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.
+      <div class="hint">${isCf
+        ? 'مصدر «التدفق النقدي» يقرأ النسب المخططة والفعلية شهرياً من خط الأساس المعتمد في صفحة التدفق النقدي — بدل نسب التحديثات الأسبوعية. يعمل لمشروع واحد محدَّد فقط (غير متاح في وضع «كل المشاريع»).'
+        : 'القيم تراكمية بطبيعتها فلا يفترض أن ينزل المنحنى. «فرض التزايد» يثبّت كل نقطة عند أعلى قيمة سابقة، فيعالج أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.'}
       <br><br>في وضع «كل المشاريع» يُحتسب لكل تاريخ آخر تحديث معروف لكل مشروع (وليس المشاريع التي
       حدّثت في ذلك اليوم فقط)، والإنجاز متوسط مرجّح بقيمة العقد والصرف مجموع.</div>`;
   }
@@ -4100,7 +4195,7 @@ function bindProps(el, w){
       const lab = inp.parentElement && inp.parentElement.querySelector('.mini-val');
       if(lab) lab.textContent = inp.value + (/\.rotate$/.test(inp.dataset.p) ? '°' : '');
       if(/^parts\..+\.size$/.test(inp.dataset.p)) syncInherited(el, w);
-      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs'].includes(inp.dataset.p)) buildPropsTab();
+      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs','opts.dataSource'].includes(inp.dataset.p)) buildPropsTab();
     }
 
     inp.addEventListener('focus', () => { pending = true; });
@@ -4334,7 +4429,7 @@ function buildPageTab(){
 async function loadProject(name, opts){
   opts = opts || {};
   S.project = name;
-  if(!name){ S.records = []; S.latest = null; S.pm = null; S.mode = 'single';
+  if(!name){ S.records = []; S.latest = null; S.pm = null; S.mode = 'single'; S.cashflow = null;
              S.projLatest = []; S.projNames = []; renderAll(); updateScopeUI(); return; }
   try{
     const r = await fetch('/api/builder/data?project=' + encodeURIComponent(name));
@@ -4348,11 +4443,18 @@ async function loadProject(name, opts){
       S.records    = aggregateTimeline(raw);
       S.latest     = aggregate(S.projLatest);
       S.pm = null;
+      S.cashflow = null;                    // التدفق النقدي بيانات مشروع واحد، غير متاح في وضع «كل المشاريع»
     }else{
       S.records = j.records || [];
       S.latest = S.records.length ? S.records[S.records.length - 1] : null;
       S.projLatest = []; S.projNames = [];
       S.pm = j.pm || null;
+      // مصدر بيانات إضافي اختياري لقالب «المنحنى التراكمي» — لا يوقف تحميل باقي الصفحة لو فشل
+      try{
+        const rc = await fetch('/api/cashflow/data?project=' + encodeURIComponent(name));
+        const jc = await rc.json();
+        S.cashflow = jc.success ? jc : null;
+      }catch(e){ S.cashflow = null; }
     }
     if(opts.resolve !== false) await resolveLayout(name);
     // وقت الجلب يُسجَّل قبل الرسم حتى تعرضه بطاقة «تاريخ ووقت آخر تحديث» محدَّثاً لا متأخراً بدورة
