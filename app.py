@@ -927,6 +927,17 @@ async def api_cashflow_meta(request: Request, background_tasks: BackgroundTasks)
                             plan_base=EXCLUDED.plan_base,
                             updated_by=EXCLUDED.updated_by, updated_at=NOW()""",
                        (project, cv, rv, sm, em, locked, src, pb, admin_user))
+        # لو المدى اتقصّر (زي بعد استيراد XER وسّع المدى لآخر البرنامج)، نشيل شهور خارج المدى
+        # الجديد اللي معندهاش أي بيانات فعلية حقيقية على الإطلاق (بواقي تخطيط بس) — عشان الجدول
+        # يستجيب فعلاً لما المستخدم يقصّر «آخر شهر» ويحفظ. أي شهر فيه ولو رقم فعلي واحد (شهرياً
+        # أو أسبوعياً) بيفضل ظاهر ومحمي من الحذف، حتى لو برّه المدى، منعاً لفقد بيانات حقيقية.
+        cursor.execute("""DELETE FROM cashflow_rows
+                          WHERE project_name = %s
+                            AND (ym < %s OR ym > %s)
+                            AND ym NOT IN (
+                                SELECT DISTINCT ym FROM cashflow_rows
+                                WHERE project_name = %s AND act_pct IS NOT NULL
+                            )""", (project, sm, em, project))
         conn.commit(); conn.close()
         background_tasks.add_task(log_audit, admin_user, "إعدادات التدفق النقدي", f"مشروع {project}")
         return _cashflow_payload(project)
