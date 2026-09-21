@@ -776,19 +776,40 @@ function prevMonthPct(i){
     for(let k = i - 1; k >= 0; k--) if(has(ST.rows[k].act_pct)) return ST.rows[k].act_pct;
     return 0;
 }
-/** يقسّم الشهر إلى 4 أسابيع: المبلغ ÷ 4، والنسبة الفعلية موزّعة بالتدرّج حتى نسبة الشهر */
-function splitMonth(i){
+/** يجيب خريطة "آخر أسبوع فيه بيانات فعلية حقيقية" لكل شهر، من تواريخ تحديثات مديري المشاريع
+    (نفس مصدر زرار «استيراد النسب من التحديثات الأسبوعية») — عشان نعرف لو الشهر لسه جاري
+    (تحديثه الوحيد جوّه الشهر مش في آخره) بدل ما نفترض دايماً إنه وصل لآخر الشهر. */
+async function fetchLastRealWeekMap(){
+    try{
+        const j = await (await fetch('/api/cashflow/import-weekly', {method:'POST',
+            headers:{'Content-Type':'application/json'}, body:JSON.stringify({project:ST.project})})).json();
+        if(!j.success) return {};
+        const out = {};
+        Object.keys(j.weeks || {}).forEach(ym => {
+            const wks = Object.keys(j.weeks[ym]).map(Number);
+            if(wks.length) out[ym] = Math.max(...wks);
+        });
+        return out;
+    }catch(e){ return {}; }
+}
+/** يقسّم الشهر إلى 4 أسابيع: المبلغ ÷ 4 دايماً على كل الأسابيع (الخطة مستمرة طول الشهر)،
+    والنسبة الفعلية موزّعة بالتدرّج — لكن فقط لحد آخر أسبوع فيه تحديث حقيقي مسجّل لنفس الشهر
+    (lastRealWk)، مش لآخر الشهر دايماً. لو الشهر منتهي فعلاً (أو معرفش تاريخ التحديث الحقيقي)
+    lastRealWk = WK فتفضل النتيجة زي القديم بالظبط. الأسابيع اللي بعد lastRealWk تفضل فاضية
+    (مفيش بيانات لسه) بدل ما نختلق تقدّم لسه ما حصلش. */
+function splitMonth(i, lastRealWeekMap){
     const r = ST.rows[i], rv = num($('#mRv').value) || num($('#mCv').value) || 0;
     const mPlan = has(r.plan_amount) ? r.plan_amount : null;
     const base  = mPlan === null ? null : Math.round(mPlan / WK * 100) / 100;
     const p0    = prevMonthPct(i);
+    const lastRealWk = (lastRealWeekMap && lastRealWeekMap[r.ym]) || WK;
     const cells = [];
     r.weeks = [];
     for(let w = 1; w <= WK; w++){
         const rec = emptyWeek(r.ym, w);
         if(mPlan !== null) rec.plan_amount = (w === WK) ? +(mPlan - base * (WK - 1)).toFixed(2) : base;
-        if(has(r.act_pct)){
-            rec.act_pct = +(p0 + (r.act_pct - p0) * w / WK).toFixed(2);
+        if(has(r.act_pct) && w <= lastRealWk){
+            rec.act_pct = +(p0 + (r.act_pct - p0) * w / lastRealWk).toFixed(2);
             rec.act_amount = rec.act_pct / 100 * rv;
         }
         r.weeks.push(rec);
@@ -797,12 +818,13 @@ function splitMonth(i){
     r.has_weeks = true;
     return cells;
 }
-function toggleMonth(i){
+async function toggleMonth(i){
     if(ST.expanded.has(i)){ ST.expanded.delete(i); render(); return; }
     ST.expanded.add(i);
     const r = ST.rows[i];
     if(!r.has_weeks){
-        const cells = splitMonth(i);
+        const lastRealWeekMap = await fetchLastRealWeekMap();
+        const cells = splitMonth(i, lastRealWeekMap);
         render();
         saveCells(cells, `قُسِّم ${r.ym} إلى ${WK} أسابيع ✓`);
     }else render();
@@ -1336,8 +1358,9 @@ $('#btnSplitAll').addEventListener('click', async () => {
     if(!confirm(`سيتم تقسيم ${todo.length} شهر إلى ${WK} أسابيع لكل شهر (المبلغ ÷ ${WK} والنسبة موزّعة بالتدرّج).\nيمكنك تعديل أي أسبوع بعدها. المتابعة؟`)) return;
     pushUndo('تقسيم كل الشهور أسبوعياً');
     await autoSnapshot('قبل التقسيم الأسبوعي الشامل');
+    const lastRealWeekMap = await fetchLastRealWeekMap();
     let cells = [];
-    todo.forEach(i => { cells = cells.concat(splitMonth(i)); ST.expanded.add(i); });
+    todo.forEach(i => { cells = cells.concat(splitMonth(i, lastRealWeekMap)); ST.expanded.add(i); });
     render();
     await saveCells(cells, `تم تقسيم ${todo.length} شهر أسبوعياً ✓`);
 });
@@ -2133,6 +2156,11 @@ async function applyPaste(){
     }
     const idx = new Map(ST.rows.map((r, i) => [r.ym, i]));
 
+    // لو فيه صفوف أسبوعية هتحتاج تقسيم شهر لسه مش مقسَّم، هنجيب خريطة "آخر أسبوع حقيقي"
+    // عشان لو التقسيم التلقائي هيملأ أسابيع تانية غير اللي جايه في اللصق، ميختلقش نسبة لسه ما وصلتش فعلياً.
+    const needSplit = rows.some(r => r.wk > 0 && !(ST.rows[idx.get(r.ym)] && ST.rows[idx.get(r.ym)].has_weeks));
+    const lastRealWeekMap = needSplit ? await fetchLastRealWeekMap() : {};
+
     // 2) اكتب القيم (الأسابيع تُقسَّم أولاً عند الحاجة)
     let nCell = 0, skipped = 0;
     const planPctPend = [];                       // نسب مخططة تُحوَّل لمبالغ بعد ترتيب التراكمي
@@ -2142,7 +2170,7 @@ async function applyPaste(){
         const m = ST.rows[i];
         let tgt = m;
         if(r.wk > 0){
-            if(!m.has_weeks) splitMonth(i);
+            if(!m.has_weeks) splitMonth(i, lastRealWeekMap);
             if(!m.weeks[r.wk - 1]) m.weeks[r.wk - 1] = emptyWeek(m.ym, r.wk);
             tgt = m.weeks[r.wk - 1];
         }else if(m.has_weeks && (has(r.vals.plan_amount) || has(r.vals.plan_pct) || has(r.vals.plan_cum) ||
