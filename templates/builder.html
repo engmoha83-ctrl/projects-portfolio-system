@@ -521,7 +521,8 @@ const T = {
     dataSource:'مصدر البيانات', dsWeekly:'تحديثات مديري المشاريع الأسبوعية',
     dsCashflow:'صفحة التدفق النقدي (خط الأساس المعتمد)',
     rangeStart:'من شهر', rangeEnd:'إلى شهر', rangeNone:'بدون حد',
-    noCashflow:'لا توجد بيانات تدفق نقدي كافية بعد — أنشئها من صفحة التدفق النقدي أولاً (لمشروع واحد على الأقل في وضع «كل المشاريع»)',
+    noCashflow:'لا توجد بيانات تدفق نقدي كافية لهذا المشروع بعد — أنشئها من صفحة التدفق النقدي أولاً',
+    cfAllOnly:'مصدر «التدفق النقدي» يعمل لمشروع واحد فقط — اختر مشروعاً محدداً من الشريط العلوي',
     noRangeData:'لا توجد بيانات ضمن المدى الزمني المحدد — وسّع المدى من خصائص القالب',
     million:'مليون', thousand:'ألف', billion:'مليار',
     pickProject:'اختر مشروعاً من الشريط العلوي لعرض البيانات',
@@ -568,7 +569,8 @@ const T = {
     dataSource:'Data source', dsWeekly:'Weekly project-manager updates',
     dsCashflow:'Cash-flow page (approved baseline)',
     rangeStart:'From month', rangeEnd:'To month', rangeNone:'No limit',
-    noCashflow:'No cash-flow data yet — set it up on the Cash Flow page first (at least one project, in “all projects” mode)',
+    noCashflow:'No cash-flow data yet for this project — set it up on the Cash Flow page first',
+    cfAllOnly:'The “Cash flow” source works for a single project only — pick one from the top bar',
     noRangeData:'No data in the selected date range — widen it from the visual’s properties',
     million:'M', thousand:'K', billion:'B',
     pickProject:'Select a project from the top bar to load data',
@@ -655,7 +657,7 @@ const PAGE_PRESETS = {
 
 /* ---------------- الحالة ---------------- */
 const S = {
-  project:'', mode:'single', records:[], latest:null, pm:null, cashflow:null, cashflowAll:null,
+  project:'', mode:'single', records:[], latest:null, pm:null, cashflow:null,
   projLatest:[], projNames:[],
   layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
   page:{lang:'ar', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
@@ -815,44 +817,6 @@ function aggregateTimeline(rows){
     a._projects = snap.length;                  // عدد المشاريع الداخلة في هذه النقطة
     return a;
   }).filter(Boolean);
-}
-
-/* آخر قيمة معروفة لمشروع عند شهر مُعيَّن أو قبله — تُستخدم للحمل للأمام عبر أي فجوة
-   (شهر لم يُدخَل له فعلي بعد) أو بعد نهاية مدى المشروع (يفضل واقفاً على آخر رقم وصله). */
-function lastKnownAtYm(series, ym, key){
-  let v = null;
-  for(const r of series){ if(r.ym > ym) break; if(r[key] !== null && r[key] !== undefined) v = r[key]; }
-  return v;
-}
-/* تجميع التدفق النقدي لكل المشاريع في نسبتين شهريتين (مخطط/فعلي)، كلٌّ منسوب إلى
-   إجمالي أساس التخطيط لكل المشاريع مجتمعة — بنفس منطق «متوسط مرجّح بقيمة العقد» المستخدم
-   أصلاً مع تحديثات المشاريع الأسبوعية، لكن هنا القيم أموال تراكمية فعلية فتُجمَع مباشرة
-   بدل المتوسط. المشروع الذي لم يبدأ مداه بعد لا يساهم؛ القيم الناقصة (شهر بلا تحديث فعلي
-   بعد، أو ما بعد نهاية مدى المشروع) تُحمَل للأمام من آخر رقم حقيقي لنفس المشروع. */
-function aggregateCashflowAll(projPayloads){
-  const list = (projPayloads || []).filter(p => p && p.series && p.series.length);
-  if(!list.length) return [];
-  const totalBase = list.reduce((a, p) =>
-    a + (num(p.meta && p.meta.plan_base) || num(p.meta && p.meta.contract_value) || 0), 0);
-  if(!(totalBase > 0)) return [];
-
-  const monthsSet = new Set();
-  list.forEach(p => p.series.forEach(r => monthsSet.add(r.ym)));
-  const months = Array.from(monthsSet).sort();
-
-  return months.map(ym => {
-    let planSum = 0, actSum = 0, anyAct = false;
-    list.forEach(p => {
-      const first = p.series[0].ym;
-      if(ym < first) return;                              // المشروع لم يبدأ مداه بعد
-      planSum += lastKnownAtYm(p.series, ym, 'plan_cum') || 0;
-      const act = lastKnownAtYm(p.series, ym, 'act_cum');
-      if(act !== null){ actSum += act; anyAct = true; }
-    });
-    return {ym,
-            plan_pct: +(planSum / totalBase * 100).toFixed(2),
-            act_pct: anyAct ? +(actSum / totalBase * 100).toFixed(2) : null};
-  });
 }
 
 /* ---------------- سجل التراجع ---------------- */
@@ -2002,12 +1966,13 @@ const VISUALS = {
 
       /* ---------- مصدر «التدفق النقدي»: نسب مخططة/فعلية شهرية من خط الأساس المعتمد ---------- */
       if(src === 'cashflow'){
-        const cfSeries = (S.mode === 'all') ? (S.cashflowAll || []) : ((S.cashflow && S.cashflow.series) || []);
-        if(!cfSeries.length || cfSeries.length < 2){
+        if(S.mode === 'all'){ body.innerHTML = `<div class="empty-note">${tr('cfAllOnly')}</div>`; return; }
+        const cf = S.cashflow;
+        if(!cf || !cf.series || cf.series.length < 2){
           body.innerHTML = `<div class="empty-note">${tr('noCashflow')}</div>`;
           return;
         }
-        let rows = cfSeries;
+        let rows = cf.series;
         if(rs) rows = rows.filter(r => r.ym >= rs);
         if(re) rows = rows.filter(r => r.ym <= re);
         if(rows.length < 2){
@@ -3914,17 +3879,10 @@ function optionsHtml(w){
       ${ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
       ${o.chartType === 'bar' ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%') : ''}
       <div class="hint">${isCf
-        ? `مصدر «التدفق النقدي» يقرأ النسب المخططة والفعلية شهرياً من خط الأساس المعتمد في صفحة التدفق
-           النقدي — بدل نسب التحديثات الأسبوعية.
-           <br><br>في وضع «كل المشاريع»: تُجمع القيمة التراكمية (مخططة وفعلية) بالريال لكل المشاريع
-           التي أُعِدّ لها تدفق نقدي، ثم تُنسَب كل نقطة إلى إجمالي أساس التخطيط لكل هذه المشاريع مجتمعة
-           — فتُقارَن الحصيلة الفعلية بالحصيلة المخططة على مستوى المحفظة كلها شهراً بشهر. مشروع لم
-           يبدأ مداه بعد لا يساهم، والشهر الذي لم يُدخَل فيه فعلي أو الذي يقع بعد نهاية مدى مشروع
-           يُحمَل فيه آخر رقم حقيقي معروف لذلك المشروع للأمام.`
-        : `القيم تراكمية بطبيعتها فلا يفترض أن ينزل المنحنى. «فرض التزايد» يثبّت كل نقطة عند أعلى قيمة
-           سابقة، فيعالج أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.
-           <br><br>في وضع «كل المشاريع» يُحتسب لكل تاريخ آخر تحديث معروف لكل مشروع (وليس المشاريع التي
-           حدّثت في ذلك اليوم فقط)، والإنجاز متوسط مرجّح بقيمة العقد والصرف مجموع.`}</div>`;
+        ? 'مصدر «التدفق النقدي» يقرأ النسب المخططة والفعلية شهرياً من خط الأساس المعتمد في صفحة التدفق النقدي — بدل نسب التحديثات الأسبوعية. يعمل لمشروع واحد محدَّد فقط (غير متاح في وضع «كل المشاريع»).'
+        : 'القيم تراكمية بطبيعتها فلا يفترض أن ينزل المنحنى. «فرض التزايد» يثبّت كل نقطة عند أعلى قيمة سابقة، فيعالج أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.'}
+      <br><br>في وضع «كل المشاريع» يُحتسب لكل تاريخ آخر تحديث معروف لكل مشروع (وليس المشاريع التي
+      حدّثت في ذلك اليوم فقط)، والإنجاز متوسط مرجّح بقيمة العقد والصرف مجموع.</div>`;
   }
   if(w.type === 'topn'){
     const nums = FIELD_META.filter(f => ['number','percent','currency','days'].includes(f.type));
@@ -4471,8 +4429,7 @@ function buildPageTab(){
 async function loadProject(name, opts){
   opts = opts || {};
   S.project = name;
-  if(!name){ S.records = []; S.latest = null; S.pm = null; S.mode = 'single';
-             S.cashflow = null; S.cashflowAll = null;
+  if(!name){ S.records = []; S.latest = null; S.pm = null; S.mode = 'single'; S.cashflow = null;
              S.projLatest = []; S.projNames = []; renderAll(); updateScopeUI(); return; }
   try{
     const r = await fetch('/api/builder/data?project=' + encodeURIComponent(name));
@@ -4486,25 +4443,12 @@ async function loadProject(name, opts){
       S.records    = aggregateTimeline(raw);
       S.latest     = aggregate(S.projLatest);
       S.pm = null;
-      S.cashflow = null;
-      // مصدر بيانات إضافي اختياري لقالب «المنحنى التراكمي» في وضع «كل المشاريع»: نجيب تدفق
-      // كل مشروع بالتوازي (مشروع بلا تدفق نقدي مُعَدّ بعد يُستبعَد بهدوء، من غير ما يوقف الباقي)
-      try{
-        const cfList = await Promise.all(S.projNames.map(async pn => {
-          try{
-            const rc = await fetch('/api/cashflow/data?project=' + encodeURIComponent(pn));
-            const jc = await rc.json();
-            return (jc.success && jc.series && jc.series.length) ? jc : null;
-          }catch(e){ return null; }
-        }));
-        S.cashflowAll = aggregateCashflowAll(cfList);
-      }catch(e){ S.cashflowAll = null; }
+      S.cashflow = null;                    // التدفق النقدي بيانات مشروع واحد، غير متاح في وضع «كل المشاريع»
     }else{
       S.records = j.records || [];
       S.latest = S.records.length ? S.records[S.records.length - 1] : null;
       S.projLatest = []; S.projNames = [];
       S.pm = j.pm || null;
-      S.cashflowAll = null;
       // مصدر بيانات إضافي اختياري لقالب «المنحنى التراكمي» — لا يوقف تحميل باقي الصفحة لو فشل
       try{
         const rc = await fetch('/api/cashflow/data?project=' + encodeURIComponent(name));
