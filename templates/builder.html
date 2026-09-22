@@ -630,6 +630,7 @@ function applyUiStatic(){
 
 /* ---- قاموس العربي → الإنجليزي لنصوص الواجهة المولَّدة بالكود ---- */
 const UI_EN = {
+"سيتم استبدال ألوان كل العناصر بألوان الثيم (العناوين والخلفيات والنصوص). تقدر ترجع لها بـ Ctrl+Z. المتابعة؟": "This will replace the colors of all elements (titles, backgrounds and text) with the theme colors. You can undo with Ctrl+Z. Continue?",
 "· آخر تعديل": "· Last modified",
 "عناصر محددة": "elements selected",
 "اسحب أي عنصر منها لتحريك المجموعة كلها. Esc لإلغاء التحديد.": "Drag any of them to move the whole group. Esc to clear the selection.",
@@ -1940,6 +1941,9 @@ function nearWhite(c){
   const r = (v >> 16) & 255, g = (v >> 8) & 255, b = v & 255;
   return (0.299 * r + 0.587 * g + 0.114 * b) > 215;     // فاتح جداً
 }
+/* لون نص العنصر نفسه (من خصائصه) — الرسوم تتبعه بدل ثيم الصفحة، فتغيير الثيم
+   أو التراجع عنه لا يترك نصوصاً بلون لا يُقرأ على خلفية العنصر */
+function wText(w){ return (w && w.style && w.style.color) || theme().text; }
 function dlPointColors(w, data, insideColor){
   const nums = (data || []).map(v => {
     const n = (v && typeof v === 'object') ? v.y : v;
@@ -1949,13 +1953,13 @@ function dlPointColors(w, data, insideColor){
   /* لون الوسم خارج العمود: لون المستخدم إن كان مقروءاً على الخلفية، وإلا لون
      نص الثيم. اللون الأبيض هو الافتراضي *داخل* العمود، ولا يُقرأ خارجه. */
   const set  = (w.parts && w.parts.dataLabels && w.parts.dataLabels.color) || '';
-  const outC = (set && !nearWhite(set)) ? set : theme().text;
+  const outC = (set && !nearWhite(set)) ? set : wText(w);
   if(!nums.length) return [insideColor || outC];
   return nums.map(v => (!mx || v / mx < 0.12) ? outC : (insideColor || outC));
 }
 function dlOpts(w, fallbackColor, formatter, pointData){
   const d = dlOf(w);
-  const textC = d.color || fallbackColor || theme().text;
+  const textC = d.color || fallbackColor || wText(w);
   const bgC   = d.bgColor || '#1a2b4c';
   /* ملاحظة ApexCharts: عند تفعيل الخلفية يصبح style.colors هو لون *المستطيل*
      و background.foreColor هو لون *النص* — لذلك نعكسهما هنا عمداً. */
@@ -2190,7 +2194,7 @@ function partOf(w, key){
 /** نمط ApexCharts لمسميات محور */
 function axisStyle(w, key){
   const p = partOf(w, key);
-  return {style:{colors:p.color || theme().text, fontSize:p.size + 'px',
+  return {style:{colors:p.color || wText(w), fontSize:p.size + 'px',
                  fontFamily:wFont(w), fontWeight:p.weight || 400},
           offsetX:p.offsetX, offsetY:p.offsetY};
 }
@@ -2199,7 +2203,7 @@ function legendStyle(w, base){
   const p = partOf(w, 'legend');
   const o = Object.assign({fontSize:p.size + 'px', fontFamily:wFont(w),
                            fontWeight:p.weight || 400,
-                           labels:{colors:p.color || theme().text}}, base || {});
+                           labels:{colors:p.color || wText(w)}}, base || {});
   if(p.legendPos){
     const [pos, ha] = p.legendPos.split('-');
     o.position = pos;
@@ -2489,14 +2493,14 @@ const VISUALS = {
           track:{background:'rgba(125,125,125,.15)'},
           dataLabels:{show:d.show !== false,
             name:{show:nameShown, fontSize:nameSize + 'px',
-                  offsetY:nameOff, color:d.color || theme().text},
+                  offsetY:nameOff, color:d.color || wText(w)},
             value:{fontSize:d.size + 'px',
                    fontWeight:d.weight || 900, offsetY:valueOff,
-                   color:d.color || theme().text, formatter:v => v + '%'},
-            total:{show:series.length > 1, label:labels[0], color:d.color || theme().text,
+                   color:d.color || wText(w), formatter:v => v + '%'},
+            total:{show:series.length > 1, label:labels[0], color:d.color || wText(w),
                    formatter:() => series[0] + '%'}}}},
         legend:{show:series.length > 1 && !w.opts.showValues, position:'bottom',
-                fontSize:wSize(w) + 'px', labels:{colors:theme().text}}
+                fontSize:wSize(w) + 'px', labels:{colors:wText(w)}}
       }, {host, reserve});
     }
   },
@@ -2584,7 +2588,7 @@ const VISUALS = {
               /* معايرة مقاسة: عند إظهار الاسم تضيف المكتبة إزاحة تتناقص مع كبر
                  الخط (≈ 17.5 − 0.39×الحجم)، فنطرحها ليبقى الرقم في المنتصف. */
               name:{fontSize:Math.max(9, Math.round(d.size * 0.58)) + 'px',
-                    offsetY:-Math.round(d.size * 0.62) - 10, color:d.color || theme().text},
+                    offsetY:-Math.round(d.size * 0.62) - 10, color:d.color || wText(w)},
               value:{fontSize:d.size + 'px', fontWeight:d.weight || 900,
                      offsetY:Math.round(d.size * 0.39) - 17,
                      color:d.color || color, formatter:() => shown}}}},
@@ -2624,7 +2628,7 @@ const VISUALS = {
           ? {bar:{columnWidth:barW(w) + '%', borderRadius:4,
                   dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}} : {},
         fill:w.opts.chartType === 'area' ? {type:'gradient', gradient:{opacityFrom:.45, opacityTo:.05}} : {opacity:1},
-        dataLabels:dlOpts(w, theme().text, v => v + '%'),
+        dataLabels:dlOpts(w, wText(w), v => v + '%'),
         markers:{size:w.opts.chartType === 'line' ? 4 : 0},
         xaxis:{categories:dtAx.cats, labels:dtAx.labels},
         yaxis:{max:progMax(w, series), min:0, tickAmount:5, decimalsInFloat:0,
@@ -2797,7 +2801,7 @@ const VISUALS = {
         series:[{name:useT ? tr('pctOfTarget') : tr('evaluation'), data}],
         labels:cats, colors:radCols, stroke:{width:lineW(w)},
         dataLabels:(mode === 'chart')
-          ? dlOpts(w, theme().text, (v, ctx) => {
+          ? dlOpts(w, wText(w), (v, ctx) => {
               const i = ctx && ctx.dataPointIndex;
               return (i === undefined || i === null || !keys[i]) ? v : shown(i);
             })
@@ -2812,7 +2816,7 @@ const VISUALS = {
         plotOptions:{radar:{size:rsize,
           polygons:{strokeColors:'rgba(125,125,125,.25)', connectorColors:'rgba(125,125,125,.25)'}}},
         xaxis:{labels:{style:Object.assign({}, axisStyle(w, 'xaxis').style,
-                       {colors:Array(keys.length).fill(partOf(w, 'xaxis').color || theme().text)})}}
+                       {colors:Array(keys.length).fill(partOf(w, 'xaxis').color || wText(w))})}}
       }, {host:body.querySelector('.gauge-chart'), reserve});
     }
   },
@@ -2927,7 +2931,7 @@ const VISUALS = {
             fill:{colors:colors, type:'solid',
                   opacity:series.map(sr => sr.type === 'area' ? 0.15 : (sr.type === 'column' ? 0.85 : 1))},
             markers:{size:series.map(sr => sr.type === 'column' ? 0 : 3)},
-            dataLabels:dlOpts(w, theme().text, v => v === null ? '' : pctTick(num(v))),
+            dataLabels:dlOpts(w, wText(w), v => v === null ? '' : pctTick(num(v))),
             xaxis:{categories:scAx.cats, labels:scAx.labels},
             yaxis:yaxes,
             grid:{borderColor:'rgba(125,125,125,.18)'},
@@ -2970,7 +2974,7 @@ const VISUALS = {
           fill:{colors:colors, type:'solid',
                 opacity:series.map(sr => sr.type === 'area' ? 0.20 : (sr.type === 'column' ? 0.92 : 1))},
           markers:{size:barType ? 0 : 3},
-          dataLabels:dlOpts(w, theme().text, v => v === null ? '' : num(v).toFixed(1) + '%'),
+          dataLabels:dlOpts(w, wText(w), v => v === null ? '' : num(v).toFixed(1) + '%'),
           xaxis:{categories:scAx.cats, labels:scAx.labels},
           // الوضع الشهري: نسبة كل شهر من إجمالي القيمة صغيرة عادة (على عكس التراكمي الذي يصل
           // لـ100%)، فمحور ثابت 0-100 يُظهر كل الأعمدة شبه مسطّحة — لذلك يُترك تلقائياً هنا.
@@ -3061,7 +3065,7 @@ const VISUALS = {
         fill:{colors:colors, type:'solid',
               opacity:series.map(sr => sr.type === 'area' ? 0.20 : (sr.type === 'column' ? 0.92 : 1))},
         markers:{size:barType ? 0 : 3},
-        dataLabels:dlOpts(w, theme().text, (v, o) => {
+        dataLabels:dlOpts(w, wText(w), (v, o) => {
           const i = o && o.seriesIndex;
           return (types[i] === 'val') ? compactNum(num(v)) : num(v).toFixed(1) + '%';
         }),
@@ -3385,13 +3389,13 @@ const VISUALS = {
           dataLabels:{offset: outside ? 16 : 0, minAngleToShowLabel: 6}}, !donut ? {} : {donut:{
           size:o.donutSize || '62%',
           labels:{show:!!o.showTotal, name:{show:true, fontSize:partOf(w,'cardValue').size * .55 + 'px',
-                        fontFamily:wFont(w), color:partOf(w,'cardValue').color || theme().text},
+                        fontFamily:wFont(w), color:partOf(w,'cardValue').color || wText(w)},
                   value:{show:true, fontSize:partOf(w,'cardValue').size + 'px', fontFamily:wFont(w),
                          fontWeight:partOf(w,'cardValue').weight || 800,
-                         color:partOf(w,'cardValue').color || theme().text,
+                         color:partOf(w,'cardValue').color || wText(w),
                          formatter:v => (types[0] === 'percent' ? num(v).toFixed(1) + '%' : compactNum(num(v)))},
                   total:{show:true, label:tr('total'), fontSize:partOf(w,'cardValue').size * .55 + 'px',
-                         color:partOf(w,'cardValue').color || theme().text,
+                         color:partOf(w,'cardValue').color || wText(w),
                          formatter:() => (types[0] === 'percent' ? total.toFixed(1) + '%' : compactNum(total))}}
         }})},
         legend:legendStyle(w, {show:o.showLegend !== false, position:'bottom', horizontalAlign:'center'}),
@@ -3505,7 +3509,7 @@ const VISUALS = {
       const shown = empty ? tr('typeHere') : String(txt);
       body.innerHTML = `<div class="txt-visual${empty ? ' txt-placeholder' : ''}"
         style="font-family:${w.opts.font};font-size:${w.opts.size}px;
-        color:${w.opts.color || theme().text};text-align:${w.opts.align};font-weight:${w.opts.weight};">${
+        color:${w.opts.color || wText(w)};text-align:${w.opts.align};font-weight:${w.opts.weight};">${
         shown.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>`;
     }
   }
@@ -4239,8 +4243,13 @@ function zoomFit(){
   applyZoom();
 }
 function applyThemeToAll(){
-  const t = theme();
+  /* الثيم لا يتغيّر فعلياً إلا هنا، وبعد أخذ نسخة للتراجع — فالتراجع يرجّع الثيم
+     وألوان العناصر معاً (قبل كده الاختيار من القائمة كان بيغيّر الثيم فوراً من غير نسخة) */
+  const key = ($('#pgTheme') && THEMES[$('#pgTheme').value]) ? $('#pgTheme').value : S.page.theme;
+  if(S.widgets.length && !confirm('سيتم استبدال ألوان كل العناصر بألوان الثيم (العناوين والخلفيات والنصوص). تقدر ترجع لها بـ Ctrl+Z. المتابعة؟')) return;
   snapshot();
+  S.page.theme = key;
+  const t = theme();
   S.page.bg = t.pageBg;
   S.widgets.forEach(w => {
     w.style.bg = t.widgetBg; w.style.color = t.text; w.style.border.color = t.border;
@@ -5413,7 +5422,7 @@ function buildPageTab(){
       t.palette.slice(0, 6).map(c => `<span class="tp-c" style="background:${c}"></span>`).join('');
   }
   paintThemePrev();
-  $('#pgTheme').addEventListener('change', e => { S.page.theme = e.target.value; paintThemePrev(); });
+  $('#pgTheme').addEventListener('change', () => paintThemePrev());   // معاينة فقط — التطبيق بالزر
   el.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { setLang(b.dataset.lang); saveSession(); }));
   $('#pgProgSrc').addEventListener('change', e => setProgressSource(e.target.value));
   $('#pgAuto').addEventListener('change', e => setAutoRefreshUI(e.target.value));
