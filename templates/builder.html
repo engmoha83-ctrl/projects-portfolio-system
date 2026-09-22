@@ -520,13 +520,14 @@ const T = {
     noTimeline:'لا توجد تحديثات كافية لرسم المنحنى التراكمي',
     dataSource:'مصدر البيانات', dsWeekly:'تحديثات مديري المشاريع الأسبوعية',
     dsCashflow:'صفحة التدفق النقدي (خط الأساس المعتمد)',
-    rangeStart:'من شهر', rangeEnd:'إلى شهر', rangeNone:'بدون حد',
+    rangeStart:'من تاريخ', rangeEnd:'إلى تاريخ', rangeNone:'بدون حد',
     noCashflow:'لا توجد بيانات تدفق نقدي كافية بعد — أنشئها من صفحة التدفق النقدي أولاً (لمشروع واحد على الأقل في وضع «كل المشاريع»)',
     noRangeData:'لا توجد بيانات ضمن المدى الزمني المحدد — وسّع المدى من خصائص القالب',
     calcMode:'طريقة الحساب', ccCumulative:'تراكمي', ccPeriod:'شهري (كل شهر منفرداً)',
-    periodActual:'الصرف الفعلي الشهري', periodPlanned:'الصرف المخطط الشهري',
-    weekActual:'الصرف الفعلي الأسبوعي', weekPlanned:'الصرف المخطط الأسبوعي',
-    noPeriodData:'لا توجد بيانات صرف شهري كافية ضمن هذا المدى',
+    periodActual:'النسب الفعلية الشهرية', periodPlanned:'النسب المخططة الشهرية',
+    weekActual:'النسب الفعلية الأسبوعية', weekPlanned:'النسب المخططة الأسبوعية',
+    dayActual:'النسب الفعلية اليومية', dayPlanned:'النسب المخططة اليومية', loading:'جاري التحميل…',
+    noPeriodData:'لا توجد نسب كافية لكل فترة ضمن هذا المدى',
     million:'مليون', thousand:'ألف', billion:'مليار',
     pickProject:'اختر مشروعاً من الشريط العلوي لعرض البيانات',
     noImage:'لا توجد صورة — اختر مرفقاً من المشروع أو ارفع لوجو من الشريط الجانبي',
@@ -571,12 +572,13 @@ const T = {
     noTimeline:'Not enough updates to draw the cumulative curve',
     dataSource:'Data source', dsWeekly:'Weekly project-manager updates',
     dsCashflow:'Cash-flow page (approved baseline)',
-    rangeStart:'From month', rangeEnd:'To month', rangeNone:'No limit',
+    rangeStart:'From date', rangeEnd:'To date', rangeNone:'No limit',
     noCashflow:'No cash-flow data yet — set it up on the Cash Flow page first (at least one project, in “all projects” mode)',
     noRangeData:'No data in the selected date range — widen it from the visual’s properties',
     calcMode:'Calculation mode', ccCumulative:'Cumulative', ccPeriod:'Monthly (each month on its own)',
-    periodActual:'Monthly actual spend', periodPlanned:'Monthly planned spend',
-    weekActual:'Weekly actual spend', weekPlanned:'Weekly planned spend',
+    periodActual:'Monthly actual %', periodPlanned:'Monthly planned %',
+    weekActual:'Weekly actual %', weekPlanned:'Weekly planned %',
+    dayActual:'Daily actual %', dayPlanned:'Daily planned %', loading:'Loading…',
     noPeriodData:'Not enough monthly spend data in this range',
     million:'M', thousand:'K', billion:'B',
     pickProject:'Select a project from the top bar to load data',
@@ -663,10 +665,10 @@ const PAGE_PRESETS = {
 
 /* ---------------- الحالة ---------------- */
 const S = {
-  project:'', mode:'single', records:[], latest:null, pm:null, cashflow:null, cashflowAll:null,
+  project:'', mode:'single', records:[], latest:null, pm:null, cfCache:{},
   projLatest:[], projNames:[],
   layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
-  page:{lang:'ar', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
+  page:{lang:'ar', progressSource:'weekly', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
         theme:'navy', grid:10, snap:true, snapMode:'grid', showGrid:true, noOverlap:false},
   widgets:[], selected:null, multi:[], zoom:1, seq:1, activePart:null, lastItems:{},
   itemKeys:{}, itemDefs:{}, itemSig:{},
@@ -736,11 +738,15 @@ const RATING_FIELDS = ['eval_labor','eval_equip','eval_financial','eval_hse'];
 function aggregate(rows){
   if(!rows || !rows.length) return null;
   const out = {};
-  const wts  = rows.map(r => num(r.contractor_val) || 0);
+  // مصدر النسب «التدفق النقدي»: نفس حساب منحنى المحفظة — المخطط موزون بأساس التخطيط، والفعلي
+  // (نسبة من القيمة بعد أوامر التغيير) موزون بالقيمة بعد التغيير، والاتنين على إجمالي أساس التخطيط.
+  const wts  = rows.map(r => r._cf ? r._cf.pb : (num(r.contractor_val) || 0));
+  const actW = rows.map(r => r._cf ? r._cf.rv : (num(r.contractor_val) || 0));
   const wsum = wts.reduce((a, b) => a + b, 0);
   const wavg = key => {
     const vals = rows.map(r => num(r[key]));
-    return wsum > 0 ? vals.reduce((a, v, i) => a + v * wts[i], 0) / wsum
+    const w = (key === 'act_prog_cur' || key === 'act_prog_prev') ? actW : wts;
+    return wsum > 0 ? vals.reduce((a, v, i) => a + v * w[i], 0) / wsum
                     : vals.reduce((a, v) => a + v, 0) / vals.length;
   };
 
@@ -825,82 +831,39 @@ function aggregateTimeline(rows){
   }).filter(Boolean);
 }
 
-/* آخر قيمة معروفة لمشروع عند شهر مُعيَّن أو قبله — تُستخدم للحمل للأمام عبر أي فجوة
-   (شهر لم يُدخَل له فعلي بعد) أو بعد نهاية مدى المشروع (يفضل واقفاً على آخر رقم وصله). */
-function lastKnownAtYm(series, ym, key){
-  let v = null;
-  for(const r of series){ if(r.ym > ym) break; if(r[key] !== null && r[key] !== undefined) v = r[key]; }
-  return v;
-}
-/* تجميع التدفق النقدي لكل المشاريع في نسبتين شهريتين (مخطط/فعلي)، كلٌّ منسوب إلى
-   إجمالي أساس التخطيط لكل المشاريع مجتمعة — بنفس منطق «متوسط مرجّح بقيمة العقد» المستخدم
-   أصلاً مع تحديثات المشاريع الأسبوعية، لكن هنا القيم أموال تراكمية فعلية فتُجمَع مباشرة
-   بدل المتوسط. المشروع الذي لم يبدأ مداه بعد لا يساهم؛ القيم الناقصة (شهر بلا تحديث فعلي
-   بعد، أو ما بعد نهاية مدى المشروع) تُحمَل للأمام من آخر رقم حقيقي لنفس المشروع.
-   كما تُحسَب plan_period_pct/act_period_pct: نفس المنطق لكن للقيمة الشهرية (غير التراكمية) —
-   نسبة كل شهر وحده من إجمالي أساس التخطيط، حتى تُقارَن وتيرة الصرف الفعلي بوتيرة الصرف
-   المخطط شهراً بشهر (بخلاف المنحنى التراكمي). هنا لا يُحمَل شيء للأمام: شهر بلا سجل حقيقي
-   لمشروع مُعيَّن يعني ببساطة صرفاً صفرياً له في ذلك الشهر تحديداً. */
-function aggregateCashflowAll(projPayloads){
-  const list = (projPayloads || []).filter(p => p && p.series && p.series.length);
-  if(!list.length) return [];
-  const totalBase = list.reduce((a, p) =>
-    a + (num(p.meta && p.meta.plan_base) || num(p.meta && p.meta.contract_value) || 0), 0);
-  if(!(totalBase > 0)) return [];
-
-  const monthsSet = new Set();
-  list.forEach(p => p.series.forEach(r => monthsSet.add(r.ym)));
-  const months = Array.from(monthsSet).sort();
-  const recMaps = list.map(p => new Map(p.series.map(r => [r.ym, r])));
-
-  return months.map(ym => {
-    let planSum = 0, actSum = 0, anyAct = false;
-    let planPeriodSum = 0, actPeriodSum = 0, anyActPeriod = false;
-    list.forEach((p, idx) => {
-      const first = p.series[0].ym;
-      if(ym < first) return;                              // المشروع لم يبدأ مداه بعد
-      planSum += lastKnownAtYm(p.series, ym, 'plan_cum') || 0;
-      const act = lastKnownAtYm(p.series, ym, 'act_cum');
-      if(act !== null){ actSum += act; anyAct = true; }
-      const rec = recMaps[idx].get(ym);
-      if(rec){
-        planPeriodSum += rec.plan_amount || 0;
-        if(rec.act_period !== null && rec.act_period !== undefined){
-          actPeriodSum += rec.act_period; anyActPeriod = true;
-        }
-      }
-    });
-    return {ym,
-            plan_pct: +(planSum / totalBase * 100).toFixed(2),
-            act_pct: anyAct ? +(actSum / totalBase * 100).toFixed(2) : null,
-            plan_period_pct: +(planPeriodSum / totalBase * 100).toFixed(2),
-            act_period_pct: anyActPeriod ? +(actPeriodSum / totalBase * 100).toFixed(2) : null};
-  });
-}
-
-/* تحويل سلسلة تدفق نقدي شهرية إلى أسبوعية: كل شهر يصبح WEEKS نقاط من حقل weeks القادم
-   من الخادم. المفتاح ym بصيغة «YYYY-MM#N» حتى يبقى الترتيب النصي صحيحاً (نفس منطق
-   aggregateCashflowAll وlastKnownAtYm بدون أي تعديل)، والاسم الظاهر على المحور في label. */
-function cfToWeeks(series){
-  const out = [];
-  (series || []).forEach(m => {
-    (m.weeks || []).forEach(w => out.push(Object.assign({}, w,
-      {ym:m.ym + '#' + w.wk, label:m.ym + ' أ' + w.wk})));
-  });
-  return out;
-}
-function cfSeriesFor(gran){
-  if(S.mode === 'all'){
-    if(gran !== 'week') return S.cashflowAll || [];
-    if(!S.cashflowAllWeek && S.cashflowAllRaw){
-      S.cashflowAllWeek = aggregateCashflowAll(S.cashflowAllRaw.map(p =>
-        Object.assign({}, p, {series:cfToWeeks(p.series)})));
-    }
-    return (S.cashflowAllWeek || []).map(r => Object.assign({}, r,
-      {label:r.ym.replace('#', ' أ')}));
+/* منحنى التدفق النقدي من السيرفر (/api/cashflow/curve): التوزيع اليومي والتجميع يوم/أسبوع/شهر
+   ولكل المشاريع كله بيتحسب هناك، والصفحة بتاخد الفترات المطلوبة بس. النتيجة بتتخزن مؤقتاً لكل
+   (مشروع، دقة، مدى) لحد الـ Refresh، وأول ما توصل بيتعاد رسم قوالب المنحنى اللي مستنياها. */
+function cfRangeFrom(v){ v = String(v || ''); return /^\d{4}-\d{2}$/.test(v) ? v + '-01' : v.slice(0, 10); }
+function cfRangeTo(v){
+  v = String(v || '');
+  if(/^\d{4}-\d{2}$/.test(v)){                          // قوالب قديمة كان مداها بالشهر
+    const d = new Date(+v.slice(0, 4), +v.slice(5, 7), 0);
+    return v + '-' + String(d.getDate()).padStart(2, '0');
   }
-  const base = (S.cashflow && S.cashflow.series) || [];
-  return gran === 'week' ? cfToWeeks(base) : base;
+  return v.slice(0, 10);
+}
+/* تسمية محور النسب: القيم اليومية والأسبوعية أقل من 1% غالباً، فالتقريب لرقم صحيح يخليها كلها «0%» */
+function pctTick(v){
+  if(v === null || v === undefined || isNaN(v)) return '';
+  const a = Math.abs(v);
+  return (a === 0 || a >= 10 ? Math.round(v) : a >= 1 ? +(+v).toFixed(1) : +(+v).toFixed(2)) + '%';
+}
+function cfCurveGet(gran, frm, to){
+  if(S.mode !== 'all' && !S.project) return {state:'err'};
+  const scope = (S.mode === 'all') ? '' : S.project;
+  const key = [scope, gran, frm, to].join('|');
+  S.cfCache = S.cfCache || {};
+  if(S.cfCache[key]) return S.cfCache[key];
+  S.cfCache[key] = {state:'wait'};
+  fetch('/api/cashflow/curve?project=' + encodeURIComponent(scope) + '&gran=' + gran +
+        '&frm=' + encodeURIComponent(frm || '') + '&to=' + encodeURIComponent(to || ''))
+    .then(r => r.json())
+    .then(j => { S.cfCache[key] = j.success ? {state:'ok', rows:j.buckets || []} : {state:'err', msg:j.error}; })
+    .catch(e => { S.cfCache[key] = {state:'err', msg:e.message}; })
+    .then(() => S.widgets.filter(x => x.type === 'scurve' && x.opts && x.opts.dataSource === 'cashflow')
+                         .forEach(x => { try{ drawWidget(x); }catch(e){} }));
+  return S.cfCache[key];
 }
 
 /* ---------------- سجل التراجع ---------------- */
@@ -912,7 +875,9 @@ function snapshot(){
 function applyState(str){
   const prev = S.selected;
   const st = JSON.parse(str);
+  const srcChanged = (S.page.progressSource || 'weekly') !== (st.page.progressSource || 'weekly');
   S.widgets = st.widgets; S.page = st.page;
+  if(srcChanged) processData().then(() => { renderAll(); buildPageTab(); });   // التراجع عن تغيير مصدر النسب
   S.multi = (S.multi || []).filter(id => S.widgets.some(w => w.id === id));
   S.selected = S.widgets.some(w => w.id === prev) ? prev : (S.multi[0] || null);   // حافظ على التحديد
   renderAll(); buildPageTab(); buildPropsTab();
@@ -2033,7 +1998,7 @@ const VISUALS = {
     title:'المنحنى التراكمي للإنجاز والصرف', title_en:'Cumulative progress & spend curve',
     render(body, w){
       const src = w.opts.dataSource || 'weekly';
-      const rs = w.opts.rangeStart || '', re = w.opts.rangeEnd || '';
+      const rs = cfRangeFrom(w.opts.rangeStart), re = cfRangeTo(w.opts.rangeEnd);
 
       // القيم تراكمية بطبيعتها؛ هذا يمنع أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.
       // نسخة آمنة مع القيم المفقودة (null): لا تُحوَّل لصفر، بل تُترك فاضية كما هي —
@@ -2050,41 +2015,28 @@ const VISUALS = {
 
       /* ---------- مصدر «التدفق النقدي»: نسب مخططة/فعلية شهرية من خط الأساس المعتمد ---------- */
       if(src === 'cashflow'){
-        const gran = (w.opts.granularity === 'week') ? 'week' : 'month';
-        const cfSeries = cfSeriesFor(gran);
-        if(!cfSeries.length || cfSeries.length < 2){
-          body.innerHTML = `<div class="empty-note">${tr('noCashflow')}</div>`;
-          return;
-        }
-        let rows = cfSeries;
-        if(rs) rows = rows.filter(r => r.ym.slice(0, 7) >= rs);
-        if(re) rows = rows.filter(r => r.ym.slice(0, 7) <= re);
-        if(rows.length < 2){
-          body.innerHTML = `<div class="empty-note">${tr('noRangeData')}</div>`;
+        const gran = ['day', 'week'].includes(w.opts.granularity) ? w.opts.granularity : 'month';
+        const got = cfCurveGet(gran, rs, re);
+        if(got.state === 'wait'){ body.innerHTML = `<div class="empty-note">${tr('loading')}</div>`; return; }
+        const rows = got.rows || [];
+        if(got.state !== 'ok' || rows.length < 2){
+          body.innerHTML = `<div class="empty-note">${(rs || re) && got.state === 'ok' && rows.length
+                                                    ? tr('noRangeData') : tr('noCashflow')}</div>`;
           return;
         }
         const isPeriod = (w.opts.calcMode === 'period');
         // «مدمج»: أعمدة للصرف الشهري على المحور الأيمن + منحنيات للتراكمي على محور ثانٍ 0-100%
         const isCombo  = (w.opts.calcMode === 'combined');
-        // في وضع «شهري»: كل نقطة تخص شهرها فقط (غير تراكمية)، فلا يُطبَّق فرض التزايد عليها.
-        // في وضع «كل المشاريع» تصل النسبة الشهرية جاهزة من aggregateCashflowAll (act_period_pct/
-        // plan_period_pct)؛ في وضع مشروع واحد نحسبها هنا من المبلغ الشهري ÷ أساس التخطيط.
-        const pb = (S.mode === 'all') ? null
-                 : ((S.cashflow && S.cashflow.meta && (S.cashflow.meta.plan_base || S.cashflow.meta.contract_value)) || 0);
-        const periodPct = (r, key) => {
-          if(S.mode === 'all') return key === 'act' ? r.act_period_pct : r.plan_period_pct;
-          if(!pb) return null;
-          const amt = key === 'act' ? r.act_period : r.plan_amount;
-          return (amt === null || amt === undefined) ? null : +(amt / pb * 100).toFixed(2);
-        };
+        // «لكل فترة»: كل نقطة تخص فترتها بس (غير تراكمية)، فلا يُطبَّق فرض التزايد عليها.
+        // النسب جاهزة من السيرفر: من أساس التخطيط للمشروع، أو من إجمالي أساس التخطيط في «كل المشاريع».
+        const periodPct = (r, key) => key === 'act' ? r.act_period_pct : r.plan_period_pct;
         if(isPeriod && !rows.some(r => periodPct(r, 'act') !== null || periodPct(r, 'plan') !== null)){
           body.innerHTML = `<div class="empty-note">${tr('noPeriodData')}</div>`;
           return;
         }
-        const cats = rows.map(r => r.label || r.ym);
-        const isWeek = (gran === 'week');
-        const pActName = isWeek ? tr('weekActual') : tr('periodActual');
-        const pPlnName = isWeek ? tr('weekPlanned') : tr('periodPlanned');
+        const cats = rows.map(r => r.label);
+        const pActName = gran === 'day' ? tr('dayActual') : gran === 'week' ? tr('weekActual') : tr('periodActual');
+        const pPlnName = gran === 'day' ? tr('dayPlanned') : gran === 'week' ? tr('weekPlanned') : tr('periodPlanned');
 
         if(isCombo){
           const pal = theme().palette;
@@ -2112,7 +2064,7 @@ const VISUALS = {
           const scAx = dateAxis(w, cats);
           const axFont = axisStyle(w, 'yaxis').style;
           const firstM = kinds.indexOf('m'), firstC = kinds.indexOf('c');
-          const pctFmt = v => (v === null || v === undefined) ? '' : Math.round(v) + '%';
+          const pctFmt = pctTick;
           // محور لكل سلسلة (شرط ApexCharts)، والسلاسل من نفس النوع تشترك في محور واحد ظاهر
           const yaxes = series.map((sr, i) => kinds[i] === 'm'
             ? {seriesName:series[firstM].name, min:0, forceNiceScale:true, show:i === firstM,
@@ -2133,13 +2085,13 @@ const VISUALS = {
             fill:{colors:colors, type:'solid',
                   opacity:series.map(sr => sr.type === 'area' ? 0.15 : (sr.type === 'column' ? 0.85 : 1))},
             markers:{size:series.map(sr => sr.type === 'column' ? 0 : 3)},
-            dataLabels:dlOpts(w, theme().text, v => v === null ? '' : num(v).toFixed(1) + '%'),
+            dataLabels:dlOpts(w, theme().text, v => v === null ? '' : pctTick(num(v))),
             xaxis:{categories:scAx.cats, labels:scAx.labels},
             yaxis:yaxes,
             grid:{borderColor:'rgba(125,125,125,.18)'},
             legend:legendStyle(w, {position:'top', horizontalAlign:'center'}),
             tooltip:{shared:true, intersect:false,
-                     y:{formatter:v => (v === null || v === undefined) ? '—' : num(v).toFixed(1) + '%'}}
+                     y:{formatter:v => (v === null || v === undefined) ? '—' : num(v).toFixed(2) + '%'}}
           });
           return;
         }
@@ -2182,7 +2134,7 @@ const VISUALS = {
           // لـ100%)، فمحور ثابت 0-100 يُظهر كل الأعمدة شبه مسطّحة — لذلك يُترك تلقائياً هنا.
           yaxis:isPeriod ? {min:0, forceNiceScale:true,
                  labels:Object.assign(axisStyle(w,'yaxis'),
-                       {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})}
+                       {formatter:pctTick, align:partOf(w,'yaxis').align || undefined})}
                : {min:0, max:100, tickAmount:5,
                  labels:Object.assign(axisStyle(w,'yaxis'),
                        {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})},
@@ -2196,9 +2148,9 @@ const VISUALS = {
 
       /* ---------- مصدر «تحديثات المشاريع الأسبوعية» (الأصلي) ---------- */
       let rows = S.records || [];
-      const ym = r => (r.current_data_date || '').slice(0, 7);
-      if(rs) rows = rows.filter(r => ym(r) >= rs);
-      if(re) rows = rows.filter(r => ym(r) <= re);
+      const dd = r => String(r.current_data_date || '').slice(0, 10);
+      if(rs) rows = rows.filter(r => dd(r) >= rs);
+      if(re) rows = rows.filter(r => dd(r) <= re);
       if(!rows.length || rows.length < 2){
         body.innerHTML = `<div class="empty-note">${(rs || re) ? tr('noRangeData') : tr('noTimeline')}</div>`;
         return;
@@ -4028,26 +3980,27 @@ function optionsHtml(w){
       ${isCf ? `
       <div class="row"><label>طريقة الحساب</label><div class="ctl"><select data-p="opts.calcMode">
         <option value="cumulative" ${!isPeriod && !isCombo ? 'selected' : ''}>تراكمي (المعتاد)</option>
-        <option value="period"     ${isPeriod ? 'selected' : ''}>شهري (كل شهر منفرداً بلا تراكم)</option>
-        <option value="combined"   ${isCombo  ? 'selected' : ''}>مدمج (أعمدة شهرية + منحنى تراكمي)</option>
+        <option value="period"     ${isPeriod ? 'selected' : ''}>لكل فترة (كل فترة منفردة بلا تراكم)</option>
+        <option value="combined"   ${isCombo  ? 'selected' : ''}>مدمج (أعمدة الفترات + منحنى تراكمي)</option>
       </select></div></div>
       <div class="row"><label>دقة المنحنى</label><div class="ctl"><select data-p="opts.granularity">
-        <option value="month" ${o.granularity !== 'week' ? 'selected' : ''}>شهري (نقطة لكل شهر)</option>
-        <option value="week"  ${o.granularity === 'week' ? 'selected' : ''}>أسبوعي (4 نقاط لكل شهر)</option>
+        <option value="month" ${!['day','week'].includes(o.granularity) ? 'selected' : ''}>شهري</option>
+        <option value="week"  ${o.granularity === 'week' ? 'selected' : ''}>أسبوعي (السبت ← الجمعة)</option>
+        <option value="day"   ${o.granularity === 'day'  ? 'selected' : ''}>يومي</option>
       </select></div></div>
-      ${o.granularity === 'week' ? `<div class="hint">المخطط: الشهر المقسَّم في صفحة التدفق النقدي بأرقام
-        أسابيعه، وغير المقسَّم يتوزع بالتساوي على 4 أسابيع (زي البريمافيرا).
-        <br>الفعلي ما يتحركش إلا برقم حقيقي ويقف عند آخر رقم حقيقي: كل نسبة بتظهر في أسبوع تاريخها
-        (تحديث مدير المشروع، أو Data Date في XER، أو نهاية الفترة المالية، أو يوم الإدخال)، والأسبوع
-        اللي مفيهوش رقم جديد يفضل على آخر رقم قبله من غير تقدير. أسابيع الشهر الجاري بعد آخر تحديث
-        تفضل فاضية. في الوضع الشهري/المدمج تصبح الأعمدة صرف كل أسبوع.</div>` : ''}` : ''}
-      <div class="row"><label>من شهر</label><div class="ctl">
-        <input type="month" data-p="opts.rangeStart" value="${o.rangeStart || ''}"></div></div>
-      <div class="row"><label>إلى شهر</label><div class="ctl">
-        <input type="month" data-p="opts.rangeEnd" value="${o.rangeEnd || ''}"></div></div>
+      <div class="hint">المخطط بيتوزع يومياً حسب برنامج XER المستورد (على أيام وساعات العمل في تقويم كل نشاط،
+        زي البريمافيرا)؛ المشروع اللي خطته مش من XER بيتوزع بالتساوي على أيام الشهر. الأسبوعي والشهري
+        مجموع الأيام.
+        <br>الفعلي ما يتحركش إلا برقم حقيقي ويقف عند آخر رقم حقيقي: كل نسبة بتظهر في يوم تاريخها (تحديث
+        مدير المشروع، أو Data Date في XER، أو نهاية الفترة المالية، أو يوم الإدخال)، واللي مفيهوش رقم
+        جديد يفضل على آخر رقم قبله من غير تقدير.</div>` : ''}
+      <div class="row"><label>من تاريخ</label><div class="ctl">
+        <input type="date" data-p="opts.rangeStart" value="${cfRangeFrom(o.rangeStart)}"></div></div>
+      <div class="row"><label>إلى تاريخ</label><div class="ctl">
+        <input type="date" data-p="opts.rangeEnd" value="${cfRangeTo(o.rangeEnd)}"></div></div>
       <div class="hint">اترك الحقلين فاضيين لعرض كل المدى المتاح. المدى يُطبَّق على أي مصدر بيانات.</div>
-      <label class="chk"><input type="checkbox" data-p="opts.showActual" ${o.showActual ? 'checked' : ''}> ${isPeriod ? 'الصرف الفعلي الشهري' : isCombo ? 'الفعلي (شهري + تراكمي)' : 'الإنجاز الفعلي التراكمي'}</label>
-      <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned ? 'checked' : ''}> ${isPeriod ? 'الصرف المخطط الشهري' : isCombo ? 'المخطط (شهري + تراكمي)' : 'الإنجاز المخطط التراكمي'}</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showActual" ${o.showActual ? 'checked' : ''}> ${isPeriod ? 'النسب الفعلية ' + ({day:'اليومية', week:'الأسبوعية', month:'الشهرية'})[o.granularity || 'month'] : isCombo ? 'الفعلي (لكل فترة + تراكمي)' : 'الإنجاز الفعلي التراكمي'}</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned ? 'checked' : ''}> ${isPeriod ? 'النسب المخططة ' + ({day:'اليومية', week:'الأسبوعية', month:'الشهرية'})[o.granularity || 'month'] : isCombo ? 'المخطط (لكل فترة + تراكمي)' : 'الإنجاز المخطط التراكمي'}</label>
       ${isCf ? '' : `
       <label class="chk"><input type="checkbox" data-p="opts.showFinancial" ${o.showFinancial ? 'checked' : ''}> التقدم المالي التراكمي</label>
       <div class="row"><label>مصدر الصرف</label><div class="ctl"><select data-p="opts.finSource">
@@ -4070,28 +4023,21 @@ function optionsHtml(w){
       ${ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
       ${(o.chartType === 'bar' || isCombo) ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%') : ''}
       <div class="hint">${isCombo
-        ? `الوضع المدمج يعرض الاتنين في رسم واحد: أعمدة للصرف الشهري (الفعلي والمخطط لكل شهر
-           منفرداً) على محور، ومنحنيات للإنجاز التراكمي (الفعلي والمخطط) على المحور المقابل
-           من 0 إلى 100%. المحوران منفصلان لأن نسبة الشهر الواحد صغيرة عادة مقارنة بالتراكمي،
-           فلو اشتركا في محور واحد تبان الأعمدة شبه مسطّحة.
-           <br><br>يعمل في وضع المشروع الواحد وفي وضع «كل المشاريع» بنفس قواعد الوضعين الشهري
-           والتراكمي.`
+        ? `الوضع المدمج يعرض الاتنين في رسم واحد: أعمدة لنسب كل فترة منفردة (الفعلي والمخطط) على محور،
+           ومنحنيات للإنجاز التراكمي على المحور المقابل من 0 إلى 100%. المحوران منفصلان لأن نسبة الفترة
+           الواحدة صغيرة عادة مقارنة بالتراكمي.`
         : isPeriod
-        ? `الوضع الشهري يعرض صرف كل شهر منفرداً (غير تراكمي): الفعلي الشهري = فرق الفعلي التراكمي
-           بين هذا الشهر والذي قبله مباشرة، والمخطط الشهري كما هو محدَّد في جدول التدفق النقدي لذلك
-           الشهر. مفيد لمقارنة وتيرة الصرف الفعلي بوتيرة الصرف المخطط شهراً بشهر، بخلاف المنحنى
-           التراكمي الذي يخفي التفاوتات الشهرية داخل المجموع العام.
-           <br><br>في وضع «كل المشاريع» تُجمع القيم الشهرية (لا التراكمية) لكل المشاريع، وشهر
-           بلا فعلي مسجَّل لمشروع مُعيَّن يُحتسب له صفراً في ذلك الشهر تحديداً (بلا حمل للأمام،
-           بخلاف الوضع التراكمي).`
+        ? `«لكل فترة» يعرض نسبة كل فترة (يوم/أسبوع/شهر) منفردة من غير تراكم: الفعلي = فرق الفعلي التراكمي
+           عن الفترة اللي قبلها، والمخطط = مجموع المخطط اليومي جوه الفترة. مفيد لمقارنة الوتيرة الفعلية
+           بالمخططة فترة بفترة.
+           <br><br>في وضع «كل المشاريع» تُجمع قيم الفترة لكل المشاريع وتُنسب لإجمالي أساس التخطيط.`
         : isCf
-        ? `مصدر «التدفق النقدي» يقرأ النسب المخططة والفعلية شهرياً من خط الأساس المعتمد في صفحة التدفق
+        ? `مصدر «التدفق النقدي» يقرأ النسب المخططة والفعلية من خط الأساس المعتمد في صفحة التدفق
            النقدي — بدل نسب التحديثات الأسبوعية.
            <br><br>في وضع «كل المشاريع»: تُجمع القيمة التراكمية (مخططة وفعلية) بالريال لكل المشاريع
            التي أُعِدّ لها تدفق نقدي، ثم تُنسَب كل نقطة إلى إجمالي أساس التخطيط لكل هذه المشاريع مجتمعة
-           — فتُقارَن الحصيلة الفعلية بالحصيلة المخططة على مستوى المحفظة كلها شهراً بشهر. مشروع لم
-           يبدأ مداه بعد لا يساهم، والشهر الذي لم يُدخَل فيه فعلي أو الذي يقع بعد نهاية مدى مشروع
-           يُحمَل فيه آخر رقم حقيقي معروف لذلك المشروع للأمام.`
+           — فتُقارَن الحصيلة الفعلية بالحصيلة المخططة على مستوى المحفظة كلها. مشروع لم يبدأ مداه بعد
+           لا يساهم، وكل مشروع يفضل على آخر رقم حقيقي ليه لحد آخر رقم حقيقي في المحفظة.`
         : `القيم تراكمية بطبيعتها فلا يفترض أن ينزل المنحنى. «فرض التزايد» يثبّت كل نقطة عند أعلى قيمة
            سابقة، فيعالج أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.
            <br><br>في وضع «كل المشاريع» يُحتسب لكل تاريخ آخر تحديث معروف لكل مشروع (وليس المشاريع التي
@@ -4532,6 +4478,20 @@ function buildPageTab(){
     </div>
 
     <div class="grp">
+      <div class="grp-h">مصدر نسب الإنجاز</div>
+      <div class="row"><label>المصدر</label><div class="ctl"><select id="pgProgSrc">
+        <option value="weekly"   ${p.progressSource !== 'cashflow' ? 'selected' : ''}>تحديثات مديري المشاريع الأسبوعية</option>
+        <option value="cashflow" ${p.progressSource === 'cashflow' ? 'selected' : ''}>صفحة التدفق النقدي (خط الأساس المعتمد)</option>
+      </select></div></div>
+      ${S.cfNote ? `<div class="hint" style="color:#b54708">${S.cfNote}</div>` : ''}
+      <div class="hint" style="margin-top:8px;">بيتطبّق على كل القوالب اللي بتعرض نسبة الإنجاز الفعلية أو المخططة
+      (الحالية والسابقة) أو SPI أو الانحراف، في الداشبورد كلها مرة واحدة. مع «التدفق النقدي»: المخطط من خط
+      الأساس المعتمد في تاريخ كل تحديث، والفعلي آخر رقم حقيقي لحد التاريخ ده. في وضع «كل المشاريع» الحساب
+      بنفس طريقة منحنى المحفظة (بيحسب أوامر التغيير). باقي البيانات (المخططات، الفواتير، العمالة، المعوقات…)
+      بتفضل من التحديثات الأسبوعية.</div>
+    </div>
+
+    <div class="grp">
       <div class="grp-h">لغة الداشبورد</div>
       <div class="btn-row">
         <button class="sbtn ${p.lang !== 'en' ? 'on' : ''}" data-lang="ar">🇸🇦 العربية</button>
@@ -4603,6 +4563,14 @@ function buildPageTab(){
   paintThemePrev();
   $('#pgTheme').addEventListener('change', e => { S.page.theme = e.target.value; paintThemePrev(); });
   el.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { setLang(b.dataset.lang); saveSession(); }));
+  $('#pgProgSrc').addEventListener('change', async e => {
+    snapshot();
+    S.page.progressSource = e.target.value;
+    await processData();
+    renderAll(); buildPageTab();
+    if(!S.cfNote) toast(e.target.value === 'cashflow' ? 'نسب الإنجاز الآن من صفحة التدفق النقدي'
+                                                      : 'نسب الإنجاز الآن من التحديثات الأسبوعية');
+  });
   $('#pgAuto').addEventListener('change', e => {
     setAutoRefresh(e.target.value);
     toast(S.page.autoRefresh ? `التحديث التلقائي كل ${S.page.autoRefresh} دقيقة` : 'تم إيقاف التحديث التلقائي');
@@ -4642,46 +4610,16 @@ function buildPageTab(){
 async function loadProject(name, opts){
   opts = opts || {};
   S.project = name;
+  S.cfCache = {};                        // منحنى التدفق النقدي يتجاب من جديد مع كل تحميل/Refresh
   if(!name){ S.records = []; S.latest = null; S.pm = null; S.mode = 'single';
-             S.cashflow = null; S.cashflowAll = null;
              S.projLatest = []; S.projNames = []; renderAll(); updateScopeUI(); return; }
   try{
     const r = await fetch('/api/builder/data?project=' + encodeURIComponent(name));
     const j = await r.json();
     if(!j.success){ toast(j.error || 'تعذر تحميل البيانات', true); return; }
-    S.mode = j.mode || 'single';
-    if(S.mode === 'all'){
-      const raw = j.records || [];
-      S.projNames  = j.projects || [];
-      S.projLatest = latestPerProject(raw);
-      S.records    = aggregateTimeline(raw);
-      S.latest     = aggregate(S.projLatest);
-      S.pm = null;
-      S.cashflow = null;
-      // مصدر بيانات إضافي اختياري لقالب «المنحنى التراكمي» في وضع «كل المشاريع»: طلب واحد فقط
-      // لكل مشاريع البورتفوليو (بدل طلب منفصل لكل مشروع كان يُبطئ الـ Refresh بشكل واضح)
-      try{
-        const rc = await fetch('/api/cashflow/data-all');
-        const jc = await rc.json();
-        const cfList = jc.success ? Object.values(jc.projects || {}) : [];
-        S.cashflowAllRaw = cfList;
-        S.cashflowAll = aggregateCashflowAll(cfList);
-        S.cashflowAllWeek = null;                         // يُحسب عند أول طلب للعرض الأسبوعي
-      }catch(e){ S.cashflowAll = null; S.cashflowAllRaw = null; S.cashflowAllWeek = null; }
-    }else{
-      S.records = j.records || [];
-      S.latest = S.records.length ? S.records[S.records.length - 1] : null;
-      S.projLatest = []; S.projNames = [];
-      S.pm = j.pm || null;
-      S.cashflowAll = null; S.cashflowAllRaw = null; S.cashflowAllWeek = null;
-      // مصدر بيانات إضافي اختياري لقالب «المنحنى التراكمي» — لا يوقف تحميل باقي الصفحة لو فشل
-      try{
-        const rc = await fetch('/api/cashflow/data?project=' + encodeURIComponent(name));
-        const jc = await rc.json();
-        S.cashflow = jc.success ? jc : null;
-      }catch(e){ S.cashflow = null; }
-    }
+    S.raw = {mode:j.mode || 'single', records:j.records || [], projects:j.projects || [], pm:j.pm || null};
     if(opts.resolve !== false) await resolveLayout(name);
+    await processData();
     // وقت الجلب يُسجَّل قبل الرسم حتى تعرضه بطاقة «تاريخ ووقت آخر تحديث» محدَّثاً لا متأخراً بدورة
     S.lastFetch = new Date();
     renderAll(); updateScopeUI();
@@ -4734,6 +4672,77 @@ function loadSession(){
 }
 
 /* يجيب القالب المطبَّق على المشروع: المخصص له إن وُجد، وإلا القالب العام */
+/* يجهّز البيانات للقوالب من آخر جلب (S.raw) حسب «مصدر نسب الإنجاز» في إعدادات الصفحة:
+   - التحديثات الأسبوعية (الافتراضي): زي ما هي.
+   - التدفق النقدي: النسبة المخططة والفعلية (الحالية والسابقة) في كل تحديث بتتبدّل بقيمها من صفحة
+     التدفق النقدي في نفس التاريخ — المخطط من خط الأساس المعتمد، والفعلي آخر رقم حقيقي لحد التاريخ ده
+     (لو مفيش، يفضل رقم التحديث الأسبوعي). كل القوالب اللي بتعرض نسب إنجاز أو SPI بتقرا منها تلقائياً،
+     والباقي (المخططات، الفواتير، العمالة، …) يفضل من التحديثات الأسبوعية لأنه مصدره الوحيد. */
+async function processData(){
+  const R = S.raw;
+  if(!R) return;
+  let recs = R.records.map(r => Object.assign({}, r));
+  S.cfNote = '';
+  if(S.page.progressSource === 'cashflow' && recs.length){
+    try{ recs = await applyCfProgress(recs); }
+    catch(e){ S.cfNote = 'تعذّر تحميل نسب التدفق النقدي — المعروض من التحديثات الأسبوعية'; toast(S.cfNote, true); }
+  }
+  S.mode = R.mode;
+  if(S.mode === 'all'){
+    S.projNames  = R.projects;
+    S.projLatest = latestPerProject(recs);
+    S.records    = aggregateTimeline(recs);
+    S.latest     = aggregate(S.projLatest);
+    S.pm = null;
+  }else{
+    S.records = recs;
+    S.latest = recs.length ? recs[recs.length - 1] : null;
+    S.projLatest = []; S.projNames = [];
+    S.pm = R.pm;
+  }
+}
+function isoMinusDays(d, n){
+  const t = new Date(d.slice(0, 10) + 'T00:00:00'); t.setDate(t.getDate() - n);
+  return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+}
+async function applyCfProgress(recs){
+  const byProj = {};
+  recs.forEach(r => { const d = String(r.current_data_date || '').slice(0, 10);
+                      if(r.project_name && d) (byProj[r.project_name] = byProj[r.project_name] || []).push(r); });
+  const items = {}, prevOf = new Map();
+  Object.keys(byProj).forEach(p => {
+    const list = byProj[p].sort((a, b) => String(a.current_data_date).localeCompare(String(b.current_data_date)));
+    const ds = new Set();
+    list.forEach((r, i) => {
+      const d = String(r.current_data_date).slice(0, 10);
+      const dp = i > 0 ? String(list[i - 1].current_data_date).slice(0, 10) : isoMinusDays(d, 7);
+      prevOf.set(r, dp); ds.add(d); ds.add(dp);
+    });
+    items[p] = Array.from(ds);
+  });
+  const j = await (await fetch('/api/cashflow/at', {method:'POST', headers:{'Content-Type':'application/json'},
+                                                     body:JSON.stringify({items})})).json();
+  if(!j.success) throw new Error(j.error || 'فشل');
+  const P = j.projects || {};
+  let used = 0;
+  recs.forEach(r => {
+    const cf = P[r.project_name]; if(!cf) return;
+    const d = String(r.current_data_date || '').slice(0, 10), dp = prevOf.get(r);
+    const cur = cf.at[d], prev = cf.at[dp];
+    if(cur){
+      r.plan_prog_cur = cur[0] / 100;
+      if(cur[1] !== null) r.act_prog_cur = cur[1] / 100;
+    }
+    if(prev){
+      r.plan_prog_prev = prev[0] / 100;
+      if(prev[1] !== null) r.act_prog_prev = prev[1] / 100;
+    }
+    r._cf = {pb:+cf.pb || 0, rv:+cf.rv || 0};
+    used++;
+  });
+  if(!used) S.cfNote = 'مفيش مشاريع ليها تدفق نقدي — المعروض من التحديثات الأسبوعية';
+  return recs;
+}
 async function resolveLayout(name){
   try{
     const j = await (await fetch('/api/builder/resolve?project=' + encodeURIComponent(name || ''))).json();
@@ -4747,7 +4756,7 @@ async function resolveLayout(name){
     S.layoutId = L.id; S.layoutName = L.name;
     S.scope = (j.source === 'project') ? 'project' : 'default';
     $('#layoutName').value = L.name;
-    S.page = Object.assign(S.page, d.page || {});
+    S.page = Object.assign(S.page, {progressSource:'weekly'}, d.page || {});
     S.widgets = d.widgets || [];
     S.seq = d.seq || (S.widgets.length + 1);
     S.selected = null; S.multi = []; S.undo.length = 0; S.redo.length = 0; S.dirty = false;
@@ -4827,7 +4836,7 @@ async function loadLayout(id){
     S.scope = L.is_default ? 'default' : 'project';
     S.source = S.scope;
     $('#layoutName').value = L.name;
-    S.page = Object.assign(S.page, d.page || {});
+    S.page = Object.assign(S.page, {progressSource:'weekly'}, d.page || {});
     S.widgets = d.widgets || [];
     S.seq = d.seq || (S.widgets.length + 1);
     S.selected = null; S.multi = []; S.undo.length = 0; S.redo.length = 0;
@@ -4835,7 +4844,7 @@ async function loadLayout(id){
     if(L.project_name){
       $('#projectSel').value = L.project_name;
       await loadProject(L.project_name, {resolve:false});
-    } else renderAll();
+    } else { await processData(); renderAll(); }
     buildPageTab(); buildPropsTab(); updateScopeUI(); zoomFit(); saveSession();
     setAutoRefresh(S.page.autoRefresh || 0);
     toast('تم فتح القالب: ' + L.name);
