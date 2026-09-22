@@ -40,8 +40,9 @@ def get_db_connection():
     if not _SCHEMA_READY:
         try:
             cur = conn.cursor()
-            # توزيع المخطط الأسبوعي للشهر من برنامج XER (JSON لأربعة أرقام) — على صف الشهر wk=0
-            cur.execute("ALTER TABLE cashflow_rows ADD COLUMN IF NOT EXISTS plan_weeks TEXT")
+            # تاريخ مصدر النسبة الفعلية (YYYY-MM-DD): تحديث مدير المشروع / Data Date في XER /
+            # نهاية الفترة المالية / يوم الإدخال اليدوي — عشان المنحنى الأسبوعي يقف عند آخر رقم حقيقي
+            cur.execute("ALTER TABLE cashflow_rows ADD COLUMN IF NOT EXISTS act_date TEXT")
             conn.commit()
             _SCHEMA_READY = True
         except Exception:
@@ -49,24 +50,47 @@ def get_db_connection():
     return conn
 
 
-def _parse_plan_weeks(v):
-    """يحوّل نص plan_weeks المخزَّن إلى قائمة 4 أرقام، أو None لو فاضي/تالف."""
-    if v is None or v == "":
-        return None
+def _today_ksa():
+    """تاريخ اليوم بتوقيت السعودية (UTC+3) كنص YYYY-MM-DD."""
+    return (datetime.utcnow() + timedelta(hours=3)).strftime("%Y-%m-%d")
+
+
+def _clean_date(v):
+    """يقبل YYYY-MM-DD (أو أطول) ويرجّعه بالشكل ده، وأي شيء غير صالح ← None."""
+    txt = str(v or "")[:10]
+    return txt if re.match(r"^\d{4}-\d{2}-\d{2}$", txt) else None
+
+
+def _week_of(date_txt):
+    """رقم الأسبوع داخل الشهر (1-7←1، 8-14←2، 15-21←3، الباقي←4) — نفس القاعدة في كل النظام."""
     try:
-        arr = json.loads(v) if isinstance(v, str) else v
-        arr = [float(x or 0) for x in arr][:WEEKS_PER_MONTH]
-        if len(arr) != WEEKS_PER_MONTH or not any(x > 0 for x in arr):
-            return None
-        return arr
-    except Exception:
+        day = int(str(date_txt)[8:10])
+    except (TypeError, ValueError):
         return None
+    return min(WEEKS_PER_MONTH, max(1, (day + 6) // 7))
 
 
-def _dump_plan_weeks(v):
-    """يجهّز plan_weeks للتخزين: قائمة 4 أرقام ← نص JSON، وأي شيء غير صالح ← NULL."""
-    arr = _parse_plan_weeks(v)
-    return None if arr is None else json.dumps([round(x, 2) for x in arr])
+def _cell_fields(c):
+    """يجهّز الحقول والقيم لحفظ خانة من التدفق النقدي. لو اتبعتت نسبة فعلية من غير تاريخ
+    (إدخال يدوي أو لصق)، التاريخ بيتحط تلقائياً: النهارده لو الشهر هو الشهر الجاري، وإلا فاضي
+    (يعني نهاية الشهر). ولو النسبة اتمسحت، التاريخ يتمسح معاها."""
+    fields, values = [], []
+    for k in ("plan_amount", "plan_pct", "act_pct", "act_amount", "note", "act_date"):
+        if k in c:
+            fields.append(k)
+            v = c[k]
+            if k == "act_date":
+                v = _clean_date(v)
+            elif k != "note":
+                v = None if (v is None or v == "") else float(v)
+            values.append(v)
+    if "act_pct" in c and "act_date" not in c:
+        ym = (c.get("ym") or "")[:7]
+        act = values[fields.index("act_pct")]
+        today = _today_ksa()
+        fields.append("act_date")
+        values.append(today if (act is not None and ym == today[:7]) else None)
+    return fields, values
 
 def is_hashed_password(value: str) -> bool:
     return bool(value) and value.startswith(("$2a$", "$2b$", "$2y$"))
@@ -875,8 +899,7 @@ def _cashflow_payload(project):
     if not meta.get("plan_base"): meta["plan_base"] = meta["contract_value"]
     meta["baseline_source_label"] = BASELINE_SOURCES.get(meta["baseline_source"], BASELINE_SOURCES["manual"])
 
-    cursor.execute("""SELECT ym, COALESCE(wk, 0), plan_amount, plan_pct, act_pct, act_amount, note,
-                             plan_weeks
+    cursor.execute("""SELECT ym, COALESCE(wk, 0), plan_amount, plan_pct, act_pct, act_amount, note, act_date
                       FROM cashflow_rows WHERE project_name = %s ORDER BY ym, COALESCE(wk, 0)""",
                    (project,))
     rows, weeks = {}, {}
@@ -886,7 +909,7 @@ def _cashflow_payload(project):
                "plan_pct":    None if r[3] is None else float(r[3]),
                "act_pct":     None if r[4] is None else float(r[4]),
                "act_amount":  None if r[5] is None else float(r[5]),
-               "note": r[6], "plan_weeks": _parse_plan_weeks(r[7])}
+               "note": r[6], "act_date": _clean_date(r[7])}
         if rec["wk"] == 0:
             rows[r[0]] = rec
         elif 1 <= rec["wk"] <= WEEKS_PER_MONTH:
@@ -900,7 +923,7 @@ def _cashflow_payload(project):
     data = []
     for ym in months:
         base = rows.get(ym, {"ym": ym, "wk": 0, "plan_amount": None, "plan_pct": None,
-                             "act_pct": None, "act_amount": None, "note": None, "plan_weeks": None})
+                             "act_pct": None, "act_amount": None, "note": None, "act_date": None})
         data.append(_merge_weeks(base, weeks.get(ym)))
     return {"success": True, "project": project, "meta": meta, "rows": data}
 
@@ -1001,16 +1024,8 @@ async def api_cashflow_cell(request: Request, background_tasks: BackgroundTasks)
         if not project or len(ym) != 7:
             return JSONResponse({"success": False, "error": "بيانات ناقصة"}, status_code=400)
 
-        fields, values = [], []
-        for k in ("plan_amount", "plan_pct", "act_pct", "act_amount", "note", "plan_weeks"):
-            if k in b:
-                fields.append(k)
-                v = b[k]
-                if k == "plan_weeks":
-                    v = _dump_plan_weeks(v)
-                elif k != "note":
-                    v = None if (v is None or v == "") else float(v)
-                values.append(v)
+        b["ym"] = ym
+        fields, values = _cell_fields(b)
         if not fields:
             return JSONResponse({"success": False, "error": "لا يوجد ما يُحفظ"}, status_code=400)
 
@@ -1056,16 +1071,8 @@ async def api_cashflow_cells(request: Request):
                 wk = 0
             if wk < 0 or wk > WEEKS_PER_MONTH:
                 wk = 0
-            fields, values = [], []
-            for k in ("plan_amount", "plan_pct", "act_pct", "act_amount", "note", "plan_weeks"):
-                if k in c:
-                    fields.append(k)
-                    v = c[k]
-                    if k == "plan_weeks":
-                        v = _dump_plan_weeks(v)
-                    elif k != "note":
-                        v = None if (v is None or v == "") else float(v)
-                    values.append(v)
+            c["ym"] = ym
+            fields, values = _cell_fields(c)
             if not fields:
                 continue
             cols = ", ".join(fields)
@@ -1124,7 +1131,7 @@ def _snapshot_capture(project, name, user, conn=None):
                                "start_month": m[2], "end_month": m[3], "locked": bool(m[4]),
                                "baseline_source": m[5],
                                "plan_base": None if m[6] is None else float(m[6])}
-    cursor.execute("""SELECT ym, COALESCE(wk,0), plan_amount, plan_pct, act_pct, act_amount, note, plan_weeks
+    cursor.execute("""SELECT ym, COALESCE(wk,0), plan_amount, plan_pct, act_pct, act_amount, note, act_date
                       FROM cashflow_rows WHERE project_name = %s ORDER BY ym, COALESCE(wk,0)""", (project,))
     rows = [[r[0], int(r[1] or 0)] + [None if v is None else float(v) for v in r[2:6]] + [r[6], r[7]]
             for r in cursor.fetchall()]
@@ -1205,10 +1212,10 @@ async def api_cashflow_snapshot_restore(request: Request, background_tasks: Back
         for r in (payload.get("rows") or []):
             cursor.execute("""INSERT INTO cashflow_rows
                                 (project_name, ym, wk, plan_amount, plan_pct, act_pct, act_amount, note,
-                                 plan_weeks, updated_by, updated_at)
+                                 act_date, updated_by, updated_at)
                               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())""",
                            (project, r[0], r[1], r[2], r[3], r[4], r[5], r[6],
-                            r[7] if len(r) > 7 else None, admin_user))    # نسخ قديمة بلا plan_weeks
+                            r[7] if len(r) > 7 else None, admin_user))    # نسخ قديمة بلا act_date
         m = payload.get("meta")
         if m:
             cursor.execute("""INSERT INTO cashflow_meta
@@ -1266,11 +1273,11 @@ async def api_cashflow_wipe(request: Request, background_tasks: BackgroundTasks)
         n = 0
         for p in targets:
             if scope == "actual":
-                cursor.execute("""UPDATE cashflow_rows SET act_pct = NULL, act_amount = NULL,
+                cursor.execute("""UPDATE cashflow_rows SET act_pct = NULL, act_amount = NULL, act_date = NULL,
                                          updated_by = %s, updated_at = NOW()
                                   WHERE project_name = %s""", (admin_user, p))
             elif scope == "plan":
-                cursor.execute("""UPDATE cashflow_rows SET plan_amount = NULL, plan_pct = NULL, plan_weeks = NULL,
+                cursor.execute("""UPDATE cashflow_rows SET plan_amount = NULL, plan_pct = NULL,
                                          updated_by = %s, updated_at = NOW()
                                   WHERE project_name = %s""", (admin_user, p))
             else:
@@ -1318,68 +1325,75 @@ async def api_cashflow_import_weekly(request: Request, background_tasks: Backgro
         cursor.execute("""SELECT current_data_date, act_prog_cur FROM project_updates
                           WHERE project_name = %s AND current_data_date IS NOT NULL
                           ORDER BY current_data_date ASC""", (project,))
-        by_month, by_week = {}, {}
+        by_month, by_week, month_dates = {}, {}, {}
         for d, pct in cursor.fetchall():
             ym = str(d)[:7]
             v = float(pct or 0)
             v = round((v * 100 if v <= 1.0001 else v), 2)
             by_month[ym] = v                                   # آخر قيمة في الشهر
+            month_dates[ym] = _clean_date(d)                   # وتاريخها (تاريخ بيانات التحديث)
             day = int(str(d)[8:10] or 1)
             wk = min(WEEKS_PER_MONTH, max(1, (day + 6) // 7))   # 1-7→1، 8-14→2، 15-21→3، الباقي→4
             by_week.setdefault(ym, {})[str(wk)] = v             # آخر قيمة داخل الأسبوع
         conn.close()
-        return {"success": True, "months": by_month, "weeks": by_week}
+        return {"success": True, "months": by_month, "weeks": by_week, "month_dates": month_dates}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
-def _last_real_weeks(cursor, projects):
-    """{مشروع: {شهر: آخر أسبوع (1-4) فيه تحديث أسبوعي حقيقي من مدير المشروع}} — نفس قاعدة
-    الأسابيع في /api/cashflow/import-weekly. يُستخدم حتى لا يمتد الفعلي الأسبوعي التقديري لأسابيع
-    لم يُسجَّل فيها تحديث بعد."""
-    cursor.execute("""SELECT project_name, current_data_date FROM project_updates
-                      WHERE project_name = ANY(%s) AND current_data_date IS NOT NULL""",
-                   (list(projects),))
+def _pm_updates(cursor, projects):
+    """تحديثات مديري المشاريع الأسبوعية: {مشروع: {شهر: [(تاريخ, نسبة فعلية %), ...]}} مرتّبة بالتاريخ.
+    نفس تحويل النسبة المستخدم في /api/cashflow/import-weekly (كسر ≤ 1 ← ×100)."""
+    cursor.execute("""SELECT project_name, current_data_date, act_prog_cur FROM project_updates
+                      WHERE project_name = ANY(%s) AND current_data_date IS NOT NULL
+                      ORDER BY project_name, current_data_date""", (list(projects),))
     out = {}
-    for proj, d in cursor.fetchall():
-        txt = str(d)
-        try:
-            day = int(txt[8:10])
-        except (TypeError, ValueError):
+    for proj, d, pct in cursor.fetchall():
+        dt = _clean_date(d)
+        if not dt or pct is None:
             continue
-        wk = min(WEEKS_PER_MONTH, max(1, (day + 6) // 7))
-        m = out.setdefault(proj, {})
-        if wk > m.get(txt[:7], 0):
-            m[txt[:7]] = wk
+        v = float(pct)
+        v = round((v * 100 if v <= 1.0001 else v), 2)
+        out.setdefault(proj, {}).setdefault(dt[:7], []).append((dt, v))
     return out
 
 
-def _cashflow_series(meta, data_rows, last_wk=None):
+def _month_end(ym):
+    y, m = int(ym[:4]), int(ym[5:7])
+    nxt = date(y + (m // 12), m % 12 + 1, 1)
+    return (nxt - timedelta(days=1)).strftime("%Y-%m-%d")
+
+
+def _cashflow_series(meta, data_rows, pm=None):
     """يبني سلسلة {ym, plan_amount, plan_cum, plan_pct, act_pct, act_cum, act_period, weeks} من صفوف
     مُدمَجة (بعد _merge_weeks) وميتاداتا مشروع — مشتركة بين /api/cashflow/data ونسختها المجمَّعة
     لكل المشاريع، حتى يبقى حساب المنحنى في مكان واحد بدل تكراره.
-    act_period هو الفعلي الشهري (غير التراكمي) = فرق act_cum بين هذا الشهر والشهر السابق مباشرة
-    من نفس المشروع؛ يُستخدم في مقارنة «الفعلي الشهري ÷ المخطط الشهري» (بخلاف المنحنى التراكمي).
+    act_period هو الفعلي الشهري (غير التراكمي) = فرق act_cum بين هذا الشهر والشهر السابق مباشرة.
 
     weeks: تفصيل أسبوعي (WEEKS_PER_MONTH أسابيع) لكل شهر، للعرض الأسبوعي في منشئ الداشبورد:
-    - الشهر المقسَّم فعلاً في صفحة التدفق النقدي: أرقام أسابيعه الحقيقية كما هي.
-    - الشهر غير المقسَّم — المخطط: حسب توزيع برنامج XER الأسبوعي (plan_weeks) لو متخزّن،
-      وإلا بالتساوي. التوزيع يُستخدم كنِسَب، فلو اتعدّل مبلغ الشهر يدوياً يفضل المجموع مظبوط.
-    - الشهر غير المقسَّم — الفعلي: L = آخر أسبوع فيه تحديث أسبوعي حقيقي في الشهر (last_wk)،
-      وإلا 4. الأسابيع حتى L تتقدّر بخط مستقيم من آخر نسبة فعلية قبل الشهر (est=True)، والأسبوع
-      L = رقم الشهر الحقيقي. لو مفيش نسبة فعلية قبل الشهر أصلاً، مفيش تقدير: الأسابيع قبل L فاضية
-      (بدل ما نبدأ من صفر ونختلق قفزة). الأسابيع بعد L: فاضية في آخر شهر فيه فعلي (لسه ما حصلتش)،
-      وتفضل على رقم الشهر في الشهور الأقدم."""
+    - المخطط: الشهر المقسَّم في صفحة التدفق النقدي بأرقام أسابيعه، وغير المقسَّم ÷ 4 بالتساوي
+      (زي البريمافيرا).
+    - الفعلي — قاعدة واحدة: المنحنى ما يتحركش إلا برقم حقيقي، ويقف عند آخر رقم حقيقي.
+      * الشهر المقسَّم: أرقام أسابيعه الحقيقية كما هي.
+      * غير المقسَّم: رقم الشهر يتحط في أسبوع تاريخه (act_date = تاريخ تحديث مدير المشروع أو
+        Data Date في XER أو نهاية الفترة المالية أو يوم الإدخال). الأسابيع قبله في نفس الشهر تاخد
+        تحديثات مديري المشاريع الحقيقية لو موجودة، والأسبوع اللي مفيهوش رقم جديد يفضل على آخر رقم
+        قبله (من غير أي تقدير). بعد أسبوع التاريخ: فاضي في آخر شهر فيه فعلي، ويفضل على رقم الشهر
+        في الشهور الأقدم.
+      * رقم قديم متخزّن من غير تاريخ: ياخد تاريخ تحديث مدير المشروع اللي بنفس النسبة في نفس الشهر
+        لو موجود، وإلا نهاية الشهر (بحد أقصى النهارده)."""
     W = WEEKS_PER_MONTH
-    last_wk = last_wk or {}
+    pm = pm or {}
+    today = _today_ksa()
     cv = meta["contract_value"] or 0
     rv = meta["revised_value"] or cv
     pb = meta.get("plan_base") or cv          # أساس النسبة المخططة
     act_months = [r["ym"] for r in data_rows if r["act_pct"] is not None]
     last_act_ym = max(act_months) if act_months else None
     out, cum_plan, prev_act_cum = [], 0.0, None
-    prev_plan_pct, prev_act_pct, wk_prev_act_cum = 0.0, None, None
+    prev_plan_pct, carry, wk_prev_act_cum = 0.0, None, None
     for r in data_rows:
+        ym = r["ym"]
         m_plan = float(r["plan_amount"] or 0)
         start_cum = cum_plan
         cum_plan += m_plan
@@ -1393,45 +1407,57 @@ def _cashflow_series(meta, data_rows, last_wk=None):
         if act_cum is not None:
             prev_act_cum = act_cum
 
-        # ---- التفصيل الأسبوعي ----
+        # ---- الفعلي الأسبوعي للشهر غير المقسَّم: نقاط حقيقية فقط ----
         real = bool(r.get("has_weeks"))
-        wks = r.get("weeks") or [None] * W
-        pw = r.get("plan_weeks")
-        if pw and sum(pw) > 0:
-            tot = sum(pw)
-            plan_split = [round(m_plan * x / tot, 2) for x in pw[:W - 1]]
-        else:
-            plan_split = [round(m_plan / W, 2)] * (W - 1)
-        plan_split.append(round(m_plan - sum(plan_split), 2))
-        L = min(W, max(1, int(last_wk.get(r["ym"], W) or W)))
-        is_latest = (r["ym"] == last_act_ym)
         a = None if act_pct is None else float(act_pct)
+        points, Lw = {}, None
+        if not real and a is not None:
+            pm_m = pm.get(ym, [])
+            d = r.get("act_date")
+            if not d:                                   # رقم قديم بلا تاريخ
+                match = [dt for dt, v in pm_m if abs(v - a) < 0.05]
+                d = match[-1] if match else min(_month_end(ym), today)
+            if d[:7] > ym:
+                Lw = W
+            elif d[:7] < ym:
+                Lw = 1
+            else:
+                Lw = _week_of(d) or W
+            for dt, v in pm_m:                          # تحديثات حقيقية قبل أسبوع رقم الشهر
+                wkp = _week_of(dt)
+                if wkp and wkp < Lw:
+                    points[wkp] = v
+            points[Lw] = a
+        is_latest = (ym == last_act_ym)
+
         run, weeks_out = start_cum, []
+        base = round(m_plan / W, 2)
         for i in range(W):
             wk = i + 1
             if real:
+                wks = r.get("weeks") or [None] * W
                 w = wks[i] if i < len(wks) else None
                 wp = float(w["plan_amount"]) if (w and w.get("plan_amount") is not None) else 0.0
                 wa = w.get("act_pct") if w else None
                 wamt = w.get("act_amount") if w else None
-                est = False
             else:
-                wp = plan_split[i]
+                wp = base if wk < W else round(m_plan - base * (W - 1), 2)
                 wamt = None
                 if a is None:
                     wa = None
-                elif wk < L:
-                    wa = None if prev_act_pct is None else round(prev_act_pct + (a - prev_act_pct) * wk / L, 2)
-                elif wk == L:
-                    wa = a
+                elif wk in points:
+                    wa = points[wk]
+                elif wk < Lw:
+                    wa = carry                          # ما فيش رقم جديد ← آخر رقم حقيقي قبله
                 else:
-                    wa = None if is_latest else a
-                est = (wa is not None and wk < L)
+                    wa = None if is_latest else a       # بعد آخر رقم حقيقي
+            if wa is not None:
+                carry = float(wa)
             run += wp
             frac = ((run - start_cum) / m_plan) if m_plan else wk / W
             wpp = prev_plan_pct + (plan_pct - prev_plan_pct) * frac
-            if not real and wa is not None and wk >= L:
-                wcum = act_cum                      # = رقم الشهر الحقيقي بالظبط
+            if not real and a is not None and wa is not None and wk >= Lw:
+                wcum = act_cum                          # = رقم الشهر الحقيقي بالظبط
             elif wamt is not None:
                 wcum = round(float(wamt), 2)
             else:
@@ -1442,12 +1468,12 @@ def _cashflow_series(meta, data_rows, last_wk=None):
             weeks_out.append({"wk": wk, "plan_amount": round(wp, 2), "plan_cum": round(run, 2),
                               "plan_pct": round(wpp, 2),
                               "act_pct": None if wa is None else round(float(wa), 2),
-                              "act_cum": wcum, "act_period": wper, "est": est})
+                              "act_cum": wcum, "act_period": wper})
         prev_plan_pct = plan_pct
         if a is not None:
-            prev_act_pct = a
+            carry = a
 
-        out.append({"ym": r["ym"], "plan_amount": m_plan,
+        out.append({"ym": ym, "plan_amount": m_plan,
                     "plan_cum": round(cum_plan, 2), "plan_pct": round(plan_pct, 2),
                     "act_pct": None if act_pct is None else round(float(act_pct), 2),
                     "act_cum": act_cum, "act_period": act_period, "weeks": weeks_out})
@@ -1463,11 +1489,11 @@ async def api_cashflow_data(project: str, request: Request):
         p = _cashflow_payload(project)
         try:
             conn = get_db_connection()
-            last_wk = _last_real_weeks(conn.cursor(), [project]).get(project, {})
+            pm = _pm_updates(conn.cursor(), [project]).get(project, {})
             conn.close()
         except Exception:
-            last_wk = {}
-        out = _cashflow_series(p["meta"], p["rows"], last_wk)
+            pm = {}
+        out = _cashflow_series(p["meta"], p["rows"], pm)
         return {"success": True, "project": project, "meta": p["meta"], "series": out}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
@@ -1497,27 +1523,27 @@ async def api_cashflow_data_all(request: Request):
             if not m.get("plan_base"): m["plan_base"] = m["contract_value"]
 
         cursor.execute("""SELECT project_name, ym, COALESCE(wk, 0), plan_amount, plan_pct,
-                                  act_pct, act_amount, plan_weeks
+                                  act_pct, act_amount, act_date
                           FROM cashflow_rows WHERE project_name = ANY(%s)
                           ORDER BY project_name, ym, COALESCE(wk, 0)""", (list(metas.keys()),))
         rows_by_proj, weeks_by_proj = {}, {}
-        for project, ym, wk, plan_amount, plan_pct, act_pct, act_amount, plan_weeks in cursor.fetchall():
+        for project, ym, wk, plan_amount, plan_pct, act_pct, act_amount, act_date in cursor.fetchall():
             wk = int(wk or 0)
             rec = {"ym": ym, "wk": wk,
                    "plan_amount": None if plan_amount is None else float(plan_amount),
                    "plan_pct": None if plan_pct is None else float(plan_pct),
                    "act_pct": None if act_pct is None else float(act_pct),
                    "act_amount": None if act_amount is None else float(act_amount),
-                   "plan_weeks": _parse_plan_weeks(plan_weeks)}
+                   "act_date": _clean_date(act_date)}
             if wk == 0:
                 rows_by_proj.setdefault(project, {})[ym] = rec
             elif 1 <= wk <= WEEKS_PER_MONTH:
                 weeks_by_proj.setdefault(project, {}).setdefault(ym, {})[wk] = rec
         try:
-            last_wk_all = _last_real_weeks(cursor, metas.keys())
+            pm_all = _pm_updates(cursor, metas.keys())
         except Exception:
             conn.rollback()
-            last_wk_all = {}
+            pm_all = {}
         conn.close()
 
         out = {}
@@ -1531,10 +1557,9 @@ async def api_cashflow_data_all(request: Request):
             data_rows = []
             for ym in months:
                 base = rows.get(ym, {"ym": ym, "wk": 0, "plan_amount": None, "plan_pct": None,
-                                     "act_pct": None, "act_amount": None, "note": None,
-                                     "plan_weeks": None})
+                                     "act_pct": None, "act_amount": None, "note": None, "act_date": None})
                 data_rows.append(_merge_weeks(base, weeks.get(ym)))
-            series = _cashflow_series(meta, data_rows, last_wk_all.get(project, {}))
+            series = _cashflow_series(meta, data_rows, pm_all.get(project, {}))
             if series:
                 out[project] = {"meta": meta, "series": series}
         return {"success": True, "projects": out}
