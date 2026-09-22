@@ -50,6 +50,7 @@ button{font-family:inherit;}
 #layoutName:focus{background:#EAF0F8; outline:none;}
 .scope-chip{font-size:10.5px; font-weight:600; padding:1px 7px; white-space:nowrap; background:#F6EEDF; color:#7A5A22;}
 .scope-chip.custom{background:#EAF0F8; color:var(--ui-navy);}
+.scope-chip.copy{background:#EEF0F4; color:var(--ui-muted);}
 .hdr-menus{display:flex; align-items:center; gap:2px; margin-inline-start:6px;}
 .mwrap{position:relative;}
 .nv{
@@ -127,6 +128,12 @@ button{font-family:inherit;}
 #zoomSlider::-moz-range-thumb{width:12px; height:16px; border-radius:0; background:var(--ui-navy); border:none; cursor:grab;}
 #zoomSlider::-moz-range-track{height:4px; background:#D5DAE3;}
 .fetch-time{font-size:12px; color:var(--ui-muted); white-space:nowrap;}
+.hdr-upd{font-size:12.5px; color:var(--ui-muted); white-space:nowrap; margin-inline-end:14px; display:flex; align-items:center; gap:6px;}
+.hdr-upd::before{content:''; width:7px; height:7px; background:#2E9E6A; flex:0 0 auto;}
+.hdr-upd[hidden]{display:none;}
+.present-upd{position:fixed; top:14px; inset-inline-start:14px; z-index:950; background:rgba(23,32,51,.78); color:#fff;
+  font-size:12.5px; padding:6px 12px; pointer-events:none;}
+.present-upd[hidden]{display:none;}
 #btnRefresh .ck{visibility:visible; color:var(--ui-muted);}
 #btnRefresh.busy{opacity:.6; pointer-events:none;}
 #btnRefresh.busy #refreshIcon{display:inline-block; animation:spin 0.9s linear infinite;}
@@ -410,7 +417,7 @@ input[type=range]{width:100%; accent-color:var(--ui-navy);}
 }
 .modal-back.open{opacity:1; visibility:visible; transition:opacity .2s ease, visibility 0s;}
 .modal{
-  background:#fff; width:min(580px,92vw); max-height:80vh; display:flex; flex-direction:column;
+  background:#fff; width:min(700px,94vw); max-height:80vh; display:flex; flex-direction:column;
   box-shadow:0 24px 60px rgba(23,32,51,.28); overflow:hidden; transform:translateY(8px) scale(.98); transition:transform .25s var(--ease);
 }
 .modal-back.open .modal{transform:none;}
@@ -419,6 +426,9 @@ input[type=range]{width:100%; accent-color:var(--ui-navy);}
 .modal-foot{padding:12px 20px; background:#F7F8FA; display:flex; justify-content:flex-end; gap:8px;}
 .lay-item{display:flex; align-items:center; gap:10px; padding:10px 12px; background:#F7F8FA; margin-bottom:6px; transition:background-color .12s;}
 .lay-item:hover{background:#EEF1F6;}
+.lay-item.current{box-shadow:inset 3px 0 0 var(--ui-navy);}
+.lay-badge.copy{background:#EEF0F4; color:var(--ui-muted);}
+.lay-badge.open{background:#EAF0F8; color:var(--ui-navy);}
 .lay-item .li-main{flex:1; min-width:0;}
 .lay-item .li-name{font-weight:600; font-size:13.5px;}
 .lay-item .li-sub{font-size:12px; color:var(--ui-muted);}
@@ -470,12 +480,14 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
         <button class="mi" id="btnNew" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="newLayout">New layout</span></span><span class="k"></span></button>
         <button class="mi" id="btnOpen" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="savedLayouts">Saved layouts…</span></span><span class="k"></span></button>
         <button class="mi" id="mSave" role="menuitem"><span class="ml"><span class="ck"></span><span id="mSaveLabel">Save</span></span><span class="k">Ctrl S</span></button>
+        <button class="mi" id="mSaveAs" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="saveAs">Save as new copy…</span></span><span class="k">Ctrl Shift S</span></button>
         <div class="m-sep"></div>
         <div class="m-head" data-i18n="scopeHead">Layout applies to</div>
         <div class="m-field" data-keep>
           <select id="scopeSel" aria-label="Layout scope">
             <option value="default" data-i18n="scopeDefault">All projects (global layout)</option>
             <option value="project" data-i18n="scopeProject">This project only (custom)</option>
+            <option value="library" data-i18n="scopeLibrary">No project (saved copy only)</option>
           </select>
         </div>
         <button class="mi" id="btnUnlink" hidden role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="unlink">Remove customization</span></span><span class="k"></span></button>
@@ -523,6 +535,7 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
   </nav>
 
   <div class="hdr-spacer"></div>
+  <span class="hdr-upd" id="hdrUpdated" hidden data-i18n-title="updTip"></span>
   <label class="hdr-lbl" for="projectSel" data-i18n="project">Project</label>
   <select class="hdr-field" id="projectSel" data-i18n-title="project" data-no-tr>
     <option value="" data-i18n="pickProject">— Select a project —</option>
@@ -565,6 +578,7 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
   </div>
 </div>
 
+<div class="present-upd" id="presentUpdated" hidden></div>
 <button class="present-exit" id="btnExitPresent" hidden data-i18n-title="exitTip">✕ <span data-i18n="exit">Exit</span></button>
 
 <div class="toast" id="toast"></div>
@@ -597,6 +611,7 @@ const I18N = {
   scopeDefault:['All projects (global layout)','كل المشاريع (قالب عام)'],
   scopeProject:['This project only (custom)','هذا المشروع فقط (مخصص)'],
   unlink:['Remove customization','إلغاء التخصيص'],
+  saveAs:['Save as new copy…','حفظ كنسخة جديدة…'], scopeLibrary:['No project (saved copy only)','بدون مشروع (نسخة محفوظة فقط)'],
   undo:['Undo','تراجع'], redo:['Redo','إعادة'], duplicate:['Duplicate','تكرار'], delete:['Delete','حذف'],
   selectAll:['Select all','تحديد الكل'],
   zoom:['Zoom','التكبير'], fit:['Fit to screen','ملاءمة الشاشة'], present:['Presentation mode','وضع العرض'],
@@ -613,7 +628,7 @@ const I18N = {
   zoomIn:['Zoom in','تكبير'], zoomOut:['Zoom out','تصغير'],
   tabElements:['Elements','العناصر'], tabProps:['Properties','الخصائص'], tabPage:['Page','الصفحة'],
   savedLayoutsT:['Saved layouts','القوالب المحفوظة'], close:['Close','إغلاق'],
-  exit:['Exit','خروج'], exitTip:['Exit full screen (Esc)','خروج من ملء الشاشة (Esc)']
+  exit:['Exit','خروج'], updTip:['When the data shown was last fetched from the database','آخر وقت اتجابت فيه البيانات المعروضة من قاعدة البيانات'], exitTip:['Exit full screen (Esc)','خروج من ملء الشاشة (Esc)']
 };
 function applyUiStatic(){
   const en = uiEN(), i = en ? 0 : 1, pick = k => (I18N[k] || [k, k])[i];
@@ -630,6 +645,11 @@ function applyUiStatic(){
 
 /* ---- قاموس العربي → الإنجليزي لنصوص الواجهة المولَّدة بالكود ---- */
 const UI_EN = {
+"نسخة محفوظة — غير مطبّقة على أي مشروع": "Saved copy — not applied to any project",
+"مخصص لوضع كل المشاريع (مجمّع)": "Custom for all projects (combined)",
+"نسخة": "Copy",
+"مفتوح الآن": "Open now",
+"عمل نسخة مستقلة من القالب ده": "Make a separate copy of this layout",
 "سيتم استبدال ألوان كل العناصر بألوان الثيم (العناوين والخلفيات والنصوص). تقدر ترجع لها بـ Ctrl+Z. المتابعة؟": "This will replace the colors of all elements (titles, backgrounds and text) with the theme colors. You can undo with Ctrl+Z. Continue?",
 "· آخر تعديل": "· Last modified",
 "عناصر محددة": "elements selected",
@@ -5482,11 +5502,18 @@ async function loadProject(name, opts){
 }
 
 function updateFetchLabel(){
-  const el = $('#fetchTime'); if(!el) return;
-  if(!S.lastFetch){ el.textContent = ''; return; }
+  const el = $('#fetchTime'), hd = $('#hdrUpdated'), pr = $('#presentUpdated');
+  if(!S.lastFetch){ [el, hd, pr].forEach(x => { if(x) x.textContent = ''; }); if(hd) hd.hidden = true; return; }
   const d = S.lastFetch;
   const hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
-  el.textContent = U('Updated ', 'آخر تحديث ') + hh + ':' + mm;
+  if(el) el.textContent = U('Updated ', 'آخر تحديث ') + hh + ':' + mm;
+  // التاريخ والوقت كاملين في الهيدر ووضع العرض — يبان للي بيتفرج على الشاشة إمتى اتجابت البيانات
+  const MON = uiEN() ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                     : ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const day = d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear();
+  const full = U('Updated ', 'آخر تحديث ') + day + U(', ', '، ') + hh + ':' + mm;
+  if(hd){ hd.textContent = full; hd.hidden = false; }
+  if(pr) pr.textContent = full;
 }
 
 /* تحديث البيانات فقط — التصميم والمشروع والتحديد كما هي */
@@ -5635,28 +5662,35 @@ function updateScopeUI(){
   sel.value = S.scope;
   const custom = (S.scope === 'project');
   chip.classList.toggle('custom', custom);
-  if(S.project === ALL_PROJECTS && !custom) chip.textContent = U('All projects', 'يظهر لكل المشاريع');
+  const lib = (S.scope === 'library');
+  chip.classList.toggle('copy', lib);
+  if(lib) chip.textContent = U('Saved copy — not applied', 'نسخة — غير مطبّقة');
+  else if(S.project === ALL_PROJECTS && !custom) chip.textContent = U('All projects', 'يظهر لكل المشاريع');
   else if(!S.project && custom) chip.textContent = U('Select a project first', 'اختر مشروعاً أولاً');
   else if(custom)          chip.textContent = U('This project only', 'مخصص لهذا المشروع');
   else                     chip.textContent = U('All projects', 'يظهر لكل المشاريع');
   unlink.hidden = !(S.source === 'project' && S.layoutId);
-  $('#btnSave').textContent = custom ? U('Save for project', 'حفظ للمشروع') : U('Save', 'حفظ');
-  $('#btnSave').title = custom ? U('Save as a custom layout for this project', 'حفظ كقالب مخصص لهذا المشروع')
+  $('#btnSave').textContent = lib ? U('Save copy', 'حفظ النسخة') : custom ? U('Save for project', 'حفظ للمشروع') : U('Save', 'حفظ');
+  $('#btnSave').title = lib ? U('Save this copy (it stays not applied to any project)', 'حفظ النسخة (تفضل غير مطبّقة على أي مشروع)')
+                      : custom ? U('Save as a custom layout for this project', 'حفظ كقالب مخصص لهذا المشروع')
                                : U('Save as the global layout for all projects', 'حفظ كقالب عام لكل المشاريع');
-  $('#mSaveLabel').textContent = custom ? U('Save for this project', 'حفظ لهذا المشروع')
+  $('#mSaveLabel').textContent = lib ? U('Save copy', 'حفظ النسخة') : custom ? U('Save for this project', 'حفظ لهذا المشروع')
                                         : U('Save global layout', 'حفظ القالب العام');
 }
 
 /* =====================================================================
    الحفظ والتحميل
    ===================================================================== */
-async function saveLayout(){
-  if(S.scope === 'project' && !S.project){
+async function saveLayout(opts){
+  opts = opts || {};
+  const scope = opts.asNew ? 'library' : S.scope;
+  if(scope === 'project' && !S.project){
     toast('اختر مشروعاً أولاً لحفظ قالب مخصص له', true); return;
   }
+  const name = (opts.name || $('#layoutName').value || '').trim() || U('Untitled layout', 'قالب بدون اسم');
   const body = {
-    id:S.layoutId, name:$('#layoutName').value.trim() || U('Untitled layout', 'قالب بدون اسم'),
-    scope:S.scope, project_name:S.project || null,
+    id:opts.asNew ? null : S.layoutId, name, scope, as_new:!!opts.asNew,
+    project_name:S.project || null,
     data:{version:1, page:S.page, widgets:S.widgets, seq:S.seq}
   };
   try{
@@ -5666,13 +5700,36 @@ async function saveLayout(){
     const j = await r.json();
     if(!j.success){ toast(j.error || 'فشل الحفظ', true); return; }
     S.layoutId = j.id; S.dirty = false;
-    S.source = (j.scope === 'default') ? 'default' : 'project';
+    S.scope = S.source = (j.scope === 'default' || j.scope === 'library') ? j.scope : 'project';
+    $('#layoutName').value = name; S.layoutName = name;
     saveSession();
     updateScopeUI();
-    toast(S.scope === 'default'
-      ? 'تم حفظ القالب العام — سينطبق على كل المشاريع التي ليس لها قالب مخصص ✓'
+    toast(opts.asNew
+      ? U(`Saved as a new copy “${name}”. The original layout is unchanged. To use this copy, choose File › Layout applies to, then Save.`,
+          `تم الحفظ كنسخة جديدة «${name}» — القالب الأصلي كما هو. لاستخدامها: ملف › القالب يُطبَّق على، ثم حفظ.`)
+      : S.scope === 'default' ? 'تم حفظ القالب العام — سينطبق على كل المشاريع التي ليس لها قالب مخصص ✓'
+      : S.scope === 'library' ? U('Copy saved ✓ (not applied to any project)', 'تم حفظ النسخة ✓ (غير مطبّقة على أي مشروع)')
       : 'تم حفظ القالب المخصص لمشروع ' + S.project + ' ✓');
   }catch(e){ toast('خطأ في الحفظ: ' + e.message, true); }
+}
+/* «حفظ كنسخة جديدة»: نفس التصميم باسم جديد في سجل مستقل — مثلاً نسخة إنجليزي من داشبورد عربي */
+function saveAsCopy(){
+  const cur = ($('#layoutName').value || '').trim() || U('Untitled layout', 'قالب بدون اسم');
+  const name = prompt(U('Name for the new copy:', 'اسم النسخة الجديدة:'), cur + U(' (copy)', ' (نسخة)'));
+  if(name === null) return;
+  saveLayout({asNew:true, name:name.trim() || cur});
+}
+async function duplicateLayout(id){
+  try{
+    const j = await (await fetch('/api/builder/layouts/' + id)).json();
+    if(!j.success){ toast(j.error || 'تعذر فتح القالب', true); return; }
+    const r = await (await fetch('/api/builder/layouts', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:j.layout.name + U(' (copy)', ' (نسخة)'), scope:'library', as_new:true, data:j.layout.data})})).json();
+    if(!r.success){ toast(r.error || 'فشل الحفظ', true); return; }
+    toast(U('Copy created — you can open it and edit it without touching the original',
+            'تم عمل نسخة — افتحها وعدّل عليها من غير ما تأثّر على الأصل'));
+    openLayouts();
+  }catch(e){ toast('خطأ: ' + e.message, true); }
 }
 async function openLayouts(){
   $('#modalBack').classList.add('open');
@@ -5680,16 +5737,24 @@ async function openLayouts(){
   try{
     const j = await (await fetch('/api/builder/layouts')).json();
     if(!j.success || !j.layouts.length){ box.innerHTML = '<div class="hint">لا توجد قوالب محفوظة بعد.</div>'; return; }
+    const esc = t => String(t == null ? '' : t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    const where = l => l.is_default ? 'ينطبق على كل المشاريع'
+                     : !l.project_name ? 'نسخة محفوظة — غير مطبّقة على أي مشروع'
+                     : l.project_name === ALL_PROJECTS ? 'مخصص لوضع كل المشاريع (مجمّع)'
+                     : `مخصص لمشروع: <span data-no-tr>${esc(l.project_name)}</span>`;
     box.innerHTML = j.layouts.map(l => `
-      <div class="lay-item">
+      <div class="lay-item${String(l.id) === String(S.layoutId) ? ' current' : ''}">
         <div class="li-main">
-          <div class="li-name">${l.name}${l.is_default ? '<span class="lay-badge">🌍 عام</span>' : ''}</div>
-          <div class="li-sub">${l.is_default ? 'ينطبق على كل المشاريع' : ('مخصص لمشروع: ' + (l.project_name || '—'))} · آخر تعديل ${(l.updated_at||'').slice(0,16)}</div>
+          <div class="li-name"><span data-no-tr>${esc(l.name)}</span>${l.is_default ? '<span class="lay-badge">🌍 عام</span>'
+              : (!l.project_name ? '<span class="lay-badge copy">نسخة</span>' : '')}${String(l.id) === String(S.layoutId) ? '<span class="lay-badge open">مفتوح الآن</span>' : ''}</div>
+          <div class="li-sub">${where(l)} · آخر تعديل ${(l.updated_at||'').slice(0,16)}</div>
         </div>
-        <button class="sbtn" style="flex:0 0 70px" data-load="${l.id}">فتح</button>
+        <button class="sbtn" style="flex:0 0 64px" data-load="${l.id}">فتح</button>
+        <button class="sbtn" style="flex:0 0 78px" data-dup="${l.id}" title="عمل نسخة مستقلة من القالب ده">تكرار</button>
         <button class="sbtn danger" style="flex:0 0 60px" data-del="${l.id}">حذف</button>
       </div>`).join('');
     box.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => loadLayout(b.dataset.load)));
+    box.querySelectorAll('[data-dup]').forEach(b => b.addEventListener('click', () => duplicateLayout(b.dataset.dup)));
     box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
       if(!confirm('حذف هذا القالب نهائياً؟')) return;
       await fetch('/api/builder/layouts/' + b.dataset.del, {method:'DELETE'});
@@ -5703,7 +5768,7 @@ async function loadLayout(id){
     if(!j.success){ toast(j.error || 'تعذر فتح القالب', true); return; }
     const L = j.layout, d = L.data || {};
     S.layoutId = L.id; S.layoutName = L.name;
-    S.scope = L.is_default ? 'default' : 'project';
+    S.scope = L.is_default ? 'default' : (L.project_name ? 'project' : 'library');
     S.source = S.scope;
     $('#layoutName').value = L.name;
     S.page = Object.assign(S.page, {progressSource:'weekly'}, d.page || {});
@@ -5739,27 +5804,38 @@ document.querySelectorAll('.side-tab').forEach(t =>
   t.addEventListener('click', () => switchTab(t.dataset.tab)));
 
 $('#projectSel').addEventListener('change', async e => {
-  if(S.dirty && !confirm('لديك تعديلات غير محفوظة، سيتم استبدالها بقالب المشروع الجديد. المتابعة؟')){
+  // نسخة محفوظة مفتوحة: تغيير المشروع يعرض بياناته على نفس النسخة (لا يستبدلها بقالب المشروع)
+  const keep = (S.scope === 'library' && S.layoutId);
+  if(!keep && S.dirty && !confirm('لديك تعديلات غير محفوظة، سيتم استبدالها بقالب المشروع الجديد. المتابعة؟')){
     e.target.value = S.project || ''; return;
   }
-  await loadProject(e.target.value);
+  await loadProject(e.target.value, {resolve:!keep});
+  if(keep) updateScopeUI();
 });
 $('#scopeSel').addEventListener('change', e => {
-  const v = e.target.value;
-  if(v === 'project' && !S.project){
-    toast('اختر مشروعاً أولاً', true); e.target.value = S.scope; return;
-  }
-  if(v === 'project' && S.scope === 'default'){
-    if(!confirm('سيتم حفظ نسخة مستقلة خاصة بمشروع "' + S.project +
-                '" عند الضغط على حفظ.\nبعدها لن تتأثر بأي تعديل تعمله على القالب العام. المتابعة؟')){
-      e.target.value = 'default'; return;
-    }
+  const v = e.target.value, from = S.scope;
+  const undo = () => { e.target.value = from; };
+  if(v === from) return;
+  if(v === 'project' && !S.project){ toast('اختر مشروعاً أولاً', true); undo(); return; }
+  const pn = S.project === ALL_PROJECTS ? U('All projects (combined)', 'كل المشاريع (مجمّع)') : S.project;
+  if(from === 'library' && S.layoutId){
+    // النسخة نفسها تنتقل للمكان الجديد؛ والقالب اللي كان فيه يتحفظ كنسخة (مش بيتمسح)
+    const msg = v === 'project'
+      ? U(`When you press Save, this copy becomes the layout for “${pn}”. If the project already has a custom layout, it is kept in Saved layouts as a copy. Continue?`,
+          `عند الضغط على حفظ هتبقى النسخة دي هي قالب «${pn}». لو المشروع له قالب مخصص، هيتحفظ في القوالب المحفوظة كنسخة. المتابعة؟`)
+      : U('When you press Save, this copy becomes the global layout for all projects. The current global layout is kept in Saved layouts as a copy. Continue?',
+          'عند الضغط على حفظ هتبقى النسخة دي هي القالب العام لكل المشاريع. القالب العام الحالي هيتحفظ في القوالب المحفوظة كنسخة. المتابعة؟');
+    if(!confirm(msg)){ undo(); return; }
+  }else if(v === 'library'){
+    if(!confirm(U('When you press Save, a separate copy is created that is not applied to any project. The current layout stays as it is. Continue?',
+                  'عند الضغط على حفظ هتتعمل نسخة مستقلة غير مطبّقة على أي مشروع، والقالب الحالي يفضل زي ما هو. المتابعة؟'))){ undo(); return; }
+    S.layoutId = null;
+  }else if(v === 'project'){
+    if(!confirm('سيتم حفظ نسخة مستقلة خاصة بمشروع "' + pn +
+                '" عند الضغط على حفظ.\nبعدها لن تتأثر بأي تعديل تعمله على القالب العام. المتابعة؟')){ undo(); return; }
     S.layoutId = null;                 // نسخة جديدة مستقلة
-  }
-  if(v === 'default' && S.scope === 'project'){
-    if(!confirm('سيتم حفظ هذا التصميم كقالب عام لكل المشاريع عند الضغط على حفظ. المتابعة؟')){
-      e.target.value = 'project'; return;
-    }
+  }else if(v === 'default'){
+    if(!confirm('سيتم حفظ هذا التصميم كقالب عام لكل المشاريع عند الضغط على حفظ. المتابعة؟')){ undo(); return; }
     S.layoutId = null;
   }
   S.scope = v; S.dirty = true; updateScopeUI();
@@ -5773,7 +5849,7 @@ $('#btnUnlink').addEventListener('click', async () => {
   await loadProject(S.project);
   toast('تم إلغاء التخصيص — المشروع يستخدم القالب العام الآن');
 });
-$('#btnSave').addEventListener('click', saveLayout);
+$('#btnSave').addEventListener('click', () => saveLayout());
 $('#btnOpen').addEventListener('click', openLayouts);
 $('#btnNew').addEventListener('click', newLayout);
 $('#btnCloseModal').addEventListener('click', () => $('#modalBack').classList.remove('open'));
@@ -5781,6 +5857,7 @@ $('#modalBack').addEventListener('click', e => { if(e.target.id === 'modalBack')
 async function setPresent(on){
   document.body.classList.toggle('presenting', on);
   $('#btnExitPresent').hidden = !on;
+  $('#presentUpdated').hidden = !on || !S.lastFetch;
   if(on){
     select(null);
     try{ if(!document.fullscreenElement) await document.documentElement.requestFullscreen(); }catch(e){}
@@ -5893,7 +5970,7 @@ document.addEventListener('keydown', e => {
   const CTRL = e.ctrlKey || e.metaKey;
   if(CTRL && isKey(e, 'z')){ e.preventDefault(); if(e.shiftKey) doRedo(); else doUndo(); return; }
   if(CTRL && isKey(e, 'y')){ e.preventDefault(); doRedo(); return; }
-  if(CTRL && isKey(e, 's')){ e.preventDefault(); saveLayout(); return; }
+  if(CTRL && isKey(e, 's')){ e.preventDefault(); if(e.shiftKey) saveAsCopy(); else saveLayout(); return; }
   if(CTRL && isKey(e, 'd')){ e.preventDefault(); duplicateSelected(); return; }
   if(CTRL && isKey(e, 'a')){ e.preventDefault(); selectAll(); return; }      // تحديد الكل
   if(e.key === 'Escape'){
@@ -5966,7 +6043,8 @@ document.addEventListener('keydown', e => {
 }, true);
 window.addEventListener('blur', closeMenus);
 
-$('#mSave').addEventListener('click', saveLayout);
+$('#mSave').addEventListener('click', () => saveLayout());
+$('#mSaveAs').addEventListener('click', saveAsCopy);
 $('#mDup').addEventListener('click', duplicateSelected);
 $('#mDel').addEventListener('click', removeSelected);
 $('#mSelAll').addEventListener('click', selectAll);
