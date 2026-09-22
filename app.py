@@ -43,6 +43,11 @@ def get_db_connection():
             # تاريخ مصدر النسبة الفعلية (YYYY-MM-DD): تحديث مدير المشروع / Data Date في XER /
             # نهاية الفترة المالية / يوم الإدخال اليدوي — عشان المنحنى الأسبوعي يقف عند آخر رقم حقيقي
             cur.execute("ALTER TABLE cashflow_rows ADD COLUMN IF NOT EXISTS act_date TEXT")
+            # التوزيع اليومي لخط الأساس من برنامج XER (يوم عمل ← مبلغ مخطط). الجدول الشهري يفضل هو
+            # المرجع للمجاميع، واليومي بيحدد شكل التوزيع جوه كل شهر بس.
+            cur.execute("""CREATE TABLE IF NOT EXISTS cashflow_plan_daily (
+                               project_name TEXT NOT NULL, d TEXT NOT NULL, amount NUMERIC,
+                               PRIMARY KEY (project_name, d))""")
             conn.commit()
             _SCHEMA_READY = True
         except Exception:
@@ -1135,9 +1140,12 @@ def _snapshot_capture(project, name, user, conn=None):
                       FROM cashflow_rows WHERE project_name = %s ORDER BY ym, COALESCE(wk,0)""", (project,))
     rows = [[r[0], int(r[1] or 0)] + [None if v is None else float(v) for v in r[2:6]] + [r[6], r[7]]
             for r in cursor.fetchall()]
+    cursor.execute("SELECT d, amount FROM cashflow_plan_daily WHERE project_name = %s ORDER BY d", (project,))
+    daily = [[str(d)[:10], float(a or 0)] for d, a in cursor.fetchall()]
     cursor.execute("""INSERT INTO cashflow_snapshots (project_name, name, payload, created_by)
                       VALUES (%s,%s,%s,%s) RETURNING id""",
-                   (project, (name or "نسخة")[:120], json.dumps({"meta": meta, "rows": rows}), user))
+                   (project, (name or "نسخة")[:120],
+                    json.dumps({"meta": meta, "rows": rows, "daily": daily}), user))
     sid = cursor.fetchone()[0]
     cursor.execute("""DELETE FROM cashflow_snapshots WHERE project_name = %s AND id NOT IN
                       (SELECT id FROM cashflow_snapshots WHERE project_name = %s
@@ -1216,6 +1224,12 @@ async def api_cashflow_snapshot_restore(request: Request, background_tasks: Back
                               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())""",
                            (project, r[0], r[1], r[2], r[3], r[4], r[5], r[6],
                             r[7] if len(r) > 7 else None, admin_user))    # نسخ قديمة بلا act_date
+        # التوزيع اليومي يرجع مع النسخة؛ نسخة قديمة من قبل التوزيع اليومي ← توزيع متساوٍ
+        cursor.execute("DELETE FROM cashflow_plan_daily WHERE project_name = %s", (project,))
+        daily = [(project, d, a) for d, a in (payload.get("daily") or []) if _clean_date(d)]
+        if daily:
+            psycopg2.extras.execute_values(cursor,
+                "INSERT INTO cashflow_plan_daily (project_name, d, amount) VALUES %s", daily, page_size=1000)
         m = payload.get("meta")
         if m:
             cursor.execute("""INSERT INTO cashflow_meta
@@ -1277,11 +1291,13 @@ async def api_cashflow_wipe(request: Request, background_tasks: BackgroundTasks)
                                          updated_by = %s, updated_at = NOW()
                                   WHERE project_name = %s""", (admin_user, p))
             elif scope == "plan":
+                cursor.execute("DELETE FROM cashflow_plan_daily WHERE project_name = %s", (p,))
                 cursor.execute("""UPDATE cashflow_rows SET plan_amount = NULL, plan_pct = NULL,
                                          updated_by = %s, updated_at = NOW()
                                   WHERE project_name = %s""", (admin_user, p))
             else:
                 cursor.execute("DELETE FROM cashflow_rows WHERE project_name = %s", (p,))
+                cursor.execute("DELETE FROM cashflow_plan_daily WHERE project_name = %s", (p,))
                 cursor.execute("DELETE FROM cashflow_meta WHERE project_name = %s", (p,))
             n += cursor.rowcount or 0
         conn.commit(); conn.close()
@@ -1563,6 +1579,377 @@ async def api_cashflow_data_all(request: Request):
             if series:
                 out[project] = {"meta": meta, "series": series}
         return {"success": True, "projects": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+CF_WEEK_START = 5          # بداية الأسبوع: السبت (الاثنين=0 … السبت=5) — زي البريمافيرا
+
+
+def _as_date(txt):
+    return date(int(txt[:4]), int(txt[5:7]), int(txt[8:10]))
+
+
+def _cf_load(cursor, names=None):
+    """يحمّل كل ما يلزم لمنحنى التدفق النقدي لمشروع أو أكثر (أو كل المشاريع لو names=None) في
+    4 استعلامات: {مشروع: {"meta", "rows" (مدمجة بأسابيعها), "daily" {تاريخ: مبلغ}, "pm" {شهر: [(تاريخ, %)]}}}"""
+    if names is None:
+        cursor.execute("""SELECT project_name, contract_value, revised_value, start_month, end_month, plan_base
+                          FROM cashflow_meta""")
+    else:
+        cursor.execute("""SELECT project_name, contract_value, revised_value, start_month, end_month, plan_base
+                          FROM cashflow_meta WHERE project_name = ANY(%s)""", (list(names),))
+    metas = {}
+    for name, cv, rv, sm, em, pb in cursor.fetchall():
+        m = {"contract_value": float(cv or 0), "revised_value": float(rv or 0),
+             "start_month": sm, "end_month": em, "plan_base": None if pb is None else float(pb)}
+        if not m["plan_base"]:
+            m["plan_base"] = m["contract_value"]
+        metas[name] = m
+    if not metas:
+        return {}
+    keys = list(metas.keys())
+    cursor.execute("""SELECT project_name, ym, COALESCE(wk, 0), plan_amount, plan_pct, act_pct, act_amount, act_date
+                      FROM cashflow_rows WHERE project_name = ANY(%s)
+                      ORDER BY project_name, ym, COALESCE(wk, 0)""", (keys,))
+    rows_by, weeks_by = {}, {}
+    for proj, ym, wk, pa, pp, ap, aa, ad in cursor.fetchall():
+        wk = int(wk or 0)
+        rec = {"ym": ym, "wk": wk,
+               "plan_amount": None if pa is None else float(pa), "plan_pct": None if pp is None else float(pp),
+               "act_pct": None if ap is None else float(ap), "act_amount": None if aa is None else float(aa),
+               "act_date": _clean_date(ad)}
+        if wk == 0:
+            rows_by.setdefault(proj, {})[ym] = rec
+        elif 1 <= wk <= WEEKS_PER_MONTH:
+            weeks_by.setdefault(proj, {}).setdefault(ym, {})[wk] = rec
+    daily_by = {}
+    try:
+        cursor.execute("""SELECT project_name, d, amount FROM cashflow_plan_daily
+                          WHERE project_name = ANY(%s)""", (keys,))
+        for proj, d, amt in cursor.fetchall():
+            daily_by.setdefault(proj, {})[str(d)[:10]] = float(amt or 0)
+    except Exception:
+        cursor.connection.rollback()
+    try:
+        pm_all = _pm_updates(cursor, keys)
+    except Exception:
+        cursor.connection.rollback()
+        pm_all = {}
+    out = {}
+    for proj, meta in metas.items():
+        rows, weeks = rows_by.get(proj, {}), weeks_by.get(proj, {})
+        months = _ym_range(meta["start_month"], meta["end_month"])
+        for ym in sorted(set(list(rows.keys()) + list(weeks.keys()))):
+            if ym not in months:
+                months.append(ym)
+        months.sort()
+        data_rows = []
+        for ym in months:
+            base = rows.get(ym, {"ym": ym, "wk": 0, "plan_amount": None, "plan_pct": None,
+                                 "act_pct": None, "act_amount": None, "act_date": None})
+            data_rows.append(_merge_weeks(base, weeks.get(ym)))
+        out[proj] = {"meta": meta, "rows": data_rows, "daily": daily_by.get(proj, {}),
+                     "pm": pm_all.get(proj, {})}
+    return out
+
+
+def _cf_daily(meta, rows, daily, pm):
+    """يحوّل مشروع واحد إلى أيام: المخطط اليومي (مبلغ + نسبة تراكمية) ونقاط فعلية حقيقية بتواريخها.
+
+    المخطط: مبلغ كل شهر من صفحة التدفق النقدي (المرجع للمجاميع) يتوزع على أيامه بشكل التوزيع
+    اليومي المستورد من XER لو موجود (بنِسَبه، فلو اتعدّل مبلغ الشهر يدوياً يفضل المجموع مظبوط)، وإلا
+    بأرقام الأسابيع لو الشهر متقسّم في الصفحة، وإلا بالتساوي على أيام الشهر. النسبة المخططة اليومية
+    تتدرّج بين نسبة نهاية الشهر السابق ونسبة نهاية الشهر المحفوظة، فنهاية كل شهر = العرض الشهري بالظبط.
+
+    الفعلي: نقاط حقيقية فقط (تاريخ، نسبة، مبلغ تراكمي): أرقام أسابيع الشهر المتقسّم في نهاية كل أسبوع؛
+    ولغير المتقسّم رقم الشهر في تاريخه (act_date) وقبله تحديثات مديري المشاريع الحقيقية في نفس الشهر.
+    رقم قديم من غير تاريخ: تاريخ تحديث مدير المشروع اللي بنفس النسبة، وإلا نهاية الشهر (بحد أقصى النهارده)."""
+    W = WEEKS_PER_MONTH
+    cv = meta["contract_value"] or 0
+    rv = meta["revised_value"] or cv
+    pb = meta.get("plan_base") or cv
+    today = _as_date(_today_ksa())
+    days, amts, pcts, points = [], [], [], []
+    cum, prev_pct = 0.0, 0.0
+    for r in rows:
+        ym = r["ym"]
+        first, last = date(int(ym[:4]), int(ym[5:7]), 1), _as_date(_month_end(ym))
+        D = [first + timedelta(days=i) for i in range((last - first).days + 1)]
+        mp = float(r["plan_amount"] or 0)
+        wks = r.get("weeks") or []
+        prof = [daily.get(d.isoformat(), 0.0) for d in D]
+        ps = sum(prof)
+        if mp and ps > 0:
+            dist = [mp * x / ps for x in prof]
+        elif mp and r.get("has_weeks") and any(w and w.get("plan_amount") is not None for w in wks):
+            dist = [0.0] * len(D)
+            for i, w in enumerate(wks[:W]):
+                if not w or w.get("plan_amount") is None:
+                    continue
+                lo, hi = i * 7, ((i + 1) * 7 if i < W - 1 else len(D))
+                for k in range(lo, hi):
+                    dist[k] += float(w["plan_amount"]) / (hi - lo)
+        else:
+            dist = [mp / len(D)] * len(D)
+        month_pct = r["plan_pct"] if r["plan_pct"] is not None else ((cum + mp) / pb * 100 if pb else 0)
+        month_pct = float(month_pct or 0)
+        run = 0.0
+        for i, d in enumerate(D):
+            run += dist[i]
+            frac = (run / mp) if mp else (i + 1) / len(D)
+            days.append(d)
+            amts.append(dist[i])
+            pcts.append(prev_pct + (month_pct - prev_pct) * frac)
+        cum += mp
+        prev_pct = month_pct
+
+        a = r["act_pct"]
+        if a is None:
+            continue
+        a = float(a)
+        month_cum = float(r["act_amount"]) if r["act_amount"] is not None else a / 100 * rv
+        if r.get("has_weeks"):
+            for i, w in enumerate(wks[:W]):
+                if w and w.get("act_pct") is not None:
+                    we = D[(i + 1) * 7 - 1] if i < W - 1 else D[-1]
+                    wc = float(w["act_amount"]) if w.get("act_amount") is not None else float(w["act_pct"]) / 100 * rv
+                    points.append((we, float(w["act_pct"]), wc))
+        else:
+            pm_m = pm.get(ym, [])
+            dtxt = r.get("act_date")
+            if not dtxt:
+                match = [dt for dt, v in pm_m if abs(v - a) < 0.05]
+                dtxt = match[-1] if match else max(first, min(last, today)).isoformat()
+            dd = min(max(_as_date(dtxt), first), last)
+            for dt, v in pm_m:
+                pd = _as_date(dt)
+                if pd < dd:
+                    points.append((pd, v, v / 100 * rv))
+            points.append((dd, a, month_cum))
+    points.sort(key=lambda x: x[0])
+    return {"days": days, "amts": amts, "pcts": pcts, "points": points, "pb": pb}
+
+
+def _cf_bucket_key(d, gran):
+    if gran == "day":
+        return d
+    if gran == "week":
+        return d - timedelta(days=(d.weekday() - CF_WEEK_START) % 7)
+    return date(d.year, d.month, 1)
+
+
+def _cf_curve(projects, gran, frm=None, to=None, portfolio=False):
+    """يجمّع أيام مشروع (أو كل المشاريع) في فترات يوم/أسبوع/شهر.
+    لكل فترة: plan_pct/act_pct (تراكمي عند نهاية الفترة) و plan_period_pct/act_period_pct (الفترة وحدها).
+    الفعلي يقف عند آخر رقم حقيقي: الفترات بعده فاضية. في وضع كل المشاريع كل مشروع يفضل على آخر رقم حقيقي
+    ليه لحد آخر رقم حقيقي في المحفظة كلها، والمشروع اللي لسه ما بدأش ما يدخلش."""
+    P = [p for p in projects if p["days"]]
+    if not P:
+        return []
+    g0 = min(p["days"][0] for p in P)
+    g1 = max(p["days"][-1] for p in P)
+    buckets, d = [], g0
+    while d <= g1:
+        k = _cf_bucket_key(d, gran)
+        if buckets and buckets[-1]["key"] == k:
+            buckets[-1]["end"] = d
+        else:
+            buckets.append({"key": k, "start": d, "end": d})
+        d += timedelta(days=1)
+
+    # لكل مشروع: قيم عند نهاية كل فترة
+    per = []
+    for p in P:
+        days, amts, pcts, pts = p["days"], p["amts"], p["pcts"], p["points"]
+        i, j, cum = 0, 0, 0.0
+        last_pt = pts[-1][0] if pts else None
+        rec, cur_pt = [], None
+        for b in buckets:
+            period = 0.0
+            pct_end = None
+            while i < len(days) and days[i] <= b["end"]:
+                cum += amts[i]
+                if days[i] >= b["start"]:
+                    period += amts[i]
+                pct_end = pcts[i]
+                i += 1
+            if pct_end is None and i > 0:
+                pct_end = pcts[i - 1]                       # بعد نهاية المشروع
+            while j < len(pts) and pts[j][0] <= b["end"]:
+                cur_pt = pts[j]
+                j += 1
+            started = days[0] <= b["end"]
+            rec.append({"started": started, "plan_cum": cum, "plan_period": period, "plan_pct": pct_end,
+                        "act": cur_pt})
+        per.append({"rec": rec, "pb": p["pb"], "last_pt": last_pt})
+
+    out = []
+    if not portfolio:
+        q = per[0]
+        pb = q["pb"] or 0
+        prev_cum = None
+        for bi, b in enumerate(buckets):
+            r = q["rec"][bi]
+            act = r["act"] if (r["act"] and q["last_pt"] and b["start"] <= q["last_pt"]) else None
+            act_cum = act[2] if act else None
+            act_period = None if (act_cum is None or prev_cum is None) else act_cum - prev_cum
+            if act_cum is not None:
+                prev_cum = act_cum
+            out.append({"b": b, "plan_pct": round(r["plan_pct"] or 0, 2),
+                        "act_pct": None if act is None else round(act[1], 2),
+                        "plan_period_pct": round(r["plan_period"] / pb * 100, 2) if pb else None,
+                        "act_period_pct": None if (act_period is None or not pb) else round(act_period / pb * 100, 2),
+                        # المبالغ نفسها — لصفحة التدفق النقدي (عرض بالمبلغ وجدول الفترات)
+                        "plan_period": round(r["plan_period"], 2), "plan_cum": round(r["plan_cum"], 2),
+                        "act_cum": None if act_cum is None else round(act_cum, 2),
+                        "act_period": None if act_period is None else round(act_period, 2)})
+    else:
+        total = sum(q["pb"] or 0 for q in per)
+        if total <= 0:
+            return []
+        last_all = max((q["last_pt"] for q in per if q["last_pt"]), default=None)
+        prev = [None] * len(per)
+        for bi, b in enumerate(buckets):
+            plan_sum = plan_per = act_sum = per_sum = 0.0
+            any_act = any_per = False
+            for qi, q in enumerate(per):
+                r = q["rec"][bi]
+                if not r["started"]:
+                    continue
+                plan_sum += r["plan_cum"]
+                plan_per += r["plan_period"]
+                if r["act"]:
+                    c = r["act"][2]
+                    act_sum += c
+                    any_act = True
+                    if prev[qi] is not None:
+                        per_sum += c - prev[qi]
+                        any_per = True
+                    prev[qi] = c
+            live = any_act and last_all is not None and b["start"] <= last_all
+            out.append({"b": b, "plan_pct": round(plan_sum / total * 100, 2),
+                        "act_pct": round(act_sum / total * 100, 2) if live else None,
+                        "plan_period_pct": round(plan_per / total * 100, 2),
+                        "act_period_pct": round(per_sum / total * 100, 2) if (live and any_per) else None,
+                        "plan_period": round(plan_per, 2), "plan_cum": round(plan_sum, 2),
+                        "act_cum": round(act_sum, 2) if live else None,
+                        "act_period": round(per_sum, 2) if (live and any_per) else None})
+
+    res = []
+    for o in out:
+        b = o.pop("b")
+        if frm and b["end"] < frm:
+            continue
+        if to and b["start"] > to:
+            continue
+        key = b["key"]
+        o["key"] = key.isoformat()
+        o["label"] = key.strftime("%Y-%m") if gran == "month" else key.isoformat()
+        o["start"], o["end"] = b["start"].isoformat(), b["end"].isoformat()
+        res.append(o)
+    return res
+
+
+@app.get("/api/cashflow/curve")
+async def api_cashflow_curve(request: Request, project: str = "", gran: str = "month",
+                             frm: str = "", to: str = ""):
+    """منحنى التدفق النقدي الجاهز لمنشئ الداشبورد: project فاضي = كل المشاريع مجمّعة.
+    gran = day | week | month، والمدى من تاريخ إلى تاريخ (اختياري). كل الحساب على السيرفر ويرجع
+    بس الفترات المطلوبة، فالصفحة ما بتحمّلش آلاف الأيام."""
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        gran = gran if gran in ("day", "week", "month") else "month"
+        f = _clean_date(frm)
+        t = _clean_date(to)
+        conn = get_db_connection()
+        data = _cf_load(conn.cursor(), [project] if project else None)
+        conn.close()
+        projs = [_cf_daily(v["meta"], v["rows"], v["daily"], v["pm"]) for v in data.values()]
+        if project and not projs:
+            return {"success": True, "buckets": []}
+        buckets = _cf_curve(projs, gran, _as_date(f) if f else None, _as_date(t) if t else None,
+                            portfolio=not project)
+        return {"success": True, "gran": gran, "buckets": buckets}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/at")
+async def api_cashflow_at(request: Request):
+    """النسبة المخططة والفعلية من التدفق النقدي في تواريخ محددة — لخيار «مصدر نسب الإنجاز» في
+    الداشبورد. body: {"items": {مشروع: [تاريخ, ...]}}. المخطط من التوزيع اليومي لخط الأساس، والفعلي
+    = آخر رقم حقيقي في التاريخ ده أو قبله (null لو مفيش). مشروع مالوش تدفق نقدي ما بيرجعش."""
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        items = b.get("items") or {}
+        if not isinstance(items, dict) or not items:
+            return {"success": True, "projects": {}}
+        conn = get_db_connection()
+        data = _cf_load(conn.cursor(), list(items.keys())[:300])
+        conn.close()
+        out = {}
+        for proj, v in data.items():
+            P = _cf_daily(v["meta"], v["rows"], v["daily"], v["pm"])
+            if not P["days"]:
+                continue
+            idx = {d: i for i, d in enumerate(P["days"])}
+            first, last = P["days"][0], P["days"][-1]
+            pts = P["points"]
+            at = {}
+            for txt in (items.get(proj) or [])[:2000]:
+                t = _clean_date(txt)
+                if not t:
+                    continue
+                d = _as_date(t)
+                plan = 0.0 if d < first else P["pcts"][-1] if d > last else P["pcts"][idx[d]]
+                act = None
+                for pd, pv, _ in pts:
+                    if pd <= d:
+                        act = pv
+                    else:
+                        break
+                at[t] = [round(plan, 4), None if act is None else round(act, 4)]
+            meta = v["meta"]
+            cv = meta["contract_value"] or 0
+            out[proj] = {"pb": meta.get("plan_base") or cv, "rv": meta["revised_value"] or cv, "at": at}
+        return {"success": True, "projects": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cashflow/plan-daily")
+async def api_cashflow_plan_daily(request: Request):
+    """يستبدل التوزيع اليومي لخط الأساس لمشروع ({تاريخ: مبلغ}) — من استيراد XER. قائمة فاضية = مسح."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        project = (b.get("project") or "").strip()
+        days = b.get("days") or {}
+        if not project or not isinstance(days, dict):
+            return JSONResponse({"success": False, "error": "بيانات ناقصة"}, status_code=400)
+        vals = []
+        for k, v in days.items():
+            d = _clean_date(k)
+            try:
+                amt = float(v)
+            except (TypeError, ValueError):
+                continue
+            if d and amt:
+                vals.append((project, d, round(amt, 4)))
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM cashflow_plan_daily WHERE project_name = %s", (project,))
+        if vals:
+            psycopg2.extras.execute_values(cursor,
+                "INSERT INTO cashflow_plan_daily (project_name, d, amount) VALUES %s", vals, page_size=1000)
+        conn.commit(); conn.close()
+        return {"success": True, "days": len(vals)}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
