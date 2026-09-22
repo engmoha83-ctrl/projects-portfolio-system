@@ -523,6 +523,10 @@ const T = {
     rangeStart:'من شهر', rangeEnd:'إلى شهر', rangeNone:'بدون حد',
     noCashflow:'لا توجد بيانات تدفق نقدي كافية بعد — أنشئها من صفحة التدفق النقدي أولاً (لمشروع واحد على الأقل في وضع «كل المشاريع»)',
     noRangeData:'لا توجد بيانات ضمن المدى الزمني المحدد — وسّع المدى من خصائص القالب',
+    calcMode:'طريقة الحساب', ccCumulative:'تراكمي', ccPeriod:'شهري (كل شهر منفرداً)',
+    periodActual:'الصرف الفعلي الشهري', periodPlanned:'الصرف المخطط الشهري',
+    weekActual:'الصرف الفعلي الأسبوعي', weekPlanned:'الصرف المخطط الأسبوعي',
+    noPeriodData:'لا توجد بيانات صرف شهري كافية ضمن هذا المدى',
     million:'مليون', thousand:'ألف', billion:'مليار',
     pickProject:'اختر مشروعاً من الشريط العلوي لعرض البيانات',
     noImage:'لا توجد صورة — اختر مرفقاً من المشروع أو ارفع لوجو من الشريط الجانبي',
@@ -570,6 +574,10 @@ const T = {
     rangeStart:'From month', rangeEnd:'To month', rangeNone:'No limit',
     noCashflow:'No cash-flow data yet — set it up on the Cash Flow page first (at least one project, in “all projects” mode)',
     noRangeData:'No data in the selected date range — widen it from the visual’s properties',
+    calcMode:'Calculation mode', ccCumulative:'Cumulative', ccPeriod:'Monthly (each month on its own)',
+    periodActual:'Monthly actual spend', periodPlanned:'Monthly planned spend',
+    weekActual:'Weekly actual spend', weekPlanned:'Weekly planned spend',
+    noPeriodData:'Not enough monthly spend data in this range',
     million:'M', thousand:'K', billion:'B',
     pickProject:'Select a project from the top bar to load data',
     noImage:'No image — pick a project attachment or upload a logo from the sidebar',
@@ -828,7 +836,11 @@ function lastKnownAtYm(series, ym, key){
    إجمالي أساس التخطيط لكل المشاريع مجتمعة — بنفس منطق «متوسط مرجّح بقيمة العقد» المستخدم
    أصلاً مع تحديثات المشاريع الأسبوعية، لكن هنا القيم أموال تراكمية فعلية فتُجمَع مباشرة
    بدل المتوسط. المشروع الذي لم يبدأ مداه بعد لا يساهم؛ القيم الناقصة (شهر بلا تحديث فعلي
-   بعد، أو ما بعد نهاية مدى المشروع) تُحمَل للأمام من آخر رقم حقيقي لنفس المشروع. */
+   بعد، أو ما بعد نهاية مدى المشروع) تُحمَل للأمام من آخر رقم حقيقي لنفس المشروع.
+   كما تُحسَب plan_period_pct/act_period_pct: نفس المنطق لكن للقيمة الشهرية (غير التراكمية) —
+   نسبة كل شهر وحده من إجمالي أساس التخطيط، حتى تُقارَن وتيرة الصرف الفعلي بوتيرة الصرف
+   المخطط شهراً بشهر (بخلاف المنحنى التراكمي). هنا لا يُحمَل شيء للأمام: شهر بلا سجل حقيقي
+   لمشروع مُعيَّن يعني ببساطة صرفاً صفرياً له في ذلك الشهر تحديداً. */
 function aggregateCashflowAll(projPayloads){
   const list = (projPayloads || []).filter(p => p && p.series && p.series.length);
   if(!list.length) return [];
@@ -839,20 +851,56 @@ function aggregateCashflowAll(projPayloads){
   const monthsSet = new Set();
   list.forEach(p => p.series.forEach(r => monthsSet.add(r.ym)));
   const months = Array.from(monthsSet).sort();
+  const recMaps = list.map(p => new Map(p.series.map(r => [r.ym, r])));
 
   return months.map(ym => {
     let planSum = 0, actSum = 0, anyAct = false;
-    list.forEach(p => {
+    let planPeriodSum = 0, actPeriodSum = 0, anyActPeriod = false;
+    list.forEach((p, idx) => {
       const first = p.series[0].ym;
       if(ym < first) return;                              // المشروع لم يبدأ مداه بعد
       planSum += lastKnownAtYm(p.series, ym, 'plan_cum') || 0;
       const act = lastKnownAtYm(p.series, ym, 'act_cum');
       if(act !== null){ actSum += act; anyAct = true; }
+      const rec = recMaps[idx].get(ym);
+      if(rec){
+        planPeriodSum += rec.plan_amount || 0;
+        if(rec.act_period !== null && rec.act_period !== undefined){
+          actPeriodSum += rec.act_period; anyActPeriod = true;
+        }
+      }
     });
     return {ym,
             plan_pct: +(planSum / totalBase * 100).toFixed(2),
-            act_pct: anyAct ? +(actSum / totalBase * 100).toFixed(2) : null};
+            act_pct: anyAct ? +(actSum / totalBase * 100).toFixed(2) : null,
+            plan_period_pct: +(planPeriodSum / totalBase * 100).toFixed(2),
+            act_period_pct: anyActPeriod ? +(actPeriodSum / totalBase * 100).toFixed(2) : null};
   });
+}
+
+/* تحويل سلسلة تدفق نقدي شهرية إلى أسبوعية: كل شهر يصبح WEEKS نقاط من حقل weeks القادم
+   من الخادم. المفتاح ym بصيغة «YYYY-MM#N» حتى يبقى الترتيب النصي صحيحاً (نفس منطق
+   aggregateCashflowAll وlastKnownAtYm بدون أي تعديل)، والاسم الظاهر على المحور في label. */
+function cfToWeeks(series){
+  const out = [];
+  (series || []).forEach(m => {
+    (m.weeks || []).forEach(w => out.push(Object.assign({}, w,
+      {ym:m.ym + '#' + w.wk, label:m.ym + ' أ' + w.wk})));
+  });
+  return out;
+}
+function cfSeriesFor(gran){
+  if(S.mode === 'all'){
+    if(gran !== 'week') return S.cashflowAll || [];
+    if(!S.cashflowAllWeek && S.cashflowAllRaw){
+      S.cashflowAllWeek = aggregateCashflowAll(S.cashflowAllRaw.map(p =>
+        Object.assign({}, p, {series:cfToWeeks(p.series)})));
+    }
+    return (S.cashflowAllWeek || []).map(r => Object.assign({}, r,
+      {label:r.ym.replace('#', ' أ')}));
+  }
+  const base = (S.cashflow && S.cashflow.series) || [];
+  return gran === 'week' ? cfToWeeks(base) : base;
 }
 
 /* ---------------- سجل التراجع ---------------- */
@@ -1978,7 +2026,7 @@ const VISUALS = {
   },
   scurve:{
     name:'المنحنى التراكمي', icon:'📉', w:560, h:320,
-    opts:{dataSource:'weekly', rangeStart:'', rangeEnd:'',
+    opts:{dataSource:'weekly', calcMode:'cumulative', granularity:'month', rangeStart:'', rangeEnd:'',
           showActual:true, showPlanned:true, showFinancial:true, finSource:'contractor',
           finMode:'percent', chartType:'area', smooth:true, forceMono:true, showCount:false,
           dl:Object.assign({}, DL_DEFAULT, {show:false})},
@@ -2002,27 +2050,111 @@ const VISUALS = {
 
       /* ---------- مصدر «التدفق النقدي»: نسب مخططة/فعلية شهرية من خط الأساس المعتمد ---------- */
       if(src === 'cashflow'){
-        const cfSeries = (S.mode === 'all') ? (S.cashflowAll || []) : ((S.cashflow && S.cashflow.series) || []);
+        const gran = (w.opts.granularity === 'week') ? 'week' : 'month';
+        const cfSeries = cfSeriesFor(gran);
         if(!cfSeries.length || cfSeries.length < 2){
           body.innerHTML = `<div class="empty-note">${tr('noCashflow')}</div>`;
           return;
         }
         let rows = cfSeries;
-        if(rs) rows = rows.filter(r => r.ym >= rs);
-        if(re) rows = rows.filter(r => r.ym <= re);
+        if(rs) rows = rows.filter(r => r.ym.slice(0, 7) >= rs);
+        if(re) rows = rows.filter(r => r.ym.slice(0, 7) <= re);
         if(rows.length < 2){
           body.innerHTML = `<div class="empty-note">${tr('noRangeData')}</div>`;
           return;
         }
-        const cats = rows.map(r => r.ym);
+        const isPeriod = (w.opts.calcMode === 'period');
+        // «مدمج»: أعمدة للصرف الشهري على المحور الأيمن + منحنيات للتراكمي على محور ثانٍ 0-100%
+        const isCombo  = (w.opts.calcMode === 'combined');
+        // في وضع «شهري»: كل نقطة تخص شهرها فقط (غير تراكمية)، فلا يُطبَّق فرض التزايد عليها.
+        // في وضع «كل المشاريع» تصل النسبة الشهرية جاهزة من aggregateCashflowAll (act_period_pct/
+        // plan_period_pct)؛ في وضع مشروع واحد نحسبها هنا من المبلغ الشهري ÷ أساس التخطيط.
+        const pb = (S.mode === 'all') ? null
+                 : ((S.cashflow && S.cashflow.meta && (S.cashflow.meta.plan_base || S.cashflow.meta.contract_value)) || 0);
+        const periodPct = (r, key) => {
+          if(S.mode === 'all') return key === 'act' ? r.act_period_pct : r.plan_period_pct;
+          if(!pb) return null;
+          const amt = key === 'act' ? r.act_period : r.plan_amount;
+          return (amt === null || amt === undefined) ? null : +(amt / pb * 100).toFixed(2);
+        };
+        if(isPeriod && !rows.some(r => periodPct(r, 'act') !== null || periodPct(r, 'plan') !== null)){
+          body.innerHTML = `<div class="empty-note">${tr('noPeriodData')}</div>`;
+          return;
+        }
+        const cats = rows.map(r => r.label || r.ym);
+        const isWeek = (gran === 'week');
+        const pActName = isWeek ? tr('weekActual') : tr('periodActual');
+        const pPlnName = isWeek ? tr('weekPlanned') : tr('periodPlanned');
+
+        if(isCombo){
+          const pal = theme().palette;
+          const series = [], defs = [], skeys = [], kinds = [];
+          const lineType = (w.opts.chartType === 'area') ? 'area' : 'line';
+          if(w.opts.showActual){
+            series.push({name:pActName, type:'column', data:rows.map(r => periodPct(r, 'act'))});
+            defs.push(pal[2] || '#2685c9'); skeys.push('sc_actual_m'); kinds.push('m');
+          }
+          if(w.opts.showPlanned){
+            series.push({name:pPlnName, type:'column', data:rows.map(r => periodPct(r, 'plan'))});
+            defs.push(pal[4] || '#d9463f'); skeys.push('sc_planned_m'); kinds.push('m');
+          }
+          if(w.opts.showActual){
+            series.push({name:tr('cumActual'), type:lineType, data:monoSafe(rows.map(r => r.act_pct))});
+            defs.push(pal[0]); skeys.push('sc_actual'); kinds.push('c');
+          }
+          if(w.opts.showPlanned){
+            series.push({name:tr('cumPlanned'), type:'line', data:rows.map(r => r.plan_pct), _dash:true});
+            defs.push(pal[1]); skeys.push('sc_planned'); kinds.push('c');
+          }
+          if(!series.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
+          regItems(w, series.map(x => x.name), skeys, defs);
+          const colors = seriesColors(w, series.length, defs);
+          const scAx = dateAxis(w, cats);
+          const axFont = axisStyle(w, 'yaxis').style;
+          const firstM = kinds.indexOf('m'), firstC = kinds.indexOf('c');
+          const pctFmt = v => (v === null || v === undefined) ? '' : Math.round(v) + '%';
+          // محور لكل سلسلة (شرط ApexCharts)، والسلاسل من نفس النوع تشترك في محور واحد ظاهر
+          const yaxes = series.map((sr, i) => kinds[i] === 'm'
+            ? {seriesName:series[firstM].name, min:0, forceNiceScale:true, show:i === firstM,
+               labels:{formatter:pctFmt, style:axFont}}
+            : {seriesName:series[firstC].name, opposite:true, min:0, max:100, tickAmount:5,
+               show:i === firstC, labels:{formatter:pctFmt, style:axFont}});
+
+          mkChart(body, w, {
+            chart:{type:'line', fontFamily:wFont(w), background:'transparent',
+                   toolbar:{show:false}, stacked:false},
+            series:series.map(({_dash, ...s}) => s), colors,
+            plotOptions:{bar:{columnWidth:barW(w) + '%', borderRadius:3,
+                         dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}},
+            stroke:{curve:w.opts.smooth ? 'smooth' : 'straight',
+                    width:series.map(sr => sr.type === 'column' ? 0
+                             : (sr.type === 'area' ? Math.max(1, lineW(w) - 1) : lineW(w))),
+                    dashArray:series.map(sr => sr._dash ? 5 : 0)},
+            fill:{colors:colors, type:'solid',
+                  opacity:series.map(sr => sr.type === 'area' ? 0.15 : (sr.type === 'column' ? 0.85 : 1))},
+            markers:{size:series.map(sr => sr.type === 'column' ? 0 : 3)},
+            dataLabels:dlOpts(w, theme().text, v => v === null ? '' : num(v).toFixed(1) + '%'),
+            xaxis:{categories:scAx.cats, labels:scAx.labels},
+            yaxis:yaxes,
+            grid:{borderColor:'rgba(125,125,125,.18)'},
+            legend:legendStyle(w, {position:'top', horizontalAlign:'center'}),
+            tooltip:{shared:true, intersect:false,
+                     y:{formatter:v => (v === null || v === undefined) ? '—' : num(v).toFixed(1) + '%'}}
+          });
+          return;
+        }
+
         const series = [], defs = [], skeys = [];
         if(w.opts.showActual){
-          series.push({name:tr('cumActual'), type:barType ? 'column' : w.opts.chartType,
-                       data:monoSafe(rows.map(r => r.act_pct))});
+          const data = isPeriod ? rows.map(r => periodPct(r, 'act')) : monoSafe(rows.map(r => r.act_pct));
+          series.push({name:isPeriod ? pActName : tr('cumActual'),
+                       type:barType ? 'column' : w.opts.chartType, data});
           defs.push(theme().palette[0]); skeys.push('sc_actual');
         }
         if(w.opts.showPlanned){
-          series.push({name:tr('cumPlanned'), type:'line', data:rows.map(r => r.plan_pct)});
+          const data = isPeriod ? rows.map(r => periodPct(r, 'plan')) : rows.map(r => r.plan_pct);
+          series.push({name:isPeriod ? pPlnName : tr('cumPlanned'),
+                       type:isPeriod && barType ? 'column' : 'line', data});
           defs.push(theme().palette[1]); skeys.push('sc_planned');
         }
         if(!series.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
@@ -2046,7 +2178,12 @@ const VISUALS = {
           markers:{size:barType ? 0 : 3},
           dataLabels:dlOpts(w, theme().text, v => v === null ? '' : num(v).toFixed(1) + '%'),
           xaxis:{categories:scAx.cats, labels:scAx.labels},
-          yaxis:{min:0, max:100, tickAmount:5,
+          // الوضع الشهري: نسبة كل شهر من إجمالي القيمة صغيرة عادة (على عكس التراكمي الذي يصل
+          // لـ100%)، فمحور ثابت 0-100 يُظهر كل الأعمدة شبه مسطّحة — لذلك يُترك تلقائياً هنا.
+          yaxis:isPeriod ? {min:0, forceNiceScale:true,
+                 labels:Object.assign(axisStyle(w,'yaxis'),
+                       {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})}
+               : {min:0, max:100, tickAmount:5,
                  labels:Object.assign(axisStyle(w,'yaxis'),
                        {formatter:v => Math.round(v) + '%', align:partOf(w,'yaxis').align || undefined})},
           grid:{borderColor:'rgba(125,125,125,.18)'},
@@ -3881,18 +4018,34 @@ function optionsHtml(w){
   }
   if(w.type === 'scurve'){
     const isCf = (o.dataSource === 'cashflow');
+    const isPeriod = isCf && (o.calcMode === 'period');
+    const isCombo  = isCf && (o.calcMode === 'combined');
     return `
       <div class="row"><label>مصدر البيانات</label><div class="ctl"><select data-p="opts.dataSource">
         <option value="weekly"   ${!isCf ? 'selected' : ''}>تحديثات مديري المشاريع الأسبوعية</option>
         <option value="cashflow" ${isCf ? 'selected' : ''}>صفحة التدفق النقدي (خط الأساس المعتمد)</option>
       </select></div></div>
+      ${isCf ? `
+      <div class="row"><label>طريقة الحساب</label><div class="ctl"><select data-p="opts.calcMode">
+        <option value="cumulative" ${!isPeriod && !isCombo ? 'selected' : ''}>تراكمي (المعتاد)</option>
+        <option value="period"     ${isPeriod ? 'selected' : ''}>شهري (كل شهر منفرداً بلا تراكم)</option>
+        <option value="combined"   ${isCombo  ? 'selected' : ''}>مدمج (أعمدة شهرية + منحنى تراكمي)</option>
+      </select></div></div>
+      <div class="row"><label>دقة المنحنى</label><div class="ctl"><select data-p="opts.granularity">
+        <option value="month" ${o.granularity !== 'week' ? 'selected' : ''}>شهري (نقطة لكل شهر)</option>
+        <option value="week"  ${o.granularity === 'week' ? 'selected' : ''}>أسبوعي (4 نقاط لكل شهر)</option>
+      </select></div></div>
+      ${o.granularity === 'week' ? `<div class="hint">الشهور المقسَّمة لأسابيع في صفحة التدفق النقدي
+        تظهر بأرقام أسابيعها الحقيقية. الشهور غير المقسَّمة: المخطط يتوزع بالتساوي على 4 أسابيع،
+        والفعلي في أول 3 أسابيع تقديري (خط مستقيم بين نهاية الشهر السابق ونهاية الشهر)، وآخر أسبوع
+        = رقم الشهر الحقيقي. في الوضع الشهري/المدمج تصبح الأعمدة صرف كل أسبوع.</div>` : ''}` : ''}
       <div class="row"><label>من شهر</label><div class="ctl">
         <input type="month" data-p="opts.rangeStart" value="${o.rangeStart || ''}"></div></div>
       <div class="row"><label>إلى شهر</label><div class="ctl">
         <input type="month" data-p="opts.rangeEnd" value="${o.rangeEnd || ''}"></div></div>
       <div class="hint">اترك الحقلين فاضيين لعرض كل المدى المتاح. المدى يُطبَّق على أي مصدر بيانات.</div>
-      <label class="chk"><input type="checkbox" data-p="opts.showActual" ${o.showActual ? 'checked' : ''}> الإنجاز الفعلي التراكمي</label>
-      <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned ? 'checked' : ''}> الإنجاز المخطط التراكمي</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showActual" ${o.showActual ? 'checked' : ''}> ${isPeriod ? 'الصرف الفعلي الشهري' : isCombo ? 'الفعلي (شهري + تراكمي)' : 'الإنجاز الفعلي التراكمي'}</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned ? 'checked' : ''}> ${isPeriod ? 'الصرف المخطط الشهري' : isCombo ? 'المخطط (شهري + تراكمي)' : 'الإنجاز المخطط التراكمي'}</label>
       ${isCf ? '' : `
       <label class="chk"><input type="checkbox" data-p="opts.showFinancial" ${o.showFinancial ? 'checked' : ''}> التقدم المالي التراكمي</label>
       <div class="row"><label>مصدر الصرف</label><div class="ctl"><select data-p="opts.finSource">
@@ -3904,16 +4057,32 @@ function optionsHtml(w){
         <option value="percent" ${o.finMode === 'percent' ? 'selected' : ''}>نسبة مئوية من العقد</option>
         <option value="value"   ${o.finMode === 'value'   ? 'selected' : ''}>قيمة بالريال (محور ثانٍ)</option>
       </select></div></div>`}
-      <div class="row"><label>شكل العرض</label><div class="ctl"><select data-p="opts.chartType">
+      <div class="row"><label>${isCombo ? 'شكل المنحنى التراكمي' : 'شكل العرض'}</label><div class="ctl"><select data-p="opts.chartType">
         <option value="area" ${o.chartType === 'area' ? 'selected' : ''}>منحنى مساحي</option>
-        <option value="line" ${o.chartType === 'line' ? 'selected' : ''}>منحنى خطي</option>
-        <option value="bar"  ${o.chartType === 'bar'  ? 'selected' : ''}>أعمدة تراكمية</option>
+        <option value="line" ${(o.chartType === 'line' || (isCombo && o.chartType === 'bar')) ? 'selected' : ''}>منحنى خطي</option>
+        ${isCombo ? '' : `<option value="bar"  ${o.chartType === 'bar'  ? 'selected' : ''}>أعمدة تراكمية</option>`}
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth ? 'checked' : ''}> خطوط انسيابية</label>
-      <label class="chk"><input type="checkbox" data-p="opts.forceMono" ${o.forceMono ? 'checked' : ''}> فرض التزايد التراكمي (منع الهبوط)</label>
+      ${isPeriod ? '' : `
+      <label class="chk"><input type="checkbox" data-p="opts.forceMono" ${o.forceMono ? 'checked' : ''}> فرض التزايد التراكمي (منع الهبوط)</label>`}
       ${ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
-      ${o.chartType === 'bar' ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%') : ''}
-      <div class="hint">${isCf
+      ${(o.chartType === 'bar' || isCombo) ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%') : ''}
+      <div class="hint">${isCombo
+        ? `الوضع المدمج يعرض الاتنين في رسم واحد: أعمدة للصرف الشهري (الفعلي والمخطط لكل شهر
+           منفرداً) على محور، ومنحنيات للإنجاز التراكمي (الفعلي والمخطط) على المحور المقابل
+           من 0 إلى 100%. المحوران منفصلان لأن نسبة الشهر الواحد صغيرة عادة مقارنة بالتراكمي،
+           فلو اشتركا في محور واحد تبان الأعمدة شبه مسطّحة.
+           <br><br>يعمل في وضع المشروع الواحد وفي وضع «كل المشاريع» بنفس قواعد الوضعين الشهري
+           والتراكمي.`
+        : isPeriod
+        ? `الوضع الشهري يعرض صرف كل شهر منفرداً (غير تراكمي): الفعلي الشهري = فرق الفعلي التراكمي
+           بين هذا الشهر والذي قبله مباشرة، والمخطط الشهري كما هو محدَّد في جدول التدفق النقدي لذلك
+           الشهر. مفيد لمقارنة وتيرة الصرف الفعلي بوتيرة الصرف المخطط شهراً بشهر، بخلاف المنحنى
+           التراكمي الذي يخفي التفاوتات الشهرية داخل المجموع العام.
+           <br><br>في وضع «كل المشاريع» تُجمع القيم الشهرية (لا التراكمية) لكل المشاريع، وشهر
+           بلا فعلي مسجَّل لمشروع مُعيَّن يُحتسب له صفراً في ذلك الشهر تحديداً (بلا حمل للأمام،
+           بخلاف الوضع التراكمي).`
+        : isCf
         ? `مصدر «التدفق النقدي» يقرأ النسب المخططة والفعلية شهرياً من خط الأساس المعتمد في صفحة التدفق
            النقدي — بدل نسب التحديثات الأسبوعية.
            <br><br>في وضع «كل المشاريع»: تُجمع القيمة التراكمية (مخططة وفعلية) بالريال لكل المشاريع
@@ -4237,7 +4406,7 @@ function bindProps(el, w){
       const lab = inp.parentElement && inp.parentElement.querySelector('.mini-val');
       if(lab) lab.textContent = inp.value + (/\.rotate$/.test(inp.dataset.p) ? '°' : '');
       if(/^parts\..+\.size$/.test(inp.dataset.p)) syncInherited(el, w);
-      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs','opts.dataSource'].includes(inp.dataset.p)) buildPropsTab();
+      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs','opts.dataSource','opts.calcMode','opts.granularity'].includes(inp.dataset.p)) buildPropsTab();
     }
 
     inp.addEventListener('focus', () => { pending = true; });
@@ -4487,24 +4656,22 @@ async function loadProject(name, opts){
       S.latest     = aggregate(S.projLatest);
       S.pm = null;
       S.cashflow = null;
-      // مصدر بيانات إضافي اختياري لقالب «المنحنى التراكمي» في وضع «كل المشاريع»: نجيب تدفق
-      // كل مشروع بالتوازي (مشروع بلا تدفق نقدي مُعَدّ بعد يُستبعَد بهدوء، من غير ما يوقف الباقي)
+      // مصدر بيانات إضافي اختياري لقالب «المنحنى التراكمي» في وضع «كل المشاريع»: طلب واحد فقط
+      // لكل مشاريع البورتفوليو (بدل طلب منفصل لكل مشروع كان يُبطئ الـ Refresh بشكل واضح)
       try{
-        const cfList = await Promise.all(S.projNames.map(async pn => {
-          try{
-            const rc = await fetch('/api/cashflow/data?project=' + encodeURIComponent(pn));
-            const jc = await rc.json();
-            return (jc.success && jc.series && jc.series.length) ? jc : null;
-          }catch(e){ return null; }
-        }));
+        const rc = await fetch('/api/cashflow/data-all');
+        const jc = await rc.json();
+        const cfList = jc.success ? Object.values(jc.projects || {}) : [];
+        S.cashflowAllRaw = cfList;
         S.cashflowAll = aggregateCashflowAll(cfList);
-      }catch(e){ S.cashflowAll = null; }
+        S.cashflowAllWeek = null;                         // يُحسب عند أول طلب للعرض الأسبوعي
+      }catch(e){ S.cashflowAll = null; S.cashflowAllRaw = null; S.cashflowAllWeek = null; }
     }else{
       S.records = j.records || [];
       S.latest = S.records.length ? S.records[S.records.length - 1] : null;
       S.projLatest = []; S.projNames = [];
       S.pm = j.pm || null;
-      S.cashflowAll = null;
+      S.cashflowAll = null; S.cashflowAllRaw = null; S.cashflowAllWeek = null;
       // مصدر بيانات إضافي اختياري لقالب «المنحنى التراكمي» — لا يوقف تحميل باقي الصفحة لو فشل
       try{
         const rc = await fetch('/api/cashflow/data?project=' + encodeURIComponent(name));
