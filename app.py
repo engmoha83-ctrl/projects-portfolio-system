@@ -1291,6 +1291,89 @@ async def api_cashflow_import_weekly(request: Request, background_tasks: Backgro
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+def _cashflow_series(meta, data_rows):
+    """يبني سلسلة {ym, plan_amount, plan_cum, plan_pct, act_pct, act_cum, act_period, weeks} من صفوف
+    مُدمَجة (بعد _merge_weeks) وميتاداتا مشروع — مشتركة بين /api/cashflow/data ونسختها المجمَّعة
+    لكل المشاريع، حتى يبقى حساب المنحنى في مكان واحد بدل تكراره.
+    act_period هو الفعلي الشهري (غير التراكمي) = فرق act_cum بين هذا الشهر والشهر السابق مباشرة
+    من نفس المشروع؛ يُستخدم في مقارنة «الفعلي الشهري ÷ المخطط الشهري» (بخلاف المنحنى التراكمي).
+
+    weeks: تفصيل أسبوعي (WEEKS_PER_MONTH أسابيع) لكل شهر، للعرض الأسبوعي في منشئ الداشبورد:
+    - الشهر المقسَّم فعلاً في صفحة التدفق النقدي: أرقام أسابيعه الحقيقية كما هي.
+    - الشهر غير المقسَّم: المخطط يتوزع بالتساوي (نفس طريقة التقسيم في صفحة التدفق النقدي)،
+      والفعلي يُقدَّر بخط مستقيم بين آخر نسبة فعلية قبل الشهر ونسبة نهاية الشهر (est=True)،
+      والأسبوع الأخير = رقم الشهر الحقيقي. النقاط الأسبوعية تنتهي دائماً عند نفس أرقام نهاية الشهر."""
+    W = WEEKS_PER_MONTH
+    cv = meta["contract_value"] or 0
+    rv = meta["revised_value"] or cv
+    pb = meta.get("plan_base") or cv          # أساس النسبة المخططة
+    out, cum_plan, prev_act_cum = [], 0.0, None
+    prev_plan_pct, prev_act_pct, wk_prev_act_cum = 0.0, None, None
+    for r in data_rows:
+        m_plan = float(r["plan_amount"] or 0)
+        start_cum = cum_plan
+        cum_plan += m_plan
+        plan_pct = r["plan_pct"] if r["plan_pct"] is not None else (cum_plan / pb * 100 if pb else 0)
+        plan_pct = float(plan_pct or 0)
+        act_pct = r["act_pct"]
+        act_amt = r["act_amount"] if r["act_amount"] is not None else (
+            (act_pct or 0) / 100 * rv if act_pct is not None else None)
+        act_cum = None if act_amt is None else round(float(act_amt), 2)
+        act_period = None if (act_cum is None or prev_act_cum is None) else round(act_cum - prev_act_cum, 2)
+        if act_cum is not None:
+            prev_act_cum = act_cum
+
+        # ---- التفصيل الأسبوعي ----
+        real = bool(r.get("has_weeks"))
+        wks = r.get("weeks") or [None] * W
+        base = round(m_plan / W, 2)
+        p0 = prev_act_pct if prev_act_pct is not None else 0.0
+        run, weeks_out = start_cum, []
+        for i in range(W):
+            wk = i + 1
+            if real:
+                w = wks[i] if i < len(wks) else None
+                wp = float(w["plan_amount"]) if (w and w.get("plan_amount") is not None) else 0.0
+                wa = w.get("act_pct") if w else None
+                wamt = w.get("act_amount") if w else None
+                est = False
+            else:
+                wp = base if wk < W else round(m_plan - base * (W - 1), 2)
+                if act_pct is None:
+                    wa = None
+                elif wk == W:
+                    wa = float(act_pct)
+                else:
+                    wa = round(p0 + (float(act_pct) - p0) * wk / W, 2)
+                wamt = None
+                est = (act_pct is not None and wk < W)
+            run += wp
+            frac = ((run - start_cum) / m_plan) if m_plan else wk / W
+            wpp = prev_plan_pct + (plan_pct - prev_plan_pct) * frac
+            if not real and wk == W:
+                wcum = act_cum                      # نهاية الشهر = رقم الشهر الحقيقي بالظبط
+            elif wamt is not None:
+                wcum = round(float(wamt), 2)
+            else:
+                wcum = None if wa is None else round(float(wa) / 100 * rv, 2)
+            wper = None if (wcum is None or wk_prev_act_cum is None) else round(wcum - wk_prev_act_cum, 2)
+            if wcum is not None:
+                wk_prev_act_cum = wcum
+            weeks_out.append({"wk": wk, "plan_amount": round(wp, 2), "plan_cum": round(run, 2),
+                              "plan_pct": round(wpp, 2),
+                              "act_pct": None if wa is None else round(float(wa), 2),
+                              "act_cum": wcum, "act_period": wper, "est": est})
+        prev_plan_pct = plan_pct
+        if act_pct is not None:
+            prev_act_pct = float(act_pct)
+
+        out.append({"ym": r["ym"], "plan_amount": m_plan,
+                    "plan_cum": round(cum_plan, 2), "plan_pct": round(plan_pct, 2),
+                    "act_pct": None if act_pct is None else round(float(act_pct), 2),
+                    "act_cum": act_cum, "act_period": act_period, "weeks": weeks_out})
+    return out
+
+
 @app.get("/api/cashflow/data")
 async def api_cashflow_data(project: str, request: Request):
     """مصدر بيانات جاهز للداشبورد: منحنى مخطط وفعلي بالنسبة والمبلغ."""
@@ -1298,21 +1381,70 @@ async def api_cashflow_data(project: str, request: Request):
         return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
     try:
         p = _cashflow_payload(project)
-        cv = p["meta"]["contract_value"] or 0
-        rv = p["meta"]["revised_value"] or cv
-        pb = p["meta"].get("plan_base") or cv          # أساس النسبة المخططة
-        out, cum_plan = [], 0.0
-        for r in p["rows"]:
-            cum_plan += float(r["plan_amount"] or 0)
-            plan_pct = r["plan_pct"] if r["plan_pct"] is not None else (cum_plan / pb * 100 if pb else 0)
-            act_pct = r["act_pct"]
-            act_amt = r["act_amount"] if r["act_amount"] is not None else (
-                (act_pct or 0) / 100 * rv if act_pct is not None else None)
-            out.append({"ym": r["ym"], "plan_amount": float(r["plan_amount"] or 0),
-                        "plan_cum": round(cum_plan, 2), "plan_pct": round(float(plan_pct or 0), 2),
-                        "act_pct": None if act_pct is None else round(float(act_pct), 2),
-                        "act_cum": None if act_amt is None else round(float(act_amt), 2)})
+        out = _cashflow_series(p["meta"], p["rows"])
         return {"success": True, "project": project, "meta": p["meta"], "series": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/cashflow/data-all")
+async def api_cashflow_data_all(request: Request):
+    """نسخة مجمّعة من /api/cashflow/data لكل المشاريع في طلب واحد فقط (اتصالان بقاعدة البيانات
+    مهما كان عدد المشاريع)، بدل ما يفتح منشئ الداشبورد طلب HTTP + اتصال قاعدة بيانات منفصل
+    لكل مشروع عند وضع «كل المشاريع» — كان هذا يُبطئ تحديث الصفحة بشكل واضح مع كثرة المشاريع."""
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""SELECT project_name, contract_value, revised_value, start_month, end_month,
+                                  plan_base FROM cashflow_meta""")
+        metas = {}
+        for name, cv, rv, sm, em, pb in cursor.fetchall():
+            metas[name] = {"contract_value": float(cv or 0), "revised_value": float(rv or 0),
+                           "start_month": sm, "end_month": em,
+                           "plan_base": None if pb is None else float(pb)}
+        if not metas:
+            conn.close()
+            return {"success": True, "projects": {}}
+        for m in metas.values():
+            if not m.get("plan_base"): m["plan_base"] = m["contract_value"]
+
+        cursor.execute("""SELECT project_name, ym, COALESCE(wk, 0), plan_amount, plan_pct,
+                                  act_pct, act_amount
+                          FROM cashflow_rows WHERE project_name = ANY(%s)
+                          ORDER BY project_name, ym, COALESCE(wk, 0)""", (list(metas.keys()),))
+        rows_by_proj, weeks_by_proj = {}, {}
+        for project, ym, wk, plan_amount, plan_pct, act_pct, act_amount in cursor.fetchall():
+            wk = int(wk or 0)
+            rec = {"ym": ym, "wk": wk,
+                   "plan_amount": None if plan_amount is None else float(plan_amount),
+                   "plan_pct": None if plan_pct is None else float(plan_pct),
+                   "act_pct": None if act_pct is None else float(act_pct),
+                   "act_amount": None if act_amount is None else float(act_amount)}
+            if wk == 0:
+                rows_by_proj.setdefault(project, {})[ym] = rec
+            elif 1 <= wk <= WEEKS_PER_MONTH:
+                weeks_by_proj.setdefault(project, {}).setdefault(ym, {})[wk] = rec
+        conn.close()
+
+        out = {}
+        for project, meta in metas.items():
+            rows = rows_by_proj.get(project, {})
+            weeks = weeks_by_proj.get(project, {})
+            months = _ym_range(meta["start_month"], meta["end_month"])
+            for ym in sorted(set(list(rows.keys()) + list(weeks.keys()))):
+                if ym not in months: months.append(ym)
+            months.sort()
+            data_rows = []
+            for ym in months:
+                base = rows.get(ym, {"ym": ym, "wk": 0, "plan_amount": None, "plan_pct": None,
+                                     "act_pct": None, "act_amount": None, "note": None})
+                data_rows.append(_merge_weeks(base, weeks.get(ym)))
+            series = _cashflow_series(meta, data_rows)
+            if series:
+                out[project] = {"meta": meta, "series": series}
+        return {"success": True, "projects": out}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
