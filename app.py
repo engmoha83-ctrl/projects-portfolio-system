@@ -679,13 +679,20 @@ async def builder_save_layout(request: Request, background_tasks: BackgroundTask
         body = await request.json()
         layout_id = body.get("id")
         name = (body.get("name") or "").strip() or "قالب بدون اسم"
-        scope = body.get("scope") or "project"          # "default" = قالب عام لكل المشاريع
+        # "default" = قالب عام لكل المشاريع، "project" = مخصص لمشروع،
+        # "library" = نسخة محفوظة غير مطبَّقة على أي مشروع (للتجهيز أو كنسخة احتياطية)
+        scope = body.get("scope") or "project"
+        if scope not in ("default", "project", "library"):
+            scope = "project"
+        as_new = bool(body.get("as_new"))               # «حفظ كنسخة جديدة» — لا يلمس القالب الأصلي
+        if as_new:
+            layout_id = None
         project_name = body.get("project_name") or None
         data = body.get("data") or {}
         payload = json.dumps(data, ensure_ascii=False)
 
-        if scope == "default":
-            project_name = None                          # القالب العام غير مرتبط بمشروع
+        if scope in ("default", "library"):
+            project_name = None                          # القالب العام والنسخ المحفوظة غير مرتبطة بمشروع
         elif not project_name:
             return JSONResponse({"success": False, "error": "لا بد من اختيار مشروع لحفظ قالب مخصص"}, status_code=400)
 
@@ -693,7 +700,7 @@ async def builder_save_layout(request: Request, background_tasks: BackgroundTask
         cursor = conn.cursor()
 
         # لكل مشروع قالب مخصص واحد فقط، وقالب عام واحد فقط على مستوى النظام
-        if not layout_id:
+        if not layout_id and not as_new and scope != "library":
             if scope == "default":
                 cursor.execute("SELECT id FROM dashboard_layouts WHERE is_default = TRUE LIMIT 1")
             else:
@@ -714,13 +721,17 @@ async def builder_save_layout(request: Request, background_tasks: BackgroundTask
                             secrets.token_urlsafe(16), admin_user))
         row = cursor.fetchone()
 
+        # القالب اللي كان شاغل نفس المكان ما يتمسحش — يتحوّل لنسخة محفوظة في «القوالب المحفوظة»
         if scope == "default":                            # قالب عام واحد فقط
             cursor.execute("UPDATE dashboard_layouts SET is_default = FALSE WHERE id <> %s", (row[0],))
+        elif scope == "project":                          # قالب مخصص واحد فقط لكل مشروع
+            cursor.execute("""UPDATE dashboard_layouts SET project_name = NULL
+                              WHERE project_name = %s AND is_default = FALSE AND id <> %s""", (project_name, row[0]))
 
         conn.commit()
         conn.close()
         background_tasks.add_task(log_audit, admin_user, "حفظ قالب داشبورد",
-                                  f"{'قالب عام' if scope == 'default' else 'قالب مشروع ' + str(project_name)}: {name}")
+                                  f"{'قالب عام' if scope == 'default' else ('نسخة محفوظة' if scope == 'library' else 'قالب مشروع ' + str(project_name))}: {name}")
         return {"success": True, "id": row[0], "share_token": row[1],
                 "scope": scope, "project_name": project_name}
     except Exception as e:
