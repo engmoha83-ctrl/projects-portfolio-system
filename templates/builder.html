@@ -437,6 +437,7 @@ input[type=range]{width:100%; accent-color:var(--ui-navy);}
 .sbtn.on{background:var(--ui-navy); color:#fff;}
 .sbtn.danger{color:var(--ui-danger); background:#FBEDEA;}
 .sbtn.danger:hover{background:var(--ui-danger); color:#fff;}
+.dep-off{opacity:.4; pointer-events:none; filter:grayscale(1); transition:opacity .15s ease;}
 .hint{font-size:12px; color:var(--ui-muted); line-height:1.65; background:#F7F8FA; padding:10px 11px;}
 .layer{
   display:flex; align-items:center; gap:7px; padding:7px 8px; margin-bottom:4px; font-size:12.5px; cursor:pointer;
@@ -695,6 +696,32 @@ function applyUiStatic(){
 
 /* ---- قاموس العربي → الإنجليزي لنصوص الواجهة المولَّدة بالكود ---- */
 const UI_EN = {
+"الخلفية": "Background",
+"أعمدة النسب الفعلية الشهرية": "Monthly actual % bars",
+"أعمدة النسب المخططة الشهرية": "Monthly planned % bars",
+"أعمدة النسب الفعلية الأسبوعية": "Weekly actual % bars",
+"أعمدة النسب المخططة الأسبوعية": "Weekly planned % bars",
+"أعمدة النسب الفعلية اليومية": "Daily actual % bars",
+"أعمدة النسب المخططة اليومية": "Daily planned % bars",
+"السلاسل المعروضة": "Series shown",
+"الشكل": "Shape",
+"شكل التراكمي": "Cumulative style",
+"منحنى مساحي": "Area curve",
+"منحنى خطي": "Line curve",
+"إظهار النقاط على المنحنيات": "Show points on curves",
+"كل سلسلة: اللون والأرقام": "Each series: color & values",
+"الإعدادات بتتحفظ باسم السلسلة، فإخفاء سلسلة لا ينقل إعداداتها لغيرها. «زي باقي الأرقام» = من «أرقام البيانات» العامة.": "Settings are saved by series name, so hiding a series does not pass its settings to another. “Same as other values” = taken from the general “Data labels”.",
+"أرقام السلسلة دي": "Values of this series",
+"زي باقي الأرقام": "Same as other values",
+"مخفية": "Hidden",
+"فوق العمود": "Above the bar",
+"أعلى العمود (من جوه)": "Top of the bar (inside)",
+"منتصف العمود": "Middle of the bar",
+"أسفل العمود": "Bottom of the bar",
+"بلون": "Color",
+"إرجاع أرقام السلسلة دي للافتراضي": "Reset this series' values to default",
+"المكان": "Position",
+"الوضع المدمج يعرض الاتنين في رسم واحد: أعمدة لنسب كل فترة منفردة (الفعلي والمخطط) على محور، ومنحنيات للإنجاز التراكمي على المحور المقابل من 0 إلى 100%. المحوران منفصلان لأن نسبة الفترة الواحدة صغيرة عادة مقارنة بالتراكمي.": "Combined mode shows both in one chart: bars for each period's own percentage (actual and planned) on one axis, and cumulative progress on the opposite axis from 0 to 100%. The axes are separate because a single period's percentage is usually small compared with the cumulative.",
 "لديك تعديلات غير محفوظة على القالب الحالي. فتح قالب آخر سيتجاهلها. المتابعة؟": "You have unsaved changes on the current layout. Opening another layout will discard them. Continue?",
 "نسخة محفوظة — غير مطبّقة على أي مشروع": "Saved copy — not applied to any project",
 "مخصص لوضع كل المشاريع (مجمّع)": "Custom for all projects (combined)",
@@ -2028,6 +2055,97 @@ function dlPointColors(w, data, insideColor){
   if(!nums.length) return [insideColor || outC];
   return nums.map(v => (!mx || v / mx < 0.12) ? outC : (insideColor || outC));
 }
+/* =====================================================================
+   أرقام كل سلسلة على حدة (المنحنى التراكمي): إظهار/إخفاء، لون النص، الخلفية،
+   والمكان (للأعمدة: فوقه / أعلاه من جوه / منتصفه / أسفله — وللمنحنيات: فوق /
+   على / تحت النقطة). الفاضي = يرث من «أرقام البيانات» العامة.
+   المكتبة ما بتدعمش ده لكل سلسلة، فبنعدّل الأرقام نفسها بعد الرسم.
+   ===================================================================== */
+/* السلاسل الأربع في الوضع المدمج؛ القوالب القديمة تاخد اختيارها من «الفعلي/المخطط» */
+function cmbOf(w){
+  const o = w.opts;
+  return Object.assign({pAct:!!o.showActual, pPlan:!!o.showPlanned, cAct:!!o.showActual, cPlan:!!o.showPlanned}, o.cmb || {});
+}
+function slOf(w, key){ return (w.opts.sl && w.opts.sl[key]) || {}; }
+function seriesDl(w, base, skeys){
+  const on = skeys.map(k => { const p = slOf(w, k).pos || ''; return p === 'hide' ? false : (p ? true : base.enabled); });
+  if(!on.some(Boolean)){ base.enabled = false; return base; }
+  base.enabled = true;
+  base.enabledOnSeries = on.map((v, i) => v ? i : -1).filter(i => i >= 0);
+  return base;
+}
+function styleSeriesLabels(w, skeys, kinds){
+  const el = document.getElementById(w.id); if(!el) return;
+  const svg = el.querySelector('svg.apexcharts-svg'); if(!svg) return;
+  const chart = S.charts[w.id];
+  const inner = svg.querySelector('.apexcharts-inner');
+  const NS = 'http://www.w3.org/2000/svg';
+  skeys.forEach((k, i) => {
+    const cfg = slOf(w, k);
+    const g = svg.querySelector(`.apexcharts-datalabels[data\\:realIndex="${i}"]`);
+    if(!g) return;
+    g.querySelectorAll('.sl-bg').forEach(r => r.remove());
+    const bars = kinds[i] === 'bar'
+      ? [...svg.querySelectorAll(`.apexcharts-bar-series .apexcharts-series[data\\:realIndex="${i}"] path.apexcharts-bar-area`)]
+          .map(b => b.getBoundingClientRect()) : [];
+    const pts = (kinds[i] !== 'bar' && chart && chart.w && chart.w.globals.pointsArray) ? (chart.w.globals.pointsArray[i] || []) : [];
+    const ctm = inner && inner.getScreenCTM();
+    g.querySelectorAll('text.apexcharts-datalabel').forEach(t => {
+      t.removeAttribute('transform');
+      if(!t.textContent.trim()) return;
+      if(cfg.color){ t.setAttribute('fill', cfg.color); t.querySelectorAll('tspan').forEach(x => x.setAttribute('fill', cfg.color)); }
+      const pos = cfg.pos || '';
+      const r = t.getBoundingClientRect();
+      const cy = r.top + r.height / 2, cx = r.left + r.width / 2, hh = r.height / 2;
+      let target = null;
+      if(pos && pos !== 'hide' && kinds[i] === 'bar' && bars.length){
+        let b = bars[0], bd = 1e9;
+        bars.forEach(bb => { const d = Math.abs(bb.left + bb.width / 2 - cx); if(d < bd){ bd = d; b = bb; } });
+        if(b.height > 0){
+          target = pos === 'center' ? b.top + b.height / 2
+                 : pos === 'bottom' ? b.bottom - hh - 4
+                 : pos === 'top'    ? b.top + hh + 4
+                 :                    b.top - hh - 4;              // فوق العمود من برّه
+        }
+      }else if(pos && pos !== 'hide' && pts.length && ctm){
+        let best = null, bd = 1e9;
+        pts.forEach(pt => {
+          if(!pt) return;
+          const sx = ctm.a * pt[0] + ctm.c * pt[1] + ctm.e, sy = ctm.b * pt[0] + ctm.d * pt[1] + ctm.f;
+          const d = Math.abs(sx - cx); if(d < bd){ bd = d; best = sy; }
+        });
+        if(best !== null){
+          target = pos === 'on' ? best : pos === 'below' ? best + hh + 6 : best - hh - 6;
+        }
+      }
+      if(target !== null){
+        const sc = (t.getScreenCTM() || {d:1}).d || 1;
+        t.setAttribute('transform', `translate(0, ${((target - cy) / sc).toFixed(2)})`);
+      }
+      if(cfg.bg === 'color'){
+        const bb = t.getBBox();
+        const rc = document.createElementNS(NS, 'rect');
+        rc.setAttribute('class', 'sl-bg');
+        rc.setAttribute('x', bb.x - 4); rc.setAttribute('y', bb.y - 2);
+        rc.setAttribute('width', bb.width + 8); rc.setAttribute('height', bb.height + 4);
+        rc.setAttribute('fill', cfg.bgColor || '#1a2b4c');
+        if(t.getAttribute('transform')) rc.setAttribute('transform', t.getAttribute('transform'));
+        t.parentNode.insertBefore(rc, t);
+      }
+    });
+    // «بدون خلفية» يشيل خلفية الأرقام العامة من السلسلة دي بس
+    g.querySelectorAll('.apexcharts-datalabel-background, rect:not(.sl-bg)').forEach(x => {
+      x.style.display = cfg.bg === 'none' ? 'none' : '';
+    });
+  });
+}
+/* يربط تنسيق الأرقام لكل سلسلة بأحداث الرسم (أول رسم، بعد الحركة، بعد أي تحديث) */
+function slEvents(w, skeys, kinds){
+  const run = () => { try{ styleSeriesLabels(w, skeys, kinds); }catch(e){} };
+  S.slKinds = S.slKinds || {}; S.slKinds[w.id] = kinds.slice();
+  setTimeout(run, 450);
+  return {mounted:run, updated:run, animationEnd:run};
+}
 function dlOpts(w, fallbackColor, formatter, pointData){
   const d = dlOf(w);
   const textC = d.color || fallbackColor || wText(w);
@@ -2910,7 +3028,7 @@ const VISUALS = {
     name:'المنحنى التراكمي', icon:'📉', w:560, h:320,
     opts:{dataSource:'weekly', calcMode:'cumulative', granularity:'month', rangeStart:'', rangeEnd:'',
           showActual:true, showPlanned:true, showFinancial:true, finSource:'contractor',
-          finMode:'percent', chartType:'area', smooth:true, forceMono:true, showCount:false,
+          finMode:'percent', chartType:'area', smooth:true, forceMono:true, showCount:false, markers:false,
           dl:Object.assign({}, DL_DEFAULT, {show:false})},
     title:'المنحنى التراكمي', title_en:'S-curve', oldTitle:'المنحنى التراكمي للإنجاز والصرف', oldTitle_en:'Cumulative progress & spend curve',
     render(body, w){
@@ -2958,21 +3076,24 @@ const VISUALS = {
         if(isCombo){
           const pal = theme().palette;
           const series = [], defs = [], skeys = [], kinds = [];
-          const lineType = (w.opts.chartType === 'area') ? 'area' : 'line';
-          if(w.opts.showActual){
+          // التراكمي في الوضع المدمج: مساحي أو خطي أو أعمدة
+          const lineType = (w.opts.chartType === 'area') ? 'area' : (w.opts.chartType === 'bar') ? 'column' : 'line';
+          const cm = cmbOf(w);                  // اختيار كل سلسلة على حدة
+          if(cm.pAct){
             series.push({name:pActName, type:'column', data:rows.map(r => periodPct(r, 'act'))});
             defs.push(pal[2] || '#2685c9'); skeys.push('sc_actual_m'); kinds.push('m');
           }
-          if(w.opts.showPlanned){
+          if(cm.pPlan){
             series.push({name:pPlnName, type:'column', data:rows.map(r => periodPct(r, 'plan'))});
             defs.push(pal[4] || '#d9463f'); skeys.push('sc_planned_m'); kinds.push('m');
           }
-          if(w.opts.showActual){
+          if(cm.cAct){
             series.push({name:tr('cumActual'), type:lineType, data:monoSafe(rows.map(r => r.act_pct))});
             defs.push(pal[0]); skeys.push('sc_actual'); kinds.push('c');
           }
-          if(w.opts.showPlanned){
-            series.push({name:tr('cumPlanned'), type:'line', data:rows.map(r => r.plan_pct), _dash:true});
+          if(cm.cPlan){
+            series.push({name:tr('cumPlanned'), type:lineType === 'column' ? 'column' : 'line',
+                         data:rows.map(r => r.plan_pct), _dash:lineType !== 'column'});
             defs.push(pal[1]); skeys.push('sc_planned'); kinds.push('c');
           }
           if(!series.length){ body.innerHTML = `<div class="empty-note">—</div>`; return; }
@@ -2981,6 +3102,7 @@ const VISUALS = {
           const scAx = dateAxis(w, cats);
           const axFont = axisStyle(w, 'yaxis').style;
           const firstM = kinds.indexOf('m'), firstC = kinds.indexOf('c');
+          const lk = series.map(sr => sr.type === 'column' ? 'bar' : 'line');
           const pctFmt = pctTick;
           // محور لكل سلسلة (شرط ApexCharts)، والسلاسل من نفس النوع تشترك في محور واحد ظاهر
           const yaxes = series.map((sr, i) => kinds[i] === 'm'
@@ -2991,7 +3113,7 @@ const VISUALS = {
 
           mkChart(body, w, {
             chart:{type:'line', fontFamily:wFont(w), background:'transparent',
-                   toolbar:{show:false}, stacked:false},
+                   toolbar:{show:false}, stacked:false, events:slEvents(w, skeys, lk)},
             series:series.map(({_dash, ...s}) => s), colors,
             plotOptions:{bar:{columnWidth:barW(w) + '%', borderRadius:3,
                          dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}},
@@ -3001,8 +3123,8 @@ const VISUALS = {
                     dashArray:series.map(sr => sr._dash ? 5 : 0)},
             fill:{colors:colors, type:'solid',
                   opacity:series.map(sr => sr.type === 'area' ? 0.15 : (sr.type === 'column' ? 0.85 : 1))},
-            markers:{size:series.map(sr => sr.type === 'column' ? 0 : 3)},
-            dataLabels:dlOpts(w, wText(w), v => v === null ? '' : pctTick(num(v))),
+            markers:{size:series.map(sr => (sr.type === 'column' || !w.opts.markers) ? 0 : 4), hover:{sizeOffset:3}},
+            dataLabels:seriesDl(w, dlOpts(w, wText(w), v => v === null ? '' : pctTick(num(v))), skeys),
             xaxis:{categories:scAx.cats, labels:scAx.labels},
             yaxis:yaxes,
             grid:{borderColor:'rgba(125,125,125,.18)'},
@@ -3032,9 +3154,10 @@ const VISUALS = {
         const scAx = dateAxis(w, cats);
         const axFont = axisStyle(w, 'yaxis').style;
 
+        const lk = series.map(sr => sr.type === 'column' ? 'bar' : 'line');
         mkChart(body, w, {
           chart:{type:barType ? 'bar' : 'line', fontFamily:wFont(w), background:'transparent',
-                 toolbar:{show:false}, stacked:false},
+                 toolbar:{show:false}, stacked:false, events:slEvents(w, skeys, lk)},
           series, colors,
           plotOptions:barType ? {bar:{columnWidth:barW(w) + '%', borderRadius:4,
                      dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}} : {},
@@ -3044,8 +3167,8 @@ const VISUALS = {
                   dashArray:series.map((sr, i) => (sr.type === 'line' && i === 1) ? 5 : 0)},
           fill:{colors:colors, type:'solid',
                 opacity:series.map(sr => sr.type === 'area' ? 0.20 : (sr.type === 'column' ? 0.92 : 1))},
-          markers:{size:barType ? 0 : 3},
-          dataLabels:dlOpts(w, wText(w), v => v === null ? '' : num(v).toFixed(1) + '%'),
+          markers:{size:series.map(sr => (sr.type === 'column' || !w.opts.markers) ? 0 : 4), hover:{sizeOffset:3}},
+          dataLabels:seriesDl(w, dlOpts(w, wText(w), v => v === null ? '' : num(v).toFixed(1) + '%'), skeys),
           xaxis:{categories:scAx.cats, labels:scAx.labels},
           // الوضع الشهري: نسبة كل شهر من إجمالي القيمة صغيرة عادة (على عكس التراكمي الذي يصل
           // لـ100%)، فمحور ثابت 0-100 يُظهر كل الأعمدة شبه مسطّحة — لذلك يُترك تلقائياً هنا.
@@ -3123,9 +3246,10 @@ const VISUALS = {
            show:i === types.indexOf('pct'),
            labels:{formatter:v => Math.round(v) + '%', style:axFont}});
 
+      const lk = series.map(sr => sr.type === 'column' ? 'bar' : 'line');
       mkChart(body, w, {
         chart:{type:barType ? 'bar' : 'line', fontFamily:wFont(w), background:'transparent',
-               toolbar:{show:false}, stacked:false},
+               toolbar:{show:false}, stacked:false, events:slEvents(w, skeys, lk)},
         series, colors,
         plotOptions:barType ? {bar:{columnWidth:barW(w) + '%', borderRadius:4,
                    dataLabels:{position:partOf(w,'dataLabels').pos || 'center'}}} : {},
@@ -3135,11 +3259,11 @@ const VISUALS = {
                 dashArray:series.map((sr, i) => (types[i] === 'pct' && sr.type === 'line' && i === 1) ? 5 : 0)},
         fill:{colors:colors, type:'solid',
               opacity:series.map(sr => sr.type === 'area' ? 0.20 : (sr.type === 'column' ? 0.92 : 1))},
-        markers:{size:barType ? 0 : 3},
-        dataLabels:dlOpts(w, wText(w), (v, o) => {
+        markers:{size:series.map(sr => (sr.type === 'column' || !w.opts.markers) ? 0 : 4), hover:{sizeOffset:3}},
+        dataLabels:seriesDl(w, dlOpts(w, wText(w), (v, o) => {
           const i = o && o.seriesIndex;
           return (types[i] === 'val') ? compactNum(num(v)) : num(v).toFixed(1) + '%';
-        }),
+        }), skeys),
         xaxis:{categories:scAx.cats, labels:scAx.labels},
         yaxis:hasVal ? yaxes : {min:0, max:100, tickAmount:5,
                labels:Object.assign(axisStyle(w,'yaxis'),
@@ -4455,6 +4579,7 @@ function buildPropsBody(){
     <div class="grp">
       <div class="grp-h">العنوان</div>
       <label class="chk"><input type="checkbox" data-p="title.show" ${w.title.show?'checked':''}> إظهار شريط العنوان</label>
+      <div data-dep="title.show">
       <div class="row"><label>النص${isEN() ? ' (EN)' : ' (عربي)'}</label><div class="ctl">
         <input type="text" data-p="title.${biKey('text')}" value="${(w.title[biKey('text')]||'').replace(/"/g,'&quot;')}"></div></div>
       ${isEN() ? '<div class="hint" style="margin-bottom:8px;">تكتب الآن النص الإنجليزي. بدّل اللغة من الشريط العلوي لتحرير النص العربي.</div>' : ''}
@@ -4476,24 +4601,30 @@ function buildPropsBody(){
       </div></div>
       ${ctlColor('لون الخط', w.title.color, null, 'title.color')}
       ${ctlColor('خلفية العنوان', w.title.bg, null, 'title.bg')}
+      </div>
     </div>
 
     <div class="grp">
       <div class="grp-h">مظهر الـ Visual</div>
       ${ctlColor('لون الخلفية', w.style.bg, null, 'style.bg')}
+      ${w.type === 'text' ? '' /* النص الحر له لونه وخطه في «خيارات القالب» */ : `
+      <div data-dep="${w.type === 'image' ? 'opts.captionShow' : '#1'}">
       ${ctlColor('لون النص', w.style.color || theme().text, null, 'style.color')}
       <div class="row"><label>خط القالب</label><div class="ctl"><select data-p="style.font">
         ${FONTS.map(f => `<option value="${f.v}" ${(w.style.font || FONTS[0].v) === f.v ? 'selected' : ''}>${f.n}</option>`).join('')}
       </select></div></div>
+      </div>`}
       <div class="row"><label>الشفافية</label><div class="ctl">
         <input type="range" min="0.2" max="1" step="0.05" data-p="style.opacity" value="${w.style.opacity}"></div></div>
       <div class="row"><label>الاستدارة</label><div class="ctl">
         <input type="range" min="0" max="30" step="1" data-p="style.radius" value="${w.style.radius}"></div></div>
       <label class="chk"><input type="checkbox" data-p="style.shadow" ${w.style.shadow?'checked':''}> ظل خفيف</label>
       <label class="chk"><input type="checkbox" data-p="style.border.show" ${w.style.border.show?'checked':''}> إطار (Border)</label>
+      <div data-dep="style.border.show">
       <div class="row"><label>سماكة</label><div class="ctl">
         <input type="range" min="0" max="8" step="1" data-p="style.border.width" value="${w.style.border.width}"></div></div>
       ${ctlColor('لون الإطار', w.style.border.color, null, 'style.border.color')}
+      </div>
     </div>
 
     <div class="grp">
@@ -4518,17 +4649,23 @@ function buildPropsBody(){
     ${itemColorsHtml(w)}`;
 
   bindProps(el, w);
+  el.querySelectorAll('[data-sl-reset]').forEach(b => b.addEventListener('click', () => {
+    snapshot(); if(w.opts.sl) delete w.opts.sl[b.dataset.slReset]; drawWidget(w); buildPropsTab();
+  }));
+  syncDeps(el, w);
 }
 
 const DL_TYPES = ['gauge','spi','progress_line','bars','radar_eval','projects_compare','scurve','topn','pie'];
 function dataLabelsHtml(w){
   if(!DL_TYPES.includes(w.type)) return '';
   if(w.type === 'radar_eval' && (w.opts.numMode || 'axis') !== 'chart') return '';
+  if(w.type === 'topn' && w.opts.display !== 'bars') return '';        // جدول الترتيب ما فيهوش رسم
+  if(w.type === 'spi' && w.opts.mode === 'card') return '';             // البطاقة ما فيهاش رسم
   const d = dlOf(w);
   return `
     <div class="grp">
       <div class="grp-h">🔖 الأرقام على الرسم</div>
-      <label class="chk"><input type="checkbox" data-p="opts.dl.show" ${d.show !== false ? 'checked' : ''}> إظهار الأرقام</label>
+      <label class="chk"><input type="checkbox" data-p="opts.dl.show" data-rebuild ${d.show !== false ? 'checked' : ''}> إظهار الأرقام</label>
       <div class="hint">حجم الخط ولونه وسماكته وخلفيته من «تنسيق أجزاء القالب» بالأسفل.</div>
     </div>`;
 }
@@ -4593,18 +4730,24 @@ function partsHtml(w){
     body += ctlColor('خلفية النص', p.bg || '#1a2b4c', null, pre + 'bg') +
       `<div class="btn-row"><button class="sbtn" data-part-clearbg="${open}">بدون خلفية</button></div>`;
 
+  // الجزء اللي اتقفل عرضه (الأرقام أو وسيلة الإيضاح) خياراته بتبقى رمادي
+  const slOn = w.type === 'scurve' && Object.values(w.opts.sl || {}).some(c => c && c.pos && c.pos !== 'hide');
+  const dep = open === 'dataLabels' ? (slOn ? '#1' : '~opts.dl.show')
+            : (open === 'legend' && w.type === 'pie') ? '~opts.showLegend' : '#1';
   return `<div class="grp">
       <div class="grp-h">🎨 تنسيق أجزاء القالب <span class="hint-inline">اختر الجزء ثم عدّله</span></div>
       <div class="part-tabs">${tabs}</div>
+      <div data-dep="${dep}">
       ${body}
       <div class="btn-row"><button class="sbtn" data-part-reset="${open}">إرجاع هذا الجزء للافتراضي</button></div>
+      </div>
     </div>`;
 }
 
 /** مسمّى قسم الألوان بحسب طبيعة القالب: أعمدة/شرائح/خطوط/سلاسل/حلقات/حالات */
 const ITEM_COLOR_WORDS = {
   progress_line:   {h:'لون كل خط',            one:'الخط',     hint:'لكل خط (أو عمود) لونه: الفعلي والمخطط.'},
-  scurve:          {h:'لون كل سلسلة',         one:'السلسلة',  hint:'اللون يُحفظ باسم السلسلة، فإخفاء سلسلة لا ينقل لونها إلى غيرها.'},
+  scurve:          {h:'كل سلسلة: اللون والأرقام', one:'السلسلة',  hint:'الإعدادات بتتحفظ باسم السلسلة، فإخفاء سلسلة لا ينقل إعداداتها لغيرها. «زي باقي الأرقام» = من «أرقام البيانات» العامة.'},
   gauge:           {h:'لون كل حلقة',          one:'الحلقة',   hint:'نقاط شريط القيم أسفل الرسم تتبع نفس الألوان.'},
   spi:             {h:'ألوان حالات الأداء',   one:'الحالة',   hint:'اللون يتبع الحالة لا الرقم: متقدّم / في المسار / متأخر — ويظهر في البطاقة والحلقة والمنحنى.'},
   radar_eval:      {h:'لون الرسم',            one:'الرسم',    hint:''},
@@ -4614,6 +4757,33 @@ const ITEM_COLOR_WORDS = {
   topn:            {h:'لون كل عمود',          one:'العمود',   hint:''},
   projects_compare:{h:'لون كل مشروع',         one:'المشروع',  hint:''}
 };
+/** أرقام السلسلة المختارة (المنحنى التراكمي): المكان واللون والخلفية لكل سلسلة لوحدها */
+function seriesLabelHtml(w, key, i){
+  const c = slOf(w, key), pre = 'opts.sl.' + key + '.';
+  const bar = ((S.slKinds && S.slKinds[w.id]) || [])[i] === 'bar';
+  const P = bar ? [['above','فوق العمود'], ['top','أعلى العمود (من جوه)'], ['center','منتصف العمود'], ['bottom','أسفل العمود']]
+                : [['above','فوق النقطة'], ['on','على النقطة'], ['below','تحت النقطة']];
+  const bgMode = c.bg || '';
+  return `
+      <div class="grp-h" style="margin-top:12px;">أرقام ${ITEM_COLOR_WORDS.scurve.one} دي</div>
+      <div class="row"><label>المكان</label><div class="ctl"><select data-p="${pre}pos" data-rebuild>
+        <option value="" ${!c.pos ? 'selected' : ''}>زي باقي الأرقام</option>
+        <option value="hide" ${c.pos === 'hide' ? 'selected' : ''}>مخفية</option>
+        ${P.map(([v, n]) => `<option value="${v}" ${c.pos === v ? 'selected' : ''}>${n}</option>`).join('')}
+      </select></div></div>
+      <div data-dep="${pre}pos!=hide">
+        <div class="row"><label>لون النص</label><div class="ctl">
+          <input type="color" data-p="${pre}color" value="${c.color || partOf(w, 'dataLabels').color || wText(w)}"></div></div>
+        <div class="row"><label>الخلفية</label><div class="ctl"><select data-p="${pre}bg" data-rebuild>
+          <option value=""      ${!bgMode ? 'selected' : ''}>زي باقي الأرقام</option>
+          <option value="none"  ${bgMode === 'none' ? 'selected' : ''}>بدون خلفية</option>
+          <option value="color" ${bgMode === 'color' ? 'selected' : ''}>بلون</option>
+        </select></div></div>
+        <div class="row" data-dep="${pre}bg=color"><label>لون الخلفية</label><div class="ctl">
+          <input type="color" data-p="${pre}bgColor" value="${c.bgColor || '#1a2b4c'}"></div></div>
+      </div>
+      <div class="btn-row"><button class="sbtn" data-sl-reset="${key}">إرجاع أرقام ${ITEM_COLOR_WORDS.scurve.one} دي للافتراضي</button></div>`;
+}
 /** ألوان مستقلة لكل عمود/شريحة/سلسلة/حالة */
 function itemColorsHtml(w){
   const n = (S.lastItems && S.lastItems[w.id]) || [];
@@ -4647,6 +4817,7 @@ function itemColorsHtml(w){
         <button class="sbtn" data-item-clear="${key}">إرجاع لون ${W.one} هذا</button>
         <button class="sbtn" data-items-reset="1">إرجاع كل الألوان</button>
       </div>
+      ${w.type === 'scurve' ? seriesLabelHtml(w, key, i) : ''}
       ${W.hint ? `<div class="hint">${W.hint}</div>` : ''}
     </div>`;
 }
@@ -4700,14 +4871,17 @@ function buildMultiProps(el){
         <input type="number" min="0" max="30" data-m="style.radius" value="${p.style.radius}"></div></div>
       <label class="chk"><input type="checkbox" data-m="style.shadow" ${p.style.shadow ? 'checked' : ''}> ظل خفيف</label>
       <label class="chk"><input type="checkbox" data-m="style.border.show" ${p.style.border.show ? 'checked' : ''}> إطار</label>
+      <div data-dep="style.border.show">
       <div class="row"><label>سماكة الإطار</label><div class="ctl">
         <input type="range" min="0" max="8" step="1" data-m="style.border.width" value="${p.style.border.width}"></div></div>
       ${ctlColor('لون الإطار', p.style.border.color, null, 'style.border.color')}
+      </div>
     </div>
 
     <div class="grp">
       <div class="grp-h">شريط العنوان (للكل)</div>
       <label class="chk"><input type="checkbox" data-m="title.show" ${p.title.show ? 'checked' : ''}> إظهار شريط العنوان</label>
+      <div data-dep="title.show">
       <div class="row"><label>الخط</label><div class="ctl"><select data-m="title.font">
         ${FONTS.map(f => `<option value="${f.v}" ${p.title.font === f.v ? 'selected' : ''}>${f.n}</option>`).join('')}
       </select></div></div>
@@ -4715,6 +4889,7 @@ function buildMultiProps(el){
         <input type="number" min="8" max="40" data-m="title.size" value="${p.title.size}"></div></div>
       ${ctlColor('لون الخط', p.title.color, null, 'title.color')}
       ${ctlColor('خلفية العنوان', p.title.bg, null, 'title.bg')}
+      </div>
     </div>`;
 
   el.querySelectorAll('[data-mact]').forEach(b => b.addEventListener('click', () => {
@@ -4732,6 +4907,7 @@ function buildMultiProps(el){
       if(inp.type === 'number' || inp.type === 'range') v = parseFloat(v) || 0;
       applyToSel(w => setPath(w, inp.dataset.m, v), pending);
       pending = false;
+      syncDeps(el, p);
     }
     inp.addEventListener('focus', () => { pending = true; });
     if(live) inp.addEventListener('input', apply);
@@ -4746,6 +4922,7 @@ function buildMultiProps(el){
     applyToSel(w => setPath(w, sw.dataset.sw, sw.dataset.c));
     buildPropsTab();
   }));
+  syncDeps(el, p);
 }
 
 function optionsHtml(w){
@@ -4833,7 +5010,7 @@ function optionsHtml(w){
         <option value="bar"  ${o.chartType==='bar'?'selected':''}>أعمدة</option>
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned?'checked':''}> إظهار المخطط</label>
-      <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>
+      <label class="chk" data-dep="opts.chartType!=bar"><input type="checkbox" data-p="opts.smooth" ${o.smooth?'checked':''}> خطوط انسيابية</label>
       ${o.chartType === 'bar' ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%')
                               : ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
       <div class="row"><label>مقياس المحور الرأسي</label><div class="ctl"><select data-p="opts.yScale">
@@ -4931,10 +5108,18 @@ function optionsHtml(w){
       <div class="row"><label>إلى تاريخ</label><div class="ctl">
         <input type="date" data-p="opts.rangeEnd" value="${cfRangeTo(o.rangeEnd)}"></div></div>
       <div class="hint">اترك الحقلين فاضيين لعرض كل المدى المتاح. المدى يُطبَّق على أي مصدر بيانات.</div>
-      <label class="chk"><input type="checkbox" data-p="opts.showActual" ${o.showActual ? 'checked' : ''}> ${isPeriod ? 'النسب الفعلية ' + ({day:'اليومية', week:'الأسبوعية', month:'الشهرية'})[o.granularity || 'month'] : isCombo ? 'الفعلي (لكل فترة + تراكمي)' : 'الإنجاز الفعلي التراكمي'}</label>
-      <label class="chk"><input type="checkbox" data-p="opts.showPlanned" ${o.showPlanned ? 'checked' : ''}> ${isPeriod ? 'النسب المخططة ' + ({day:'اليومية', week:'الأسبوعية', month:'الشهرية'})[o.granularity || 'month'] : isCombo ? 'المخطط (لكل فترة + تراكمي)' : 'الإنجاز المخطط التراكمي'}</label>
+      <div class="grp-h" style="margin-top:10px;">السلاسل المعروضة</div>
+      ${isCombo ? (() => { const cm = cmbOf(w), gw = ({day:'اليومية', week:'الأسبوعية', month:'الشهرية'})[o.granularity || 'month'];
+        return `
+      <label class="chk"><input type="checkbox" data-p="opts.cmb.pAct" data-rebuild ${cm.pAct ? 'checked' : ''}> أعمدة النسب الفعلية ${gw}</label>
+      <label class="chk"><input type="checkbox" data-p="opts.cmb.pPlan" data-rebuild ${cm.pPlan ? 'checked' : ''}> أعمدة النسب المخططة ${gw}</label>
+      <label class="chk"><input type="checkbox" data-p="opts.cmb.cAct" data-rebuild ${cm.cAct ? 'checked' : ''}> الإنجاز الفعلي التراكمي</label>
+      <label class="chk"><input type="checkbox" data-p="opts.cmb.cPlan" data-rebuild ${cm.cPlan ? 'checked' : ''}> الإنجاز المخطط التراكمي</label>`; })() : `
+      <label class="chk"><input type="checkbox" data-p="opts.showActual" data-rebuild ${o.showActual ? 'checked' : ''}> ${isPeriod ? 'النسب الفعلية ' + ({day:'اليومية', week:'الأسبوعية', month:'الشهرية'})[o.granularity || 'month'] : 'الإنجاز الفعلي التراكمي'}</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showPlanned" data-rebuild ${o.showPlanned ? 'checked' : ''}> ${isPeriod ? 'النسب المخططة ' + ({day:'اليومية', week:'الأسبوعية', month:'الشهرية'})[o.granularity || 'month'] : 'الإنجاز المخطط التراكمي'}</label>`}
       ${isCf ? '' : `
-      <label class="chk"><input type="checkbox" data-p="opts.showFinancial" ${o.showFinancial ? 'checked' : ''}> التقدم المالي التراكمي</label>
+      <label class="chk"><input type="checkbox" data-p="opts.showFinancial" data-rebuild ${o.showFinancial ? 'checked' : ''}> التقدم المالي التراكمي</label>
+      <div data-dep="opts.showFinancial">
       <div class="row"><label>مصدر الصرف</label><div class="ctl"><select data-p="opts.finSource">
         <option value="contractor" ${o.finSource === 'contractor' ? 'selected' : ''}>فواتير المقاول ÷ عقده</option>
         <option value="consultant" ${o.finSource === 'consultant' ? 'selected' : ''}>فواتير الاستشاري ÷ عقده</option>
@@ -4943,17 +5128,30 @@ function optionsHtml(w){
       <div class="row"><label>عرض الصرف</label><div class="ctl"><select data-p="opts.finMode">
         <option value="percent" ${o.finMode === 'percent' ? 'selected' : ''}>نسبة مئوية من العقد</option>
         <option value="value"   ${o.finMode === 'value'   ? 'selected' : ''}>قيمة بالريال (محور ثانٍ)</option>
-      </select></div></div>`}
-      <div class="row"><label>${isCombo ? 'شكل المنحنى التراكمي' : 'شكل العرض'}</label><div class="ctl"><select data-p="opts.chartType">
-        <option value="area" ${o.chartType === 'area' ? 'selected' : ''}>منحنى مساحي</option>
-        <option value="line" ${(o.chartType === 'line' || (isCombo && o.chartType === 'bar')) ? 'selected' : ''}>منحنى خطي</option>
-        ${isCombo ? '' : `<option value="bar"  ${o.chartType === 'bar'  ? 'selected' : ''}>أعمدة تراكمية</option>`}
       </select></div></div>
-      <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth ? 'checked' : ''}> خطوط انسيابية</label>
+      </div>`}
+      ${(() => {
+        // هل فيه منحنيات (خطوط) وهل فيه أعمدة في الرسم الحالي؟ — عشان نقفل الخيارات اللي مالهاش لازمة
+        const cm = cmbOf(w), isBar = o.chartType === 'bar';
+        const cumOn = isCombo ? (cm.cAct || cm.cPlan) : (o.showActual || o.showPlanned || (!isCf && o.showFinancial));
+        const hasLine = isCombo ? (cumOn && !isBar) : !isBar;
+        const hasBar  = isCombo ? (cm.pAct || cm.pPlan || (cumOn && isBar)) : isBar;
+        return `
+      <div class="grp-h" style="margin-top:10px;">الشكل</div>
+      <div class="row" data-dep="${cumOn ? '#1' : '#0'}"><label>${isCombo ? 'شكل التراكمي' : 'شكل العرض'}</label><div class="ctl"><select data-p="opts.chartType" data-rebuild>
+        <option value="area" ${o.chartType === 'area' ? 'selected' : ''}>منحنى مساحي</option>
+        <option value="line" ${o.chartType === 'line' ? 'selected' : ''}>منحنى خطي</option>
+        <option value="bar"  ${isBar ? 'selected' : ''}>أعمدة</option>
+      </select></div></div>
+      <div data-dep="${hasLine ? '#1' : '#0'}">
+        <label class="chk"><input type="checkbox" data-p="opts.smooth" ${o.smooth ? 'checked' : ''}> خطوط انسيابية</label>
+        <label class="chk"><input type="checkbox" data-p="opts.markers" ${o.markers ? 'checked' : ''}> إظهار النقاط على المنحنيات</label>
+        ${ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
+      </div>
       ${isPeriod ? '' : `
-      <label class="chk"><input type="checkbox" data-p="opts.forceMono" ${o.forceMono ? 'checked' : ''}> فرض التزايد التراكمي (منع الهبوط)</label>`}
-      ${ctlRange('سُمك المنحنى', 'opts.lineW', lineW(w), 1, 8, 1, 'px')}
-      ${(o.chartType === 'bar' || isCombo) ? ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%') : ''}
+      <label class="chk" data-dep="${cumOn ? '#1' : '#0'}"><input type="checkbox" data-p="opts.forceMono" ${o.forceMono ? 'checked' : ''}> فرض التزايد التراكمي (منع الهبوط)</label>`}
+      <div data-dep="${hasBar ? '#1' : '#0'}">${ctlRange('المسافة بين الأعمدة', 'opts.barGap', barGap(w), 10, 80, 5, '%')}</div>`;
+      })()}
       <div class="hint">${isCombo
         ? `الوضع المدمج يعرض الاتنين في رسم واحد: أعمدة لنسب كل فترة منفردة (الفعلي والمخطط) على محور،
            ومنحنيات للإنجاز التراكمي على المحور المقابل من 0 إلى 100%. المحوران منفصلان لأن نسبة الفترة
@@ -5093,6 +5291,7 @@ function optionsHtml(w){
         <option value="75%" ${o.donutSize === '75%' ? 'selected' : ''}>رفيع</option>
       </select></div></div>
       <label class="chk"><input type="checkbox" data-p="opts.showTotal" ${o.showTotal ? 'checked' : ''}> إظهار الإجمالي في المنتصف</label>` : ''}
+      <div data-dep="~opts.dl.show">
       <div class="row"><label>الأرقام تعرض</label><div class="ctl"><select data-p="opts.showAs">
         <option value="percent" ${o.showAs === 'percent' ? 'selected' : ''}>النسبة %</option>
         <option value="value"   ${o.showAs === 'value'   ? 'selected' : ''}>القيمة</option>
@@ -5103,7 +5302,8 @@ function optionsHtml(w){
         <option value="auto" ${(o.dlOutside||'auto') !== 'out' ? 'selected' : ''}>داخل الشرائح</option>
         <option value="out"  ${o.dlOutside === 'out'  ? 'selected' : ''}>خارج الشرائح (يحتاج قالباً أكبر)</option>
       </select></div></div>
-      <label class="chk"><input type="checkbox" data-p="opts.showLegend" ${o.showLegend !== false ? 'checked' : ''}> إظهار وسيلة الإيضاح</label>
+      </div>
+      <label class="chk"><input type="checkbox" data-p="opts.showLegend" data-rebuild ${o.showLegend !== false ? 'checked' : ''}> إظهار وسيلة الإيضاح</label>
       <div class="hint">لتلوين شريحة بعينها اضغط عليها داخل القالب، أو استخدم «لون كل عنصر على حدة» بالأسفل.</div>`;
   }
   if(w.type === 'table'){
@@ -5129,7 +5329,7 @@ function optionsHtml(w){
         ${sortables.map(k => `<option value="${k}" ${o.sortBy === k ? 'selected' : ''}>${fieldOrMetricName(k)}</option>`).join('')}
       </select></div></div>
       <div class="row2">
-        <div class="mini"><span>الاتجاه</span><select data-p="opts.sortDir">
+        <div class="mini" data-dep="opts.sortBy!="><span>الاتجاه</span><select data-p="opts.sortDir">
           <option value="desc" ${o.sortDir === 'desc' ? 'selected' : ''}>تنازلي</option>
           <option value="asc"  ${o.sortDir === 'asc'  ? 'selected' : ''}>تصاعدي</option>
         </select></div>
@@ -5194,10 +5394,10 @@ function optionsHtml(w){
       <label class="chk"><input type="checkbox" data-p="opts.grayscale" ${o.grayscale ? 'checked' : ''}> أبيض وأسود</label>
       ${ctlRange('السطوع',  'opts.bright',   num(o.bright)   || 100, 20, 200, 5, '%')}
       ${ctlRange('التباين', 'opts.contrast', num(o.contrast) || 100, 20, 200, 5, '%')}
-      ${ctlRange('التشبّع', 'opts.saturate', num(o.saturate) || 100,  0, 200, 5, '%')}
+      <div data-dep="!opts.grayscale">${ctlRange('التشبّع', 'opts.saturate', num(o.saturate) || 100,  0, 200, 5, '%')}</div>
       <div class="btn-row"><button class="sbtn" data-imgreset="1">إرجاع الصورة لطبيعتها</button></div>
       <label class="chk"><input type="checkbox" data-p="opts.captionShow" ${o.captionShow ? 'checked' : ''}> إظهار تعليق أسفل الصورة</label>
-      <div class="mini"><span>نص التعليق ${isEN() ? '(بالإنجليزية)' : '(بالعربية)'}</span>
+      <div class="mini" data-dep="opts.captionShow"><span>نص التعليق ${isEN() ? '(بالإنجليزية)' : '(بالعربية)'}</span>
         <input type="text" data-p="opts.${biKey('caption')}" value="${(o[biKey('caption')] || '').replace(/"/g, '&quot;')}"></div>`;
   }
   if(w.type === 'info_table'){
@@ -5258,6 +5458,38 @@ function syncInherited(el, w){
   if(explicit && mark) mark.remove();
   if(!explicit && !mark) cap.insertAdjacentHTML('beforeend', ' <b class="inh">(موروث)</b>');
 }
+/* =====================================================================
+   خيارات تابعة: أي خيار مربوط بخيار تاني (زي سماكة ولون الإطار مع «إطار»)
+   بيتقفل ويبقى رمادي لما الخيار الأساسي يتقفل. الصيغة في data-dep:
+     path         الخيار مفعّل        !path   الخيار مقفول
+     ~path        مفعّل ما لم يكن false صراحةً (الافتراضي مفعّل)
+     path=a|b     قيمته واحدة منهم     path!=a|b  قيمته مش واحدة منهم
+     #1 / #0      شرط محسوب مسبقاً      وأكتر من شرط بينهم &
+   ===================================================================== */
+function getPath(obj, path){
+  return path.split('.').reduce((o, k) => (o === undefined || o === null) ? undefined : o[k], obj);
+}
+function depOk(w, expr){
+  return expr.split('&').every(c => {
+    c = c.trim(); if(!c) return true;
+    if(c === '#1') return true;
+    if(c === '#0') return false;
+    let m;
+    if((m = c.match(/^(.+?)!=(.*)$/))) return !m[2].split('|').includes(String(getPath(w, m[1]) ?? ''));
+    if((m = c.match(/^(.+?)=(.*)$/)))  return  m[2].split('|').includes(String(getPath(w, m[1]) ?? ''));
+    if(c[0] === '~') return getPath(w, c.slice(1)) !== false;
+    if(c[0] === '!') return !getPath(w, c.slice(1));
+    return !!getPath(w, c);
+  });
+}
+function syncDeps(el, w){
+  // أي عنصر تحت شرط مقفول (مهما كان عمقه) بيتقفل
+  const boxes = [...el.querySelectorAll('[data-dep]')];
+  boxes.forEach(b => b.classList.toggle('dep-off', !depOk(w, b.dataset.dep)));
+  el.querySelectorAll('input, select, textarea, button').forEach(i => {
+    if(i.closest('[data-dep]')) i.disabled = !!i.closest('.dep-off');
+  });
+}
 function bindProps(el, w){
   el.querySelectorAll('[data-p]').forEach(inp => {
     const tag  = inp.tagName.toLowerCase();
@@ -5286,7 +5518,9 @@ function bindProps(el, w){
       const lab = inp.parentElement && inp.parentElement.querySelector('.mini-val');
       if(lab) lab.textContent = inp.value + (/\.rotate$/.test(inp.dataset.p) ? '°' : '');
       if(/^parts\..+\.size$/.test(inp.dataset.p)) syncInherited(el, w);
-      if(['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs','opts.dataSource','opts.calcMode','opts.granularity'].includes(inp.dataset.p)) buildPropsTab();
+      if(inp.hasAttribute('data-rebuild') ||
+         ['opts.pair','opts.src','opts.mode','opts.group','opts.numMode','opts.scaleMode','opts.source','opts.display','opts.field','opts.pointsAs','opts.dataSource','opts.calcMode','opts.granularity'].includes(inp.dataset.p)) buildPropsTab();
+      else syncDeps(el, w);
     }
 
     inp.addEventListener('focus', () => { pending = true; });
