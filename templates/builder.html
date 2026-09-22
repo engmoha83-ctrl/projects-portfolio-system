@@ -437,6 +437,54 @@ input[type=range]{width:100%; accent-color:var(--ui-navy);}
 .sbtn.on{background:var(--ui-navy); color:#fff;}
 .sbtn.danger{color:var(--ui-danger); background:#FBEDEA;}
 .sbtn.danger:hover{background:var(--ui-danger); color:#fff;}
+/* ===== أقسام قابلة للطي ===== */
+.sidebar .hint{display:none !important;}          /* الشروحات اتشالت — العناوين كفاية */
+.note{font-size:12px; line-height:1.55; padding:9px 11px; background:#F7F8FA; color:var(--ui-muted);}
+.note.warn{background:#FBF0DC; color:#855711;}
+.note.empty{background:transparent; padding:18px 4px; text-align:center;}
+.side-body > .grp{margin:0 -12px; padding:0 12px; border-bottom:1px solid #EEF0F4;}
+.side-body > .grp:last-child{border-bottom:none;}
+.side-body > .grp > .grp-h{
+  margin:0; padding:13px 0; border:none; cursor:pointer; user-select:none;
+  font-size:12.5px; font-weight:600; color:var(--ui-text); text-transform:none; letter-spacing:0;
+  display:flex; align-items:center; gap:8px; transition:color .15s ease;
+}
+.side-body > .grp > .grp-h:hover{color:var(--ui-navy);}
+.side-body > .grp > .grp-h:focus-visible{outline:2px solid #C9D6E8; outline-offset:-2px;}
+.side-body > .grp > .grp-h.grp-title{cursor:default; font-size:14px; padding:14px 0 10px;}
+.acc-chev{flex:0 0 auto; color:var(--ui-muted); transition:transform .25s var(--ease);}
+.grp.closed .acc-chev{transform:rotate(-90deg);}
+[dir="rtl"] .grp.closed .acc-chev{transform:rotate(90deg);}
+.grp-b{display:grid; grid-template-rows:1fr; transition:grid-template-rows .28s var(--ease);}
+.grp.closed .grp-b{grid-template-rows:0fr;}
+.grp-bi{min-height:0; overflow:hidden; padding:0 1px;}
+.grp:not(.closed) .grp-bi{padding-bottom:14px;}
+/* عناوين فرعية جوه القسم */
+.grp-bi .grp-h, .sub-h{
+  font-size:10.5px; font-weight:600; color:var(--ui-muted); text-transform:uppercase; letter-spacing:.05em;
+  margin:14px 0 8px !important; padding:0 0 5px; border-bottom:1px solid #F0F2F5; display:flex; gap:6px; cursor:default;
+}
+.grp-bi > .grp-h:first-child{margin-top:2px !important;}
+.pick-list{border:none !important; background:var(--ui-tint); padding:6px 8px !important;}
+.sidebar .chk{margin-bottom:9px;}
+.sidebar .row{margin-bottom:9px;}
+@media (prefers-reduced-motion: reduce){ .grp-b, .acc-chev{transition:none;} }
+.clr{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+.sidebar .clr > input[type=color]{width:30px; height:26px; padding:2px; flex:0 0 auto;}
+.clr-hex{font-size:12px; color:var(--ui-muted); font-variant-numeric:tabular-nums; direction:ltr; flex:1 1 auto;}
+.clr-more{width:26px; height:26px; border:none; background:var(--ui-tint); color:var(--ui-muted); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; transition:background-color .15s ease;}
+.clr-more:hover{background:var(--ui-tint-2);}
+.clr-more .acc-chev{transition:transform .2s var(--ease);}
+.clr.open .clr-more .acc-chev{transform:rotate(180deg);}
+.clr > .swatches{display:none; flex:1 0 100%; margin-top:0;}
+.clr.open > .swatches{display:flex;}
+.sidebar .sw{width:18px; height:18px;}
+.sidebar .btn-row + .btn-row{margin-top:6px;}
+.sidebar [data-part-reset], .sidebar [data-sl-reset], .sidebar [data-items-reset], .sidebar [data-item-clear]{
+  background:transparent; color:var(--ui-muted); font-weight:500; text-decoration:underline; text-underline-offset:3px;}
+.sidebar [data-part-reset]:hover, .sidebar [data-sl-reset]:hover, .sidebar [data-items-reset]:hover, .sidebar [data-item-clear]:hover{
+  background:transparent; color:var(--ui-text);}
 .dep-off{opacity:.4; pointer-events:none; filter:grayscale(1); transition:opacity .15s ease;}
 .hint{font-size:12px; color:var(--ui-muted); line-height:1.65; background:#F7F8FA; padding:10px 11px;}
 .layer{
@@ -696,6 +744,9 @@ function applyUiStatic(){
 
 /* ---- قاموس العربي → الإنجليزي لنصوص الواجهة المولَّدة بالكود ---- */
 const UI_EN = {
+"تنسيق النصوص": "Text formatting",
+"إرجاع للافتراضي": "Reset to default",
+"الحقول المرتّبة": "Fields to rank",
 "الخلفية": "Background",
 "أعمدة النسب الفعلية الشهرية": "Monthly actual % bars",
 "أعمدة النسب المخططة الشهرية": "Monthly planned % bars",
@@ -4482,6 +4533,7 @@ function buildTemplatesTab(){
     اضغط <b>Alt</b> أثناء السحب لتعطيل الالتصاق مؤقتاً.
     <br><br>✍️ <b>للكتابة:</b> اضغط ضغطتين على مربع النص للكتابة داخله مباشرة، وضغطتين على شريط
     العنوان لتعديل العنوان.</div>`;
+  enhanceGroups(el, 't');
   el.querySelectorAll('.tpl-card').forEach(c =>
     c.addEventListener('click', () => addWidget(c.dataset.t)));
   $('#btnArrange').addEventListener('click', autoArrange);
@@ -4495,9 +4547,8 @@ function buildTemplatesTab(){
 }
 function buildLayersList(){
   const box = $('#layersList'); if(!box) return;
-  if(!S.widgets.length){ box.innerHTML = '<div class="hint">لا توجد عناصر بعد.</div>'; return; }
-  box.innerHTML = `<div class="hint" style="margin-bottom:6px;">الأعلى في القائمة = الأمام.
-      استخدم ↑ و↓ لترتيب التراكب، وأسهم شريط القالب لتبديل المكان.</div>` +
+  if(!S.widgets.length){ box.innerHTML = '<div class="note empty">لا توجد عناصر بعد.</div>'; return; }
+  box.innerHTML =
     S.widgets.slice().reverse().map(w =>
     `<div class="layer ${S.multi.indexOf(w.id) >= 0 ? 'on' : ''}${w.id === S.selected ? ' pri' : ''}" data-id="${w.id}">
        <span>${VISUALS[w.type].icon}</span>
@@ -4591,22 +4642,27 @@ function buildPropsBody(){
   if(S.multi.length > 1){ buildMultiProps(el); return; }
   const w = getW(S.selected);
   if(!w){
-    el.innerHTML = `<div class="hint">اختر عنصراً من الصفحة (أو من قائمة العناصر) لعرض خصائصه هنا.
-      <br><br>لتحديد أكثر من عنصر: اسحب بالماوس على مساحة فارغة، أو اضغط <b>Ctrl</b> مع الضغط على العناصر،
-      أو <b>Ctrl+A</b> لتحديد الكل.</div>`;
+    el.innerHTML = `<div class="note empty">اختر عنصراً من الصفحة (أو من قائمة العناصر) لعرض خصائصه هنا.</div>`;
     return;
   }
   const t = VISUALS[w.type];
   el.innerHTML = `
     <div class="grp">
-      <div class="grp-h">${t.icon} ${t.name}</div>
+      <div class="grp-h grp-title">${t.icon} ${t.name}</div>
       <div class="btn-row" style="margin-bottom:8px;">
         <button class="sbtn" data-act="dup">تكرار</button>
         <button class="sbtn danger" data-act="del">حذف</button>
       </div>
     </div>
 
-    <div class="grp">
+    ${(() => { const oh = optionsHtml(w); return oh.trim() ? `<div class="grp" data-k="options">
+      <div class="grp-h">خيارات القالب</div>
+      ${oh}
+    </div>` : ''; })()}
+    ${dataLabelsHtml(w)}
+    ${itemColorsHtml(w)}
+    ${partsHtml(w)}
+    <div class="grp" data-k="title" data-open="0">
       <div class="grp-h">العنوان</div>
       <label class="chk"><input type="checkbox" data-p="title.show" ${w.title.show?'checked':''}> إظهار شريط العنوان</label>
       <div data-dep="title.show">
@@ -4625,16 +4681,16 @@ function buildPropsBody(){
         </select></div>
       </div>
       <div class="row"><label>المحاذاة</label><div class="ctl btn-row">
-        <button class="sbtn ${w.title.align==='start'?'on':''}" data-set="title.align" data-v="start">يمين</button>
+        <button class="sbtn ${w.title.align==='start'?'on':''}" data-set="title.align" data-v="start">${isEN() ? 'يسار' : 'يمين'}</button>
         <button class="sbtn ${w.title.align==='center'?'on':''}" data-set="title.align" data-v="center">وسط</button>
-        <button class="sbtn ${w.title.align==='end'?'on':''}" data-set="title.align" data-v="end">يسار</button>
+        <button class="sbtn ${w.title.align==='end'?'on':''}" data-set="title.align" data-v="end">${isEN() ? 'يمين' : 'يسار'}</button>
       </div></div>
       ${ctlColor('لون الخط', w.title.color, null, 'title.color')}
       ${ctlColor('خلفية العنوان', w.title.bg, null, 'title.bg')}
       </div>
     </div>
 
-    <div class="grp">
+    <div class="grp" data-k="look" data-open="0">
       <div class="grp-h">مظهر الـ Visual</div>
       ${ctlColor('لون الخلفية', w.style.bg, null, 'style.bg')}
       ${w.type === 'text' ? '' /* النص الحر له لونه وخطه في «خيارات القالب» */ : `
@@ -4657,7 +4713,7 @@ function buildPropsBody(){
       </div>
     </div>
 
-    <div class="grp">
+    <div class="grp" data-k="pos" data-open="0">
       <div class="grp-h">الموضع والحجم (بكسل)</div>
       <div class="row2">
         <div class="mini"><span>X</span><input type="number" step="${S.page.grid || 1}" data-p="x" value="${w.x}"></div>
@@ -4668,16 +4724,9 @@ function buildPropsBody(){
         <div class="mini"><span>الارتفاع</span><input type="number" min="60" step="${S.page.grid || 1}" data-p="h" value="${w.h}"></div>
       </div>
       <div class="hint" style="margin-bottom:8px;">الخطوة الحالية ${S.page.grid || 1} بكسل (مقاس خلية الشبكة).</div>
-    </div>
+    </div>`;
 
-    <div class="grp">
-      <div class="grp-h">خيارات القالب</div>
-      ${optionsHtml(w)}
-    </div>
-    ${dataLabelsHtml(w)}
-    ${partsHtml(w)}
-    ${itemColorsHtml(w)}`;
-
+  enhanceGroups(el, 'p');
   bindProps(el, w);
   el.querySelectorAll('[data-sl-reset]').forEach(b => b.addEventListener('click', () => {
     snapshot(); if(w.opts.sl) delete w.opts.sl[b.dataset.slReset]; drawWidget(w); buildPropsTab();
@@ -4692,11 +4741,15 @@ function dataLabelsHtml(w){
   if(w.type === 'topn' && w.opts.display !== 'bars') return '';        // جدول الترتيب ما فيهوش رسم
   if(w.type === 'spi' && w.opts.mode === 'card') return '';             // البطاقة ما فيهاش رسم
   const d = dlOf(w);
+  const slOn = w.type === 'scurve' && Object.values(w.opts.sl || {}).some(c => c && c.pos && c.pos !== 'hide');
+  // تنسيق الأرقام جنب «إظهار الأرقام» على طول — مش في آخر اللوحة
+  const fmt = partsOfWidget(w).includes('dataLabels') ? partBodyHtml(w, 'dataLabels') : '';
   return `
-    <div class="grp">
-      <div class="grp-h">🔖 الأرقام على الرسم</div>
+    <div class="grp" data-k="values">
+      <div class="grp-h">الأرقام على الرسم</div>
       <label class="chk"><input type="checkbox" data-p="opts.dl.show" data-rebuild ${d.show !== false ? 'checked' : ''}> إظهار الأرقام</label>
-      <div class="hint">حجم الخط ولونه وسماكته وخلفيته من «تنسيق أجزاء القالب» بالأسفل.</div>
+      ${fmt ? `<div data-dep="${slOn ? '#1' : '~opts.dl.show'}">${fmt}
+        <div class="btn-row"><button class="sbtn" data-part-reset="dataLabels">إرجاع للافتراضي</button></div></div>` : ''}
     </div>`;
 }
 
@@ -4713,11 +4766,23 @@ const DL_POS_LINE = [['','تلقائي (فوق النقطة)'], ['above','فوق
 const dlPosList = w => isBarLike(w) ? DL_POS_BAR : DL_POS_LINE;
 
 function partsHtml(w){
-  const keys = partsOfWidget(w);
+  // أرقام البيانات ليها مكانها في قسم «الأرقام على الرسم»
+  const keys = partsOfWidget(w).filter(k => k !== 'dataLabels' || !DL_TYPES.includes(w.type));
   if(!keys.length) return '';
   const open = S.activePart && keys.includes(S.activePart) ? S.activePart : keys[0];
   const tabs = keys.map(k => `<button class="part-tab ${k === open ? 'on' : ''}" data-part-tab="${k}">${
                  partName(k, w)}</button>`).join('');
+  const dep = (open === 'legend' && w.type === 'pie') ? '~opts.showLegend' : '#1';
+  return `<div class="grp" data-k="parts" data-open="0">
+      <div class="grp-h">تنسيق النصوص</div>
+      <div class="part-tabs">${tabs}</div>
+      <div data-dep="${dep}">
+      ${partBodyHtml(w, open)}
+      <div class="btn-row"><button class="sbtn" data-part-reset="${open}">إرجاع للافتراضي</button></div>
+      </div>
+    </div>`;
+}
+function partBodyHtml(w, open){
   const p = partOf(w, open), caps = partCapsOf(w, open), pre = 'parts.' + open + '.';
   const has = c => caps.includes(c);
   let body = `<div class="row2">
@@ -4735,7 +4800,7 @@ function partsHtml(w){
 
   if(has('align'))
     body += `<div class="row"><label>المحاذاة</label><div class="ctl"><select data-p="${pre}align">
-      ${(open === 'yaxis' ? AX_ALIGNS : ALIGNS).map(([v, n]) =>
+      ${(open === 'yaxis' ? AX_ALIGNS : [['','تلقائي'], ['start', isEN() ? 'يسار' : 'يمين'], ['center','وسط'], ['end', isEN() ? 'يمين' : 'يسار']]).map(([v, n]) =>
         `<option value="${v}" ${p.align === v ? 'selected' : ''}>${n}</option>`).join('')}
     </select></div></div>`;
   if(has('legendPos'))
@@ -4760,18 +4825,7 @@ function partsHtml(w){
     body += ctlColor('خلفية النص', p.bg || '#1a2b4c', null, pre + 'bg') +
       `<div class="btn-row"><button class="sbtn" data-part-clearbg="${open}">بدون خلفية</button></div>`;
 
-  // الجزء اللي اتقفل عرضه (الأرقام أو وسيلة الإيضاح) خياراته بتبقى رمادي
-  const slOn = w.type === 'scurve' && Object.values(w.opts.sl || {}).some(c => c && c.pos && c.pos !== 'hide');
-  const dep = open === 'dataLabels' ? (slOn ? '#1' : '~opts.dl.show')
-            : (open === 'legend' && w.type === 'pie') ? '~opts.showLegend' : '#1';
-  return `<div class="grp">
-      <div class="grp-h">🎨 تنسيق أجزاء القالب <span class="hint-inline">اختر الجزء ثم عدّله</span></div>
-      <div class="part-tabs">${tabs}</div>
-      <div data-dep="${dep}">
-      ${body}
-      <div class="btn-row"><button class="sbtn" data-part-reset="${open}">إرجاع هذا الجزء للافتراضي</button></div>
-      </div>
-    </div>`;
+  return body;
 }
 
 /** مسمّى قسم الألوان بحسب طبيعة القالب: أعمدة/شرائح/خطوط/سلاسل/حلقات/حالات */
@@ -4795,7 +4849,7 @@ function seriesLabelHtml(w, key, i){
                 : [['above','فوق النقطة'], ['on','على النقطة'], ['below','تحت النقطة']];
   const bgMode = c.bg || '';
   return `
-      <div class="grp-h" style="margin-top:12px;">أرقام ${ITEM_COLOR_WORDS.scurve.one} دي</div>
+      <div class="sub-h">أرقام ${ITEM_COLOR_WORDS.scurve.one} دي</div>
       <div class="row"><label>المكان</label><div class="ctl"><select data-p="${pre}pos" data-rebuild>
         <option value="" ${!c.pos ? 'selected' : ''}>زي باقي الأرقام</option>
         <option value="hide" ${c.pos === 'hide' ? 'selected' : ''}>مخفية</option>
@@ -4829,8 +4883,8 @@ function itemColorsHtml(w){
   const W    = ITEM_COLOR_WORDS[w.type] || {h:'لون كل عنصر على حدة', one:'العنصر', hint:''};
   const key  = itemKeyAt(w, i);
   const setN = n.filter((_, j) => cur[itemKeyAt(w, j)] != null).length;
-  return `<div class="grp">
-      <div class="grp-h">🎨 ${W.h}${setN ? ` <span class="hint-inline">${setN} معدّل</span>` : ''}</div>
+  return `<div class="grp" data-k="colors" data-open="0">
+      <div class="grp-h">${W.h}${setN ? ` <span class="hint-inline">${setN} معدّل</span>` : ''}</div>
       <div class="row"><label>${W.one}</label><div class="ctl">
         <select data-item-sel data-no-tr>${n.map((nm, j) => {
           const t = String(nm); const shown = t.length > 30 ? t.slice(0, 30) + '…' : t;
@@ -4922,6 +4976,7 @@ function buildMultiProps(el){
       </div>
     </div>`;
 
+  enhanceGroups(el, 'm');
   el.querySelectorAll('[data-mact]').forEach(b => b.addEventListener('click', () => {
     if(b.dataset.mact === 'del') removeSelected(); else duplicateSelected();
   }));
@@ -5081,7 +5136,7 @@ function optionsHtml(w){
         ${items.map(f => `<label class="fld-item" title="${f.label}"><input type="checkbox" data-cfld2="${f.key}" ${
           sel.has(f.key) ? 'checked' : (full ? 'disabled' : '')}><span>${f.label}</span></label>`).join('')}
       </div>
-      ${full ? `<div class="hint">وصلت إلى الحد الأقصى (١٠ عناصر). أزل عنصراً لإضافة غيره.</div>` : ''}
+      ${full ? `<div class="note warn">وصلت إلى الحد الأقصى (١٠ عناصر). أزل عنصراً لإضافة غيره.</div>` : ''}
       <div class="row"><label>المقياس</label><div class="ctl"><select data-p="opts.scaleMode">
         <option value="target" ${useT ? 'selected' : ''}>نسبة من الهدف (يوحّد مقاييس مختلفة)</option>
         <option value="raw"    ${!useT ? 'selected' : ''}>القيم كما هي</option>
@@ -5216,8 +5271,7 @@ function optionsHtml(w){
         </optgroup>
       </select></div></div>`;
     const fieldsPicker = `
-      <div class="hint" style="margin-bottom:6px;">المُختار الآن: <b>${sel.length}</b> حقل —
-      علّم على الحقول التي تريد ترتيبها معاً (حقلان على الأقل).</div>
+      <div class="grp-h">الحقول المرتّبة (<b>${sel.length}</b>)</div>
       <div class="pick-list" style="max-height:210px;overflow:auto;border:1px solid var(--ui-line);border-radius:8px;padding:8px;margin-bottom:8px;">
         ${nums.map(f => `<label class="chk" style="margin-bottom:4px;font-weight:500;">
             <input type="checkbox" data-cfld="${f.key}" ${sel.includes(f.key) ? 'checked' : ''}> ${f.label}</label>`).join('')}
@@ -5457,13 +5511,13 @@ function optionsHtml(w){
         </select></div>
       </div>
       <div class="row"><label>المحاذاة</label><div class="ctl btn-row">
-        <button class="sbtn ${o.align==='start'?'on':''}" data-set="opts.align" data-v="start">يمين</button>
+        <button class="sbtn ${o.align==='start'?'on':''}" data-set="opts.align" data-v="start">${isEN() ? 'يسار' : 'يمين'}</button>
         <button class="sbtn ${o.align==='center'?'on':''}" data-set="opts.align" data-v="center">وسط</button>
-        <button class="sbtn ${o.align==='end'?'on':''}" data-set="opts.align" data-v="end">يسار</button>
+        <button class="sbtn ${o.align==='end'?'on':''}" data-set="opts.align" data-v="end">${isEN() ? 'يمين' : 'يسار'}</button>
       </div></div>
       ${ctlColor('لون النص', o.color || theme().text, null, 'opts.color')}`;
   }
-  return '<div class="hint">لا توجد خيارات إضافية لهذا القالب.</div>';
+  return '';
 }
 
 function setPath(obj, path, val){
@@ -5496,6 +5550,57 @@ function syncInherited(el, w){
      path=a|b     قيمته واحدة منهم     path!=a|b  قيمته مش واحدة منهم
      #1 / #0      شرط محسوب مسبقاً      وأكتر من شرط بينهم &
    ===================================================================== */
+/* =====================================================================
+   أقسام اللوحة الجانبية تتقفل وتتفتح بسهم؛ حالة كل قسم بتتحفظ
+   ===================================================================== */
+const GRP_KEY = 'pmis_builder_groups';
+let GRP_STATE = (() => { try{ return JSON.parse(localStorage.getItem(GRP_KEY) || '{}') || {}; }catch(e){ return {}; } })();
+const CHEV = '<svg class="acc-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+/* خانة اللون مضغوطة: مربع اللون + الكود + سهم يفتح الألوان الجاهزة عند الحاجة بس */
+function compactColors(root){
+  root.querySelectorAll('.ctl').forEach(ctl => {
+    const inp = ctl.querySelector(':scope > input[type=color]');
+    const sw  = ctl.querySelector(':scope > .swatches');
+    if(!inp || ctl.classList.contains('clr')) return;
+    ctl.classList.add('clr');
+    const hex = document.createElement('span'); hex.className = 'clr-hex'; hex.textContent = (inp.value || '').toUpperCase();
+    inp.after(hex);
+    inp.addEventListener('input', () => hex.textContent = inp.value.toUpperCase());
+    if(sw){
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'clr-more';
+      b.setAttribute('aria-label', U('Preset colors', 'ألوان جاهزة')); b.innerHTML = CHEV;
+      hex.after(b);
+      b.addEventListener('click', () => ctl.classList.toggle('open'));
+    }
+  });
+}
+function enhanceGroups(root, scope){
+  if(!root) return;
+  compactColors(root);
+  [...root.children].filter(g => g.classList.contains('grp')).forEach((g, idx) => {
+    const h = g.firstElementChild;
+    if(!h || !h.classList.contains('grp-h') || h.classList.contains('grp-title') || g.dataset.acc) return;
+    g.dataset.acc = '1';
+    const key = scope + ':' + (g.dataset.k || idx);
+    const outer = document.createElement('div'); outer.className = 'grp-b';
+    const inner = document.createElement('div'); inner.className = 'grp-bi';
+    while(h.nextSibling) inner.appendChild(h.nextSibling);
+    outer.appendChild(inner); g.appendChild(outer);
+    h.insertAdjacentHTML('afterbegin', CHEV);
+    h.setAttribute('role', 'button'); h.tabIndex = 0;
+    const open = (key in GRP_STATE) ? GRP_STATE[key] : g.dataset.open !== '0';
+    g.classList.toggle('closed', !open);
+    h.setAttribute('aria-expanded', open);
+    const toggle = () => {
+      const nowOpen = g.classList.toggle('closed') === false;
+      h.setAttribute('aria-expanded', nowOpen);
+      GRP_STATE[key] = nowOpen;
+      try{ localStorage.setItem(GRP_KEY, JSON.stringify(GRP_STATE)); }catch(e){}
+    };
+    h.addEventListener('click', toggle);
+    h.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); } });
+  });
+}
 function getPath(obj, path){
   return path.split('.').reduce((o, k) => (o === undefined || o === null) ? undefined : o[k], obj);
 }
@@ -5668,7 +5773,7 @@ function buildPageTab(){
         <option value="30" ${p.autoRefresh == 30 ? 'selected' : ''}>٣٠ دقيقة</option>
         <option value="60" ${p.autoRefresh == 60 ? 'selected' : ''}>ساعة</option>
       </select></div></div>
-      <button class="sbtn" id="btnRefreshNow" style="width:100%;">🔄 تحديث البيانات الآن</button>
+      <button class="sbtn" id="btnRefreshNow" style="width:100%;">تحديث البيانات الآن</button>
       <div class="hint" style="margin-top:8px;">التحديث يجلب أحدث بيانات من قاعدة البيانات ويعيد رسم
       القوالب فقط — التصميم والمشروع المفتوح لا يتأثران. مفيد لو تركت الشاشة معروضة على تلفزيون.</div>
     </div>
@@ -5679,7 +5784,7 @@ function buildPageTab(){
         <option value="weekly"   ${p.progressSource !== 'cashflow' ? 'selected' : ''}>تحديثات مديري المشاريع الأسبوعية</option>
         <option value="cashflow" ${p.progressSource === 'cashflow' ? 'selected' : ''}>صفحة التدفق النقدي (خط الأساس المعتمد)</option>
       </select></div></div>
-      ${S.cfNote ? `<div class="hint" style="color:#b54708">${S.cfNote}</div>` : ''}
+      ${S.cfNote ? `<div class="note warn">${S.cfNote}</div>` : ''}
       <div class="hint" style="margin-top:8px;">بيتطبّق على كل القوالب اللي بتعرض نسبة الإنجاز الفعلية أو المخططة
       (الحالية والسابقة) أو SPI أو الانحراف، في الداشبورد كلها مرة واحدة. مع «التدفق النقدي»: المخطط من خط
       الأساس المعتمد في تاريخ كل تحديث، والفعلي آخر رقم حقيقي لحد التاريخ ده. في وضع «كل المشاريع» الحساب
@@ -5690,8 +5795,8 @@ function buildPageTab(){
     <div class="grp">
       <div class="grp-h">لغة الداشبورد</div>
       <div class="btn-row">
-        <button class="sbtn ${p.lang !== 'en' ? 'on' : ''}" data-lang="ar">🇸🇦 العربية</button>
-        <button class="sbtn ${p.lang === 'en' ? 'on' : ''}" data-lang="en">🇬🇧 English</button>
+        <button class="sbtn ${p.lang !== 'en' ? 'on' : ''}" data-lang="ar">العربية</button>
+        <button class="sbtn ${p.lang === 'en' ? 'on' : ''}" data-lang="en">English</button>
       </div>
       <div class="hint" style="margin-top:8px;">تبديل اللغة يترجم كل النصوص التلقائية ويقلب اتجاه الصفحة.
       عناوين الـ visuals والنصوص الحرة لها نسخة لكل لغة — اكتبها مرة بالعربي ومرة بالإنجليزي.</div>
@@ -5708,7 +5813,7 @@ function buildPageTab(){
       خلفية الصفحة وألوان كل العناصر ولوحة ألوان الرسوم.</div>
     </div>
 
-    <div class="grp">
+    <div class="grp" data-k="size" data-open="0">
       <div class="grp-h">مقاس الصفحة</div>
       <div class="row"><label>المقاس</label><div class="ctl"><select id="pgPreset">
         ${Object.keys(PAGE_PRESETS).map(k => `<option value="${k}" ${p.preset===k?'selected':''}>${PAGE_PRESETS[k].n}</option>`).join('')}
@@ -5720,21 +5825,24 @@ function buildPageTab(){
       </div>
     </div>
 
-    <div class="grp">
+    <div class="grp" data-k="bg" data-open="0">
       <div class="grp-h">خلفية الصفحة</div>
       <div class="row"><label>اللون</label><div class="ctl"><input type="color" id="pgBg" value="${p.bg}">
         <div class="swatches">${SWATCHES.map(c => `<div class="sw" style="background:${c}" data-pgsw="${c}"></div>`).join('')}</div>
       </div></div>
       <label class="chk"><input type="checkbox" id="pgGrad" ${p.gradient?'checked':''}> تدرج لوني</label>
+      <div data-dep="page.gradient">
       <div class="row"><label>اللون 2</label><div class="ctl"><input type="color" id="pgBg2" value="${p.bg2 || '#ffffff'}"></div></div>
       <div class="row"><label>الاتجاه</label><div class="ctl"><input type="range" min="0" max="360" id="pgDir" value="${p.gradDir}"></div></div>
+      </div>
     </div>
 
-    <div class="grp">
+    <div class="grp" data-k="grid" data-open="0">
       <div class="grp-h">الشبكة والالتصاق</div>
       <label class="chk"><input type="checkbox" id="pgShowGrid" ${p.showGrid?'checked':''}> إظهار الشبكة</label>
       <label class="chk"><input type="checkbox" id="pgSnap" ${p.snap?'checked':''}> الالتصاق بالشبكة</label>
       <label class="chk"><input type="checkbox" id="pgNoOv" ${p.noOverlap?'checked':''}> منع تداخل العناصر</label>
+      <div data-dep="page.snap">
       <div class="row"><label>مقاس الخلية</label><div class="ctl">
         <input type="number" min="1" max="100" step="1" id="pgGrid" value="${p.grid}"></div></div>
       <div class="row"><label>أولوية الالتصاق</label><div class="ctl"><select id="pgSnapMode">
@@ -5742,6 +5850,7 @@ function buildPageTab(){
         <option value="smart" ${p.snapMode === 'smart' ? 'selected' : ''}>محاذاة ذكية لحواف العناصر</option>
       </select></div></div>
       <button class="sbtn" id="btnSnapAll" style="width:100%;margin-top:4px;">محاذاة كل العناصر على الشبكة الآن</button>
+      </div>
       <div class="hint" style="margin-top:8px;">في وضع «الشبكة» يتحرك العنصر ويتغيّر حجمه بمضاعفات مقاس
       الخلية بالضبط، والأسهم تحرّكه خطوة خلية كاملة (Shift للتحريك بكسل واحد، و Alt أثناء السحب لتعطيل
       الالتصاق مؤقتاً). بعد تغيير مقاس الخلية اضغط الزر أعلاه لمحاذاة العناصر الموجودة.</div>
@@ -5749,6 +5858,9 @@ function buildPageTab(){
 
     <div class="hint">مقاس الصفحة هو نفسه الذي سيُصدَّر إلى PDF لاحقاً، فاختر <b>A4 أفقي</b> إن كان التقرير للطباعة.</div>`;
 
+  enhanceGroups(el, 'g');
+  syncDeps(el, S);
+  el.addEventListener('change', () => syncDeps(el, S));
   function paintThemePrev(){
     const t = THEMES[$('#pgTheme').value] || THEMES.navy;
     $('#themePrev').innerHTML =
