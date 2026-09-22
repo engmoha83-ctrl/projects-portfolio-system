@@ -629,16 +629,36 @@
     <div class="panel" id="chartPanel" hidden>
         <h5>منحنى الإنجاز (S-Curve)</h5>
         <div class="toolbar">
+            <label class="d-flex align-items-center gap-1" style="font-size:.78rem;font-weight:700;color:var(--text-body)">
+                العرض
+                <select id="cvGran" class="form-select form-select-sm" style="width:auto">
+                    <option value="month">شهري (من الجدول)</option>
+                    <option value="week">أسبوعي (السبت ← الجمعة)</option>
+                    <option value="day">يومي</option>
+                </select>
+            </label>
+            <span id="cvRange" class="d-flex align-items-center gap-1" style="font-size:.78rem;font-weight:700;color:var(--text-body)" hidden>
+                من <input type="date" id="cvFrom" class="form-control form-control-sm" style="width:auto">
+                إلى <input type="date" id="cvTo" class="form-control form-control-sm" style="width:auto">
+                <button class="btn-cf" id="cvReload" title="إعادة تحميل التوزيع بعد آخر تعديلات">🔄</button>
+            </span>
             <button class="btn-cf" id="btnUnitPct">عرض بالنسبة %</button>
             <button class="btn-cf" id="btnUnitVal">عرض بالمبلغ</button>
             <label class="d-flex align-items-center gap-1" style="font-size:.78rem;font-weight:700;color:var(--text-body);cursor:pointer">
-                <input type="checkbox" id="showBars" checked> أعمدة القيمة الشهرية (مخطط مقابل فعلي)
+                <input type="checkbox" id="showBars" checked> <span id="lblBars">أعمدة القيمة الشهرية (مخطط مقابل فعلي)</span>
             </label>
             <label class="d-flex align-items-center gap-1" style="font-size:.78rem;font-weight:700;color:var(--text-body);cursor:pointer">
                 <input type="checkbox" id="showCurve" checked> منحنى التراكمي
             </label>
         </div>
         <div id="sCurve" style="height:360px"></div>
+        <div class="x-note" id="cvNote" hidden style="font-size:.78rem;margin-top:.4rem"></div>
+        <div id="cvTableWrap" hidden style="margin-top:.8rem">
+            <h6 id="cvTitle" style="font-weight:800"></h6>
+            <div class="tbl-scroll" style="max-height:420px">
+                <table class="cf" id="cvTable"></table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -977,6 +997,7 @@ function render(){
     bindCells();
     renderKpis(rows);
     renderChart(rows);
+    if(cvGran() !== 'month') cvFetchSoon();          // الجدول اتعدّل ← التوزيع اليومي/الأسبوعي يتحدّث بعد الحفظ
 }
 
 function renderKpis(rows){
@@ -1007,7 +1028,86 @@ function renderKpis(rows){
         <div class="k-lab">SPI الحالي</div><div class="k-val">${last && last.spi !== null ? last.spi.toFixed(2) : '—'}</div></div>`;
 }
 
+/* ============ العرض اليومي / الأسبوعي (للقراءة فقط) ============
+   الشهري بيترسم من الجدول نفسه (بيتحدّث مع كل تعديل). اليومي والأسبوعي بيتجابوا من السيرفر
+   (/api/cashflow/curve): المخطط موزّع يومياً حسب برنامج XER (ساعات العمل في التقويم) أو بالتساوي
+   على أيام الشهر، والفعلي نقاط حقيقية بتواريخها بس — يقف عند آخر رقم حقيقي. */
+const CV = {key:'', rows:null, timer:null, busy:false};
+const CV_NAME = {day:'اليوم', week:'الأسبوع', month:'الشهر'};
+function cvGran(){ return $('#cvGran').value; }
 function renderChart(rows){
+    const g = cvGran();
+    $('#cvRange').hidden = (g === 'month');
+    $('#lblBars').textContent = g === 'month' ? 'أعمدة القيمة الشهرية (مخطط مقابل فعلي)'
+                              : g === 'week' ? 'أعمدة القيمة الأسبوعية (مخطط مقابل فعلي)'
+                              : 'أعمدة القيمة اليومية (مخطط مقابل فعلي)';
+    if(g === 'month'){
+        $('#cvTableWrap').hidden = true; $('#cvNote').hidden = true;
+        drawCurve(rows); return;
+    }
+    const key = [ST.project, g, $('#cvFrom').value, $('#cvTo').value].join('|');
+    if(CV.key === key && CV.rows){ drawCurve(CV.rows); return; }
+    cvFetchSoon(0);
+}
+/** بعد أي تعديل في الجدول: نعيد جلب التوزيع بعد ما الحفظ يخلص */
+function cvFetchSoon(delay){
+    clearTimeout(CV.timer);
+    CV.timer = setTimeout(cvFetch, delay === undefined ? 1200 : delay);
+}
+async function cvFetch(){
+    const g = cvGran();
+    if(g === 'month' || !ST.project) return;
+    const f = $('#cvFrom').value, t = $('#cvTo').value;
+    const key = [ST.project, g, f, t].join('|');
+    try{
+        const j = await (await fetch('/api/cashflow/curve?project=' + encodeURIComponent(ST.project) +
+                                     '&gran=' + g + '&frm=' + f + '&to=' + t)).json();
+        if(!j.success) throw new Error(j.error || 'فشل');
+        if(cvGran() !== g) return;                          // المستخدم غيّر العرض أثناء التحميل
+        CV.key = key;
+        CV.rows = (j.buckets || []).map(b => ({
+            ym:b.label, start:b.start, end:b.end,
+            plan_amount:b.plan_period, planPctPer:b.plan_period_pct, cumPlan:b.plan_cum, planPct:b.plan_pct,
+            act_pct:b.act_pct, actCum:b.act_cum, actMon:b.act_period, actPctPer:b.act_period_pct
+        }));
+        drawCurve(CV.rows);
+        renderPeriodTable(CV.rows, g);
+    }catch(e){ setState('تعذّر تحميل التوزيع: ' + e.message, 'err'); }
+}
+function renderPeriodTable(rows, g){
+    const today = todayStr();
+    const days = rows.length;
+    $('#cvTitle').textContent = `جدول التوزيع ${g === 'week' ? 'الأسبوعي' : 'اليومي'} (للقراءة فقط — التعديل من جدول الشهور)`;
+    $('#cvNote').hidden = false;
+    $('#cvNote').innerHTML = `المخطط موزّع ${g === 'week' ? 'أسبوعياً' : 'يومياً'} حسب برنامج XER المستورد
+        (أيام وساعات العمل في تقويم كل نشاط) — ولو الخطة مش من XER يتوزّع بالتساوي على أيام الشهر.
+        الفعلي بيظهر بس في ${CV_NAME[g]} اللي فيه رقم حقيقي (تحديث مدير المشروع أو XER) ويفضل على آخر رقم
+        لحد ما ييجي رقم جديد، ويقف عند آخر رقم حقيقي.`;
+    const pc = v => (v === null || v === undefined) ? '—' : (+v).toFixed(2) + '%';
+    const body = rows.map(r => {
+        const spi = (has(r.act_pct) && r.planPct > 0) ? r.act_pct / r.planPct : null;
+        const now = today >= r.start && today <= r.end;
+        const lab = g === 'week' ? `${r.start} ← ${r.end}` : r.ym;
+        return `<tr${now ? ' style="background:rgba(212,163,115,.18);font-weight:700"' : ''}>
+            <td class="ym">${lab}${now ? ' ◀' : ''}</td>
+            <td>${fmtN(r.plan_amount)}</td><td>${pc(r.planPctPer)}</td>
+            <td>${fmtN(r.cumPlan)}</td><td>${pc(r.planPct)}</td>
+            <td>${fmtN(r.actMon)}</td><td>${pc(r.actPctPer)}</td>
+            <td>${pc(r.act_pct)}</td><td>${fmtN(r.actCum)}</td>
+            <td>${spi === null ? '—' : spi.toFixed(2)}</td></tr>`;
+    }).join('');
+    $('#cvTable').innerHTML = `<thead><tr>
+        <th style="min-width:${g === 'week' ? 190 : 100}px">${CV_NAME[g]}</th>
+        <th class="g-plan">المخطط للفترة</th><th class="g-plan">% للفترة</th>
+        <th class="g-plan">التراكمي المخطط</th><th class="g-plan">% مخططة تراكمية</th>
+        <th class="g-act">الفعلي للفترة</th><th class="g-act">% للفترة</th>
+        <th class="g-act">% فعلية تراكمية</th><th class="g-act">التراكمي الفعلي</th>
+        <th class="g-ana">SPI</th></tr></thead><tbody>${body ||
+        `<tr><td colspan="10">لا توجد بيانات في المدى المحدد</td></tr>`}</tbody>`;
+    $('#cvTableWrap').hidden = false;
+}
+
+function drawCurve(rows){
     if(typeof ApexCharts === 'undefined') return;
     const pct   = ST.unit === 'pct';
     const bars  = $('#showBars').checked;
@@ -1041,7 +1141,8 @@ function renderChart(rows){
         plotOptions:{bar:{columnWidth:'62%', borderRadius:2}},
         markers:{size:0, hover:{size:5}},
         dataLabels:{enabled:false},
-        xaxis:{categories:rows.map(r => r.ym), labels:{rotate:-45, style:{fontSize:'10px'}}},
+        xaxis:{categories:rows.map(r => r.ym), tickAmount: rows.length > 40 ? 24 : undefined,
+               labels:{rotate:-45, hideOverlappingLabels:true, style:{fontSize:'10px'}}},
         // محور مستقل للأعمدة حتى لا تسحقها قيم التراكمي الكبيرة
         yaxis: (bars && curve)
             ? [{seriesName: series[0].name, min:0, title:{text:'الفترة', style:{fontSize:'11px'}},
@@ -1056,7 +1157,9 @@ function renderChart(rows){
         tooltip:{shared:true, intersect:false, y:{formatter:fmtV}}
     };
     if(ST.chart){ ST.chart.destroy(); }
-    ST.chart = new ApexCharts($('#sCurve'), opt);
+    // حاوية جديدة كل مرة: ApexCharts أحياناً بيسيب رسم الـ destroy القديم ظاهر لما نبدّل بين شهري/أسبوعي/يومي
+    $('#sCurve').innerHTML = '<div></div>';
+    ST.chart = new ApexCharts($('#sCurve').firstChild, opt);
     ST.chart.render();
 }
 
@@ -1278,6 +1381,14 @@ function saveCells(cells, okMsg){
       .then(j => { setState(j.success ? (okMsg || 'تم الحفظ ✓') : ('فشل الحفظ: ' + (j.error || '')),
                             j.success ? 'ok' : 'err'); return j; })
       .catch(e => { setState('فشل الحفظ: ' + e.message, 'err'); });
+}
+
+/** يحفظ التوزيع اليومي لخط الأساس ({تاريخ: مبلغ}) — فاضي = مسح (خطة مش من برنامج زمني) */
+function savePlanDaily(days){
+    if(!ST.project) return Promise.resolve();
+    return fetch('/api/cashflow/plan-daily', {method:'POST', headers:{'Content-Type':'application/json'},
+                 body:JSON.stringify({project:ST.project, days})})
+      .then(r => r.json()).catch(() => null);
 }
 
 /* ============ الأزرار ============ */
@@ -1975,6 +2086,7 @@ async function applyGen(){
     closeGen();
     render();
     await saveCells(cells, `تم توليد خط الأساس لـ ${GS.months.length} شهر ✓`);
+    await savePlanDaily({});                   // خطة متولّدة من منحنى — التوزيع اليومي القديم من XER ما بقاش يخصّها
     await saveMeta(true);
 }
 
@@ -2388,6 +2500,61 @@ function xSpread(bucket, s, e, val){
         d.setDate(d.getDate() + 1);
     }
 }
+/* ---- تقويمات البريمافيرا: توزيع القيم على ساعات العمل الفعلية زي P6 بالظبط ----
+   clndr_data فيه أيام الأسبوع (1=الأحد … 7=السبت) بفترات العمل، والاستثناءات (d|رقم اليوم من 1899-12-30)
+   بساعاتها — استثناء من غير ساعات = إجازة. */
+const xMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+function xHrs(seg){
+    const out = [];
+    String(seg || '').replace(/s\|(\d\d:\d\d)\|f\|(\d\d:\d\d)/g, (m, a, b) => {
+        out.push([xMin(a), b === '00:00' ? 1440 : xMin(b)]); return m; });
+    return out;
+}
+function xParseCal(data){
+    data = String(data || '');
+    const iW = data.indexOf('DaysOfWeek'), iE = data.indexOf('Exceptions');
+    if(iW < 0) return null;
+    const week = {}, exc = {};
+    const wp = data.slice(iW, iE >= 0 ? iE : data.length).split(/\(0\|\|([1-7])\(\)\(/);
+    for(let i = 1; i < wp.length; i += 2) week[+wp[i]] = xHrs(wp[i + 1]);
+    if(iE >= 0){
+        const ep = data.slice(iE).split(/\(0\|\|\d+\(d\|(\d+)\)\(/);
+        for(let i = 1; i < ep.length; i += 2){
+            const d = new Date(1899, 11, 30 + (+ep[i]));
+            exc[xYmd(d)] = xHrs(ep[i + 1]);
+        }
+    }
+    return {week, exc};
+}
+/** تاريخ + وقت من XER (YYYY-MM-DD HH:MM) */
+function xDT(v){
+    const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
+}
+/** يوزّع قيمة على ساعات العمل بين بداية ونهاية حسب التقويم (يوم ← قيمة). بدون تقويم: أيام التقويم كلها. */
+function xSpreadWork(daily, cal, s, e, val){
+    if(!(val > 0)) return;
+    if(!s && !e) return;
+    if(!s) s = e; if(!e) e = s;
+    if(e < s) e = s;
+    const day0 = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+    const dayN = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+    const same = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    const list = []; let tot = 0, guard = 0;
+    for(const d = new Date(day0); d <= dayN && guard < 20000; d.setDate(d.getDate() + 1), guard++){
+        const k = xYmd(d);
+        let h = 0;
+        if(cal){
+            const hrs = (k in cal.exc) ? cal.exc[k] : (cal.week[d.getDay() + 1] || []);
+            const lo0 = same(d, s) ? s.getHours() * 60 + s.getMinutes() : 0;
+            const hi0 = same(d, e) ? (e.getHours() * 60 + e.getMinutes() || 1440) : 1440;
+            hrs.forEach(([a, b]) => { const lo = Math.max(a, lo0), hi = Math.min(b, hi0); if(hi > lo) h += hi - lo; });
+        }else h = 1;
+        if(h > 0){ list.push([k, h]); tot += h; }
+    }
+    if(!(tot > 0)){ const k = xYmd(day0); daily[k] = (daily[k] || 0) + val; return; }
+    list.forEach(([k, h]) => { daily[k] = (daily[k] || 0) + val * h / tot; });
+}
 const XSKIP = {TT_Mile:1, TT_FinMile:1, TT_LOE:1, TT_WBS:1};
 /** نسبة إنجاز النشاط بحسب طريقة القياس المعرَّفة في البرنامج */
 function xTaskPct(t, rq){
@@ -2410,8 +2577,14 @@ function xerAnalyse(projId){
     const pr = (db.PROJECT || []).find(x => x.proj_id === projId) || {};
     const tasks = (db.TASK || []).filter(t => t.proj_id === projId);
     const cost = {}, qty = {}, aCost = {}, rq = {};
+    const cals = {};
+    (db.CALENDAR || []).forEach(c => { const k = xParseCal(c.clndr_data); if(k) cals[c.clndr_id] = k; });
+    const assigns = [], pcosts = [];
+    let curves = 0;
     (db.TASKRSRC || []).forEach(r => {
         if(r.proj_id !== projId) return;
+        assigns.push(r);
+        if(r.curv_id) curves++;
         cost[r.task_id]  = (cost[r.task_id]  || 0) + xNum(r.target_cost);
         qty[r.task_id]   = (qty[r.task_id]   || 0) + xNum(r.target_qty);
         aCost[r.task_id] = (aCost[r.task_id] || 0) + xNum(r.act_reg_cost) + xNum(r.act_ot_cost);
@@ -2421,6 +2594,7 @@ function xerAnalyse(projId){
     });
     (db.PROJCOST || []).forEach(r => {
         if(r.proj_id !== projId) return;
+        pcosts.push(r);
         cost[r.task_id]  = (cost[r.task_id]  || 0) + xNum(r.target_cost);
         aCost[r.task_id] = (aCost[r.task_id] || 0) + xNum(r.act_cost);
     });
@@ -2457,37 +2631,62 @@ function xerAnalyse(projId){
                                     cost:finMap[f.id].cost, ev:finMap[f.id].ev}));
 
     return {
-        pr, projId, tasks, cost, qty, aCost, rq, hasCost, hasQty, dataDate,
+        pr, projId, tasks, cost, qty, aCost, rq, hasCost, hasQty, dataDate, cals, assigns, pcosts, curves,
         name:(pr.proj_short_name || projId),
         actCostTotal:Object.keys(aCost).reduce((a, k) => a + aCost[k], 0),
         periods, finRows, finCost, finEv
     };
 }
 
-/** يبني توزيع خط الأساس الشهري من الأنشطة */
+/** يبني توزيع خط الأساس اليومي من الأنشطة (على ساعات العمل حسب تقويم كل نشاط، زي البريمافيرا)،
+    والشهري = مجموع أيامه. التكاليف: كل تكليف مورد على تواريخه المخططة (Planned)، والمصاريف على تواريخ نشاطها. */
 function xerBaseline(A, mode, skip){
-    const bucket = {};
+    const daily = {};
     let used = 0, skipped = 0, noDate = 0;
-    const wOf = t => {
-        if(mode === 'cost') return A.cost[t.task_id] || 0;
-        if(mode === 'qty')  return A.qty[t.task_id] || 0;
-        if(mode === 'drtn') return Math.max(xNum(t.target_drtn_hr_cnt), 0);
-        return A.hasCost ? (A.cost[t.task_id] || 0)
-             : (A.hasQty ? (A.qty[t.task_id] || 0) : Math.max(xNum(t.target_drtn_hr_cnt), 0));
-    };
-    A.tasks.forEach(t => {
-        if(skip && XSKIP[t.task_type]){ skipped++; return; }
-        const w = wOf(t);
-        if(!(w > 0)) return;
-        const s = xDate(t.target_start_date), e = xDate(t.target_end_date);
-        if(!s && !e){ noDate++; return; }
-        xSpread(bucket, s, e, w);
-        used++;
-    });
+    const usedMode = mode === 'auto' ? (A.hasCost ? 'cost' : (A.hasQty ? 'qty' : 'drtn')) : mode;
+    const tById = {};
+    A.tasks.forEach(t => { tById[t.task_id] = t; });
+    const calOf = t => (t && A.cals[t.clndr_id]) || A.cals[A.pr.clndr_id] || null;
+    const isSkip = t => skip && t && XSKIP[t.task_type];
+    const usedTasks = new Set();
+    if(usedMode === 'cost' || usedMode === 'qty'){
+        A.assigns.forEach(r => {
+            const t = tById[r.task_id];
+            if(!t){ return; }
+            if(isSkip(t)){ skipped++; return; }
+            const w = usedMode === 'cost' ? xNum(r.target_cost) : xNum(r.target_qty);
+            if(!(w > 0)) return;
+            const s = xDT(r.target_start_date) || xDT(t.target_start_date);
+            const e = xDT(r.target_end_date) || xDT(t.target_end_date);
+            if(!s && !e){ noDate++; return; }
+            xSpreadWork(daily, calOf(t), s, e, w);
+            usedTasks.add(t.task_id);
+        });
+        if(usedMode === 'cost') A.pcosts.forEach(r => {
+            const t = tById[r.task_id]; const w = xNum(r.target_cost);
+            if(!t || !(w > 0) || isSkip(t)) return;
+            const s = xDT(t.target_start_date), e = xDT(t.target_end_date);
+            if(!s && !e){ noDate++; return; }
+            xSpreadWork(daily, calOf(t), s, e, w);
+            usedTasks.add(t.task_id);
+        });
+    }else{
+        A.tasks.forEach(t => {
+            if(isSkip(t)){ skipped++; return; }
+            const w = Math.max(xNum(t.target_drtn_hr_cnt), 0);
+            if(!(w > 0)) return;
+            const s = xDT(t.target_start_date), e = xDT(t.target_end_date);
+            if(!s && !e){ noDate++; return; }
+            xSpreadWork(daily, calOf(t), s, e, w);
+            usedTasks.add(t.task_id);
+        });
+    }
+    used = usedTasks.size;
+    const bucket = {};
+    Object.keys(daily).forEach(k => { const m = k.slice(0, 7); bucket[m] = (bucket[m] || 0) + daily[k]; });
     const months = Object.keys(bucket).sort();
     const sum = months.reduce((a, k) => a + bucket[k], 0);
-    const usedMode = mode === 'auto' ? (A.hasCost ? 'cost' : (A.hasQty ? 'qty' : 'drtn')) : mode;
-    return {bucket, months, sum, used, skipped, noDate, usedMode};
+    return {bucket, daily, months, sum, used, skipped, noDate, usedMode};
 }
 
 /** التحديث الفعلي: من الفترات المخزّنة إن وُجدت، وإلا شهر تاريخ البيانات وحده */
@@ -2601,6 +2800,8 @@ function xerRefresh(){
         warn.push('الملف غير محمّل بالتكاليف، فالإجمالي أُخذ من قيمة العقد والتوزيع بوزن ' + MODE[B.usedMode] + '.');
     if(B.noDate)  warn.push(B.noDate + ' نشاطاً بلا تواريخ مخططة أُهملت.');
     if(B.skipped) warn.push(B.skipped + ' معلماً/نشاط LOE استُبعد.');
+    if(A.curves) warn.push(A.curves + ' تكليف مورد عليه منحنى توزيع (Resource Curve) في البريمافيرا، ' +
+                           'واتوزّع هنا بشكل خطي — شكل التوزيع جوه مدة الأنشطة دي ممكن يختلف شوية عن البريمافيرا.');
     const tblFirst = ST.rows.length ? ST.rows[0].ym : null;
     const tblLast  = ST.rows.length ? ST.rows[ST.rows.length - 1].ym : null;
     const outside = B.months.filter(m => tblFirst && (m < tblFirst || m > tblLast));
@@ -2618,6 +2819,9 @@ function xerRefresh(){
     B.total = total;
     const scale = B.sum > 0 ? total / B.sum : 0;
     B.plan = {}; B.months.forEach(m => { B.plan[m] = Math.round(B.bucket[m] * scale * 100) / 100; });
+    // التوزيع اليومي بنفس المقياس — يتحفظ مع الاستيراد ويحدد شكل العرض اليومي والأسبوعي
+    B.dailyScaled = {};
+    Object.keys(B.daily).forEach(k => { B.dailyScaled[k] = Math.round(B.daily[k] * scale * 10000) / 10000; });
     let cum = 0;
     $('#xPrevBase').innerHTML = `<table class="cf"><thead><tr><th>الشهر</th><th>المخطط للفترة</th>
         <th>التراكمي</th><th>% تراكمية</th></tr></thead><tbody>` +
@@ -2747,6 +2951,7 @@ async function applyXer(){
     render();
     await saveCells(cells, isBase ? `تم استيراد خط الأساس من XER لـ ${D.months.length} شهر ✓`
                                   : `تم استيراد التحديث من XER لـ ${D.applyRows.length} شهر ✓`);
+    if(isBase) await savePlanDaily(D.dailyScaled || {});
     await saveMeta(true);
 }
 
@@ -2773,6 +2978,9 @@ document.querySelectorAll('.x-tab').forEach(b =>
 document.addEventListener('keydown', e => {
     if(e.key === 'Escape' && !$('#xerModal').hidden) closeXer(); });
 
+$('#cvGran').addEventListener('change', () => { CV.key = ''; renderChart(computed()); });
+['cvFrom', 'cvTo'].forEach(id => $('#' + id).addEventListener('change', () => cvFetchSoon(0)));
+$('#cvReload').addEventListener('click', () => { CV.key = ''; cvFetchSoon(0); });
 $('#btnUnitPct').addEventListener('click', () => { ST.unit = 'pct'; renderChart(computed()); });
 $('#btnUnitVal').addEventListener('click', () => { ST.unit = 'val'; renderChart(computed()); });
 ['showBars','showCurve'].forEach(id => $('#' + id).addEventListener('change', () => renderChart(computed())));
