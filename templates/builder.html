@@ -744,6 +744,13 @@ function applyUiStatic(){
 
 /* ---- قاموس العربي → الإنجليزي لنصوص الواجهة المولَّدة بالكود ---- */
 const UI_EN = {
+"كل الأرقام": "All values",
+"الإظهار": "Visibility",
+"ظاهرة": "Shown",
+"زي كل الأرقام": "Same as all values",
+"بعد نهاية العمود": "Past the bar end",
+"نهاية العمود (من جوه)": "Bar end (inside)",
+"بداية العمود": "Bar start",
 "تنسيق النصوص": "Text formatting",
 "إرجاع للافتراضي": "Reset to default",
 "الحقول المرتّبة": "Fields to rank",
@@ -808,12 +815,12 @@ const UI_EN = {
 "أسبوعي (السبت ← الجمعة)": "Weekly (Saturday → Friday)",
 "أسرع المشاريع تقدماً خلال الأسبوع": "the fastest-progressing projects this week",
 "أسفل": "Bottom",
-"أسفل العمود": "Bar bottom",
+"أسفل العمود": "Bottom of the bar",
 "أسفل وسط": "Bottom center",
 "أسفل يسار": "Bottom left",
 "أسفل يمين": "Bottom right",
 "أعلى": "Top",
-"أعلى العمود": "Bar top",
+"أعلى العمود": "Top of the bar",
 "أعلى وسط": "Top center",
 "أعلى يسار": "Top left",
 "أعلى يمين": "Top right",
@@ -1385,7 +1392,7 @@ const UI_EN = {
 "وحدة الفرق": "Difference unit",
 "وسط": "Center",
 "وسط أفقي": "Center horizontally",
-"وسط العمود": "Bar center",
+"وسط العمود": "Middle of the bar",
 "وسط رأسي": "Center vertically",
 "وسيلة الإيضاح": "Legend",
 "وصف المشروع": "Project description",
@@ -2118,85 +2125,151 @@ function cmbOf(w){
   return Object.assign({pAct:!!o.showActual, pPlan:!!o.showPlanned, cAct:!!o.showActual, cPlan:!!o.showPlanned}, o.cmb || {});
 }
 function slOf(w, key){ return (w.opts.sl && w.opts.sl[key]) || {}; }
-function seriesDl(w, base, skeys){
-  const on = skeys.map(k => { const p = slOf(w, k).pos || ''; return p === 'hide' ? false : (p ? true : base.enabled); });
-  if(!on.some(Boolean)){ base.enabled = false; return base; }
-  base.enabled = true;
-  base.enabledOnSeries = on.map((v, i) => v ? i : -1).filter(i => i >= 0);
-  return base;
+/* =====================================================================
+   أرقام كل عنصر في الرسم لوحده (كل القوالب اللي فيها رسم بيانات):
+   «series» = كل سلسلة (المنحنى التراكمي، مسار الإنجاز)
+   «point»  = كل عمود أو شريحة في سلسلة واحدة (أعمدة، ترتيب، مقارنة، دائري، رادار)
+   الإعداد الفاضي بيورث من «كل الأرقام». المكتبة ما بتدعمش ده، فبنظبط الأرقام بعد الرسم.
+   ===================================================================== */
+const LBL_MODE = {scurve:'series', progress_line:'series', bars:'point', topn:'point',
+                  projects_compare:'point', pie:'point'};
+function lblMode(w){
+  if(w.type === 'radar_eval' && (w.opts.numMode || 'axis') !== 'chart') return null;
+  if(w.type === 'topn' && w.opts.display !== 'bars') return null;
+  return LBL_MODE[w.type] || null;
 }
-function styleSeriesLabels(w, skeys, kinds){
+function itemShown(w, i, glob){
+  const c = slOf(w, itemKeyAt(w, i));
+  if(c.show === 'hide' || c.pos === 'hide') return false;
+  if(c.show === 'show') return true;
+  return glob;
+}
+/* نوع كل عنصر في آخر رسم: bar / hbar / line / pie / radar */
+function lblKinds(w){ return (S.lblKinds && S.lblKinds[w.id]) || []; }
+function lblKindOf(w, i){ const k = lblKinds(w); return k[i] || k[0] || ''; }
+function lblKindSet(w){ return Array.from(new Set(lblKinds(w))); }
+/* يتنادى من mkChart: يحدد أنواع العناصر ويفعّل الأرقام اللي اتطلبت لعناصر بعينها */
+function prepItemLabels(w, opt){
+  const mode = lblMode(w);
+  S.lblKinds = S.lblKinds || {}; S.lblOn = S.lblOn || {};
+  if(!mode || !opt.dataLabels){ delete S.lblKinds[w.id]; return; }
+  const ct = (opt.chart && opt.chart.type) || '';
+  const hz = !!(opt.plotOptions && opt.plotOptions.bar && opt.plotOptions.bar.horizontal);
+  let kinds, n;
+  if(mode === 'series'){
+    n = (opt.series || []).length;
+    kinds = (opt.series || []).map(sr => {
+      const t = (sr && sr.type) || ct;
+      return (t === 'bar' || t === 'column') ? (hz ? 'hbar' : 'bar') : 'line';
+    });
+  }else{
+    n = ((S.lastItems && S.lastItems[w.id]) || []).length;
+    const k = (ct === 'pie' || ct === 'donut') ? 'pie' : ct === 'radar' ? 'radar' : (hz ? 'hbar' : 'bar');
+    kinds = Array.from({length:n}, () => k);
+  }
+  S.lblKinds[w.id] = kinds;
+  const glob = opt.dataLabels.enabled !== false;
+  const on = Array.from({length:n}, (_, i) => itemShown(w, i, glob));
+  S.lblOn[w.id] = on;
+  if(!on.some(Boolean)){ opt.dataLabels.enabled = false; return; }
+  opt.dataLabels.enabled = true;
+  if(mode === 'series') opt.dataLabels.enabledOnSeries = on.map((v, i) => v ? i : -1).filter(i => i >= 0);
+}
+function styleItemLabels(w){
+  const mode = lblMode(w); if(!mode) return;
   const el = document.getElementById(w.id); if(!el) return;
   const svg = el.querySelector('svg.apexcharts-svg'); if(!svg) return;
-  const chart = S.charts[w.id];
+  const chart = S.charts[w.id], on = (S.lblOn && S.lblOn[w.id]) || [];
   const inner = svg.querySelector('.apexcharts-inner');
+  const ctm = inner && inner.getScreenCTM();
+  const gpos = partOf(w, 'dataLabels').pos || '';          // مكان «كل الأرقام»
   const NS = 'http://www.w3.org/2000/svg';
-  skeys.forEach((k, i) => {
-    const cfg = slOf(w, k);
-    const g = svg.querySelector(`.apexcharts-datalabels[data\\:realIndex="${i}"]`);
-    if(!g) return;
-    g.querySelectorAll('.sl-bg').forEach(r => r.remove());
-    const bars = kinds[i] === 'bar'
-      ? [...svg.querySelectorAll(`.apexcharts-bar-series .apexcharts-series[data\\:realIndex="${i}"] path.apexcharts-bar-area`)]
-          .map(b => b.getBoundingClientRect()) : [];
-    const pts = (kinds[i] !== 'bar' && chart && chart.w && chart.w.globals.pointsArray) ? (chart.w.globals.pointsArray[i] || []) : [];
-    const ctm = inner && inner.getScreenCTM();
-    g.querySelectorAll('text.apexcharts-datalabel').forEach(t => {
-      t.removeAttribute('transform');
-      if(!t.textContent.trim()) return;
-      if(cfg.color){ t.setAttribute('fill', cfg.color); t.querySelectorAll('tspan').forEach(x => x.setAttribute('fill', cfg.color)); }
-      const pos = cfg.pos || '';
-      const r = t.getBoundingClientRect();
-      const cy = r.top + r.height / 2, cx = r.left + r.width / 2, hh = r.height / 2;
-      let target = null;
-      if(pos && pos !== 'hide' && kinds[i] === 'bar' && bars.length){
-        let b = bars[0], bd = 1e9;
-        bars.forEach(bb => { const d = Math.abs(bb.left + bb.width / 2 - cx); if(d < bd){ bd = d; b = bb; } });
-        if(b.height > 0){
-          target = pos === 'center' ? b.top + b.height / 2
-                 : pos === 'bottom' ? b.bottom - hh - 4
-                 : pos === 'top'    ? b.top + hh + 4
-                 :                    b.top - hh - 4;              // فوق العمود من برّه
-        }
-      }else if(pos && pos !== 'hide' && pts.length && ctm){
-        let best = null, bd = 1e9;
-        pts.forEach(pt => {
-          if(!pt) return;
-          const sx = ctm.a * pt[0] + ctm.c * pt[1] + ctm.e, sy = ctm.b * pt[0] + ctm.d * pt[1] + ctm.f;
-          const d = Math.abs(sx - cx); if(d < bd){ bd = d; best = sy; }
-        });
-        if(best !== null){
-          target = pos === 'on' ? best : pos === 'below' ? best + hh + 6 : best - hh - 6;
-        }
+  svg.querySelectorAll('.sl-bg').forEach(r => r.remove());
+  const fix = (t, idx, kind, bars, pts) => {
+    t.removeAttribute('transform');
+    const cfg = slOf(w, itemKeyAt(w, idx));
+    if(on[idx] === false){ t.style.display = 'none'; return; }
+    t.style.display = '';
+    if(!t.textContent.trim()) return;
+    if(cfg.color){ t.setAttribute('fill', cfg.color); t.querySelectorAll('tspan').forEach(x => x.setAttribute('fill', cfg.color)); }
+    if(cfg.size){ t.setAttribute('font-size', cfg.size + 'px'); t.style.fontSize = cfg.size + 'px'; }
+    if(cfg.weight){ t.setAttribute('font-weight', cfg.weight); t.style.fontWeight = cfg.weight; }
+    const pos = cfg.pos || gpos;
+    const r = t.getBoundingClientRect();
+    const cy = r.top + r.height / 2, cx = r.left + r.width / 2, hh = r.height / 2, hw = r.width / 2;
+    let dx = 0, dy = 0;
+    if(pos && (kind === 'bar' || kind === 'hbar') && bars && bars.length){
+      const vert = kind === 'bar';
+      let b = bars[0], bd = 1e9;
+      bars.forEach(bb => { const d = vert ? Math.abs(bb.left + bb.width / 2 - cx) : Math.abs(bb.top + bb.height / 2 - cy);
+                           if(d < bd){ bd = d; b = bb; } });
+      if(vert && b.height > 0){
+        const ty = pos === 'center' ? b.top + b.height / 2 : pos === 'bottom' ? b.bottom - hh - 4
+                 : pos === 'top' ? b.top + hh + 4 : b.top - hh - 4;
+        dy = ty - cy;
+      }else if(!vert && b.width > 0){
+        const rtl = false, endX = b.right, startX = b.left;   // الأعمدة الأفقية مرسومة من الشمال لليمين
+        const tx = pos === 'center' ? b.left + b.width / 2 : pos === 'bottom' ? startX + hw + 4
+                 : pos === 'top' ? endX - hw - 4 : endX + hw + 4;
+        dx = tx - cx;
       }
-      if(target !== null){
-        const sc = (t.getScreenCTM() || {d:1}).d || 1;
-        t.setAttribute('transform', `translate(0, ${((target - cy) / sc).toFixed(2)})`);
-      }
-      if(cfg.bg === 'color'){
-        const bb = t.getBBox();
-        const rc = document.createElementNS(NS, 'rect');
-        rc.setAttribute('class', 'sl-bg');
-        rc.setAttribute('x', bb.x - 4); rc.setAttribute('y', bb.y - 2);
-        rc.setAttribute('width', bb.width + 8); rc.setAttribute('height', bb.height + 4);
-        rc.setAttribute('fill', cfg.bgColor || '#1a2b4c');
-        if(t.getAttribute('transform')) rc.setAttribute('transform', t.getAttribute('transform'));
-        t.parentNode.insertBefore(rc, t);
-      }
+    }else if(pos && kind === 'line' && pts && pts.length && ctm){
+      let best = null, bd = 1e9;
+      pts.forEach(pt => {
+        if(!pt) return;
+        const sx = ctm.a * pt[0] + ctm.c * pt[1] + ctm.e, sy = ctm.b * pt[0] + ctm.d * pt[1] + ctm.f;
+        const d = Math.abs(sx - cx); if(d < bd){ bd = d; best = sy; }
+      });
+      if(best !== null) dy = (pos === 'on' ? best : pos === 'below' ? best + hh + 6 : best - hh - 6) - cy;
+    }
+    if(dx || dy){
+      const m = t.getScreenCTM() || {a:1, d:1};
+      t.setAttribute('transform', `translate(${(dx / (m.a || 1)).toFixed(2)}, ${(dy / (m.d || 1)).toFixed(2)})`);
+    }
+    if(cfg.bg === 'color'){
+      const bb = t.getBBox();
+      const rc = document.createElementNS(NS, 'rect');
+      rc.setAttribute('class', 'sl-bg');
+      rc.setAttribute('x', bb.x - 4); rc.setAttribute('y', bb.y - 2);
+      rc.setAttribute('width', bb.width + 8); rc.setAttribute('height', bb.height + 4);
+      rc.setAttribute('fill', cfg.bgColor || '#1a2b4c');
+      if(t.getAttribute('transform')) rc.setAttribute('transform', t.getAttribute('transform'));
+      t.parentNode.insertBefore(rc, t);
+    }
+    // «بدون خلفية» يشيل الخلفية العامة من العنصر ده بس
+    const own = t.previousElementSibling;
+    if(own && own.tagName === 'rect' && !own.classList.contains('sl-bg')) own.style.display = cfg.bg === 'none' ? 'none' : '';
+  };
+  if(mode === 'series'){
+    lblKinds(w).forEach((kind, i) => {
+      const g = svg.querySelector(`.apexcharts-datalabels[data\\:realIndex="${i}"]`); if(!g) return;
+      const bars = (kind === 'bar' || kind === 'hbar')
+        ? [...svg.querySelectorAll(`.apexcharts-bar-series .apexcharts-series[data\\:realIndex="${i}"] path.apexcharts-bar-area`)].map(b => b.getBoundingClientRect()) : null;
+      const pts = kind === 'line' && chart && chart.w ? (chart.w.globals.pointsArray || [])[i] : null;
+      g.querySelectorAll('text.apexcharts-datalabel').forEach(t => fix(t, i, kind, bars, pts));
     });
-    // «بدون خلفية» يشيل خلفية الأرقام العامة من السلسلة دي بس
-    g.querySelectorAll('.apexcharts-datalabel-background, rect:not(.sl-bg)').forEach(x => {
-      x.style.display = cfg.bg === 'none' ? 'none' : '';
-    });
+    return;
+  }
+  const kind = lblKindOf(w, 0);
+  if(kind === 'pie'){
+    svg.querySelectorAll('text.apexcharts-pie-label').forEach((t, i) => fix(t, i, 'pie'));
+    return;
+  }
+  const texts = [...svg.querySelectorAll('.apexcharts-datalabels text.apexcharts-datalabel')];
+  if(kind === 'radar'){ texts.forEach((t, i) => fix(t, i, 'radar')); return; }
+  const barEls = [...svg.querySelectorAll('.apexcharts-bar-series path.apexcharts-bar-area')];
+  const rects = barEls.map(b => b.getBoundingClientRect());
+  texts.forEach(t => {
+    const r = t.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let idx = 0, bd = 1e9;
+    rects.forEach((bb, j) => { const d = kind === 'bar' ? Math.abs(bb.left + bb.width / 2 - cx) : Math.abs(bb.top + bb.height / 2 - cy);
+                               if(d < bd){ bd = d; idx = j; } });
+    fix(t, idx, kind, [rects[idx]].filter(Boolean));
   });
 }
-/* يربط تنسيق الأرقام لكل سلسلة بأحداث الرسم (أول رسم، بعد الحركة، بعد أي تحديث) */
-function slEvents(w, skeys, kinds){
-  const run = () => { try{ styleSeriesLabels(w, skeys, kinds); }catch(e){} };
-  S.slKinds = S.slKinds || {}; S.slKinds[w.id] = kinds.slice();
-  setTimeout(run, 450);
-  return {mounted:run, updated:run, animationEnd:run};
-}
+/* متروكة للتوافق: التسجيل بقى عام في mkChart */
+function seriesDl(w, base){ return base; }
+function slEvents(){ return {}; }
 function dlOpts(w, fallbackColor, formatter, pointData){
   const d = dlOf(w);
   const textC = d.color || fallbackColor || wText(w);
@@ -2336,7 +2409,11 @@ function isBarLike(w){
   const o = w.opts || {};
   if(w.type === 'bars' || w.type === 'projects_compare') return true;
   if(w.type === 'topn') return o.display === 'bars';
-  if(w.type === 'progress_line' || w.type === 'scurve') return o.chartType === 'bar';
+  if(w.type === 'progress_line' || w.type === 'scurve'){
+    const ks = lblKindSet(w);
+    if(ks.length) return ks.every(k => k === 'bar' || k === 'hbar');
+    return o.chartType === 'bar';
+  }
   return false;
 }
 function isLineLike(w){
@@ -3795,6 +3872,16 @@ function mkChart(body, w, opt, extra){
   }
   const h = Math.max(60, w.h - (w.title.show ? 38 : 0) - 14 - (extra.reserve || 0));
   opt.chart = Object.assign({height:h, width:'100%'}, opt.chart);
+  // أرقام كل عنصر لوحده: التفعيل قبل الرسم، والتنسيق بعده (وبعد أي تحديث للرسم)
+  prepItemLabels(w, opt);
+  const ev = Object.assign({}, opt.chart.events || {});
+  ['mounted', 'updated', 'animationEnd'].forEach(k => {
+    const prev = ev[k];
+    ev[k] = function(){ if(prev) try{ prev.apply(this, arguments); }catch(e){}
+                        try{ styleItemLabels(w); }catch(e){} };
+  });
+  opt.chart.events = ev;
+  setTimeout(() => { try{ styleItemLabels(w); }catch(e){} }, 450);
   if(S.charts[w.id]){ try{ S.charts[w.id].destroy(); }catch(e){} }
   const c = new ApexCharts(host, opt);
   const done = c.render(); S.charts[w.id] = c;
@@ -4608,7 +4695,7 @@ function putPanelScroll(s){
 let PANEL_ANCHOR = null;
 function panelAnchorKey(n){
   if(!n || !n.getAttribute) return null;
-  for(const a of ['data-p', 'data-m', 'data-cb', 'data-part-tab', 'data-sl-reset', 'data-item-sel', 'data-set']){
+  for(const a of ['data-p', 'data-m', 'data-cb', 'data-part-tab', 'data-sl-reset', 'data-item-sel', 'data-dl-target', 'data-set']){
     if(n.hasAttribute(a)) return a === 'data-set' ? `[data-set="${n.getAttribute(a)}"][data-v="${n.getAttribute('data-v')}"]`
                                                   : `[${a}${n.getAttribute(a) ? `="${n.getAttribute(a)}"` : ''}]`;
   }
@@ -4728,6 +4815,9 @@ function buildPropsBody(){
 
   enhanceGroups(el, 'p');
   bindProps(el, w);
+  el.querySelectorAll('[data-dl-target]').forEach(sel => sel.addEventListener('change', () => {
+    S.dlTarget = S.dlTarget || {}; S.dlTarget[w.id] = sel.value; buildPropsTab();
+  }));
   el.querySelectorAll('[data-sl-reset]').forEach(b => b.addEventListener('click', () => {
     snapshot(); if(w.opts.sl) delete w.opts.sl[b.dataset.slReset]; drawWidget(w); buildPropsTab();
   }));
@@ -4741,16 +4831,75 @@ function dataLabelsHtml(w){
   if(w.type === 'topn' && w.opts.display !== 'bars') return '';        // جدول الترتيب ما فيهوش رسم
   if(w.type === 'spi' && w.opts.mode === 'card') return '';             // البطاقة ما فيهاش رسم
   const d = dlOf(w);
-  const slOn = w.type === 'scurve' && Object.values(w.opts.sl || {}).some(c => c && c.pos && c.pos !== 'hide');
-  // تنسيق الأرقام جنب «إظهار الأرقام» على طول — مش في آخر اللوحة
+  const mode = lblMode(w);
+  const names = mode ? ((S.lastItems && S.lastItems[w.id]) || []) : [];
+  S.dlTarget = S.dlTarget || {};
+  let tgt = S.dlTarget[w.id];
+  if(tgt === undefined || tgt === 'all' || +tgt >= names.length) tgt = 'all';
+  const q = t => String(t == null ? '' : t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+  const anyItemOn = names.some((_, i) => slOf(w, itemKeyAt(w, i)).show === 'show');
+  // «الأرقام دي تخص مين»: كل الأرقام، أو سلسلة/عمود/شريحة بالاسم
+  const picker = names.length ? `
+      <div class="row"><label>${mode === 'series' ? 'السلسلة' : 'العنصر'}</label><div class="ctl">
+        <select data-dl-target>
+          <option value="all" ${tgt === 'all' ? 'selected' : ''}>كل الأرقام</option>
+          ${names.map((nm, i) => {
+            const c = slOf(w, itemKeyAt(w, i)), set = Object.keys(c).some(k => c[k] !== '' && c[k] != null);
+            const t = String(nm), shown = t.length > 34 ? t.slice(0, 34) + '…' : t;
+            return `<option value="${i}" ${String(i) === String(tgt) ? 'selected' : ''} data-no-tr>${set ? '● ' : ''}${q(shown)}</option>`;
+          }).join('')}
+        </select></div></div>` : '';
   const fmt = partsOfWidget(w).includes('dataLabels') ? partBodyHtml(w, 'dataLabels') : '';
+  const body = (tgt === 'all')
+    ? (fmt ? `<div data-dep="${anyItemOn ? '#1' : '~opts.dl.show'}">${fmt}
+        <div class="btn-row"><button class="sbtn" data-part-reset="dataLabels">إرجاع للافتراضي</button></div></div>` : '')
+    : itemLabelHtml(w, +tgt);
   return `
     <div class="grp" data-k="values">
       <div class="grp-h">الأرقام على الرسم</div>
       <label class="chk"><input type="checkbox" data-p="opts.dl.show" data-rebuild ${d.show !== false ? 'checked' : ''}> إظهار الأرقام</label>
-      ${fmt ? `<div data-dep="${slOn ? '#1' : '~opts.dl.show'}">${fmt}
-        <div class="btn-row"><button class="sbtn" data-part-reset="dataLabels">إرجاع للافتراضي</button></div></div>` : ''}
+      ${picker}
+      ${body}
     </div>`;
+}
+/* أرقام عنصر واحد (سلسلة أو عمود أو شريحة): الفاضي = زي «كل الأرقام» */
+function itemLabelHtml(w, i){
+  const key = itemKeyAt(w, i), c = slOf(w, key), pre = 'opts.sl.' + key + '.';
+  const show = c.show || (c.pos === 'hide' ? 'hide' : '');
+  const pl = posListFor(lblKindOf(w, i));
+  const g = partOf(w, 'dataLabels');
+  return `
+      <div class="row"><label>الإظهار</label><div class="ctl"><select data-p="${pre}show" data-rebuild>
+        <option value=""     ${!show ? 'selected' : ''}>زي كل الأرقام</option>
+        <option value="show" ${show === 'show' ? 'selected' : ''}>ظاهرة</option>
+        <option value="hide" ${show === 'hide' ? 'selected' : ''}>مخفية</option>
+      </select></div></div>
+      <div data-dep="${show === 'hide' ? '#0' : (show === 'show' ? '#1' : '~opts.dl.show')}">
+        ${pl ? `<div class="row"><label>المكان</label><div class="ctl"><select data-p="${pre}pos">
+          <option value="" ${!c.pos || c.pos === 'hide' ? 'selected' : ''}>زي كل الأرقام</option>
+          ${pl.filter(([v]) => v).map(([v, n]) => `<option value="${v}" ${c.pos === v ? 'selected' : ''}>${n}</option>`).join('')}
+        </select></div></div>` : ''}
+        <div class="row2">
+          <div class="mini"><span>حجم الخط</span><input type="number" min="7" max="60" data-p="${pre}size" value="${c.size || ''}" placeholder="${g.size || 11}"></div>
+          <div class="mini"><span>السماكة</span><select data-p="${pre}weight">
+            <option value=""    ${!c.weight ? 'selected' : ''}>زي كل الأرقام</option>
+            <option value="400" ${c.weight == 400 ? 'selected' : ''}>عادي</option>
+            <option value="600" ${c.weight == 600 ? 'selected' : ''}>متوسط</option>
+            <option value="700" ${c.weight == 700 ? 'selected' : ''}>عريض</option>
+            <option value="900" ${c.weight == 900 ? 'selected' : ''}>عريض جداً</option>
+          </select></div>
+        </div>
+        <div class="row"><label>لون النص</label><div class="ctl">
+          <input type="color" data-p="${pre}color" value="${c.color || g.color || wText(w)}"></div></div>
+        <div class="row"><label>الخلفية</label><div class="ctl"><select data-p="${pre}bg" data-rebuild>
+          <option value=""      ${!c.bg ? 'selected' : ''}>زي كل الأرقام</option>
+          <option value="none"  ${c.bg === 'none' ? 'selected' : ''}>بدون خلفية</option>
+          <option value="color" ${c.bg === 'color' ? 'selected' : ''}>بلون</option>
+        </select></div></div>
+        <div class="row" data-dep="${pre}bg=color"><label>لون الخلفية</label><div class="ctl">
+          <input type="color" data-p="${pre}bgColor" value="${c.bgColor || '#1a2b4c'}"></div></div>
+      </div>
+      <div class="btn-row"><button class="sbtn" data-sl-reset="${key}">إرجاع للافتراضي</button></div>`;
 }
 
 /* ===== لوحة تنسيق أجزاء القالب ===== */
@@ -4759,11 +4908,19 @@ const AX_ALIGNS = [['','تلقائي'], ['right','يمين'], ['center','وسط'
 const LEG_POS = [['','تلقائي'], ['top-center','أعلى وسط'], ['top-left','أعلى يسار'], ['top-right','أعلى يمين'],
                  ['bottom-center','أسفل وسط'], ['bottom-left','أسفل يسار'], ['bottom-right','أسفل يمين'],
                  ['right','يمين'], ['left','يسار']];
-const DL_POS_BAR  = [['','تلقائي (وسط العمود)'], ['top','أعلى العمود'],
-                     ['center','وسط العمود'], ['bottom','أسفل العمود']];
-const DL_POS_LINE = [['','تلقائي (فوق النقطة)'], ['above','فوق النقطة'],
+const DL_POS_BAR  = [['','تلقائي'], ['above','فوق العمود'], ['top','أعلى العمود (من جوه)'],
+                     ['center','منتصف العمود'], ['bottom','أسفل العمود']];
+const DL_POS_HBAR = [['','تلقائي'], ['above','بعد نهاية العمود'], ['top','نهاية العمود (من جوه)'],
+                     ['center','منتصف العمود'], ['bottom','بداية العمود']];
+const DL_POS_LINE = [['','تلقائي'], ['above','فوق النقطة'],
                      ['on','على النقطة'], ['below','تحت النقطة']];
-const dlPosList = w => isBarLike(w) ? DL_POS_BAR : DL_POS_LINE;
+const posListFor = kind => kind === 'hbar' ? DL_POS_HBAR : kind === 'bar' ? DL_POS_BAR : kind === 'line' ? DL_POS_LINE : null;
+const dlPosList = w => {
+  const ks = lblKindSet(w);
+  if(ks.length === 1) return posListFor(ks[0]);
+  if(ks.length > 1) return null;                       // رسم فيه أعمدة ومنحنيات: المكان يتحدد لكل سلسلة
+  return isBarLike(w) ? (w.opts.horizontal ? DL_POS_HBAR : DL_POS_BAR) : DL_POS_LINE;
+};
 
 function partsHtml(w){
   // أرقام البيانات ليها مكانها في قسم «الأرقام على الرسم»
@@ -4807,7 +4964,7 @@ function partBodyHtml(w, open){
     body += `<div class="row"><label>الموضع</label><div class="ctl"><select data-p="${pre}legendPos">
       ${LEG_POS.map(([v, n]) => `<option value="${v}" ${p.legendPos === v ? 'selected' : ''}>${n}</option>`).join('')}
     </select></div></div>`;
-  if(has('pos'))
+  if(has('pos') && dlPosList(w))
     body += `<div class="row"><label>موضع الرقم</label><div class="ctl"><select data-p="${pre}pos">
       ${dlPosList(w).map(([v, n]) =>
          `<option value="${v}" ${p.pos === v ? 'selected' : ''}>${n}</option>`).join('')}
@@ -4831,7 +4988,7 @@ function partBodyHtml(w, open){
 /** مسمّى قسم الألوان بحسب طبيعة القالب: أعمدة/شرائح/خطوط/سلاسل/حلقات/حالات */
 const ITEM_COLOR_WORDS = {
   progress_line:   {h:'لون كل خط',            one:'الخط',     hint:'لكل خط (أو عمود) لونه: الفعلي والمخطط.'},
-  scurve:          {h:'كل سلسلة: اللون والأرقام', one:'السلسلة',  hint:'الإعدادات بتتحفظ باسم السلسلة، فإخفاء سلسلة لا ينقل إعداداتها لغيرها. «زي باقي الأرقام» = من «أرقام البيانات» العامة.'},
+  scurve:          {h:'لون كل سلسلة',         one:'السلسلة',  hint:''},
   gauge:           {h:'لون كل حلقة',          one:'الحلقة',   hint:'نقاط شريط القيم أسفل الرسم تتبع نفس الألوان.'},
   spi:             {h:'ألوان حالات الأداء',   one:'الحالة',   hint:'اللون يتبع الحالة لا الرقم: متقدّم / في المسار / متأخر — ويظهر في البطاقة والحلقة والمنحنى.'},
   radar_eval:      {h:'لون الرسم',            one:'الرسم',    hint:''},
@@ -4841,33 +4998,6 @@ const ITEM_COLOR_WORDS = {
   topn:            {h:'لون كل عمود',          one:'العمود',   hint:''},
   projects_compare:{h:'لون كل مشروع',         one:'المشروع',  hint:''}
 };
-/** أرقام السلسلة المختارة (المنحنى التراكمي): المكان واللون والخلفية لكل سلسلة لوحدها */
-function seriesLabelHtml(w, key, i){
-  const c = slOf(w, key), pre = 'opts.sl.' + key + '.';
-  const bar = ((S.slKinds && S.slKinds[w.id]) || [])[i] === 'bar';
-  const P = bar ? [['above','فوق العمود'], ['top','أعلى العمود (من جوه)'], ['center','منتصف العمود'], ['bottom','أسفل العمود']]
-                : [['above','فوق النقطة'], ['on','على النقطة'], ['below','تحت النقطة']];
-  const bgMode = c.bg || '';
-  return `
-      <div class="sub-h">أرقام ${ITEM_COLOR_WORDS.scurve.one} دي</div>
-      <div class="row"><label>المكان</label><div class="ctl"><select data-p="${pre}pos" data-rebuild>
-        <option value="" ${!c.pos ? 'selected' : ''}>زي باقي الأرقام</option>
-        <option value="hide" ${c.pos === 'hide' ? 'selected' : ''}>مخفية</option>
-        ${P.map(([v, n]) => `<option value="${v}" ${c.pos === v ? 'selected' : ''}>${n}</option>`).join('')}
-      </select></div></div>
-      <div data-dep="${pre}pos!=hide">
-        <div class="row"><label>لون النص</label><div class="ctl">
-          <input type="color" data-p="${pre}color" value="${c.color || partOf(w, 'dataLabels').color || wText(w)}"></div></div>
-        <div class="row"><label>الخلفية</label><div class="ctl"><select data-p="${pre}bg" data-rebuild>
-          <option value=""      ${!bgMode ? 'selected' : ''}>زي باقي الأرقام</option>
-          <option value="none"  ${bgMode === 'none' ? 'selected' : ''}>بدون خلفية</option>
-          <option value="color" ${bgMode === 'color' ? 'selected' : ''}>بلون</option>
-        </select></div></div>
-        <div class="row" data-dep="${pre}bg=color"><label>لون الخلفية</label><div class="ctl">
-          <input type="color" data-p="${pre}bgColor" value="${c.bgColor || '#1a2b4c'}"></div></div>
-      </div>
-      <div class="btn-row"><button class="sbtn" data-sl-reset="${key}">إرجاع أرقام ${ITEM_COLOR_WORDS.scurve.one} دي للافتراضي</button></div>`;
-}
 /** ألوان مستقلة لكل عمود/شريحة/سلسلة/حالة */
 function itemColorsHtml(w){
   const n = (S.lastItems && S.lastItems[w.id]) || [];
@@ -4901,7 +5031,6 @@ function itemColorsHtml(w){
         <button class="sbtn" data-item-clear="${key}">إرجاع لون ${W.one} هذا</button>
         <button class="sbtn" data-items-reset="1">إرجاع كل الألوان</button>
       </div>
-      ${w.type === 'scurve' ? seriesLabelHtml(w, key, i) : ''}
       ${W.hint ? `<div class="hint">${W.hint}</div>` : ''}
     </div>`;
 }
