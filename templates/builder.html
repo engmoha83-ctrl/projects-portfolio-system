@@ -80,6 +80,27 @@ button{font-family:inherit;}
 .mi .ck{width:16px; display:inline-flex; justify-content:center; color:var(--ui-navy); visibility:hidden;}
 .mi.checked .ck{visibility:visible;}
 .mi .k{font-size:12px; color:var(--ui-muted); white-space:nowrap; direction:ltr;}
+.mi.has-sub{position:relative;}
+.mi.has-sub:hover, .mi.has-sub:focus-within{background:#F3F5F9;}
+.sub-arrow{font-size:16px; line-height:1;}
+[dir="rtl"] .sub-arrow{transform:scaleX(-1);}
+.submenu{
+  position:absolute; top:-6px; inset-inline-start:calc(100% + 6px); width:320px; max-height:min(420px, 70vh); overflow-y:auto;
+  background:#fff; box-shadow:var(--sh-menu); padding:6px; display:flex; flex-direction:column; gap:1px; z-index:61; cursor:default;
+  opacity:0; visibility:hidden; transform:translateX(-4px);
+  transition:opacity .18s ease, transform .22s var(--ease), visibility 0s linear .22s;
+}
+[dir="rtl"] .submenu{transform:translateX(4px);}
+/* جسر شفاف بين العنصر والقائمة الفرعية حتى لا تقفل أثناء تحريك الماوس */
+.submenu::before{content:''; position:absolute; top:0; bottom:0; inset-inline-start:-8px; width:8px;}
+.mi.has-sub:hover > .submenu, .mi.has-sub:focus-within > .submenu{
+  opacity:1; visibility:visible; transform:none; transition:opacity .18s ease, transform .22s var(--ease), visibility 0s;
+}
+.sub-it{min-height:44px; padding:6px 12px;}
+.sub-txt{display:flex; flex-direction:column; gap:1px; min-width:0; text-align:start;}
+.sub-txt b{font-weight:600; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:250px;}
+.sub-txt small{font-size:11.5px; color:var(--ui-muted);}
+.sub-note{padding:10px 12px; font-size:13px; color:var(--ui-muted);}
 .m-head{font-size:11px; font-weight:600; color:var(--ui-muted); padding:9px 12px 4px; text-transform:uppercase; letter-spacing:.4px;}
 .m-sep{height:1px; background:#EEF0F4; margin:4px 6px;}
 .m-field{padding:4px 12px 8px; display:flex; flex-direction:column; gap:5px;}
@@ -478,9 +499,13 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
       <button class="nv" aria-haspopup="true" aria-expanded="false"><span data-i18n="mFile">File</span><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
       <div class="menu" role="menu">
         <button class="mi" id="btnNew" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="newLayout">New layout</span></span><span class="k"></span></button>
-        <button class="mi" id="btnOpen" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="savedLayouts">Saved layouts…</span></span><span class="k"></span></button>
+        <div class="mi has-sub" id="mOpenSub" role="menuitem" aria-haspopup="true" tabindex="0"><span class="ml"><span class="ck"></span><span data-i18n="openLayout">Open layout</span></span><span class="k sub-arrow">›</span>
+          <div class="submenu" id="layoutsSub" role="menu"></div>
+        </div>
+        <button class="mi" id="btnOpen" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="manageLayouts">Manage layouts…</span></span><span class="k"></span></button>
+        <div class="m-sep"></div>
         <button class="mi" id="mSave" role="menuitem"><span class="ml"><span class="ck"></span><span id="mSaveLabel">Save</span></span><span class="k">Ctrl S</span></button>
-        <button class="mi" id="mSaveAs" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="saveAs">Save as new copy…</span></span><span class="k">Ctrl Shift S</span></button>
+        <button class="mi" id="mSaveAs" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="saveAs">Save as…</span></span><span class="k">Ctrl Shift S</span></button>
         <div class="m-sep"></div>
         <div class="m-head" data-i18n="scopeHead">Layout applies to</div>
         <div class="m-field" data-keep>
@@ -611,7 +636,9 @@ const I18N = {
   scopeDefault:['All projects (global layout)','كل المشاريع (قالب عام)'],
   scopeProject:['This project only (custom)','هذا المشروع فقط (مخصص)'],
   unlink:['Remove customization','إلغاء التخصيص'],
-  saveAs:['Save as new copy…','حفظ كنسخة جديدة…'], scopeLibrary:['No project (saved copy only)','بدون مشروع (نسخة محفوظة فقط)'],
+  saveAs:['Save as…','حفظ باسم…'], openLayout:['Open layout','فتح قالب'], manageLayouts:['Manage layouts…','إدارة القوالب…'],
+  loading:['Loading…','جاري التحميل…'], noLayouts:['No saved layouts yet','لا توجد قوالب محفوظة بعد'],
+  kGlobal:['Global — all projects','عام — كل المشاريع'], kCopy:['Saved copy','نسخة محفوظة'], kAll:['All projects (combined)','كل المشاريع (مجمّع)'], scopeLibrary:['No project (saved copy only)','بدون مشروع (نسخة محفوظة فقط)'],
   undo:['Undo','تراجع'], redo:['Redo','إعادة'], duplicate:['Duplicate','تكرار'], delete:['Delete','حذف'],
   selectAll:['Select all','تحديد الكل'],
   zoom:['Zoom','التكبير'], fit:['Fit to screen','ملاءمة الشاشة'], present:['Presentation mode','وضع العرض'],
@@ -627,7 +654,7 @@ const I18N = {
   zoomTip:['Zoom — type a value, or Ctrl + mouse wheel over the canvas','التكبير — اكتب النسبة أو Ctrl + عجلة الفأرة فوق اللوحة'],
   zoomIn:['Zoom in','تكبير'], zoomOut:['Zoom out','تصغير'],
   tabElements:['Elements','العناصر'], tabProps:['Properties','الخصائص'], tabPage:['Page','الصفحة'],
-  savedLayoutsT:['Saved layouts','القوالب المحفوظة'], close:['Close','إغلاق'],
+  savedLayoutsT:['Manage layouts','إدارة القوالب'], close:['Close','إغلاق'],
   exit:['Exit','خروج'], updTip:['When the data shown was last fetched from the database','آخر وقت اتجابت فيه البيانات المعروضة من قاعدة البيانات'], exitTip:['Exit full screen (Esc)','خروج من ملء الشاشة (Esc)']
 };
 function applyUiStatic(){
@@ -645,6 +672,7 @@ function applyUiStatic(){
 
 /* ---- قاموس العربي → الإنجليزي لنصوص الواجهة المولَّدة بالكود ---- */
 const UI_EN = {
+"لديك تعديلات غير محفوظة على القالب الحالي. فتح قالب آخر سيتجاهلها. المتابعة؟": "You have unsaved changes on the current layout. Opening another layout will discard them. Continue?",
 "نسخة محفوظة — غير مطبّقة على أي مشروع": "Saved copy — not applied to any project",
 "مخصص لوضع كل المشاريع (مجمّع)": "Custom for all projects (combined)",
 "نسخة": "Copy",
@@ -5670,12 +5698,11 @@ function updateScopeUI(){
   else if(custom)          chip.textContent = U('This project only', 'مخصص لهذا المشروع');
   else                     chip.textContent = U('All projects', 'يظهر لكل المشاريع');
   unlink.hidden = !(S.source === 'project' && S.layoutId);
-  $('#btnSave').textContent = lib ? U('Save copy', 'حفظ النسخة') : custom ? U('Save for project', 'حفظ للمشروع') : U('Save', 'حفظ');
+  $('#btnSave').textContent = lib ? U('Save', 'حفظ') : custom ? U('Save for project', 'حفظ للمشروع') : U('Save', 'حفظ');
   $('#btnSave').title = lib ? U('Save this copy (it stays not applied to any project)', 'حفظ النسخة (تفضل غير مطبّقة على أي مشروع)')
                       : custom ? U('Save as a custom layout for this project', 'حفظ كقالب مخصص لهذا المشروع')
                                : U('Save as the global layout for all projects', 'حفظ كقالب عام لكل المشاريع');
-  $('#mSaveLabel').textContent = lib ? U('Save copy', 'حفظ النسخة') : custom ? U('Save for this project', 'حفظ لهذا المشروع')
-                                        : U('Save global layout', 'حفظ القالب العام');
+  $('#mSaveLabel').textContent = U('Save', 'حفظ');   // يحفظ على القالب المفتوح نفسه — «حفظ باسم» يعمل نسخة جديدة
 }
 
 /* =====================================================================
@@ -5699,7 +5726,7 @@ async function saveLayout(opts){
     });
     const j = await r.json();
     if(!j.success){ toast(j.error || 'فشل الحفظ', true); return; }
-    S.layoutId = j.id; S.dirty = false;
+    S.layoutId = j.id; S.dirty = false; layoutsInvalidate();
     S.scope = S.source = (j.scope === 'default' || j.scope === 'library') ? j.scope : 'project';
     $('#layoutName').value = name; S.layoutName = name;
     saveSession();
@@ -5715,7 +5742,7 @@ async function saveLayout(opts){
 /* «حفظ كنسخة جديدة»: نفس التصميم باسم جديد في سجل مستقل — مثلاً نسخة إنجليزي من داشبورد عربي */
 function saveAsCopy(){
   const cur = ($('#layoutName').value || '').trim() || U('Untitled layout', 'قالب بدون اسم');
-  const name = prompt(U('Name for the new copy:', 'اسم النسخة الجديدة:'), cur + U(' (copy)', ' (نسخة)'));
+  const name = prompt(U('Save as a new separate layout — name:', 'حفظ كقالب جديد مستقل — الاسم:'), cur + U(' (copy)', ' (نسخة)'));
   if(name === null) return;
   saveLayout({asNew:true, name:name.trim() || cur});
 }
@@ -5726,12 +5753,14 @@ async function duplicateLayout(id){
     const r = await (await fetch('/api/builder/layouts', {method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name:j.layout.name + U(' (copy)', ' (نسخة)'), scope:'library', as_new:true, data:j.layout.data})})).json();
     if(!r.success){ toast(r.error || 'فشل الحفظ', true); return; }
+    layoutsInvalidate();
     toast(U('Copy created — you can open it and edit it without touching the original',
             'تم عمل نسخة — افتحها وعدّل عليها من غير ما تأثّر على الأصل'));
     openLayouts();
   }catch(e){ toast('خطأ: ' + e.message, true); }
 }
 async function openLayouts(){
+  layoutsInvalidate();
   $('#modalBack').classList.add('open');
   const box = $('#modalBody'); box.innerHTML = 'جاري التحميل...';
   try{
@@ -6014,6 +6043,36 @@ function syncMenus(){
   $('#mDup').disabled = $('#mDel').disabled = !S.multi.length;
   $('#mSelAll').disabled = !S.widgets.length;
 }
+/* قائمة «فتح قالب» الفرعية: تظهر بمجرد المرور عليها، والضغط على أي قالب يفتحه */
+let LAYOUTS_CACHE = null, LAYOUTS_AT = 0;
+function layoutsInvalidate(){ LAYOUTS_CACHE = null; }
+async function fillLayoutsSub(){
+  const box = $('#layoutsSub');
+  const esc = t => String(t == null ? '' : t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+  const pick = k => I18N[k][uiEN() ? 0 : 1];
+  if(!LAYOUTS_CACHE || Date.now() - LAYOUTS_AT > 30000){
+    if(!LAYOUTS_CACHE) box.innerHTML = `<div class="sub-note">${pick('loading')}</div>`;
+    try{
+      const j = await (await fetch('/api/builder/layouts')).json();
+      LAYOUTS_CACHE = j.success ? j.layouts : []; LAYOUTS_AT = Date.now();
+    }catch(e){ box.innerHTML = `<div class="sub-note">${esc(e.message)}</div>`; return; }
+  }
+  if(!LAYOUTS_CACHE.length){ box.innerHTML = `<div class="sub-note">${pick('noLayouts')}</div>`; return; }
+  const kind = l => l.is_default ? pick('kGlobal') : !l.project_name ? pick('kCopy')
+                  : l.project_name === ALL_PROJECTS ? pick('kAll') : esc(l.project_name);
+  box.innerHTML = LAYOUTS_CACHE.map(l => {
+    const cur = String(l.id) === String(S.layoutId);
+    return `<button class="mi sub-it${cur ? ' checked' : ''}" data-open-id="${l.id}" role="menuitem" data-no-tr>
+      <span class="ml"><span class="ck">✓</span><span class="sub-txt"><b>${esc(l.name)}</b><small>${kind(l)}</small></span></span></button>`;
+  }).join('');
+}
+$('#mOpenSub').addEventListener('mouseenter', fillLayoutsSub);
+$('#mOpenSub').addEventListener('focus', fillLayoutsSub);
+$('#layoutsSub').addEventListener('click', e => {
+  const b = e.target.closest('[data-open-id]'); if(!b) return;
+  if(S.dirty && !confirm('لديك تعديلات غير محفوظة على القالب الحالي. فتح قالب آخر سيتجاهلها. المتابعة؟')) return;
+  loadLayout(b.dataset.openId);
+});
 function menuOpen(){ return document.querySelector('.menu.open'); }
 function closeMenus(){
   document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'));
@@ -6035,7 +6094,7 @@ document.querySelectorAll('.nv').forEach(btn => {
 // الضغط على أي عنصر في القائمة ينفّذه ويقفلها (إلا خانات الإدخال داخلها)
 document.querySelectorAll('.menu').forEach(m => m.addEventListener('click', e => {
   const it = e.target.closest('.mi');
-  if(it && !it.disabled) setTimeout(closeMenus, 0);
+  if(it && !it.disabled && !it.classList.contains('has-sub')) setTimeout(closeMenus, 0);
 }));
 document.addEventListener('mousedown', e => { if(menuOpen() && !e.target.closest('.mwrap')) closeMenus(); });
 document.addEventListener('keydown', e => {
