@@ -193,6 +193,10 @@ button{font-family:inherit;}
   position:absolute; top:-30px; inset-inline-start:0; display:none; gap:4px; z-index:20;
 }
 .bw.primary .bw-tools{display:flex;}
+/* الصفحة تقص ما يخرج عنها: لو العنصر ملاصق لأعلى الصفحة ينزل الشريط تحته،
+   ولو مفيش مكان تحته كمان يدخل جوه العنصر نفسه */
+.bw.tools-below .bw-tools{top:calc(100% + 16px);}
+.bw.tools-inside .bw-tools{top:14px; inset-inline-start:8px;}
 .bw-tools button{
   background:var(--ui-bar); color:#fff; border:none; width:26px; height:26px; box-shadow:0 2px 6px rgba(23,32,51,.25);
   font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
@@ -3648,6 +3652,14 @@ function putScroll(box, saved){
   });
 }
 
+/* مكان شريط أدوات العنصر (تكرار/تبديل/حذف): فوقه عادةً، وتحته لو العنصر في أعلى الصفحة */
+const TOOLS_ABOVE = 40, TOOLS_BELOW = 66;
+function placeTools(el, w){
+  const top = w.y < TOOLS_ABOVE;
+  const below = top && (S.page.h - (w.y + w.h)) >= TOOLS_BELOW;
+  el.classList.toggle('tools-below', below);
+  el.classList.toggle('tools-inside', top && !below);
+}
 function drawWidget(w){
   let el = document.getElementById(w.id);
   if(!el){
@@ -3697,6 +3709,7 @@ function drawWidget(w){
   }
   el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
   el.style.width = w.w + 'px'; el.style.height = w.h + 'px';
+  placeTools(el, w);
   el.style.background = w.style.bg;
   el.style.color = w.style.color || theme().text;
   el.style.fontFamily = w.style.font || FONTS[0].v;
@@ -4008,11 +4021,11 @@ function startDrag(e, id){
       dx = Math.max(dxMin, Math.min(dxMax, dx)); dy = Math.max(dyMin, Math.min(dyMax, dy));
     }
     w.x = ox + dx; w.y = oy + dy;
-    el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
+    el.style.left = w.x + 'px'; el.style.top = w.y + 'px'; placeTools(el, w);
     group.forEach(o => {                       // نفس الإزاحة لباقي العناصر المحددة
       o.w.x = o.ox + dx; o.w.y = o.oy + dy;
       const e2 = document.getElementById(o.w.id);
-      if(e2){ e2.style.left = o.w.x + 'px'; e2.style.top = o.w.y + 'px'; }
+      if(e2){ e2.style.left = o.w.x + 'px'; e2.style.top = o.w.y + 'px'; placeTools(e2, o.w); }
     });
   }
   function up(){
@@ -4062,6 +4075,7 @@ function startResize(e, id, dir){
     w.w = Math.round(nw); w.h = Math.round(nh);
     el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
     el.style.width = w.w + 'px'; el.style.height = w.h + 'px';
+    placeTools(el, w);
   }
   function up(){
     document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
