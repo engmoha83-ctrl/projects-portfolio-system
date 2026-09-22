@@ -1278,7 +1278,7 @@ function uiDictBuild(){
   try{ Object.values(FIELD_MAP).forEach(m => put(m.label, m.label_en)); }catch(e){}
   try{ Object.values(GAUGE_PAIRS).forEach(p => put(p.n, p.n_en)); }catch(e){}
   try{ Object.values(PART_DEFS).forEach(p => put(p.ar, p.en)); }catch(e){}
-  try{ Object.values(VISUALS).forEach(v => put(v.title, v.title_en)); }catch(e){}
+  try{ Object.values(VISUALS).forEach(v => { put(v.title, v.title_en); put(v.oldTitle, v.oldTitle_en); }); }catch(e){}
   const keys = Array.from(UI_MAP.keys()).sort((a, b) => b.length - a.length)
                     .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   // حدود الكلمة العربية: لا نستبدل جزءاً من كلمة أطول
@@ -2384,7 +2384,7 @@ const VISUALS = {
     name:'بطاقة مؤشر', icon:'📌', w:250, h:150,
     opts:{field:'act_prog_cur', decimals:null, compact:false, showLabel:false, showDelta:true,
           valueColor:'', updSource:'submitted', updFormat:'datetime'},
-    title:'الإنجاز الفعلي', title_en:'Actual progress',
+    title:'بطاقة مؤشر', title_en:'KPI card', oldTitle:'الإنجاز الفعلي', oldTitle_en:'Actual progress',
     render(body, w){
       // حقل خاص: تاريخ ووقت آخر تحديث — يتجدّد تلقائياً مع كل جلب للبيانات
       if(w.opts.field === UPD_FIELD){
@@ -2437,7 +2437,7 @@ const VISUALS = {
     name:'مؤشر دائري', icon:'🎯', w:320, h:300,
     opts:{pair:'progress', fieldA:'act_prog_cur', fieldB:'plan_prog_cur', showValues:true,
           dl:Object.assign({}, DL_DEFAULT)},
-    title:'نسبة الإنجاز', title_en:'Progress',
+    title:'مؤشر دائري', title_en:'Radial gauge', oldTitle:'نسبة الإنجاز', oldTitle_en:'Progress',
     render(body, w){
       if(!S.latest) return empty(body);
       const P = GAUGE_PAIRS[w.opts.pair] || GAUGE_PAIRS.progress;
@@ -2501,7 +2501,7 @@ const VISUALS = {
     opts:{mode:'card', decimals:2, showBase:true, good:1, warn:0.95,
           scaleMode:'target', maxScale:1.5,
           dl:Object.assign({}, DL_DEFAULT, {color:''})},
-    title:'مؤشر أداء الجدول الزمني (SPI)', title_en:'Schedule Performance Index (SPI)',
+    title:'مؤشر الأداء SPI', title_en:'SPI indicator', oldTitle:'مؤشر أداء الجدول الزمني (SPI)', oldTitle_en:'Schedule Performance Index (SPI)',
     render(body, w){
       if(!S.latest) return empty(body);
       const spiOf = r => {
@@ -2601,7 +2601,7 @@ const VISUALS = {
     name:'مسار الإنجاز', icon:'📈', w:520, h:290,
     opts:{chartType:'line', smooth:true, showPlanned:true, yScale:'auto',
           dl:Object.assign({}, DL_DEFAULT, {show:false})},
-    title:'مسار الإنجاز الفعلي مقابل المخطط', title_en:'Actual vs planned progress',
+    title:'مسار الإنجاز', title_en:'Progress trend', oldTitle:'مسار الإنجاز الفعلي مقابل المخطط', oldTitle_en:'Actual vs planned progress',
     render(body, w){
       if(!S.records.length) return empty(body);
       const cats = S.records.map(r => r.current_data_date || '');
@@ -2636,7 +2636,7 @@ const VISUALS = {
     name:'أعمدة مقارنة', icon:'📊', w:430, h:280,
     opts:{group:'progress', customFields:['act_prog_cur','plan_prog_cur'], horizontal:false, logScale:false,
           dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
-    title:'مقارنة', title_en:'Comparison',
+    title:'أعمدة مقارنة', title_en:'Comparison bars', oldTitle:'مقارنة', oldTitle_en:'Comparison',
     render(body, w){
       if(!S.latest) return empty(body);
       const g = BAR_GROUPS[w.opts.group] || BAR_GROUPS.progress;
@@ -2720,7 +2720,7 @@ const VISUALS = {
           fields:['eval_labor','eval_equip','eval_financial','eval_hse'],
           targets:{},
           dl:Object.assign({}, DL_DEFAULT, {show:true, bg:true, bgColor:'#ffffff'})},
-    title:'التقييم الفني للمشروع', title_en:'Technical evaluation',
+    title:'مقارنة تقييمات (رادار)', title_en:'Ratings comparison (radar)', oldTitle:'التقييم الفني للمشروع', oldTitle_en:'Technical evaluation',
     render(body, w){
       if(!S.latest) return empty(body);
       const o = w.opts;
@@ -2815,7 +2815,7 @@ const VISUALS = {
   info_table:{
     name:'بيانات المشروع', icon:'📋', w:360, h:250,
     opts:{fields:['project_name','project_type','project_owner','project_contractor','start_actual','end_expected']},
-    title:'بيانات المشروع', title_en:'Project information',
+    title:'بيانات المشروع', title_en:'Project information', oldTitle:'بيانات المشروع', oldTitle_en:'Project information',
     render(body, w){
       if(!S.latest) return empty(body);
       const hCss = partCss(w, 'tableHead'), cCss = partCss(w, 'tableCell');
@@ -2833,7 +2833,7 @@ const VISUALS = {
           showActual:true, showPlanned:true, showFinancial:true, finSource:'contractor',
           finMode:'percent', chartType:'area', smooth:true, forceMono:true, showCount:false,
           dl:Object.assign({}, DL_DEFAULT, {show:false})},
-    title:'المنحنى التراكمي للإنجاز والصرف', title_en:'Cumulative progress & spend curve',
+    title:'المنحنى التراكمي', title_en:'S-curve', oldTitle:'المنحنى التراكمي للإنجاز والصرف', oldTitle_en:'Cumulative progress & spend curve',
     render(body, w){
       const src = w.opts.dataSource || 'weekly';
       const rs = cfRangeFrom(w.opts.rangeStart), re = cfRangeTo(w.opts.rangeEnd);
@@ -3080,7 +3080,7 @@ const VISUALS = {
     opts:{source:'projects', field:'@prog_delta', fields:['drawings_sub','ir_sub','ncr_open'],
           order:'desc', limit:5, display:'table', showRank:true, showBar:true, pointsAs:'pts',
           highlightTop:true, horizontal:true, dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
-    title:'الترتيب', title_en:'Ranking',
+    title:'ترتيب Top N', title_en:'Top N ranking', oldTitle:'الترتيب', oldTitle_en:'Ranking',
     render(body, w){
       const src = w.opts.source || 'projects';
       let items = [], ftype = 'number';
@@ -3185,7 +3185,7 @@ const VISUALS = {
     name:'مقارنة المشاريع', icon:'🏗️', w:540, h:330,
     opts:{field:'@prog_delta', sort:'desc', topN:0, horizontal:true, showAvg:true, pointsAs:'pts',
           dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
-    title:'مقارنة المشاريع', title_en:'Projects comparison',
+    title:'مقارنة المشاريع', title_en:'Projects comparison', oldTitle:'مقارنة المشاريع', oldTitle_en:'Projects comparison',
     render(body, w){
       if(S.mode !== 'all' || !S.projLatest.length){
         body.innerHTML = `<div class="empty-note">${tr('allOnly')}</div>`;
@@ -3259,7 +3259,7 @@ const VISUALS = {
   obstacles:{
     name:'معوقات المشروع', icon:'⚠️', w:430, h:290,
     opts:{mode:'table', filter:'all', maxRows:0, showImpact:true, showStatus:true, showSummary:true},
-    title:'المعوقات الحالية', title_en:'Current obstacles',
+    title:'معوقات المشروع', title_en:'Project obstacles', oldTitle:'المعوقات الحالية', oldTitle_en:'Current obstacles',
     render(body, w){
       if(!S.latest) return empty(body);
       let list = S.latest.obstacles_data;
@@ -3321,7 +3321,7 @@ const VISUALS = {
     opts:{source:'fields', fields:['plan_prog_cur','act_prog_cur'], field:'act_prog_cur',
           shape:'donut', showAs:'percent', showLegend:true, showTotal:true, donutSize:'62%', dlOutside:'auto',
           topN:0, dl:Object.assign({}, DL_DEFAULT, {color:'#ffffff'})},
-    title:'التوزيع النسبي', title_en:'Share breakdown',
+    title:'رسم دائري', title_en:'Pie chart', oldTitle:'التوزيع النسبي', oldTitle_en:'Share breakdown',
     render(body, w){
       const o = w.opts;
       let labels = [], vals = [], types = [];
@@ -3400,7 +3400,7 @@ const VISUALS = {
     opts:{source:'projects', fields:['act_prog_cur','plan_prog_cur','contractor_val'],
           sortBy:'', sortDir:'desc', rowsMax:0, zebra:true, showIndex:true,
           heatField:'', heatOn:false, dateFmt:'date'},
-    title:'جدول البيانات', title_en:'Data table',
+    title:'جدول بيانات', title_en:'Data table', oldTitle:'جدول البيانات', oldTitle_en:'Data table',
     render(body, w){
       const o = w.opts;
       const fs = (o.fields && o.fields.length) ? o.fields : ['act_prog_cur'];
@@ -3467,7 +3467,7 @@ const VISUALS = {
     opts:{src:'field', field:'master_plan_link', url:'', fit:'contain', pos:'center',
           caption:'', captionShow:false, imgOpacity:1, grayscale:false,
           bright:100, contrast:100, saturate:100},
-    title:'صورة', title_en:'Image', titleShow:false,
+    title:'صورة / لوجو', title_en:'Image / logo', oldTitle:'صورة', oldTitle_en:'Image', titleShow:false,
     render(body, w){
       let url = '';
       if(w.opts.src === 'field'){
@@ -3871,7 +3871,7 @@ function normalizeWidget(w){
                            text_en:t.title_en || t.title || t.name, font:FONTS[0].v, size:14,
                            weight:700, color:theme().titleColor, bg:theme().titleBg, align:'start'},
                           w.title || {});
-  if(w.title.text_en === undefined) w.title.text_en = t.title_en || w.title.text;
+  if(w.title.text_en === undefined) w.title.text_en = t.oldTitle_en || t.title_en || w.title.text;   // قوالب قديمة بدون نص إنجليزي
   return w;
 }
 
