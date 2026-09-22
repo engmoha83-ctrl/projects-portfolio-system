@@ -1,130 +1,171 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مُنشئ الداشبورد | المعماريون السعوديون</title>
+<title>Dashboard builder | Saudi Architects</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Cairo:wght@400;600;700;900&family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@400;500;700;900&family=Cairo:wght@400;600;700;900&family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js"></script>
 <style>
 :root{
-  --ui-bg:#f2f4f8; --ui-panel:#ffffff; --ui-bar:#0f1a2e; --ui-bar-2:#16233d;
-  --ui-line:#e2e7f0; --ui-text:#1a2b4c; --ui-muted:#6c7a91; --ui-gold:#d4a373;
-  --ui-accent:#2685c9; --ui-danger:#d9463f; --ui-ok:#1e8e5a;
-  --sidebar-w:320px; --topbar-h:56px;
+  --ui-bg:#E9EBEF; --ui-panel:#ffffff; --ui-bar:#1F3A5F; --ui-bar-2:#274A78; --ui-tint:#F1F3F7; --ui-tint-2:#E6EAF0;
+  --ui-line:#E3E6EC; --ui-text:#172033; --ui-muted:#5B6577; --ui-gold:#C8A165; --ui-navy:#1F3A5F;
+  --ui-accent:#2685c9; --ui-danger:#C8543E; --ui-ok:#1C6A43; --ui-card:#ffffff;
+  --sh-card:0 1px 2px rgba(23,32,51,.05), 0 8px 20px rgba(23,32,51,.06);
+  --sh-menu:0 4px 8px rgba(23,32,51,.04), 0 18px 40px rgba(23,32,51,.14);
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --sidebar-w:320px; --topbar-h:58px;
 }
 *{box-sizing:border-box;}
 html,body{height:100%;margin:0;}
 body{
-  font-family:'Tajawal','Segoe UI',Tahoma,sans-serif; background:var(--ui-bg); color:var(--ui-text);
+  font-family:'IBM Plex Sans','IBM Plex Sans Arabic','Segoe UI',Tahoma,sans-serif; background:var(--ui-bg); color:var(--ui-text);
   overflow:hidden; -webkit-font-smoothing:antialiased;
 }
+html[lang="ar"] body{font-family:'IBM Plex Sans Arabic','IBM Plex Sans','Segoe UI',Tahoma,sans-serif;}
 button{font-family:inherit;}
+/* أركان حادة في كل واجهة التحرير (الداشبورد نفسه له إعداداته الخاصة) */
+.topbar, .topbar *, .sidebar, .sidebar *, .modal, .modal *, .toast, .present-exit, .bw-tools button, .hnd{border-radius:0 !important;}
 
-/* ============ الشريط العلوي ============ */
+/* ============ الهيدر ============ */
 .topbar{
-  height:var(--topbar-h); background:var(--ui-bar); color:#fff; display:flex; align-items:center;
-  gap:10px; padding:0 14px; border-bottom:2px solid var(--ui-gold);
+  height:var(--topbar-h); background:#fff; color:var(--ui-text); display:flex; align-items:center;
+  gap:4px; padding:0 16px; position:relative; z-index:50; box-shadow:0 1px 3px rgba(23,32,51,.07);
 }
-.topbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.95rem;white-space:nowrap;}
-.topbar .brand span{color:var(--ui-gold);}
-.topbar .sep{width:1px;height:26px;background:rgba(255,255,255,.18);}
-.topbar .spacer{flex:1;}
-.tb-btn{
-  background:rgba(255,255,255,.10); color:#fff; border:1px solid rgba(255,255,255,.18);
-  border-radius:8px; padding:6px 12px; font-size:.82rem; cursor:pointer; white-space:nowrap; transition:.15s;
+.hdr-back{
+  flex:0 0 auto; width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+  background:var(--ui-tint); color:var(--ui-text); text-decoration:none; transition:background-color .15s ease;
 }
-.tb-btn:hover{background:rgba(255,255,255,.2);}
-.tb-btn.primary{background:var(--ui-gold); border-color:var(--ui-gold); color:#22160a; font-weight:700;}
-.tb-btn.primary:hover{background:#e0b98d;}
-.tb-btn.ghost{background:transparent;}
+.hdr-back:hover{background:var(--ui-tint-2);}
+[dir="rtl"] .hdr-back svg{transform:scaleX(-1);}
+.hdr-title{display:flex; flex-direction:column; justify-content:center; line-height:1.2; padding:0 10px; min-width:0; flex:0 1 auto;}
+.hdr-title small{font-size:11px; color:var(--ui-muted); font-weight:500; white-space:nowrap; display:flex; align-items:center; gap:6px;}
+#layoutName{
+  border:none; background:transparent; color:var(--ui-text); font-family:inherit; font-size:14px; font-weight:600;
+  width:200px; padding:2px 4px; margin-inline-start:-4px; transition:background-color .15s ease;
+}
+#layoutName:hover{background:var(--ui-tint);}
+#layoutName:focus{background:#EAF0F8; outline:none;}
+.scope-chip{font-size:10.5px; font-weight:600; padding:1px 7px; white-space:nowrap; background:#F6EEDF; color:#7A5A22;}
+.scope-chip.custom{background:#EAF0F8; color:var(--ui-navy);}
+.hdr-menus{display:flex; align-items:center; gap:2px; margin-inline-start:6px;}
+.mwrap{position:relative;}
+.nv{
+  height:36px; border:none; background:transparent; padding:0 12px; display:flex; align-items:center; gap:5px;
+  font-size:14px; font-weight:500; color:var(--ui-text); cursor:pointer; transition:background-color .18s ease,color .18s ease;
+}
+.nv:hover{background:var(--ui-tint);}
+.nv.on{background:#EAF0F8; color:var(--ui-navy);}
+.nv .chev{transition:transform .25s var(--ease);}
+.nv.on .chev{transform:rotate(180deg);}
+.menu{
+  position:absolute; top:44px; inset-inline-start:0; min-width:270px; background:#fff; box-shadow:var(--sh-menu);
+  padding:6px; display:flex; flex-direction:column; gap:1px; z-index:60;
+  opacity:0; visibility:hidden; transform:translateY(-6px) scale(.98); transform-origin:top center;
+  transition:opacity .2s ease, transform .25s var(--ease), visibility 0s linear .25s;
+}
+.menu.open{opacity:1; visibility:visible; transform:none; transition:opacity .2s ease, transform .25s var(--ease), visibility 0s;}
+.mi{
+  width:100%; min-height:36px; border:none; background:transparent; padding:0 12px; display:flex; align-items:center;
+  justify-content:space-between; gap:14px; font-size:13.5px; color:var(--ui-text); cursor:pointer; text-align:start;
+  text-decoration:none; transition:background-color .15s ease;
+}
+.mi:hover{background:#F3F5F9;}
+.mi[disabled]{opacity:.4; cursor:default; background:transparent;}
+.mi[hidden]{display:none;}
+.mi .ml{display:flex; align-items:center; gap:10px;}
+.mi .ck{width:16px; display:inline-flex; justify-content:center; color:var(--ui-navy); visibility:hidden;}
+.mi.checked .ck{visibility:visible;}
+.mi .k{font-size:12px; color:var(--ui-muted); white-space:nowrap; direction:ltr;}
+.m-head{font-size:11px; font-weight:600; color:var(--ui-muted); padding:9px 12px 4px; text-transform:uppercase; letter-spacing:.4px;}
+.m-sep{height:1px; background:#EEF0F4; margin:4px 6px;}
+.m-field{padding:4px 12px 8px; display:flex; flex-direction:column; gap:5px;}
+.m-field select{height:34px; background:var(--ui-tint); border:none; font-size:13px; padding:0 8px;}
+.m-zoom{padding:6px 12px 8px; display:flex; align-items:center; gap:10px;}
+.hdr-spacer{flex:1;}
+.hdr-field{
+  height:36px; min-width:190px; max-width:240px; background:var(--ui-tint); border:none; font-family:inherit;
+  font-size:13px; padding:0 10px; color:var(--ui-text); cursor:pointer;
+}
+.hdr-field:focus{outline:2px solid #C9D6E8; outline-offset:0;}
+.hdr-lbl{font-size:12.5px; color:var(--ui-muted); margin-inline-end:6px; white-space:nowrap;}
+.hdr-btn{
+  height:36px; border:none; background:var(--ui-tint); padding:0 12px; font-size:13px; font-weight:600;
+  color:var(--ui-text); cursor:pointer; white-space:nowrap; transition:background-color .15s ease, transform .15s ease;
+}
+.hdr-btn:hover{background:var(--ui-tint-2);}
+.hdr-btn.primary{background:var(--ui-navy); color:#fff; padding:0 18px; font-size:14px;}
+.hdr-btn.primary:hover{background:var(--ui-bar-2);}
+.hdr-btn:active{transform:scale(.98);}
+.hdr-lang{margin:0 6px;}
 
-/* ===== شريط التكبير ===== */
-.zoom-box{
-  display:flex; align-items:center; gap:6px; padding:3px 6px; border-radius:9px;
-  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+/* ===== التكبير ===== */
+.zoom-box{display:flex; align-items:center; height:36px; background:var(--ui-tint); margin-inline-start:8px;}
+.zoom-box button{
+  width:30px; height:36px; border:none; background:transparent; font-size:16px; color:var(--ui-text); cursor:pointer;
+  transition:background-color .15s ease;
 }
-.zoom-box .tb-btn{padding:2px 8px; font-size:.9rem; line-height:1.15; border-radius:6px;}
-.zoom-box .zoom-val{
-  display:flex; align-items:center; gap:1px; direction:ltr;
-  background:rgba(0,0,0,.22); border-radius:6px; padding:2px 5px;
-}
-.zoom-box .zoom-val b{font-size:.7rem; color:rgba(255,255,255,.65); font-weight:600;}
+.zoom-box button:hover{background:var(--ui-tint-2);}
+.zoom-box .zoom-val{display:flex; align-items:center; direction:ltr; font-size:12.5px; font-weight:600;}
+.zoom-box .zoom-val b{font-size:12px; color:var(--ui-muted); font-weight:600;}
 #zoomInput{
-  width:34px; background:transparent; border:none; color:#fff; font-family:inherit;
-  font-size:.78rem; font-weight:700; text-align:center; padding:1px 0; -moz-appearance:textfield;
+  width:34px; background:transparent; border:none; color:var(--ui-text); font-family:inherit;
+  font-size:12.5px; font-weight:600; text-align:center; padding:1px 0; -moz-appearance:textfield;
 }
 #zoomInput::-webkit-outer-spin-button,#zoomInput::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
-#zoomInput:focus{outline:1px solid var(--ui-gold); outline-offset:1px; border-radius:4px;}
+#zoomInput:focus{outline:1px solid var(--ui-navy);}
 #zoomSlider{
-  -webkit-appearance:none; appearance:none; width:118px; height:4px; border-radius:4px;
-  background:rgba(255,255,255,.25); cursor:pointer; direction:ltr; margin:0;
+  -webkit-appearance:none; appearance:none; flex:1; height:4px; background:#D5DAE3; cursor:pointer; direction:ltr; margin:0;
 }
 #zoomSlider:focus{outline:none;}
 #zoomSlider::-webkit-slider-thumb{
-  -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%;
-  background:var(--ui-gold); border:2px solid #fff; cursor:grab; box-shadow:0 1px 3px rgba(0,0,0,.4);
+  -webkit-appearance:none; appearance:none; width:12px; height:16px; background:var(--ui-navy); border:none; cursor:grab;
+  box-shadow:0 1px 3px rgba(23,32,51,.3);
 }
-#zoomSlider::-webkit-slider-thumb:active{cursor:grabbing; transform:scale(1.12);}
-#zoomSlider::-moz-range-thumb{
-  width:12px; height:12px; border-radius:50%; background:var(--ui-gold);
-  border:2px solid #fff; cursor:grab; box-shadow:0 1px 3px rgba(0,0,0,.4);
-}
-#zoomSlider::-moz-range-track{height:4px; border-radius:4px; background:rgba(255,255,255,.25);}
-@media (max-width:1200px){ #zoomSlider{width:76px;} }
-.tb-input,.tb-select{
-  background:rgba(255,255,255,.10); color:#fff; border:1px solid rgba(255,255,255,.2);
-  border-radius:8px; padding:6px 10px; font-size:.82rem; font-family:inherit; max-width:210px;
-}
-.tb-select option{color:#111;}
-.tb-input::placeholder{color:rgba(255,255,255,.5);}
-.fetch-time{font-size:.7rem; color:rgba(255,255,255,.62); white-space:nowrap;}
+#zoomSlider::-moz-range-thumb{width:12px; height:16px; border-radius:0; background:var(--ui-navy); border:none; cursor:grab;}
+#zoomSlider::-moz-range-track{height:4px; background:#D5DAE3;}
+.fetch-time{font-size:12px; color:var(--ui-muted); white-space:nowrap;}
+#btnRefresh .ck{visibility:visible; color:var(--ui-muted);}
 #btnRefresh.busy{opacity:.6; pointer-events:none;}
 #btnRefresh.busy #refreshIcon{display:inline-block; animation:spin 0.9s linear infinite;}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-.scope-chip{
-  font-size:.72rem; font-weight:700; padding:4px 9px; border-radius:20px; white-space:nowrap;
-  background:rgba(212,163,115,.18); color:var(--ui-gold); border:1px solid rgba(212,163,115,.45);
-}
-.scope-chip.custom{background:rgba(38,133,201,.20); color:#8ecbff; border-color:rgba(38,133,201,.5);}
+@media (max-width:1250px){ .hdr-lbl{display:none;} #layoutName{width:150px;} .hdr-field{min-width:150px;} }
+@media (prefers-reduced-motion: reduce){ .nv,.nv .chev,.menu,.mi,.hdr-btn,.zoom-box button,.tpl-card,.side-tab{transition:none !important;} }
 .theme-prev{display:flex; gap:4px; margin:6px 0 9px; align-items:center;}
-.theme-prev .tp-page{width:26px; height:22px; border-radius:6px; border:1px solid var(--ui-line);}
-.theme-prev .tp-c{width:15px; height:22px; border-radius:4px;}
-.lay-badge{
-  font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:20px; margin-inline-start:6px;
-  background:#f4ead9; color:#8a6134; border:1px solid #e5d3b6;
-}
+.theme-prev .tp-page{width:26px; height:22px; box-shadow:0 0 0 1px var(--ui-line);}
+.theme-prev .tp-c{width:15px; height:22px;}
+.lay-badge{font-size:.68rem; font-weight:700; padding:2px 7px; margin-inline-start:6px; background:#F6EEDF; color:#7A5A22;}
 
 /* ============ التخطيط العام ============ */
 .workspace{display:flex; height:calc(100% - var(--topbar-h));}
 .sidebar{
   width:var(--sidebar-w); min-width:var(--sidebar-w); background:var(--ui-panel);
-  border-inline-start:1px solid var(--ui-line); display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:1px 0 3px rgba(23,32,51,.05); display:flex; flex-direction:column; overflow:hidden; position:relative; z-index:2;
 }
-.side-tabs{display:flex; border-bottom:1px solid var(--ui-line); background:#f8fafc;}
+.side-tabs{display:flex; gap:3px; margin:12px 12px 0; padding:3px; background:var(--ui-tint);}
 .side-tab{
-  flex:1; padding:11px 4px; text-align:center; font-size:.8rem; font-weight:700; color:var(--ui-muted);
-  cursor:pointer; border-bottom:3px solid transparent; transition:.15s; user-select:none;
+  flex:1; padding:7px 4px; text-align:center; font-size:13px; font-weight:500; color:var(--ui-muted);
+  cursor:pointer; transition:background-color .15s ease, color .15s ease, box-shadow .15s ease; user-select:none;
 }
-.side-tab:hover{background:#eef2f8;}
-.side-tab.active{color:var(--ui-text); border-bottom-color:var(--ui-gold); background:#fff;}
-.side-body{flex:1; overflow-y:auto; padding:12px;}
+.side-tab:hover{color:var(--ui-text);}
+.side-tab.active{color:var(--ui-text); background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.10); font-weight:600;}
+.side-body{flex:1; overflow-y:auto; padding:14px 12px;}
 .side-body::-webkit-scrollbar{width:8px;}
-.side-body::-webkit-scrollbar-thumb{background:#cbd4e2;border-radius:4px;}
+.side-body::-webkit-scrollbar-thumb{background:#CDD3DD;}
 
 .canvas-area{
   flex:1; overflow:auto; padding:26px; display:flex; justify-content:flex-start; align-items:flex-start;
   background:
-    linear-gradient(90deg,rgba(0,0,0,.03) 1px,transparent 1px) 0 0/24px 24px,
-    linear-gradient(rgba(0,0,0,.03) 1px,transparent 1px) 0 0/24px 24px, var(--ui-bg);
+    linear-gradient(90deg,rgba(23,32,51,.035) 1px,transparent 1px) 0 0/24px 24px,
+    linear-gradient(rgba(23,32,51,.035) 1px,transparent 1px) 0 0/24px 24px, var(--ui-bg);
 }
 .page-shell{margin:auto; flex:0 0 auto; position:relative;}   /* margin:auto يوسّط بأمان حتى عند التمرير */
 #page{
   /* موضع صريح من الركن الأيسر: في صفحة RTL كان الصندوق يلتصق باليمين فينزاح بعد التكبير */
-  position:absolute; left:0; top:0; background:#fff; box-shadow:0 10px 40px rgba(15,26,46,.18); overflow:hidden;
-  border-radius:6px;
+  position:absolute; left:0; top:0; background:#fff; box-shadow:0 10px 30px rgba(23,32,51,.12); overflow:hidden;
+  font-family:'Tajawal','Segoe UI',Tahoma,sans-serif;
 }
 #page.show-grid::before{
   content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
@@ -153,7 +194,7 @@ button{font-family:inherit;}
 }
 .bw.primary .bw-tools{display:flex;}
 .bw-tools button{
-  background:var(--ui-bar); color:#fff; border:none; border-radius:6px; width:26px; height:26px;
+  background:var(--ui-bar); color:#fff; border:none; width:26px; height:26px; box-shadow:0 2px 6px rgba(23,32,51,.25);
   font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
 }
 /* صليب اتجاهات: كل سهم في موضعه الحقيقي، فلا يلتبس الترتيب ولا ينعكس مع RTL */
@@ -268,13 +309,13 @@ button{font-family:inherit;}
 /* ============ عناصر الشريط الجانبي ============ */
 .tpl-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px;}
 .tpl-card{
-  border:1px solid var(--ui-line); border-radius:10px; padding:10px 6px; text-align:center; cursor:pointer;
-  background:#fbfcfe; transition:.15s; user-select:none;
+  padding:12px 6px; text-align:center; cursor:pointer; background:#F5F6F9;
+  transition:transform .2s ease, box-shadow .2s ease, background-color .2s ease; user-select:none;
 }
-.tpl-card:hover{border-color:var(--ui-gold); background:#fff; transform:translateY(-2px); box-shadow:0 6px 14px rgba(15,26,46,.08);}
-.tpl-ico{font-size:1.5rem; display:block; margin-bottom:4px;}
-.tpl-name{font-size:.74rem; font-weight:700; line-height:1.3;}
-.grp{margin-bottom:16px;}
+.tpl-card:hover{background:#fff; transform:translateY(-2px); box-shadow:0 10px 22px rgba(23,32,51,.10);}
+.tpl-ico{font-size:1.4rem; display:block; margin-bottom:5px;}
+.tpl-name{font-size:12px; font-weight:600; line-height:1.3;}
+.grp{margin-bottom:18px;}
 .dt-wrap{height:100%; overflow:auto;}
 .dt-tbl{width:100%;}
 /* رأس الجدول ثابت أثناء التمرير — لا بد من خلفية معتمة صريحة وz-index،
@@ -288,95 +329,95 @@ button{font-family:inherit;}
 .dt-tbl td.t-idx{width:1%; opacity:.6;}
 .dt-tbl tr.zeb td{background:rgba(128,128,128,.055);}
 .fld-list{
-  max-height:220px; overflow-y:auto; border:1px solid var(--ui-line); border-radius:8px;
-  padding:5px; margin-bottom:8px; background:var(--ui-card);
+  max-height:220px; overflow-y:auto; padding:5px; margin-bottom:8px; background:var(--ui-tint);
 }
 .fld-item{
-  display:flex; align-items:center; gap:7px; padding:4px 6px; border-radius:6px;
-  font-size:.75rem; font-weight:500; cursor:pointer; line-height:1.45;
+  display:flex; align-items:center; gap:7px; padding:4px 6px;
+  font-size:12px; font-weight:500; cursor:pointer; line-height:1.45;
 }
-.fld-item:hover{background:rgba(128,128,128,.09);}
+.fld-item:hover{background:rgba(23,32,51,.05);}
 .fld-item input{flex:0 0 auto; margin:0;}
 .fld-item span{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.fld-count{font-size:.7rem; font-weight:800; color:var(--ui-muted);}
+.fld-count{font-size:11px; font-weight:700; color:var(--ui-muted);}
 .part-tabs{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:9px;}
 .part-tab{
-  border:1px solid var(--ui-line); background:var(--ui-card); border-radius:7px; padding:4px 9px;
-  font-size:.7rem; font-weight:700; cursor:pointer; color:var(--ui-muted); font-family:inherit; transition:.12s;
+  border:none; background:var(--ui-tint); padding:5px 9px;
+  font-size:11.5px; font-weight:500; cursor:pointer; color:var(--ui-muted); font-family:inherit; transition:background-color .12s, color .12s;
 }
-.part-tab:hover{border-color:var(--ui-gold); color:var(--ui-text);}
-.part-tab.on{background:var(--ui-navy,#1a2b4c); border-color:var(--ui-navy,#1a2b4c); color:#fff;}
-.hint-inline{font-size:.62rem; font-weight:600; color:var(--ui-muted); margin-inline-start:6px;}
-.inh{font-weight:700; color:var(--ui-gold,#b8860b); font-size:.92em;}
-.mini-val{font-size:.68rem; color:var(--ui-muted); font-weight:700; min-width:44px; text-align:center;}
+.part-tab:hover{background:var(--ui-tint-2); color:var(--ui-text);}
+.part-tab.on{background:var(--ui-navy); color:#fff;}
+.hint-inline{font-size:10.5px; font-weight:500; color:var(--ui-muted); margin-inline-start:6px;}
+.inh{font-weight:600; color:#8A6A2E; font-size:.92em;}
+.mini-val{font-size:11px; color:var(--ui-muted); font-weight:600; min-width:44px; text-align:center;}
 .ctl.rng{display:flex; align-items:center; gap:8px; flex-wrap:nowrap;}
 .ctl.rng input[type=range]{flex:1 1 auto; min-width:0;}
 .num-box{flex:0 0 84px; display:inline-flex; align-items:center; justify-content:center; gap:2px;}
 .num-box input{width:56px; text-align:center;}
-.num-box i{font-style:normal; font-size:.68rem; color:var(--ui-muted); font-weight:700;}
+.num-box i{font-style:normal; font-size:11px; color:var(--ui-muted); font-weight:600;}
 .grp-h{
-  font-size:.72rem; font-weight:800; color:var(--ui-muted); letter-spacing:.02em; margin-bottom:8px;
-  padding-bottom:5px; border-bottom:1px solid var(--ui-line); display:flex; align-items:center; gap:6px;
+  font-size:11px; font-weight:600; color:var(--ui-muted); letter-spacing:.04em; margin-bottom:9px; text-transform:uppercase;
+  padding-bottom:6px; border-bottom:1px solid #EEF0F4; display:flex; align-items:center; gap:6px;
 }
 .row{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
-.row label{flex:0 0 78px; font-size:.75rem; color:var(--ui-muted); font-weight:700;}
+.row label{flex:0 0 84px; font-size:12px; color:var(--ui-muted); font-weight:500;}
 .row .ctl{flex:1; min-width:0;}
 .row2{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;}
 .mini{display:flex; flex-direction:column; gap:3px;}
-.mini span{font-size:.7rem; color:var(--ui-muted); font-weight:700;}
-input[type=text],input[type=number],select,textarea{
-  width:100%; border:1px solid var(--ui-line); border-radius:7px; padding:6px 8px; font-size:.78rem;
-  font-family:inherit; background:#fff; color:var(--ui-text);
+.mini span{font-size:11px; color:var(--ui-muted); font-weight:500;}
+.sidebar input[type=text],.sidebar input[type=number],.sidebar input[type=date],.sidebar input[type=month],.sidebar input:not([type]),
+.sidebar select,.sidebar textarea,.modal input[type=text],.modal select{
+  width:100%; border:none; padding:7px 8px; font-size:12.5px;
+  font-family:inherit; background:var(--ui-tint); color:var(--ui-text); transition:background-color .15s ease, box-shadow .15s ease;
 }
-input:focus,select:focus,textarea:focus{outline:none; border-color:var(--ui-accent);}
-input[type=color]{width:100%; height:30px; padding:2px; border:1px solid var(--ui-line); border-radius:7px; background:#fff; cursor:pointer;}
-input[type=range]{width:100%;}
+.sidebar input:focus,.sidebar select:focus,.sidebar textarea:focus{outline:none; background:#fff; box-shadow:0 0 0 2px #C9D6E8;}
+input[type=color]{width:100%; height:30px; padding:2px; border:none; background:var(--ui-tint); cursor:pointer;}
+input[type=range]{width:100%; accent-color:var(--ui-navy);}
 .swatches{display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;}
-.sw{width:19px; height:19px; border-radius:5px; cursor:pointer; border:2px solid #fff; box-shadow:0 0 0 1px var(--ui-line);}
+.sw{width:19px; height:19px; cursor:pointer; box-shadow:0 0 0 1px rgba(23,32,51,.14); transition:transform .12s ease;}
 .sw:hover{transform:scale(1.12);}
-.chk{display:flex; align-items:center; gap:7px; font-size:.78rem; font-weight:700; margin-bottom:8px; cursor:pointer;}
-.chk input{width:15px; height:15px; accent-color:var(--ui-accent); cursor:pointer;}
+.chk{display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:500; margin-bottom:8px; cursor:pointer;}
+.chk input{width:15px; height:15px; accent-color:var(--ui-navy); cursor:pointer;}
 .btn-row{display:flex; gap:6px; flex-wrap:wrap;}
 .sbtn{
-  flex:1; border:1px solid var(--ui-line); background:#fff; border-radius:7px; padding:6px 4px;
-  font-size:.74rem; font-weight:700; cursor:pointer; color:var(--ui-text); transition:.12s; min-width:0;
+  flex:1; border:none; background:var(--ui-tint); padding:7px 6px;
+  font-size:12px; font-weight:600; cursor:pointer; color:var(--ui-text); transition:background-color .12s, color .12s; min-width:0;
 }
-.sbtn:hover{border-color:var(--ui-accent); color:var(--ui-accent);}
-.sbtn.on{background:var(--ui-bar); color:#fff; border-color:var(--ui-bar);}
-.sbtn.danger{color:var(--ui-danger); border-color:#f2c9c7;}
+.sbtn:hover{background:var(--ui-tint-2);}
+.sbtn.on{background:var(--ui-navy); color:#fff;}
+.sbtn.danger{color:var(--ui-danger); background:#FBEDEA;}
 .sbtn.danger:hover{background:var(--ui-danger); color:#fff;}
-.hint{font-size:.72rem; color:var(--ui-muted); line-height:1.6; background:#f7f9fc; border:1px dashed var(--ui-line);
-      border-radius:8px; padding:9px 10px;}
+.hint{font-size:12px; color:var(--ui-muted); line-height:1.65; background:#F7F8FA; padding:10px 11px;}
 .layer{
-  display:flex; align-items:center; gap:7px; padding:6px 8px; border:1px solid var(--ui-line); border-radius:8px;
-  margin-bottom:5px; font-size:.76rem; cursor:pointer; background:#fff;
+  display:flex; align-items:center; gap:7px; padding:7px 8px; margin-bottom:4px; font-size:12.5px; cursor:pointer;
+  background:#F7F8FA; transition:background-color .12s;
 }
-.layer:hover{border-color:var(--ui-accent);}
-.layer.on{background:#eef5fb; border-color:#74b3e0; font-weight:700;}
-.layer.on.pri{border-color:var(--ui-accent); box-shadow:0 0 0 1px var(--ui-accent);}
+.layer:hover{background:var(--ui-tint-2);}
+.layer.on{background:#EAF0F8; font-weight:600;}
+.layer.on.pri{box-shadow:inset 3px 0 0 var(--ui-navy);}
 .layer .lyr-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.lyr-btn{flex:0 0 auto; width:20px; height:20px; border:1px solid var(--ui-line); background:#fff;
-  border-radius:5px; cursor:pointer; font-size:.7rem; line-height:1; color:var(--ui-text);}
-.lyr-btn:hover{background:var(--ui-navy,#1a2b4c); color:#fff; border-color:var(--ui-navy,#1a2b4c);}
+.lyr-btn{flex:0 0 auto; width:22px; height:22px; border:none; background:#fff;
+  cursor:pointer; font-size:.7rem; line-height:1; color:var(--ui-text); box-shadow:0 1px 2px rgba(23,32,51,.10);}
+.lyr-btn:hover{background:var(--ui-navy); color:#fff;}
 
 /* ============ نافذة منبثقة ============ */
 .modal-back{
-  position:fixed; inset:0; background:rgba(15,26,46,.55); display:none; align-items:center; justify-content:center; z-index:900;
+  position:fixed; inset:0; background:rgba(23,32,51,.40); display:flex; align-items:center; justify-content:center; z-index:900;
+  opacity:0; visibility:hidden; transition:opacity .2s ease, visibility 0s linear .2s;
 }
-.modal-back.open{display:flex;}
+.modal-back.open{opacity:1; visibility:visible; transition:opacity .2s ease, visibility 0s;}
 .modal{
-  background:#fff; border-radius:14px; width:min(560px,92vw); max-height:80vh; display:flex; flex-direction:column;
-  box-shadow:0 24px 60px rgba(0,0,0,.35); overflow:hidden;
+  background:#fff; width:min(580px,92vw); max-height:80vh; display:flex; flex-direction:column;
+  box-shadow:0 24px 60px rgba(23,32,51,.28); overflow:hidden; transform:translateY(8px) scale(.98); transition:transform .25s var(--ease);
 }
-.modal h3{margin:0; padding:14px 18px; background:var(--ui-bar); color:#fff; font-size:.95rem;}
-.modal-body{padding:14px 18px; overflow-y:auto;}
-.modal-foot{padding:12px 18px; border-top:1px solid var(--ui-line); display:flex; justify-content:flex-start; gap:8px;}
-.lay-item{
-  display:flex; align-items:center; gap:10px; padding:10px; border:1px solid var(--ui-line); border-radius:10px; margin-bottom:8px;
-}
+.modal-back.open .modal{transform:none;}
+.modal h3{margin:0; padding:16px 20px 8px; background:#fff; color:var(--ui-text); font-size:16px; font-weight:700;}
+.modal-body{padding:8px 20px 14px; overflow-y:auto;}
+.modal-foot{padding:12px 20px; background:#F7F8FA; display:flex; justify-content:flex-end; gap:8px;}
+.lay-item{display:flex; align-items:center; gap:10px; padding:10px 12px; background:#F7F8FA; margin-bottom:6px; transition:background-color .12s;}
+.lay-item:hover{background:#EEF1F6;}
 .lay-item .li-main{flex:1; min-width:0;}
-.lay-item .li-name{font-weight:700; font-size:.85rem;}
-.lay-item .li-sub{font-size:.72rem; color:var(--ui-muted);}
+.lay-item .li-name{font-weight:600; font-size:13.5px;}
+.lay-item .li-sub{font-size:12px; color:var(--ui-muted);}
 
 /* ===== وضع العرض / ملء الشاشة ===== */
 body.presenting .topbar,
@@ -392,17 +433,17 @@ body.presenting #page.show-grid::before{display:none;}
 body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rgba(0,0,0,.55);}
 .present-exit{
   position:fixed; top:14px; inset-inline-end:14px; z-index:950; cursor:pointer;
-  background:rgba(15,26,46,.82); color:#fff; border:1px solid rgba(255,255,255,.25);
-  border-radius:9px; padding:7px 14px; font-family:inherit; font-size:.8rem; font-weight:700;
+  background:rgba(23,32,51,.85); color:#fff; border:none;
+  padding:8px 14px; font-family:inherit; font-size:.8rem; font-weight:700;
   opacity:.25; transition:.2s;
 }
 .present-exit:hover{opacity:1;}
 .present-exit[hidden]{display:none !important;}
 
 .toast{
-  position:fixed; bottom:22px; inset-inline-start:22px; background:var(--ui-bar); color:#fff; padding:11px 18px;
-  border-radius:10px; font-size:.83rem; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:999;
-  opacity:0; transform:translateY(12px); transition:.25s; pointer-events:none;
+  position:fixed; bottom:22px; inset-inline-end:22px; background:var(--ui-text); color:#fff; padding:12px 18px;
+  font-size:13px; box-shadow:0 18px 40px rgba(23,32,51,.22); z-index:999;
+  opacity:0; transform:translateY(12px); transition:opacity .25s ease, transform .3s var(--ease); pointer-events:none;
 }
 .toast.show{opacity:1; transform:translateY(0);}
 .toast.err{background:var(--ui-danger);}
@@ -410,53 +451,95 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
 </head>
 <body>
 
-<div class="topbar">
-  <div class="brand">🎛️ مُنشئ الداشبورد <span>| PMIS</span></div>
-  <div class="sep"></div>
-  <select class="tb-select" id="projectSel" title="المشروع">
-    <option value="">— اختر المشروع —</option>
-    <option value="__ALL__">🌐 كل المشاريع (مجمّع)</option>
+<header class="topbar" id="hdr">
+  <a class="hdr-back" href="/admin-hub" data-i18n-title="back" data-i18n-aria="back">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
+  <div class="hdr-title">
+    <small><span data-i18n="title">Dashboard builder</span><span class="scope-chip" id="scopeChip">—</span></small>
+    <input id="layoutName" value="New layout" data-i18n-ph="layoutNamePh" data-i18n-title="layoutNameTip" autocomplete="off">
+  </div>
+
+  <nav class="hdr-menus" id="hdrMenus">
+    <div class="mwrap">
+      <button class="nv" aria-haspopup="true" aria-expanded="false"><span data-i18n="mFile">File</span><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="menu" role="menu">
+        <button class="mi" id="btnNew" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="newLayout">New layout</span></span><span class="k"></span></button>
+        <button class="mi" id="btnOpen" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="savedLayouts">Saved layouts…</span></span><span class="k"></span></button>
+        <button class="mi" id="mSave" role="menuitem"><span class="ml"><span class="ck"></span><span id="mSaveLabel">Save</span></span><span class="k">Ctrl S</span></button>
+        <div class="m-sep"></div>
+        <div class="m-head" data-i18n="scopeHead">Layout applies to</div>
+        <div class="m-field" data-keep>
+          <select id="scopeSel" aria-label="Layout scope">
+            <option value="default" data-i18n="scopeDefault">All projects (global layout)</option>
+            <option value="project" data-i18n="scopeProject">This project only (custom)</option>
+          </select>
+        </div>
+        <button class="mi" id="btnUnlink" hidden role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="unlink">Remove customization</span></span><span class="k"></span></button>
+      </div>
+    </div>
+    <div class="mwrap">
+      <button class="nv" aria-haspopup="true" aria-expanded="false"><span data-i18n="mEdit">Edit</span><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="menu" role="menu">
+        <button class="mi" id="btnUndo" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="undo">Undo</span></span><span class="k">Ctrl Z</span></button>
+        <button class="mi" id="btnRedo" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="redo">Redo</span></span><span class="k">Ctrl Y</span></button>
+        <div class="m-sep"></div>
+        <button class="mi" id="mDup" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="duplicate">Duplicate</span></span><span class="k">Ctrl D</span></button>
+        <button class="mi" id="mDel" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="delete">Delete</span></span><span class="k">Del</span></button>
+        <button class="mi" id="mSelAll" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="selectAll">Select all</span></span><span class="k">Ctrl A</span></button>
+      </div>
+    </div>
+    <div class="mwrap">
+      <button class="nv" aria-haspopup="true" aria-expanded="false"><span data-i18n="mView">View</span><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="menu" role="menu">
+        <div class="m-head" data-i18n="zoom">Zoom</div>
+        <div class="m-zoom" data-keep><input type="range" id="zoomSlider" min="15" max="300" step="1" value="100" data-i18n-aria="zoom"></div>
+        <button class="mi" id="btnZoomFit" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="fit">Fit to screen</span></span><span class="k"></span></button>
+        <button class="mi" id="btnPresent" role="menuitem"><span class="ml"><span class="ck"></span><span data-i18n="present">Presentation mode</span></span><span class="k">Ctrl P</span></button>
+        <div class="m-sep"></div>
+        <button class="mi" id="btnLang" role="menuitem" data-i18n-title="dashLangTip"><span class="ml"><span class="ck"></span><span data-i18n="dashLang">Dashboard language</span></span><span class="k" id="langLabel">English</span></button>
+      </div>
+    </div>
+    <div class="mwrap">
+      <button class="nv" aria-haspopup="true" aria-expanded="false"><span data-i18n="mData">Data</span><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="menu" role="menu">
+        <button class="mi" id="btnRefresh" role="menuitem"><span class="ml"><span class="ck"><span id="refreshIcon">⟳</span></span><span data-i18n="refresh">Refresh now</span></span><span class="k fetch-time" id="fetchTime"></span></button>
+        <div class="m-sep"></div>
+        <div class="m-head" data-i18n="autoHead">Auto refresh</div>
+        <button class="mi" data-auto="0"  role="menuitemradio"><span class="ml"><span class="ck">✓</span><span data-i18n="off">Off</span></span></button>
+        <button class="mi" data-auto="5"  role="menuitemradio"><span class="ml"><span class="ck">✓</span><span data-i18n="m5">Every 5 minutes</span></span></button>
+        <button class="mi" data-auto="15" role="menuitemradio"><span class="ml"><span class="ck">✓</span><span data-i18n="m15">Every 15 minutes</span></span></button>
+        <button class="mi" data-auto="30" role="menuitemradio"><span class="ml"><span class="ck">✓</span><span data-i18n="m30">Every 30 minutes</span></span></button>
+        <button class="mi" data-auto="60" role="menuitemradio"><span class="ml"><span class="ck">✓</span><span data-i18n="m60">Every hour</span></span></button>
+        <div class="m-sep"></div>
+        <div class="m-head" data-i18n="srcHead">Progress source</div>
+        <button class="mi" data-src="weekly"   role="menuitemradio"><span class="ml"><span class="ck">✓</span><span data-i18n="srcWeekly">Weekly updates</span></span></button>
+        <button class="mi" data-src="cashflow" role="menuitemradio"><span class="ml"><span class="ck">✓</span><span data-i18n="srcCf">Cash flow</span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="hdr-spacer"></div>
+  <label class="hdr-lbl" for="projectSel" data-i18n="project">Project</label>
+  <select class="hdr-field" id="projectSel" data-i18n-title="project" data-no-tr>
+    <option value="" data-i18n="pickProject">— Select a project —</option>
+    <option value="__ALL__" data-i18n="allProjects">All projects (combined)</option>
     {% for p in projects %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
   </select>
-  <input class="tb-input" id="layoutName" placeholder="اسم القالب" value="قالب جديد">
-  <select class="tb-select" id="scopeSel" title="نطاق القالب" style="max-width:190px;">
-    <option value="default">🌍 قالب عام لكل المشاريع</option>
-    <option value="project">📌 مخصص لهذا المشروع</option>
-  </select>
-  <span class="scope-chip" id="scopeChip">—</span>
-  <button class="tb-btn" id="btnUnlink" hidden title="حذف التخصيص والرجوع للقالب العام">إلغاء التخصيص</button>
-  <div class="sep"></div>
-  <button class="tb-btn" id="btnRefresh" title="تحديث البيانات من قاعدة البيانات (بدون فقدان التصميم)">
-    <span id="refreshIcon">🔄</span> تحديث البيانات</button>
-  <span class="fetch-time" id="fetchTime"></span>
-  <div class="sep"></div>
-  <button class="tb-btn" id="btnLang" title="لغة عرض الداشبورد">🌐 <span id="langLabel">عربي</span></button>
-  <div class="sep"></div>
-  <button class="tb-btn" id="btnUndo" title="تراجع (Ctrl+Z)">↶</button>
-  <button class="tb-btn" id="btnRedo" title="إعادة (Ctrl+Y)">↷</button>
-  <div class="sep"></div>
-  <div class="zoom-box" title="التكبير — اسحب المؤشر أو اكتب النسبة (Ctrl + عجلة الفأرة فوق اللوحة)">
-    <button class="tb-btn" id="btnZoomIn" title="تكبير">+</button>
-    <span class="zoom-val"><input type="number" id="zoomInput" min="15" max="300" step="1" value="100"
-           aria-label="نسبة التكبير بالرقم"><b>%</b></span>
-    <input type="range" id="zoomSlider" min="15" max="300" step="1" value="100" aria-label="نسبة التكبير">
-    <button class="tb-btn" id="btnZoomOut" title="تصغير">−</button>
+  <div class="zoom-box" data-i18n-title="zoomTip">
+    <button id="btnZoomOut" data-i18n-title="zoomOut">−</button>
+    <span class="zoom-val"><input type="number" id="zoomInput" min="15" max="300" step="1" value="100" data-i18n-aria="zoom"><b>%</b></span>
+    <button id="btnZoomIn" data-i18n-title="zoomIn">+</button>
   </div>
-  <button class="tb-btn ghost" id="btnZoomFit" title="ملاءمة الشاشة (تكبير التصميم ليملأ المساحة)">⤢</button>
-  <button class="tb-btn ghost" id="btnPresent" title="ملء الشاشة — عرض الداشبورد بدون أدوات التحرير (Esc للخروج)">⛶</button>
-  <div class="spacer"></div>
-  <button class="tb-btn" id="btnNew">جديد</button>
-  <button class="tb-btn" id="btnOpen">القوالب المحفوظة</button>
-  <button class="tb-btn primary" id="btnSave">💾 حفظ</button>
-  <a class="tb-btn ghost" href="/admin-hub" style="text-decoration:none;">رجوع</a>
-</div>
+  <button class="hdr-btn hdr-lang" id="btnUiLang">Arabic</button>
+  <button class="hdr-btn primary" id="btnSave">Save</button>
+</header>
 
 <div class="workspace">
   <aside class="sidebar">
     <div class="side-tabs">
-      <div class="side-tab active" data-tab="templates">القوالب</div>
-      <div class="side-tab" data-tab="props">الخصائص</div>
-      <div class="side-tab" data-tab="page">الصفحة</div>
+      <div class="side-tab active" data-tab="templates" data-i18n="tabElements">Elements</div>
+      <div class="side-tab" data-tab="props" data-i18n="tabProps">Properties</div>
+      <div class="side-tab" data-tab="page" data-i18n="tabPage">Page</div>
     </div>
     <div class="side-body" id="tab-templates"></div>
     <div class="side-body" id="tab-props" style="display:none;"></div>
@@ -472,13 +555,13 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
 
 <div class="modal-back" id="modalBack">
   <div class="modal">
-    <h3>القوالب المحفوظة</h3>
+    <h3 data-i18n="savedLayoutsT">Saved layouts</h3>
     <div class="modal-body" id="modalBody"></div>
-    <div class="modal-foot"><button class="sbtn" style="flex:0 0 110px" id="btnCloseModal">إغلاق</button></div>
+    <div class="modal-foot"><button class="sbtn" style="flex:0 0 110px" id="btnCloseModal" data-i18n="close">Close</button></div>
   </div>
 </div>
 
-<button class="present-exit" id="btnExitPresent" hidden title="خروج من ملء الشاشة (Esc)">✕ خروج</button>
+<button class="present-exit" id="btnExitPresent" hidden data-i18n-title="exitTip">✕ <span data-i18n="exit">Exit</span></button>
 
 <div class="toast" id="toast"></div>
 
@@ -489,6 +572,761 @@ body.presenting #page{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rg
    ===================================================================== */
 
 const FIELD_META = {{ field_meta | tojson }};
+
+/* =====================================================================
+   لغة واجهة التحرير (مستقلة عن لغة محتوى الداشبورد S.page.lang)
+   الإنجليزي هو الافتراضي، والعربي اختيار. النصوص الثابتة في الهيدر لها مفاتيح
+   data-i18n، وباقي نصوص الشريط الجانبي والنوافذ والرسائل مكتوبة في الكود بالعربي
+   وتُترجم وقت العرض من القاموس UI_EN (المفتاح هو النص العربي نفسه).
+   ===================================================================== */
+const UI_KEY = 'pmis_ui_lang';
+let UIL = (() => { try{ return localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){ return 'en'; } })();
+const uiEN = () => UIL !== 'ar';
+const U = (en, ar) => uiEN() ? en : ar;
+
+const I18N = {
+  back:['Back','رجوع'], title:['Dashboard builder','منشئ الداشبورد'],
+  layoutNamePh:['Layout name','اسم القالب'], layoutNameTip:['Layout name — click to rename','اسم القالب — اضغط لتغييره'],
+  mFile:['File','ملف'], mEdit:['Edit','تحرير'], mView:['View','عرض'], mData:['Data','البيانات'],
+  newLayout:['New layout','قالب جديد'], savedLayouts:['Saved layouts…','القوالب المحفوظة…'],
+  scopeHead:['Layout applies to','القالب يُطبَّق على'],
+  scopeDefault:['All projects (global layout)','كل المشاريع (قالب عام)'],
+  scopeProject:['This project only (custom)','هذا المشروع فقط (مخصص)'],
+  unlink:['Remove customization','إلغاء التخصيص'],
+  undo:['Undo','تراجع'], redo:['Redo','إعادة'], duplicate:['Duplicate','تكرار'], delete:['Delete','حذف'],
+  selectAll:['Select all','تحديد الكل'],
+  zoom:['Zoom','التكبير'], fit:['Fit to screen','ملاءمة الشاشة'], present:['Presentation mode','وضع العرض'],
+  dashLang:['Dashboard language','لغة الداشبورد'],
+  dashLangTip:['Language of the dashboard content itself (titles, labels, direction)','لغة محتوى الداشبورد نفسه (العناوين والمسميات والاتجاه)'],
+  refresh:['Refresh now','تحديث البيانات الآن'], autoHead:['Auto refresh','التحديث التلقائي'],
+  off:['Off','إيقاف'], m5:['Every 5 minutes','كل ٥ دقائق'], m15:['Every 15 minutes','كل ١٥ دقيقة'],
+  m30:['Every 30 minutes','كل ٣٠ دقيقة'], m60:['Every hour','كل ساعة'],
+  srcHead:['Progress source','مصدر نسب الإنجاز'], srcWeekly:['Weekly updates','التحديثات الأسبوعية'],
+  srcCf:['Cash flow','التدفق النقدي'],
+  project:['Project','المشروع'], pickProject:['— Select a project —','— اختر المشروع —'],
+  allProjects:['All projects (combined)','كل المشاريع (مجمّع)'],
+  zoomTip:['Zoom — type a value, or Ctrl + mouse wheel over the canvas','التكبير — اكتب النسبة أو Ctrl + عجلة الفأرة فوق اللوحة'],
+  zoomIn:['Zoom in','تكبير'], zoomOut:['Zoom out','تصغير'],
+  tabElements:['Elements','العناصر'], tabProps:['Properties','الخصائص'], tabPage:['Page','الصفحة'],
+  savedLayoutsT:['Saved layouts','القوالب المحفوظة'], close:['Close','إغلاق'],
+  exit:['Exit','خروج'], exitTip:['Exit full screen (Esc)','خروج من ملء الشاشة (Esc)']
+};
+function applyUiStatic(){
+  const en = uiEN(), i = en ? 0 : 1, pick = k => (I18N[k] || [k, k])[i];
+  document.documentElement.lang = en ? 'en' : 'ar';
+  document.documentElement.dir  = en ? 'ltr' : 'rtl';
+  document.title = en ? 'Dashboard builder | Saudi Architects' : 'منشئ الداشبورد | المعماريون السعوديون';
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = pick(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = pick(el.dataset.i18nTitle));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = pick(el.dataset.i18nPh));
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', pick(el.dataset.i18nAria)));
+  const b = document.getElementById('btnUiLang');
+  if(b){ b.textContent = en ? 'Arabic' : 'English'; b.title = en ? 'Switch the interface to Arabic' : 'التبديل إلى الإنجليزية'; }
+}
+
+/* ---- قاموس العربي → الإنجليزي لنصوص الواجهة المولَّدة بالكود ---- */
+const UI_EN = {
+"· آخر تعديل": "· Last modified",
+"عناصر محددة": "elements selected",
+"اسحب أي عنصر منها لتحريك المجموعة كلها. Esc لإلغاء التحديد.": "Drag any of them to move the whole group. Esc to clear the selection.",
+"بكسل": "px",
+"الأسبوعية": "Weekly",
+"اليومية": "Daily",
+"مجموع الأيام.": "sum of the days.",
+"/ ١٠)": "/ 10)",
+"A4 أفقي": "A4 landscape",
+"A4 رأسي": "A4 portrait",
+"SPI = الإنجاز الفعلي ÷ الإنجاز المخطط. أكبر من ١ يعني تقدماً على البرنامج، وأقل من ١ يعني تأخراً. الألوان تتغير تلقائياً حسب الحدّين أعلاه.": "SPI = actual progress ÷ planned progress. Above 1 means ahead of schedule, below 1 means behind. Colors change automatically based on the two thresholds above.",
+"«تلقائي» يكبّر الأعمدة القصيرة فتُقرأ بوضوح. «ثابت» يُبقي المقياس ٠–١٠٠٪ دائماً، وهو الأصدق لو بتقارن صورة الأسبوع بصورة أسبوع آخر.": "“Auto” enlarges short bars so they are easy to read. “Fixed” always keeps the scale at 0–100%, which is more honest when comparing one week's snapshot with another.",
+"«لكل فترة» يعرض نسبة كل فترة (يوم/أسبوع/شهر) منفردة من غير تراكم: الفعلي = فرق الفعلي التراكمي عن الفترة اللي قبلها، والمخطط = مجموع المخطط اليومي جوه الفترة. مفيد لمقارنة الوتيرة الفعلية بالمخططة فترة بفترة.": "“Per period” shows each period's percentage (day/week/month) on its own, not cumulative: actual = change in cumulative actual from the previous period, planned = sum of the daily plan within the period. Useful to compare actual pace with planned pace period by period.",
+"«مع أسماء المحاور» هو الخيار الآمن — الأرقام تظهر بجانب الاسم فلا تغطّيه. «على رؤوس الرسم» يضع الأرقام على الرؤوس، ويُفضَّل معه تفعيل خلفية الأرقام من «تنسيق أجزاء القالب» حتى تُقرأ فوق أسماء المحاور.": "“With axis labels” is the safe choice — numbers appear next to the label without covering it. “On the chart tips” puts numbers on the tips; turn on the number background in “Element parts formatting” so they stay readable over axis labels.",
+"«نسبة من الهدف» تجعل امتلاء الحلقة مطابقاً للرقم: SPI ١٫٠٣ = حلقة مكتملة ومكتوب تحتها مقدار التجاوز. «مقياس ممتد» يترك مجالاً فوق الهدف لتظهر درجة التقدم، لكن الامتلاء عندها يكون نسبة إلى أقصى المقياس وليس إلى الرقم.": "“Share of target” makes the ring fill match the number: SPI 1.03 = a full ring with the overshoot written below. “Extended scale” leaves room above the target to show how far ahead you are, but the fill is then relative to the scale maximum, not the number.",
+"آخر إدخال من مدير المشروع": "Last entry by the project manager",
+"آخر تحديث": "Updated",
+"أبجدي": "Alphabetical",
+"أبيض وأسود": "Black & white",
+"أبيض وأسود (طباعة)": "Black & white (print)",
+"أثناء السحب لتعطيل الالتصاق مؤقتاً.": "while dragging to disable snapping temporarily.",
+"أخضر زمردي": "Emerald green",
+"أرقام البيانات": "Data labels",
+"أزرق بحري": "Ocean blue",
+"أزرق ليلي": "Midnight blue",
+"أسبوعي (السبت ← الجمعة)": "Weekly (Saturday → Friday)",
+"أسرع المشاريع تقدماً خلال الأسبوع": "the fastest-progressing projects this week",
+"أسفل": "Bottom",
+"أسفل العمود": "Bar bottom",
+"أسفل وسط": "Bottom center",
+"أسفل يسار": "Bottom left",
+"أسفل يمين": "Bottom right",
+"أعلى": "Top",
+"أعلى العمود": "Bar top",
+"أعلى وسط": "Top center",
+"أعلى يسار": "Top left",
+"أعلى يمين": "Top right",
+"أعمدة": "Bars",
+"أعمدة أفقية": "Horizontal bars",
+"أعمدة تراكمية": "Stacked bars",
+"أعمدة مقارنة": "Comparison bars",
+"أفضل عدد": "Top count",
+"أفقياً": "Horizontally",
+"أقصى المقياس": "Scale maximum",
+"أكبر كم شريحة": "Largest slices",
+"ألوان حالات الأداء": "Performance status colors",
+"أميري": "Amiri",
+"أو": "or",
+"أو ارفع لوجو من جهازك": "or upload a logo from your device",
+"أوامر التغيير (عدد)": "Change orders (count)",
+"أوامر تغيير المقاول من قيمة عقده": "Contractor change orders of contract value",
+"أولوية الالتصاق": "Snap priority",
+"أيزومتريك": "Isometric",
+"إبراز الأول": "Highlight first",
+"إرجاع الصورة لطبيعتها": "Reset image adjustments",
+"إرجاع كل الألوان": "Reset all colors",
+"إرجاع لون": "Reset color of",
+"إرجاع لون الحالة هذا": "Reset this status color",
+"إرجاع لون الحلقة هذا": "Reset this ring color",
+"إرجاع لون الخط هذا": "Reset this line color",
+"إرجاع لون الرسم هذا": "Reset this chart color",
+"إرجاع لون السلسلة هذا": "Reset this series color",
+"إرجاع لون الشريحة هذا": "Reset this slice color",
+"إرجاع لون الصف هذا": "Reset this row color",
+"إرجاع لون العمود هذا": "Reset this bar color",
+"إرجاع لون المشروع هذا": "Reset this project color",
+"إرجاع هذا الجزء للافتراضي": "Reset this part to default",
+"إزاحة أفقية": "Horizontal offset",
+"إزاحة رأسية": "Vertical offset",
+"إضافة visual للصفحة": "Add a visual to the page",
+"إطار": "Border",
+"إطار (Border)": "Border",
+"إظهار أرقام الترتيب": "Show rank numbers",
+"إظهار اسم الحقل تحت الرقم": "Show field name under the value",
+"إظهار الأرقام": "Show values",
+"إظهار الأرقام الفعلية أسفل الرسم": "Show actual values below the chart",
+"إظهار الإجمالي في المنتصف": "Show total in the center",
+"إظهار الحالة": "Show status",
+"إظهار الشبكة": "Show grid",
+"إظهار الفرق عن التحديث السابق": "Show change from previous update",
+"إظهار المخطط": "Show planned",
+"إظهار النسب المستخدمة في الحساب": "Show the percentages used in the calculation",
+"إظهار تعليق أسفل الصورة": "Show caption below the image",
+"إظهار درجة التأثير": "Show impact level",
+"إظهار شريط العنوان": "Show title bar",
+"إظهار قائمة القيم أسفل الرسم": "Show values list below the chart",
+"إظهار مصدر التاريخ تحته": "Show date source below",
+"إظهار وسيلة الإيضاح": "Show legend",
+"إعادة": "Redo",
+"إغلاق": "Close",
+"إلغاء التخصيص": "Remove customization",
+"إلى تاريخ": "To date",
+"إن كان التقرير للطباعة.": "if the report is for printing.",
+"إيقاف": "Off",
+"اترك الحقلين فاضيين لعرض كل المدى المتاح. المدى يُطبَّق على أي مصدر بيانات.": "Leave both fields empty to show the full available range. The range applies to any data source.",
+"احتواء كامل (بدون قص)": "Contain (no cropping)",
+"اختر «التقدم خلال الفترة (فعلي)» مع الترتيب من الأكبر للأصغر — الأعمدة الخضراء تقدّمت والحمراء تراجعت.": "choose “Progress during period (actual)” sorted largest to smallest — green bars advanced, red bars went back.",
+"اختر «التقدم خلال الفترة (فعلي)»": "choose “Progress during period (actual)”",
+"مع الترتيب من الأكبر للأصغر — الأعمدة الخضراء تقدّمت والحمراء تراجعت.": "sorted largest to smallest — green bars advanced, red bars went back.",
+"اختر الجزء ثم عدّله": "Pick a part, then edit it",
+"اختر الحقول التي تظهر في الجدول.": "Choose the fields shown in the table.",
+"اختر عمودين أو أكثر (يُفضَّل حتى ٦ للوضوح). لو اخترت حقولاً بأنواع مختلفة (نسبة مع مبلغ مثلاً) سيُنسَّق كل عمود حسب نوعه.": "Choose two or more bars (up to 6 is clearest). If you mix field types (e.g. a percentage with an amount), each bar is formatted by its own type.",
+"اختر عنصراً من الصفحة (أو من قائمة العناصر) لعرض خصائصه هنا.": "Select an element on the page (or from the elements list) to see its properties here.",
+"اختر مشروعاً أولاً": "Select a project first",
+"اختر مشروعاً أولاً لحفظ قالب مخصص له": "Select a project first to save a custom layout for it",
+"اختصار الأرقام الكبيرة (مليون/ألف)": "Abbreviate large numbers (M/K)",
+"اختيار الثيم لا يغيّر شيئاً حتى تضغط الزر — عندها تُحدَّث خلفية الصفحة وألوان كل العناصر ولوحة ألوان الرسوم.": "Choosing a theme changes nothing until you press the button — then the page background, all element colors and the chart palette are updated.",
+"اسم الشريحة": "Slice name",
+"اسم القالب": "Layout name",
+"اسم القالب — اضغط لتغييره": "Layout name — click to rename",
+"اسم المستخدم": "Username",
+"اسم المشروع": "Project name",
+"اضغط": "Press",
+"اضغط ضغطتين على مربع النص للكتابة داخله مباشرة، وضغطتين على شريط العنوان لتعديل العنوان.": "Double-click a text box to type in it directly, and double-click a title bar to edit the title.",
+"اضغط على أي قالب لإضافته. اسحب الـ visual من أي مكان بداخله، وغيّر حجمه من المربعات الزرقاء على الحواف. اضغط": "Click any element to add it. Drag a visual from anywhere inside it, and resize it with the blue handles on its edges. Hold",
+"افتراضي": "Default",
+"اكتب النص هنا…": "Type your text here…",
+"الأرقام تعرض": "Values show",
+"الأصغر أولاً": "Smallest first",
+"الأعلى في القائمة = الأمام. استخدم ↑ و↓ لترتيب التراكب، وأسهم شريط القالب لتبديل المكان.": "Top of the list = front. Use ↑ and ↓ to change stacking order, and the element toolbar arrows to swap positions.",
+"الأعمال الجارية": "Works in progress",
+"الأعمال المخططة": "Planned works",
+"الأعمال المنجزة": "Completed works",
+"الأعمدة (": "Bars (",
+"الأكبر أولاً": "Largest first",
+"الإنجاز الفعلي (حالي)": "Actual progress (current)",
+"الإنجاز الفعلي (سابق)": "Actual progress (previous)",
+"الإنجاز الفعلي التراكمي": "Cumulative actual progress",
+"الإنجاز الفعلي مقابل المخطط": "Actual vs planned progress",
+"الإنجاز الفعلي: حالي مقابل سابق": "Actual progress: current vs previous",
+"الإنجاز المخطط (حالي)": "Planned progress (current)",
+"الإنجاز المخطط (سابق)": "Planned progress (previous)",
+"الإنجاز المخطط التراكمي": "Cumulative planned progress",
+"الإنجاز المخطط: حالي مقابل سابق": "Planned progress: current vs previous",
+"الاتجاه": "Direction",
+"الاثنان معاً": "Both",
+"الاثنين": "Both",
+"الارتفاع": "Height",
+"الاستدارة": "Corner radius",
+"الالتصاق بالشبكة": "Snap to grid",
+"الانحراف عن المخطط": "Deviation from plan",
+"البداية الفعلية": "Actual start",
+"البيانات": "Data",
+"التاريخ": "Date",
+"التباين": "Contrast",
+"التحديث التلقائي": "Auto refresh",
+"التحديث التلقائي كل": "Auto refresh every",
+"التحديث يجلب أحدث بيانات من قاعدة البيانات ويعيد رسم القوالب فقط — التصميم والمشروع المفتوح لا يتأثران. مفيد لو تركت الشاشة معروضة على تلفزيون.": "Refreshing loads the latest data from the database and redraws the elements only — the design and the open project stay as they are. Useful when the screen is left on a TV.",
+"التحديثات الأسبوعية": "Weekly updates",
+"التدفق النقدي": "Cash flow",
+"الترتيب": "Order",
+"التشبّع": "Saturation",
+"التقدم المالي التراكمي": "Cumulative financial progress",
+"التقدم خلال الفترة (فعلي)": "Progress during period (actual)",
+"التقدم خلال الفترة (مخطط)": "Progress during period (planned)",
+"التقييم المالي": "Financial rating",
+"التكبير": "Zoom",
+"التكبير — اكتب النسبة أو Ctrl + عجلة الفأرة فوق اللوحة": "Zoom — type a value, or Ctrl + mouse wheel over the canvas",
+"التوزيع يحتاج ٣ عناصر على الأقل": "Distributing needs at least 3 elements",
+"التي تم حلها فقط": "Resolved only",
+"الثيم": "Theme",
+"الثيم العام": "Global theme",
+"الحالة": "Status",
+"الحجم": "Size",
+"الحد الأقصى ١٠ عناصر للمقارنة": "Maximum of 10 items to compare",
+"الحقل": "Field",
+"الحقل الأول": "First field",
+"الحقل الثاني": "Second field",
+"الحقول المعروضة (": "Displayed fields (",
+"الحلقة": "Ring",
+"الخصائص": "Properties",
+"الخط": "Font",
+"الخطوة الحالية": "Current step",
+"بكسل (مقاس خلية الشبكة).": "px (grid cell size).",
+"الرسم": "Chart",
+"الرقم الرئيسي": "Main value",
+"السطوع": "Brightness",
+"السلسلة": "Series",
+"السماكة": "Weight",
+"الشبكة (حركة بمقدار الخلية)": "Grid (move by cell)",
+"الشبكة والالتصاق": "Grid & snapping",
+"الشرائح": "Slices",
+"الشريحة": "Slice",
+"الشفافية": "Opacity",
+"الشكل": "Shape",
+"الشهرية": "Monthly",
+"الصف": "Row",
+"الصفحة": "Page",
+"الصفوف": "Rows",
+"الصيغة": "Format",
+"الطريقة": "Method",
+"العربية": "Arabic",
+"العرض": "Width",
+"العمود": "Bar",
+"العناصر": "Elements",
+"العناصر المقارَنة (": "Compared items (",
+"العناصر في الصفحة": "Elements on the page",
+"العنصر": "Element",
+"العنصر في الخلف بالفعل": "The element is already at the back",
+"العنصر في المقدمة بالفعل": "The element is already at the front",
+"العنوان": "Title",
+"الفرز حسب": "Sort by",
+"الفعلي (لكل فترة + تراكمي)": "Actual (per period + cumulative)",
+"الفعلي ما يتحركش إلا برقم حقيقي ويقف عند آخر رقم حقيقي: كل نسبة بتظهر في يوم تاريخها (تحديث مدير المشروع، أو Data Date في XER، أو نهاية الفترة المالية، أو يوم الإدخال)، واللي مفيهوش رقم جديد يفضل على آخر رقم قبله من غير تقدير.": "Actual moves only with a real number and stops at the last real number: each percentage appears on its own date (project manager update, XER Data Date, end of the financial period, or entry date), and a period without a new number stays at the previous number with no estimation.",
+"الفواتير": "Invoices",
+"القائمة فقط": "List only",
+"القالب يُطبَّق على": "Layout applies to",
+"القاهرة": "Cairo",
+"القوالب المحفوظة": "Saved layouts",
+"القوالب المحفوظة…": "Saved layouts…",
+"القيم تراكمية بطبيعتها فلا يفترض أن ينزل المنحنى. «فرض التزايد» يثبّت كل نقطة عند أعلى قيمة سابقة، فيعالج أي هبوط ناتج عن إدخال قيمة أقل في تحديث لاحق.": "Values are cumulative, so the curve should never go down. “Force increasing” holds each point at the highest previous value, fixing any dip caused by a lower value entered in a later update.",
+"القيم كما هي": "Values as they are",
+"القيمة": "Value",
+"القيمة والنسبة": "Value and percentage",
+"اللوجو يُرفع على Cloudinary ويُستخدم رابطه مباشرة — مناسب للوجو المالك أو المطور أو المقاول أو الاستشاري.": "The logo is uploaded to Cloudinary and its link is used directly — suitable for the owner, developer, contractor or consultant logo.",
+"اللون": "Color",
+"اللون 2": "Color 2",
+"اللون يتبع الحالة لا الرقم: متقدّم / في المسار / متأخر — ويظهر في البطاقة والحلقة والمنحنى.": "Color follows the status, not the number: ahead / on track / behind — shown in the card, the ring and the curve.",
+"اللون يُحفظ باسم السلسلة، فإخفاء سلسلة لا ينقل لونها إلى غيرها.": "Colors are saved by series name, so hiding a series does not pass its color to another.",
+"المالك": "Owner",
+"المتبقي من الإنجاز": "Remaining progress",
+"المجموعة": "Group",
+"المحاذاة": "Alignment",
+"المحاذاة (داخل حدود المجموعة)": "Alignment (within the selection bounds)",
+"المخطط (لكل فترة + تراكمي)": "Planned (per period + cumulative)",
+"المخطط العام": "Master plan",
+"المخطط بيتوزع يومياً حسب برنامج XER المستورد (على أيام وساعات العمل في تقويم كل نشاط، زي البريمافيرا)؛ المشروع اللي خطته مش من XER بيتوزع بالتساوي على أيام الشهر. الأسبوعي والشهري مجموع الأيام.": "The plan is spread daily from the imported XER schedule (over the working days and hours of each activity's calendar, like Primavera); a project whose plan is not from XER is spread evenly over the days of the month. Weekly and monthly values are sums of the days.",
+"المخططات": "Drawings",
+"المخططات: قيد المراجعة من مقدمة": "Drawings: under review of submitted",
+"المراعي": "Almarai",
+"المرفق": "Attachment",
+"المسافة بين الأعمدة": "Bar spacing",
+"المسافة نسبة من عرض الخانة، فسُمك العمود يكبر ويصغر مع القالب تلقائياً بلا تداخل. للعناوين الطويلة جرّب «أعمدة أفقية».": "Spacing is a share of the slot width, so bar thickness scales with the element automatically without overlap. For long labels, try “Horizontal bars”.",
+"المشاريع (وضع كل المشاريع)": "Projects (all-projects mode)",
+"المشروع": "Project",
+"المصدر": "Source",
+"المطور": "Developer",
+"المعوقات": "Obstacles",
+"المقارنة": "Comparison",
+"المقاس": "Size",
+"المقاول": "Contractor",
+"المقياس": "Scale",
+"المنحنى التراكمي": "S-curve",
+"الموضع": "Position",
+"الموضع والحجم (بكسل)": "Position & size (px)",
+"المُختار الآن:": "Selected now:",
+"حقل — علّم على الحقول التي تريد ترتيبها معاً (حقلان على الأقل).": "fields — tick the fields you want to rank together (at least two).",
+"النسب الفعلية": "Actual percentages",
+"النسب المخططة": "Planned percentages",
+"النسب الفعلية الشهرية": "Monthly actual percentages",
+"النسب المخططة الشهرية": "Monthly planned percentages",
+"النسبة %": "Percentage %",
+"النص": "Text",
+"النص (بالعربية) — أو اكتب مباشرة داخل المربع بضغطتين": "Text (Arabic) — or type directly in the box by double-clicking",
+"النص (بالإنجليزية) — أو اكتب مباشرة داخل المربع بضغطتين": "Text (English) — or type directly in the box by double-clicking",
+"— أو اكتب مباشرة داخل المربع بضغطتين": "— or type directly in the box by double-clicking",
+"النص (عربي)": "Text (Arabic)",
+"(بالإنجليزية)": "(English)",
+"(بالعربية)": "(Arabic)",
+"(عربي)": "(Arabic)",
+"(موروث)": "(inherited)",
+"النص تحت الرقم": "Sub label",
+"النهاية المتوقعة": "Expected finish",
+"الوضع المدمج يعرض الاتنين في رسم واحد: أعمدة لنسب كل فترة منفردة (الفعلي والمخطط) على محور، ومنحنيات للإنجاز التراكمي على المحور المقابل من 0 إلى 100%. المحوران منفصلان لأن نسبة الفترة الواحدة صغيرة عادة مقارنة بالتراكمي.": "Combined mode shows both in one chart: bars for each period's own percentage (actual and planned) on one axis, and cumulative progress curves on the opposite axis from 0 to 100%. The axes are separate because a single period's percentage is usually small compared with the cumulative.",
+"بداية العقد": "Contract start",
+"بدون أرقام": "No values",
+"بدون خلفية": "No background",
+"بدون فرز": "No sorting",
+"بطاقات": "Cards",
+"بطاقة رقم كبير": "Big number card",
+"بطاقة مؤشر": "KPI card",
+"بنفسجي ملكي": "Royal purple",
+"بيانات المشروع": "Project information",
+"بيتطبّق على كل القوالب اللي بتعرض نسبة الإنجاز الفعلية أو المخططة (الحالية والسابقة) أو SPI أو الانحراف، في الداشبورد كلها مرة واحدة. مع «التدفق النقدي»: المخطط من خط الأساس المعتمد في تاريخ كل تحديث، والفعلي آخر رقم حقيقي لحد التاريخ ده. في وضع «كل المشاريع» الحساب بنفس طريقة منحنى المحفظة (بيحسب أوامر التغيير). باقي البيانات (المخططات، الفواتير، العمالة، المعوقات…) بتفضل من التحديثات الأسبوعية.": "Applies at once to every element in the dashboard that shows actual or planned progress (current and previous), SPI or deviation. With “Cash flow”: planned comes from the approved baseline at each update date, and actual is the last real number up to that date. In all-projects mode the calculation matches the portfolio curve (including change orders). All other data (drawings, invoices, manpower, obstacles…) still comes from the weekly updates.",
+"تاريخ + منذ كذا": "Date + time ago",
+"تاريخ الإرسال": "Submission date",
+"تاريخ البيانات": "Data date",
+"تاريخ تحديث": "update dates",
+"تاريخ فقط": "Date only",
+"تاريخ فواتير الاستشاري": "Consultant invoices date",
+"تاريخ فواتير المقاول": "Contractor invoices date",
+"تاريخ نهاية الاستشاري (معدل)": "Consultant finish date (revised)",
+"تاريخ نهاية المقاول (معدل)": "Contractor finish date (revised)",
+"تاريخ ووقت": "Date and time",
+"تبديل اللغة يترجم كل النصوص التلقائية ويقلب اتجاه الصفحة. عناوين الـ visuals والنصوص الحرة لها نسخة لكل لغة — اكتبها مرة بالعربي ومرة بالإنجليزي.": "Switching the language translates all automatic texts and flips the page direction. Visual titles and free texts have one version per language — write them once in Arabic and once in English.",
+"تجوال": "Tajawal",
+"تحت النقطة": "Below the point",
+"تحديث البيانات": "Data refresh",
+"تحديث البيانات الآن": "Refresh data now",
+"تحديث للمشروع": "updates for the project",
+"تحديثات مديري المشاريع الأسبوعية": "Project managers' weekly updates",
+"تحديد الكل": "Select all",
+"تحرير": "Edit",
+"تدرج لوني": "Gradient",
+"تدرّج لوني على عمود رقمي": "Color scale on a numeric column",
+"تراجع": "Undo",
+"تراكمي (المعتاد)": "Cumulative (standard)",
+"ترتيب": "Arrange",
+"ترتيب Top N": "Top N ranking",
+"ترتيب تلقائي": "Auto arrange",
+"ترتيب ماذا": "Rank by",
+"تصاعدي": "Ascending",
+"تصغير": "Zoom out",
+"تطبيق الثيم على كل العناصر": "Apply theme to all elements",
+"تعديلات الاستشاري (عدد)": "Consultant variations (count)",
+"تعديلات الاستشاري (قيمة)": "Consultant variations (value)",
+"تعديلات الاستشاري (مدة)": "Consultant variations (duration)",
+"تعديلات المقاول (عدد)": "Contractor variations (count)",
+"تعديلات المقاول (قيمة)": "Contractor variations (value)",
+"تعديلات المقاول (مدة)": "Contractor variations (duration)",
+"تعذر تحميل البيانات": "Could not load the data",
+"تعذر فتح القالب": "Could not open the layout",
+"تعذّر تحميل نسب التدفق النقدي — المعروض من التحديثات الأسبوعية": "Could not load cash flow percentages — showing weekly updates instead",
+"تغطية (مع قص)": "Cover (with cropping)",
+"تقييم السلامة": "Safety rating",
+"تقييم العمالة": "Manpower rating",
+"تقييم المعدات": "Equipment rating",
+"تكبير": "Zoom in",
+"تكتب الآن النص الإنجليزي. بدّل اللغة من الشريط العلوي لتحرير النص العربي.": "You are editing the English text. Switch the dashboard language to edit the Arabic text.",
+"تكرار": "Duplicate",
+"تكرار الكل": "Duplicate all",
+"تلقائي": "Auto",
+"تلقائي (فوق النقطة)": "Auto (above the point)",
+"تلقائي (وسط العمود)": "Auto (bar center)",
+"تلقائي (يلائم أكبر قيمة)": "Auto (fits the largest value)",
+"تلقائي كل": "Auto every",
+"تلوين الصفوف بالتناوب": "Alternate row shading",
+"تم إلغاء التخصيص — المشروع يستخدم القالب العام الآن": "Customization removed — the project now uses the global layout",
+"تم إيقاف التحديث التلقائي": "Auto refresh turned off",
+"تم استرجاع آخر مشروع وقالب كنت تعمل عليهما": "Restored the last project and layout you worked on",
+"تم الترتيب التلقائي": "Auto arranged",
+"تم تجميع": "Combined",
+"مشروع عبر": "projects across",
+"تم تحديث البيانات من قاعدة البيانات ✓": "Data refreshed from the database ✓",
+"تم تحميل": "Loaded",
+"تم حفظ القالب العام — سينطبق على كل المشاريع التي ليس لها قالب مخصص ✓": "Global layout saved — it applies to every project without a custom layout ✓",
+"تم حفظ القالب المخصص لمشروع": "Custom layout saved for project",
+"تم رفع اللوجو ✓": "Logo uploaded ✓",
+"تم فتح القالب:": "Opened layout:",
+"تمت محاذاة": "Aligned",
+"عنصر على شبكة": "elements to a grid of",
+"تمديد": "Extension",
+"تنازلي": "Descending",
+"تنسيق مشترك (يُطبَّق على الكل)": "Shared formatting (applies to all)",
+"تواريخ التحديثات": "Update dates",
+"توحيد المقاس (حسب العنصر الأخير المحدد)": "Match size (to the last selected element)",
+"توزيع متساوٍ": "Distribute evenly",
+"ثابت ٠ – ١٠٠٪": "Fixed 0 – 100%",
+"جاري التحميل...": "Loading...",
+"جاري رفع الصورة…": "Uploading image…",
+"جدول": "Table",
+"جدول بيانات": "Data table",
+"جدول ترتيب": "Ranking table",
+"حجم الخط": "Font size",
+"حجم الخط ولونه وسماكته وخلفيته من «تنسيق أجزاء القالب» بالأسفل.": "Font size, color, weight and background are set in “Element parts formatting” below.",
+"حجم الصورة أكبر من 8 ميجابايت": "The image is larger than 8 MB",
+"حد التحذير": "Warning threshold",
+"حد التقدم": "Ahead threshold",
+"حد الصفوف": "Row limit",
+"حذف": "Delete",
+"حذف الكل": "Delete all",
+"حذف هذا القالب نهائياً؟": "Delete this layout permanently?",
+"حفظ": "Save",
+"حفظ القالب العام": "Save global layout",
+"حفظ كقالب عام لكل المشاريع": "Save as the global layout for all projects",
+"حقول البيانات": "Data fields",
+"حقول مختارة": "Selected fields",
+"حقول مختارة من المشروع": "Selected project fields",
+"خارج الشرائح (يحتاج قالباً أكبر)": "Outside the slices (needs a larger element)",
+"خانات عشرية": "Decimals",
+"خط القالب": "Element font",
+"خط المتوسط": "Average line",
+"خطأ في الاتصال:": "Connection error:",
+"خطأ في الحفظ:": "Save error:",
+"خطأ في الرفع:": "Upload error:",
+"خطأ:": "Error:",
+"خطوط انسيابية": "Smooth lines",
+"خطي": "Straight",
+"خلايا الجدول": "Table cells",
+"خلفية الصفحة": "Page background",
+"خلفية العنوان": "Title background",
+"خلفية النص": "Text background",
+"خيارات القالب": "Element options",
+"دائري كامل": "Full pie",
+"داخل الشرائح": "Inside the slices",
+"داكن": "Dark",
+"دقة المنحنى": "Curve resolution",
+"دقيقة": "minutes",
+"دونات (مفرغ)": "Donut",
+"رأسياً": "Vertically",
+"رؤوس الجدول": "Table header",
+"رابط الصورة": "Image URL",
+"رجوع": "Back",
+"رسم دائري": "Pie chart",
+"رفيع": "Thin",
+"رمادي احترافي": "Professional gray",
+"رملي": "Sand",
+"ساعة": "1 hour",
+"سرعة التنفيذ مقابل الخطة": "Execution pace vs plan",
+"سماكة": "Weight",
+"سماكة الإطار": "Border width",
+"سمك الحلقة": "Ring thickness",
+"سميك": "Thick",
+"سيتم بدء قالب جديد فارغ. هل تريد المتابعة؟": "A new empty layout will be started. Continue?",
+"سيتم حذف القالب المخصص لمشروع": "The custom layout for project",
+"وسيعود المشروع لاستخدام القالب العام. المتابعة؟": "will be deleted and the project will go back to the global layout. Continue?",
+"سيتم حفظ نسخة مستقلة خاصة بمشروع": "A separate copy will be saved for project",
+"عند الضغط على حفظ. بعدها لن تتأثر بأي تعديل تعمله على القالب العام. المتابعة؟": "when you press Save. After that it will not be affected by changes to the global layout. Continue?",
+"عند الضغط على حفظ.": "when you press Save.",
+"بعدها لن تتأثر بأي تعديل تعمله على القالب العام. المتابعة؟": "After that it will not be affected by changes to the global layout. Continue?",
+"سيتم حفظ هذا التصميم كقالب عام لكل المشاريع عند الضغط على حفظ. المتابعة؟": "This design will be saved as the global layout for all projects when you press Save. Continue?",
+"سُمك المنحنى": "Curve thickness",
+"شاشة 16:9": "16:9 screen",
+"شريحة لكل مشروع (وضع «الكل»)": "One slice per project (“All” mode)",
+"شريط القيم": "Values strip",
+"شريط العنوان (للكل)": "Title bar (for all)",
+"شريط الملخص (إجمالي/قائم/محلول)": "Summary strip (total/open/resolved)",
+"شريط نسبي تحت كل اسم": "Relative bar under each name",
+"شكل العرض": "Display style",
+"شكل المنحنى التراكمي": "S-curve style",
+"شهري": "Monthly",
+"صف لكل تحديث للمشروع": "One row per project update",
+"صف لكل مشروع (وضع «الكل»)": "One row per project (“All” mode)",
+"صفحة التدفق النقدي (خط الأساس المعتمد)": "Cash flow page (approved baseline)",
+"صورة / لوجو": "Image / logo",
+"طريقة الحساب": "Calculation method",
+"طلبات IR (قيد المراجعة)": "IRs (under review)",
+"طلبات IR (معتمدة)": "IRs (approved)",
+"طلبات IR (مقدمة)": "IRs (submitted)",
+"طلبات الاستلام IR": "Inspection requests (IR)",
+"ظل خفيف": "Soft shadow",
+"عادي": "Normal",
+"عدد العناصر (Top N)": "Number of items (Top N)",
+"عرض": "View",
+"عرض الصرف": "Show spend",
+"عريض": "Wide",
+"عريض جداً": "Extra bold",
+"علامة النسبة (+6.0%)": "Percent sign (+6.0%)",
+"على النقطة": "On the point",
+"على رؤوس الرسم": "On the chart tips",
+"علّم على الحقول التي تريد ترتيبها معاً (حقلان على الأقل).": "Tick the fields you want to rank together (at least two).",
+"عمود الترقيم": "Row number column",
+"فاتح هادئ": "Soft light",
+"فتح": "Open",
+"فرض التزايد التراكمي (منع الهبوط)": "Force cumulative increase (no dips)",
+"فشل": "Failed",
+"فشل الحفظ": "Save failed",
+"فشل رفع الصورة": "Image upload failed",
+"فواتير الاستشاري (عدد)": "Consultant invoices (count)",
+"فواتير الاستشاري (قيمة)": "Consultant invoices (value)",
+"فواتير الاستشاري ÷ عقده": "Consultant invoices ÷ contract",
+"فواتير الاستشاري من قيمة عقده": "Consultant invoices of contract value",
+"فواتير المقاول (عدد)": "Contractor invoices (count)",
+"فواتير المقاول (قيمة)": "Contractor invoices (value)",
+"فواتير المقاول ÷ عقده": "Contractor invoices ÷ contract",
+"فواتير المقاول من قيمة عقده": "Contractor invoices of contract value",
+"فوق النقطة": "Above the point",
+"في وضع «الشبكة» يتحرك العنصر ويتغيّر حجمه بمضاعفات مقاس الخلية بالضبط، والأسهم تحرّكه خطوة خلية كاملة (Shift للتحريك بكسل واحد، و Alt أثناء السحب لتعطيل الالتصاق مؤقتاً). بعد تغيير مقاس الخلية اضغط الزر أعلاه لمحاذاة العناصر الموجودة.": "In “Grid” mode elements move and resize in exact multiples of the cell size, and the arrow keys move one full cell (Shift to move 1 px, Alt while dragging to disable snapping temporarily). After changing the cell size, press the button above to align existing elements.",
+"في وضع «كل المشاريع» تُجمع قيم الفترة لكل المشاريع وتُنسب لإجمالي أساس التخطيط.": "In all-projects mode, period values are summed across projects and divided by the total planning base.",
+"في وضع «كل المشاريع» يُحتسب لكل تاريخ آخر تحديث معروف لكل مشروع (وليس المشاريع التي حدّثت في ذلك اليوم فقط)، والإنجاز متوسط مرجّح بقيمة العقد والصرف مجموع.": "In all-projects mode, each date uses the latest known update of every project (not only the projects updated that day); progress is weighted by contract value and spend is summed.",
+"في وضع «كل المشاريع»: تُجمع القيمة التراكمية (مخططة وفعلية) بالريال لكل المشاريع التي أُعِدّ لها تدفق نقدي، ثم تُنسَب كل نقطة إلى إجمالي أساس التخطيط لكل هذه المشاريع مجتمعة — فتُقارَن الحصيلة الفعلية بالحصيلة المخططة على مستوى المحفظة كلها. مشروع لم يبدأ مداه بعد لا يساهم، وكل مشروع يفضل على آخر رقم حقيقي ليه لحد آخر رقم حقيقي في المحفظة.": "In all-projects mode: cumulative values (planned and actual) in SAR are summed for all projects that have a cash flow, then each point is divided by the combined planning base — comparing actual against planned for the whole portfolio. A project whose range has not started yet does not contribute, and each project holds its last real number up to the portfolio's last real number.",
+"فيروزي": "Teal",
+"قالب بدون اسم": "Untitled layout",
+"قالب جديد": "New layout",
+"قيم أوامر التغيير": "Change order values",
+"قيم العقود": "Contract values",
+"قيمة بالريال (محور ثانٍ)": "Value in SAR (second axis)",
+"قيمة عقد الاستشاري": "Consultant contract value",
+"قيمة عقد المقاول": "Contractor contract value",
+"كحلي وذهبي": "Navy & gold",
+"كل المشاريع (قالب عام)": "All projects (global layout)",
+"كل المعوقات": "All obstacles",
+"كل ساعة": "Every hour",
+"كل عنصر يُرسم بنسبة قيمته إلى هدفه، فتقدر تجمع عناصر أهدافها مختلفة على رسم واحد. الأرقام المعروضة تبقى القيم الحقيقية.": "Each item is drawn as a share of its own target, so items with different targets can share one chart. The numbers shown stay the real values.",
+"كل ١٥ دقيقة": "Every 15 minutes",
+"كل ٣٠ دقيقة": "Every 30 minutes",
+"كل ٥ دقائق": "Every 5 minutes",
+"لا توجد خيارات إضافية لهذا القالب.": "No extra options for this element.",
+"لا توجد عناصر بعد.": "No elements yet.",
+"لا توجد قوالب محفوظة بعد.": "No saved layouts yet.",
+"لا يوجد قالب في هذا الاتجاه": "No element in that direction",
+"لتحديد أكثر من عنصر: اسحب بالماوس على مساحة فارغة، أو اضغط": "To select several elements: drag on an empty area, or hold",
+"لتحديد الكل.": "to select all.",
+"لتلوين شريحة بعينها اضغط عليها داخل القالب، أو استخدم «لون كل عنصر على حدة» بالأسفل.": "To color a specific slice, click it inside the element, or use “Color per item” below.",
+"لتمييز صف معيّن. التدرّج اللوني على عمود رقمي يُضبط من خيارات القالب.": "to highlight a specific row. The color scale on a numeric column is set in the element options.",
+"لديك تعديلات غير محفوظة، سيتم استبدالها بقالب المشروع الجديد. المتابعة؟": "You have unsaved changes; they will be replaced by the new project's layout. Continue?",
+"لغة الداشبورد": "Dashboard language",
+"لغة الداشبورد: العربية": "Dashboard language: Arabic",
+"لغة محتوى الداشبورد نفسه (العناوين والمسميات والاتجاه)": "Language of the dashboard content itself (titles, labels, direction)",
+"لكل خط (أو عمود) لونه: الفعلي والمخطط.": "Each line (or bar) has its own color: actual and planned.",
+"لكل فترة (كل فترة منفردة بلا تراكم)": "Per period (each period alone, not cumulative)",
+"للأمام": "Bring forward",
+"للخلف": "Send backward",
+"للكتابة:": "To type:",
+"لمعرفة": "To find",
+"لو الحقلان نسبة مئوية سيُرسم حلقتان، وغير ذلك ستُرسم نسبة الأول من الثاني.": "If both fields are percentages, two rings are drawn; otherwise the first is drawn as a share of the second.",
+"لوجو / رابط صورة": "Logo / image URL",
+"لون الإطار": "Border color",
+"لون الخط": "Line color",
+"لون الخلفية": "Background color",
+"لون الرسم": "Chart color",
+"لون الرقم": "Value color",
+"لون النص": "Text color",
+"لون خلفية الصف": "Row background color",
+"لون كل حلقة": "Color per ring",
+"لون كل خط": "Color per line",
+"لون كل سلسلة": "Color per series",
+"لون كل شريحة": "Color per slice",
+"لون كل عمود": "Color per bar",
+"لون كل عنصر على حدة": "Color per item",
+"لون كل مشروع": "Color per project",
+"مؤشر الأداء SPI": "SPI indicator",
+"مؤشر دائري": "Radial gauge",
+"متوسط": "Medium",
+"محاذاة ذكية لحواف العناصر": "Smart alignment to element edges",
+"محاذاة كل العناصر على الشبكة الآن": "Snap all elements to the grid now",
+"مخالفات NCR": "NCRs",
+"مخالفات NCR (مغلقة)": "NCRs (closed)",
+"مخالفات NCR (مفتوحة)": "NCRs (open)",
+"مخصص": "Custom",
+"مخصص لمشروع:": "Custom for project:",
+"مخصص لهذا المشروع": "This project only",
+"مخططات (قيد المراجعة)": "Drawings (under review)",
+"مخططات (معتمدة)": "Drawings (approved)",
+"مخططات (مقدمة)": "Drawings (submitted)",
+"مدة العقد الأصلية والممددة": "Original and extended contract duration",
+"مدد التمديد (يوم)": "Extensions (days)",
+"مدمج (أعمدة الفترات + منحنى تراكمي)": "Combined (period bars + cumulative curve)",
+"مدير المشروع": "Project manager",
+"مرفق 1": "Attachment 1",
+"مرفق 2": "Attachment 2",
+"مرفق 3": "Attachment 3",
+"مرفق 4": "Attachment 4",
+"مرفق من بيانات المشروع": "Attachment from project data",
+"مساحي": "Area",
+"مسار الإنجاز": "Progress trend",
+"مسار زمني": "Timeline",
+"مسح الكل": "Clear all",
+"مسميات المحور الأفقي": "X-axis labels",
+"مسميات المحور الرأسي": "Y-axis labels",
+"مسميات محاور الرادار": "Radar axis labels",
+"مصدر «التدفق النقدي» يقرأ النسب المخططة والفعلية من خط الأساس المعتمد في صفحة التدفق النقدي — بدل نسب التحديثات الأسبوعية.": "The “Cash flow” source reads planned and actual percentages from the approved baseline on the Cash Flow page — instead of the weekly update percentages.",
+"مصدر البيانات": "Data source",
+"مصدر التاريخ": "Date source",
+"مصدر الصرف": "Spend source",
+"مصدر نسب الإنجاز": "Progress source",
+"مظهر الـ Visual": "Visual appearance",
+"مع أسماء المحاور (بدون تداخل)": "With axis labels (no overlap)",
+"مع الضغط على العناصر، أو": "while clicking elements, or",
+"مع الضغط على العناصر،": "while clicking elements,",
+"معدّل": "customized",
+"معوقات المشروع": "Project obstacles",
+"مفيش مشاريع ليها تدفق نقدي — المعروض من التحديثات الأسبوعية": "No projects have a cash flow — showing weekly updates instead",
+"مقارنة المشاريع": "Projects comparison",
+"مقارنة تقييمات (رادار)": "Ratings comparison (radar)",
+"مقارنة مخصصة": "Custom comparison",
+"مقاس الخلية": "Cell size",
+"مقاس الصفحة": "Page size",
+"مقاس الصفحة هو نفسه الذي سيُصدَّر إلى PDF لاحقاً، فاختر": "The page size is the size exported to PDF later, so choose",
+"مقاييس محسوبة": "Calculated measures",
+"مقياس المحور الرأسي": "Y-axis scale",
+"مقياس ملء الحلقة": "Ring fill scale",
+"مقياس ممتد (يُظهر التجاوز)": "Extended scale (shows overshoot)",
+"مكان الأرقام": "Values position",
+"ملء الإطار": "Fill frame",
+"ملاءمة الشاشة": "Fit to screen",
+"ملف": "File",
+"من الأصغر للأكبر": "Smallest to largest",
+"من الأكبر للأصغر": "Largest to smallest",
+"من تاريخ": "From date",
+"منحنى خطي": "Line curve",
+"منحنى مساحي": "Area curve",
+"منذ كذا (نسبي)": "Time ago (relative)",
+"منشئ الداشبورد": "Dashboard builder",
+"منع تداخل العناصر": "Prevent overlapping elements",
+"موضع الأرقام": "Values position",
+"موضع الرقم": "Value position",
+"ميل النص": "Text rotation",
+"نبيذي": "Burgundy",
+"نسب الإنجاز (حالي/سابق)": "Progress (current/previous)",
+"نسب الإنجاز (فعلي/مخطط)": "Progress (actual/planned)",
+"نسب الإنجاز الآن من التحديثات الأسبوعية": "Progress now comes from the weekly updates",
+"نسب الإنجاز الآن من صفحة التدفق النقدي": "Progress now comes from the Cash Flow page",
+"نسبة الصرف من عقد المقاول": "Spend as % of contractor contract",
+"نسبة مئوية من العقد": "Percentage of contract",
+"نسبة من الهدف (تكتمل عند ١)": "Share of target (full at 1)",
+"نسبة من الهدف (يوحّد مقاييس مختلفة)": "Share of target (unifies different scales)",
+"نص التعليق": "Caption text",
+"نص التعليق (بالعربية)": "Caption text (Arabic)",
+"نص حر": "Free text",
+"نفس الارتفاع": "Same height",
+"نفس العرض": "Same width",
+"نقاط شريط القيم أسفل الرسم تتبع نفس الألوان.": "The dots in the values strip below the chart follow the same colors.",
+"نقطة مئوية (+6.0 نقطة)": "Percentage points (+6.0 pts)",
+"نهاية العقد": "Contract finish",
+"نوع الرسم": "Chart type",
+"نوع المشروع": "Project type",
+"هدف كل عنصر": "Target per item",
+"هذا": "this",
+"هذا المشروع فقط (مخصص)": "This project only (custom)",
+"هذا المقياس فرق بين نسبتين (٤٥% ناقص ٣٩%)، ووحدته الصحيحة «نقطة مئوية» حتى لا تختلط مع الزيادة النسبية. اختر «علامة النسبة» إن كنت تفضّل شكل %.": "This measure is a difference between two percentages (45% minus 39%), so its correct unit is “percentage points”, not a relative increase. Choose “Percent sign” if you prefer the % look.",
+"هل تريد مسح كل العناصر من الصفحة؟": "Remove all elements from the page?",
+"وحدة الفرق": "Difference unit",
+"وسط": "Center",
+"وسط أفقي": "Center horizontally",
+"وسط العمود": "Bar center",
+"وسط رأسي": "Center vertically",
+"وسيلة الإيضاح": "Legend",
+"وصف المشروع": "Project description",
+"وصلت إلى الحد الأقصى (١٠ عناصر). أزل عنصراً لإضافة غيره.": "You reached the maximum (10 items). Remove one to add another.",
+"وضع العرض": "Presentation mode",
+"وقت الإرسال": "Submission time",
+"وقت جلب البيانات على هذه الشاشة": "Time the data was fetched on this screen",
+"يسار": "Left",
+"يظهر لكل المشاريع": "All projects",
+"يمين": "Right",
+"ينطبق على كل المشاريع": "Applies to all projects",
+"يومي": "Daily",
+"٠ = كل المشاريع. الباقي بعد العدد يُجمَّع في شريحة «أخرى».": "0 = all projects. The rest beyond this number is grouped into an “Other” slice.",
+"٠ في «أفضل عدد» = عرض كل المشاريع. يعمل فقط في وضع «كل المشاريع».": "0 in “Top count” = show all projects. Works only in all-projects mode.",
+"٠ في «عدد العناصر» = عرض الكل. القيم السالبة تظهر بالأحمر تلقائياً (مفيد مع مقاييس مثل «التقدم خلال الفترة»).": "0 in “Number of items” = show all. Negative values are shown in red automatically (useful with measures such as “Progress during period”).",
+"٠ في حد الصفوف = عرض الكل. الألوان تتبع درجة التأثير المسجّلة من مدير المشروع.": "0 in row limit = show all. Colors follow the impact level recorded by the project manager.",
+"٠ في حد الصفوف = عرض الكل. لتنسيق الرؤوس والخلايا استخدم «تنسيق أجزاء القالب» بالأسفل.": "0 in row limit = show all. To format headers and cells use “Element parts formatting” below.",
+"١٥ دقيقة": "15 minutes",
+"٣٠ دقيقة": "30 minutes",
+"٥ دقائق": "5 minutes",
+"⏱ تاريخ ووقت آخر تحديث": "⏱ Last update date and time",
+"🇸🇦 العربية": "🇸🇦 Arabic",
+"🌍 عام": "🌍 Global",
+"تنسيق أجزاء القالب": "Element parts formatting",
+"الأرقام على الرسم": "Values on the chart",
+"مصدر": "Source",
+"المالي": "Financial"
+
+};
+let UI_RX = null, UI_MAP = null;
+const AR_CH = /[؀-ۿ]/;
+const normWS = s => s.replace(/\s+/g, ' ').trim();
+function uiDictBuild(){
+  if(UI_RX) return;
+  UI_MAP = new Map();
+  const put = (ar, en) => {
+    if(typeof ar !== 'string' || typeof en !== 'string' || !AR_CH.test(ar) || AR_CH.test(en)) return;
+    const k = normWS(ar); if(k && !UI_MAP.has(k)) UI_MAP.set(k, en);
+  };
+  Object.keys(UI_EN).forEach(k => put(k, UI_EN[k]));
+  // أزواج جاهزة موجودة أصلاً في الكود (ترجمات محتوى الداشبورد)
+  try{ Object.keys(T.ar).forEach(k => put(T.ar[k], T.en[k])); }catch(e){}
+  try{ Object.keys(T.ar.barGroups || {}).forEach(k => put(T.ar.barGroups[k], (T.en.barGroups || {})[k])); }catch(e){}
+  try{ Object.values(FIELD_MAP).forEach(m => put(m.label, m.label_en)); }catch(e){}
+  try{ Object.values(GAUGE_PAIRS).forEach(p => put(p.n, p.n_en)); }catch(e){}
+  try{ Object.values(PART_DEFS).forEach(p => put(p.ar, p.en)); }catch(e){}
+  try{ Object.values(VISUALS).forEach(v => put(v.title, v.title_en)); }catch(e){}
+  const keys = Array.from(UI_MAP.keys()).sort((a, b) => b.length - a.length)
+                    .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  // حدود الكلمة العربية: لا نستبدل جزءاً من كلمة أطول
+  UI_RX = new RegExp('(?<![\\u0600-\\u06FF])(?:' + keys.join('|') + ')(?![\\u0600-\\u06FF])', 'g');
+}
+function uiTr(s){
+  if(!uiEN() || typeof s !== 'string' || !AR_CH.test(s)) return s;
+  uiDictBuild();
+  const lead = /^\s/.test(s) ? ' ' : '', tail = /\s$/.test(s) ? ' ' : '';
+  return lead + normWS(s).replace(UI_RX, m => UI_MAP.get(m)) + tail;
+}
+const TR_ATTRS = ['title', 'placeholder', 'aria-label'];
+function trTree(root){
+  if(!uiEN() || !root) return;
+  const host = root.nodeType === 3 ? root.parentElement : root;
+  if(!host || host.nodeType !== 1 || host.closest('#page, [data-no-tr]')) return;
+  if(host.tagName === 'TEXTAREA' && root.nodeType === 1)
+    TR_ATTRS.forEach(a => { const v0 = host.getAttribute(a); if(v0 && AR_CH.test(v0)) host.setAttribute(a, uiTr(v0)); });
+  if(host.closest('textarea')) return;
+  if(root.nodeType === 3){ const v = uiTr(root.nodeValue); if(v !== root.nodeValue) root.nodeValue = v; return; }
+  const tw = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+    acceptNode: n => (n.nodeType === 1 && (n.tagName === 'TEXTAREA' || n.id === 'page' || n.tagName === 'SCRIPT' || n.hasAttribute('data-no-tr')))
+                     ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  let n = root;
+  do{
+    if(n.nodeType === 3){ const v = uiTr(n.nodeValue); if(v !== n.nodeValue) n.nodeValue = v; }
+    else TR_ATTRS.forEach(a => { const v0 = n.getAttribute(a); if(v0 && AR_CH.test(v0)){ const v = uiTr(v0); if(v !== v0) n.setAttribute(a, v); } });
+  }while((n = tw.nextNode()));
+}
+const _uiObs = new MutationObserver(muts => {
+  if(!uiEN()) return;
+  muts.forEach(m => {
+    if(m.type === 'characterData') trTree(m.target);
+    else if(m.type === 'attributes') trTree(m.target.nodeType === 1 ? m.target : null);
+    else m.addedNodes.forEach(trTree);
+  });
+});
+function uiObserve(){
+  ['.sidebar', '#modalBack', '#toast', '#hdr'].forEach(sel => {
+    const el = document.querySelector(sel);
+    if(el) _uiObs.observe(el, {childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:TR_ATTRS});
+  });
+}
+// رسائل التأكيد المولَّدة بالكود تمر أيضاً بالترجمة
+const _nativeConfirm = window.confirm.bind(window);
+window.confirm = msg => _nativeConfirm(uiTr(String(msg)));
+
+
 
 /* ===== الترجمة: كل نصوص الداشبورد المولّدة تلقائياً ===== */
 const T = {
@@ -667,8 +1505,8 @@ const PAGE_PRESETS = {
 const S = {
   project:'', mode:'single', records:[], latest:null, pm:null, cfCache:{},
   projLatest:[], projNames:[],
-  layoutId:null, layoutName:'قالب جديد', scope:'default', source:'none',
-  page:{lang:'ar', progressSource:'weekly', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
+  layoutId:null, layoutName:U('New layout', 'قالب جديد'), scope:'default', source:'none',
+  page:{lang:'en', progressSource:'weekly', autoRefresh:0, preset:'a4l', w:1123, h:794, bg:'#f4f6fa', bg2:'', gradient:false, gradDir:135,
         theme:'navy', grid:10, snap:true, snapMode:'grid', showGrid:true, noOverlap:false},
   widgets:[], selected:null, multi:[], zoom:1, seq:1, activePart:null, lastItems:{},
   itemKeys:{}, itemDefs:{}, itemSig:{},
@@ -682,7 +1520,7 @@ const theme = () => THEMES[S.page.theme] || THEMES.navy;
 
 /* ---------------- أدوات مساعدة ---------------- */
 function toast(msg, isErr){
-  const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (isErr ? ' err' : '');
+  const t = $('#toast'); t.textContent = uiTr(String(msg)); t.className = 'toast show' + (isErr ? ' err' : '');
   clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', 2600);
 }
 function uid(){ return 'w' + (S.seq++) + Math.random().toString(36).slice(2,6); }
@@ -3325,7 +4163,7 @@ function applyLang(){
   const en = isEN();
   page.setAttribute('dir', en ? 'ltr' : 'rtl');
   page.setAttribute('lang', en ? 'en' : 'ar');
-  const lab = $('#langLabel'); if(lab) lab.textContent = en ? 'English' : 'عربي';
+  const lab = $('#langLabel'); if(lab) lab.textContent = en ? 'English' : U('Arabic', 'العربية');
 }
 function setLang(l){
   S.page.lang = (l === 'en') ? 'en' : 'ar';
@@ -3445,7 +4283,7 @@ function buildLayersList(){
     S.widgets.slice().reverse().map(w =>
     `<div class="layer ${S.multi.indexOf(w.id) >= 0 ? 'on' : ''}${w.id === S.selected ? ' pri' : ''}" data-id="${w.id}">
        <span>${VISUALS[w.type].icon}</span>
-       <span class="lyr-name">${w.title.show && bi(w.title, 'text') ? bi(w.title, 'text') : VISUALS[w.type].name}</span>
+       <span class="lyr-name" ${w.title.show && bi(w.title, 'text') ? 'data-no-tr' : ''}>${w.title.show && bi(w.title, 'text') ? bi(w.title, 'text') : VISUALS[w.type].name}</span>
        <button class="lyr-btn" data-lyr="front" data-id="${w.id}" title="للأمام">↑</button>
        <button class="lyr-btn" data-lyr="back"  data-id="${w.id}" title="للخلف">↓</button>
      </div>`).join('');
@@ -3700,7 +4538,7 @@ function itemColorsHtml(w){
   return `<div class="grp">
       <div class="grp-h">🎨 ${W.h}${setN ? ` <span class="hint-inline">${setN} معدّل</span>` : ''}</div>
       <div class="row"><label>${W.one}</label><div class="ctl">
-        <select data-item-sel>${n.map((nm, j) => {
+        <select data-item-sel data-no-tr>${n.map((nm, j) => {
           const t = String(nm); const shown = t.length > 30 ? t.slice(0, 30) + '…' : t;
           return `<option value="${j}" ${j === i ? 'selected' : ''}>${
             (cur[itemKeyAt(w, j)] != null ? '● ' : '') + q(shown)}</option>`;
@@ -4563,18 +5401,8 @@ function buildPageTab(){
   paintThemePrev();
   $('#pgTheme').addEventListener('change', e => { S.page.theme = e.target.value; paintThemePrev(); });
   el.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { setLang(b.dataset.lang); saveSession(); }));
-  $('#pgProgSrc').addEventListener('change', async e => {
-    snapshot();
-    S.page.progressSource = e.target.value;
-    await processData();
-    renderAll(); buildPageTab();
-    if(!S.cfNote) toast(e.target.value === 'cashflow' ? 'نسب الإنجاز الآن من صفحة التدفق النقدي'
-                                                      : 'نسب الإنجاز الآن من التحديثات الأسبوعية');
-  });
-  $('#pgAuto').addEventListener('change', e => {
-    setAutoRefresh(e.target.value);
-    toast(S.page.autoRefresh ? `التحديث التلقائي كل ${S.page.autoRefresh} دقيقة` : 'تم إيقاف التحديث التلقائي');
-  });
+  $('#pgProgSrc').addEventListener('change', e => setProgressSource(e.target.value));
+  $('#pgAuto').addEventListener('change', e => setAutoRefreshUI(e.target.value));
   $('#btnRefreshNow').addEventListener('click', () => refreshData(false));
   $('#btnApplyTheme').addEventListener('click', applyThemeToAll);
   $('#pgPreset').addEventListener('change', e => {
@@ -4635,7 +5463,7 @@ function updateFetchLabel(){
   if(!S.lastFetch){ el.textContent = ''; return; }
   const d = S.lastFetch;
   const hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
-  el.textContent = (isEN() ? 'updated ' : 'آخر تحديث ') + hh + ':' + mm;
+  el.textContent = U('Updated ', 'آخر تحديث ') + hh + ':' + mm;
 }
 
 /* تحديث البيانات فقط — التصميم والمشروع والتحديد كما هي */
@@ -4652,6 +5480,21 @@ async function refreshData(silent){
   }
 }
 
+/* مشتركة بين تبويب «الصفحة» وقائمة «البيانات» في الهيدر */
+async function setProgressSource(v){
+  v = (v === 'cashflow') ? 'cashflow' : 'weekly';
+  if((S.page.progressSource || 'weekly') === v) return;
+  snapshot();
+  S.page.progressSource = v;
+  await processData();
+  renderAll(); buildPageTab(); syncMenus();
+  if(!S.cfNote) toast(v === 'cashflow' ? 'نسب الإنجاز الآن من صفحة التدفق النقدي'
+                                       : 'نسب الإنجاز الآن من التحديثات الأسبوعية');
+}
+function setAutoRefreshUI(v){
+  setAutoRefresh(v); buildPageTab(); syncMenus();
+  toast(S.page.autoRefresh ? `التحديث التلقائي كل ${S.page.autoRefresh} دقيقة` : 'تم إيقاف التحديث التلقائي');
+}
 function setAutoRefresh(min){
   S.page.autoRefresh = min = parseInt(min) || 0;
   if(S.autoTimer){ clearInterval(S.autoTimer); S.autoTimer = null; }
@@ -4663,7 +5506,7 @@ const SESSION_KEY = 'pmis_builder_last';
 function saveSession(){
   try{
     localStorage.setItem(SESSION_KEY, JSON.stringify({
-      project:S.project || '', layoutId:S.layoutId || null, lang:S.page.lang || 'ar'
+      project:S.project || '', layoutId:S.layoutId || null, lang:S.page.lang || 'en'
     }));
   }catch(e){}
 }
@@ -4769,12 +5612,16 @@ function updateScopeUI(){
   sel.value = S.scope;
   const custom = (S.scope === 'project');
   chip.classList.toggle('custom', custom);
-  if(S.project === ALL_PROJECTS && !custom) chip.textContent = 'يظهر لكل المشاريع';
-  else if(!S.project && custom) chip.textContent = 'اختر مشروعاً أولاً';
-  else if(custom)          chip.textContent = 'مخصص لهذا المشروع';
-  else                     chip.textContent = 'يظهر لكل المشاريع';
+  if(S.project === ALL_PROJECTS && !custom) chip.textContent = U('All projects', 'يظهر لكل المشاريع');
+  else if(!S.project && custom) chip.textContent = U('Select a project first', 'اختر مشروعاً أولاً');
+  else if(custom)          chip.textContent = U('This project only', 'مخصص لهذا المشروع');
+  else                     chip.textContent = U('All projects', 'يظهر لكل المشاريع');
   unlink.hidden = !(S.source === 'project' && S.layoutId);
-  $('#btnSave').textContent = custom ? '💾 حفظ للمشروع' : '💾 حفظ القالب العام';
+  $('#btnSave').textContent = custom ? U('Save for project', 'حفظ للمشروع') : U('Save', 'حفظ');
+  $('#btnSave').title = custom ? U('Save as a custom layout for this project', 'حفظ كقالب مخصص لهذا المشروع')
+                               : U('Save as the global layout for all projects', 'حفظ كقالب عام لكل المشاريع');
+  $('#mSaveLabel').textContent = custom ? U('Save for this project', 'حفظ لهذا المشروع')
+                                        : U('Save global layout', 'حفظ القالب العام');
 }
 
 /* =====================================================================
@@ -4785,7 +5632,7 @@ async function saveLayout(){
     toast('اختر مشروعاً أولاً لحفظ قالب مخصص له', true); return;
   }
   const body = {
-    id:S.layoutId, name:$('#layoutName').value.trim() || 'قالب بدون اسم',
+    id:S.layoutId, name:$('#layoutName').value.trim() || U('Untitled layout', 'قالب بدون اسم'),
     scope:S.scope, project_name:S.project || null,
     data:{version:1, page:S.page, widgets:S.widgets, seq:S.seq}
   };
@@ -4854,7 +5701,7 @@ function newLayout(){
   if(S.widgets.length && !confirm('سيتم بدء قالب جديد فارغ. هل تريد المتابعة؟')) return;
   S.layoutId = null; S.source = 'none'; S.widgets = []; S.selected = null; S.multi = [];
   S.undo.length = 0; S.redo.length = 0; S.dirty = false;
-  $('#layoutName').value = 'قالب جديد';
+  $('#layoutName').value = U('New layout', 'قالب جديد');
   renderAll(); buildPropsTab(); updateScopeUI(); toast('قالب جديد');
 }
 
@@ -5025,12 +5872,7 @@ document.addEventListener('keydown', e => {
   if(CTRL && isKey(e, 'y')){ e.preventDefault(); doRedo(); return; }
   if(CTRL && isKey(e, 's')){ e.preventDefault(); saveLayout(); return; }
   if(CTRL && isKey(e, 'd')){ e.preventDefault(); duplicateSelected(); return; }
-  if(CTRL && isKey(e, 'a')){      // تحديد الكل
-    e.preventDefault();
-    if(!S.widgets.length) return;
-    S.multi = S.widgets.map(w => w.id); S.selected = S.multi[S.multi.length - 1];
-    paintSelection(); buildPropsTab(); buildLayersList(); return;
-  }
+  if(CTRL && isKey(e, 'a')){ e.preventDefault(); selectAll(); return; }      // تحديد الكل
   if(e.key === 'Escape'){
     if(document.body.classList.contains('presenting')){ setPresent(false); return; }
     select(null); return;
@@ -5053,7 +5895,77 @@ window.addEventListener('beforeunload', e => {
   if(S.dirty){ e.preventDefault(); e.returnValue = ''; }
 });
 
+/* =====================================================================
+   قوائم الهيدر المنسدلة (ملف / تحرير / عرض / البيانات)
+   ===================================================================== */
+function selectAll(){
+  if(!S.widgets.length) return;
+  S.multi = S.widgets.map(w => w.id); S.selected = S.multi[S.multi.length - 1];
+  paintSelection(); buildPropsTab(); buildLayersList();
+}
+function syncMenus(){
+  const auto = String(parseInt(S.page.autoRefresh) || 0), src = S.page.progressSource === 'cashflow' ? 'cashflow' : 'weekly';
+  document.querySelectorAll('.mi[data-auto]').forEach(b => {
+    const on = b.dataset.auto === auto; b.classList.toggle('checked', on); b.setAttribute('aria-checked', on); });
+  document.querySelectorAll('.mi[data-src]').forEach(b => {
+    const on = b.dataset.src === src; b.classList.toggle('checked', on); b.setAttribute('aria-checked', on); });
+  $('#btnUndo').disabled = !S.undo.length;
+  $('#btnRedo').disabled = !S.redo.length;
+  $('#mDup').disabled = $('#mDel').disabled = !S.multi.length;
+  $('#mSelAll').disabled = !S.widgets.length;
+}
+function menuOpen(){ return document.querySelector('.menu.open'); }
+function closeMenus(){
+  document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.nv.on').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-expanded', 'false'); });
+}
+function openMenu(btn){
+  closeMenus(); syncMenus();
+  btn.classList.add('on'); btn.setAttribute('aria-expanded', 'true');
+  btn.nextElementSibling.classList.add('open');
+}
+document.querySelectorAll('.nv').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if(btn.classList.contains('on')) closeMenus(); else openMenu(btn);
+  });
+  // مثل قوائم برامج سطح المكتب: لو فيه قائمة مفتوحة، المرور على غيرها يفتحها
+  btn.addEventListener('mouseenter', () => { if(menuOpen() && !btn.classList.contains('on')) openMenu(btn); });
+});
+// الضغط على أي عنصر في القائمة ينفّذه ويقفلها (إلا خانات الإدخال داخلها)
+document.querySelectorAll('.menu').forEach(m => m.addEventListener('click', e => {
+  const it = e.target.closest('.mi');
+  if(it && !it.disabled) setTimeout(closeMenus, 0);
+}));
+document.addEventListener('mousedown', e => { if(menuOpen() && !e.target.closest('.mwrap')) closeMenus(); });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && menuOpen()){ e.stopImmediatePropagation(); closeMenus(); }
+}, true);
+window.addEventListener('blur', closeMenus);
+
+$('#mSave').addEventListener('click', saveLayout);
+$('#mDup').addEventListener('click', duplicateSelected);
+$('#mDel').addEventListener('click', removeSelected);
+$('#mSelAll').addEventListener('click', selectAll);
+document.querySelectorAll('.mi[data-auto]').forEach(b => b.addEventListener('click', () => setAutoRefreshUI(b.dataset.auto)));
+document.querySelectorAll('.mi[data-src]').forEach(b => b.addEventListener('click', () => setProgressSource(b.dataset.src)));
+
+function setUiLang(l){
+  UIL = (l === 'ar') ? 'ar' : 'en';
+  try{ localStorage.setItem(UI_KEY, UIL); }catch(e){}
+  applyUiStatic();
+  // النصوص المولَّدة بالكود تُبنى من جديد: بالعربي كما هي، وبالإنجليزي تمر بالقاموس
+  buildTemplatesTab(); buildPageTab(); buildPropsTab(); updateScopeUI(); updateFetchLabel(); applyLang();
+  const ln = $('#layoutName');
+  if(!S.layoutId && (ln.value === 'قالب جديد' || ln.value === 'New layout')) ln.value = U('New layout', 'قالب جديد');
+  trTree($('.sidebar')); trTree($('#modalBack'));
+  setTimeout(zoomFit, 30);
+}
+$('#btnUiLang').addEventListener('click', () => setUiLang(uiEN() ? 'ar' : 'en'));
+
 /* التشغيل */
+applyUiStatic(); uiObserve();
+$('#layoutName').value = S.layoutName;
 buildTemplatesTab(); buildPageTab(); buildPropsTab(); applyPageStyle(); updateScopeUI(); zoomFit();
 
 (async function boot(){
