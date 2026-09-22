@@ -4551,10 +4551,40 @@ function putPanelScroll(s){
   const sb = el.closest('.side-body');
   if(sb) sb.scrollTop = s.body;
 }
+/* إعادة بناء لوحة الخصائص من غير ما تتنطط:
+   1) النصوص بتتترجم فوراً (قبل كده الترجمة كانت بتحصل بعد رجوع مكان التمرير فالطول يتغير)
+   2) آخر خيار لمسته يفضل في نفس مكانه على الشاشة حتى لو أقسام فوقه كبرت أو صغرت */
+let PANEL_ANCHOR = null;
+function panelAnchorKey(n){
+  if(!n || !n.getAttribute) return null;
+  for(const a of ['data-p', 'data-m', 'data-cb', 'data-part-tab', 'data-sl-reset', 'data-item-sel', 'data-set']){
+    if(n.hasAttribute(a)) return a === 'data-set' ? `[data-set="${n.getAttribute(a)}"][data-v="${n.getAttribute('data-v')}"]`
+                                                  : `[${a}${n.getAttribute(a) ? `="${n.getAttribute(a)}"` : ''}]`;
+  }
+  return null;
+}
+document.addEventListener('pointerdown', e => {
+  const host = $('#tab-props'); if(!host || !host.contains(e.target)) return;
+  const n = e.target.closest('input, select, textarea, button, label, [data-part-tab]');
+  const ctl = n && (n.tagName === 'LABEL' ? n.querySelector('input, select') : n);
+  const key = panelAnchorKey(ctl);
+  if(key) PANEL_ANCHOR = key;
+}, true);
 function buildPropsTab(){
+  const el = $('#tab-props');
   const keep = grabPanelScroll();
+  let anchor = null;
+  if(el && PANEL_ANCHOR){
+    const a = el.querySelector(PANEL_ANCHOR);
+    if(a && a.offsetParent !== null) anchor = {sel:PANEL_ANCHOR, top:a.getBoundingClientRect().top};
+  }
   buildPropsBody();
+  if(el && uiEN()) trTree(el);                       // ترجمة فورية قبل حساب أماكن التمرير
   putPanelScroll(keep);
+  if(el && anchor){
+    const a = el.querySelector(anchor.sel);
+    if(a && a.offsetParent !== null) el.scrollTop += a.getBoundingClientRect().top - anchor.top;
+  }
 }
 function buildPropsBody(){
   const el = $('#tab-props');
