@@ -771,6 +771,18 @@ function aggMonth(r){
         r.act_amount = r.act_pct / 100 * rv;
     }
 }
+/* تاريخ مصدر النسبة الفعلية للشهر (act_date بصيغة YYYY-MM-DD): تحديث مدير المشروع، Data Date في XER،
+   نهاية الفترة المالية، أو يوم الإدخال اليدوي. المنحنى الأسبوعي في الداشبورد يقف عند أسبوع التاريخ ده. */
+const wkOfDate = d => Math.min(WK, Math.max(1, Math.floor((+String(d).slice(8, 10) + 6) / 7)));
+function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+/** تاريخ إدخال يدوي: النهارده لو الشهر هو الشهر الجاري، وإلا فاضي (= نهاية الشهر) */
+function manualActDate(ym, act){
+    const t = todayStr();
+    return (has(act) && ym === t.slice(0, 7)) ? t : null;
+}
 /** آخر نسبة فعلية مسجّلة قبل هذا الشهر (نقطة بداية التوزيع التدريجي) */
 function prevMonthPct(i){
     for(let k = i - 1; k >= 0; k--) if(has(ST.rows[k].act_pct)) return ST.rows[k].act_pct;
@@ -792,34 +804,23 @@ async function fetchLastRealWeekMap(){
         return out;
     }catch(e){ return {}; }
 }
-/** يقسّم الشهر إلى 4 أسابيع: المبلغ على الأسابيع حسب توزيع برنامج XER لو متاح، وإلا ÷ 4،
+/** يقسّم الشهر إلى 4 أسابيع: المبلغ ÷ 4 دايماً على كل الأسابيع (الخطة مستمرة طول الشهر)،
     والنسبة الفعلية موزّعة بالتدرّج — لكن فقط لحد آخر أسبوع فيه تحديث حقيقي مسجّل لنفس الشهر
     (lastRealWk)، مش لآخر الشهر دايماً. لو الشهر منتهي فعلاً (أو معرفش تاريخ التحديث الحقيقي)
     lastRealWk = WK فتفضل النتيجة زي القديم بالظبط. الأسابيع اللي بعد lastRealWk تفضل فاضية
     (مفيش بيانات لسه) بدل ما نختلق تقدّم لسه ما حصلش. */
-/** تقسيم مبلغ الشهر على أسابيعه: بنِسَب توزيع برنامج XER لو متخزّن للشهر (plan_weeks)،
-    وإلا بالتساوي. آخر أسبوع ياخد الباقي عشان المجموع يطابق مبلغ الشهر بالظبط. */
-function planSplit(mPlan, pw){
-    const tot = Array.isArray(pw) ? pw.reduce((a, v) => a + (+v || 0), 0) : 0;
-    const out = [];
-    for(let w = 1; w < WK; w++){
-        out.push(tot > 0 ? Math.round(mPlan * (+pw[w - 1] || 0) / tot * 100) / 100
-                         : Math.round(mPlan / WK * 100) / 100);
-    }
-    out.push(+(mPlan - out.reduce((a, v) => a + v, 0)).toFixed(2));
-    return out;
-}
 function splitMonth(i, lastRealWeekMap){
     const r = ST.rows[i], rv = num($('#mRv').value) || num($('#mCv').value) || 0;
     const mPlan = has(r.plan_amount) ? r.plan_amount : null;
-    const split = mPlan === null ? null : planSplit(mPlan, r.plan_weeks);
+    const base  = mPlan === null ? null : Math.round(mPlan / WK * 100) / 100;
     const p0    = prevMonthPct(i);
-    const lastRealWk = (lastRealWeekMap && lastRealWeekMap[r.ym]) || WK;
+    const lastRealWk = (r.act_date && r.act_date.slice(0, 7) === r.ym) ? wkOfDate(r.act_date)
+                     : ((lastRealWeekMap && lastRealWeekMap[r.ym]) || WK);
     const cells = [];
     r.weeks = [];
     for(let w = 1; w <= WK; w++){
         const rec = emptyWeek(r.ym, w);
-        if(mPlan !== null) rec.plan_amount = split[w - 1];
+        if(mPlan !== null) rec.plan_amount = (w === WK) ? +(mPlan - base * (WK - 1)).toFixed(2) : base;
         if(has(r.act_pct) && w <= lastRealWk){
             rec.act_pct = +(p0 + (r.act_pct - p0) * w / lastRealWk).toFixed(2);
             rec.act_amount = rec.act_pct / 100 * rv;
@@ -848,7 +849,7 @@ async function unsplitMonth(i){
     await autoSnapshot('قبل إلغاء التقسيم الأسبوعي لشهر ' + r.ym);
     aggMonth(r);
     const keep = {project:ST.project, ym:r.ym, wk:0, plan_amount:r.plan_amount,
-                  act_pct:r.act_pct, act_amount:r.act_amount};
+                  act_pct:r.act_pct, act_amount:r.act_amount, act_date:r.act_date || null};
     r.has_weeks = false; r.weeks = [null, null, null, null];
     ST.expanded.delete(i);
     render();
@@ -1111,13 +1112,15 @@ function onEdit(inp){
     if(f === 'act_pct'){
         r.act_pct = num(inp.value);
         r.act_amount = (r.act_pct === null) ? null : r.act_pct / 100 * rv;
-        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount;
+        r.act_date = manualActDate(r.ym, r.act_pct);
+        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount; payload.act_date = r.act_date;
     }
     if(f === 'act_amount'){
         const amt = num(inp.value);
         r.act_amount = amt;
         r.act_pct = (amt === null || rv <= 0) ? null : amt / rv * 100;
-        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount;
+        r.act_date = manualActDate(r.ym, r.act_pct);
+        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount; payload.act_date = r.act_date;
     }
     // إدخال بالفترة: القيمة تُضاف على تراكمي ما قبلها، والفرق يُزيح كل الشهور التالية
     if(f === 'act_pct_per' || f === 'act_amount_per'){
@@ -1129,7 +1132,8 @@ function onEdit(inp){
         const delta = (want === null || !has(r.act_pct)) ? null : +(want - r.act_pct).toFixed(6);
         r.act_pct = want === null ? null : +want.toFixed(4);
         r.act_amount = (r.act_pct === null) ? null : r.act_pct / 100 * rv;
-        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount;
+        r.act_date = manualActDate(r.ym, r.act_pct);
+        payload.act_pct = r.act_pct; payload.act_amount = r.act_amount; payload.act_date = r.act_date;
         if(delta) shiftAfter(i, 0, delta);
     }
 
@@ -1185,7 +1189,7 @@ let SHIFTED = [];
 /** يحوّل الصفوف المُزاحة إلى خانات حفظ */
 function shiftedCells(){
     const out = SHIFTED.filter(o => o && o.ym).map(o => ({ym:o.ym, wk:o.wk || 0,
-                                    act_pct:o.act_pct, act_amount:o.act_amount}));
+                                    act_pct:o.act_pct, act_amount:o.act_amount, act_date:o.act_date || null}));
     SHIFTED = [];
     const seen = new Set();
     return out.filter(c => { const k = c.ym + '|' + c.wk; if(seen.has(k)) return false; seen.add(k); return true; });
@@ -1252,7 +1256,7 @@ function onEditWeek(inp){
     for(let k = 0; k <= i; k++) cumM += (ST.rows[k].plan_amount || 0);
     saveCells([cell, {ym:r.ym, wk:0, plan_amount:r.plan_amount,
                       plan_pct: cv > 0 ? cumM / cv * 100 : null,
-                      act_pct:r.act_pct, act_amount:r.act_amount}].concat(shiftedCells()));
+                      act_pct:r.act_pct, act_amount:r.act_amount, act_date:r.act_date || null}].concat(shiftedCells()));
 }
 
 function saveCell(payload){
@@ -1355,13 +1359,15 @@ $('#btnImport').addEventListener('click', async () => {
                 }
                 if(touched){
                     aggMonth(r);
-                    cells.push({ym:r.ym, wk:0, act_pct:r.act_pct, act_amount:r.act_amount});
+                    r.act_date = (j.month_dates || {})[r.ym] || r.act_date || null;
+                    cells.push({ym:r.ym, wk:0, act_pct:r.act_pct, act_amount:r.act_amount, act_date:r.act_date});
                 }
             }else{
                 const v = j.months[r.ym];
                 if(v !== undefined && !has(r.act_pct)){
                     r.act_pct = v; r.act_amount = v / 100 * rv; nm++;
-                    cells.push({ym:r.ym, wk:0, act_pct:v, act_amount:v / 100 * rv});
+                    r.act_date = (j.month_dates || {})[r.ym] || null;     // تاريخ بيانات آخر تحديث في الشهر
+                    cells.push({ym:r.ym, wk:0, act_pct:v, act_amount:v / 100 * rv, act_date:r.act_date});
                 }
             }
         });
@@ -1427,7 +1433,7 @@ async function doUndo(){
         cum += (m.plan_amount || 0);
         cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount,
                     plan_pct: cv > 0 ? +(cum / cv * 100).toFixed(4) : null,
-                    act_pct:m.act_pct, act_amount:m.act_amount, note:m.note || null});
+                    act_pct:m.act_pct, act_amount:m.act_amount, act_date:m.act_date || null, note:m.note || null});
         if(m.has_weeks) m.weeks.forEach((w, k) => { if(w)
             cells.push({ym:m.ym, wk:k + 1, plan_amount:w.plan_amount, act_pct:w.act_pct,
                         act_amount:w.act_amount, note:w.note || null}); });
@@ -1943,7 +1949,6 @@ async function applyGen(){
         const i = idx.get(ym); if(i === undefined) return;
         const m = ST.rows[i];
         m.plan_amount = plan[k];
-        m.plan_weeks = null;                               // توزيع XER الأسبوعي القديم لم يعد يخص الخطة الجديدة
         if(m.has_weeks){                                   // وزّع مبلغ الشهر على أسابيعه بالتساوي
             const base = Math.round(plan[k] / WK * 100) / 100;
             for(let w = 1; w <= WK; w++){
@@ -1961,7 +1966,7 @@ async function applyGen(){
     let cum = 0;
     ST.rows.forEach(m => {
         cum += (m.plan_amount || 0);
-        cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount, plan_weeks:m.plan_weeks || null,
+        cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount,
                     plan_pct: cv > 0 ? +(cum / cv * 100).toFixed(4) : null});
         if(m.has_weeks) m.weeks.forEach((w, k) => { if(w)
             cells.push({ym:m.ym, wk:k + 1, plan_amount:w.plan_amount}); });
@@ -2243,7 +2248,7 @@ async function applyPaste(){
         cumAll += (m.plan_amount || 0);
         cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount,
                     plan_pct: cv > 0 ? +(cumAll / cv * 100).toFixed(4) : null,
-                    act_pct:m.act_pct, act_amount:m.act_amount, note:m.note || null});
+                    act_pct:m.act_pct, act_amount:m.act_amount, act_date:m.act_date || null, note:m.note || null});
         if(m.has_weeks) m.weeks.forEach((w, k) => { if(w)
             cells.push({ym:m.ym, wk:k + 1, plan_amount:w.plan_amount, act_pct:w.act_pct,
                         act_amount:w.act_amount, note:w.note || null}); });
@@ -2361,15 +2366,13 @@ function xDate(v){
     return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
 }
 const xYm = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+const xYmd = d => xYm(d) + '-' + String(d.getDate()).padStart(2, '0');
 function xYmAdd(ym, n){
     const y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1 + n;
     return (y + Math.floor(m / 12)) + '-' + String((m % 12 + 12) % 12 + 1).padStart(2, '0');
 }
-/** يوزّع قيمة نشاط على الشهور بنسبة أيام التقويم في كل شهر — ولو اتبعت wbucket يوزّعها كمان
-    على أسابيع الشهر (1-7←1، 8-14←2، 15-21←3، الباقي←4، نفس قاعدة الأسابيع في باقي النظام)
-    بمفتاح «YYYY-MM#N»، عشان المخطط الأسبوعي يمشي مع جدولة الأنشطة الحقيقية بدل القسمة على 4. */
-const xWk = d => Math.min(WK, Math.max(1, Math.floor((d.getDate() + 6) / 7)));
-function xSpread(bucket, s, e, val, wbucket){
+/** يوزّع قيمة نشاط على الشهور بنسبة أيام التقويم في كل شهر */
+function xSpread(bucket, s, e, val){
     if(!(val > 0)) return;
     if(!s && !e) return;
     if(!s) s = e; if(!e) e = s;
@@ -2382,7 +2385,6 @@ function xSpread(bucket, s, e, val, wbucket){
     for(let i = 0; i < days; i++){
         const k = xYm(d);
         bucket[k] = (bucket[k] || 0) + per;
-        if(wbucket){ const wk = k + '#' + xWk(d); wbucket[wk] = (wbucket[wk] || 0) + per; }
         d.setDate(d.getDate() + 1);
     }
 }
@@ -2451,7 +2453,8 @@ function xerAnalyse(projId){
         });
     }
     const periods = fins.filter(f => finMap[f.id])
-                        .map(f => ({ym:xYm(f.e), name:f.name, cost:finMap[f.id].cost, ev:finMap[f.id].ev}));
+                        .map(f => ({ym:xYm(f.e), date:xYmd(f.e), name:f.name,
+                                    cost:finMap[f.id].cost, ev:finMap[f.id].ev}));
 
     return {
         pr, projId, tasks, cost, qty, aCost, rq, hasCost, hasQty, dataDate,
@@ -2463,7 +2466,7 @@ function xerAnalyse(projId){
 
 /** يبني توزيع خط الأساس الشهري من الأنشطة */
 function xerBaseline(A, mode, skip){
-    const bucket = {}, wbucket = {};
+    const bucket = {};
     let used = 0, skipped = 0, noDate = 0;
     const wOf = t => {
         if(mode === 'cost') return A.cost[t.task_id] || 0;
@@ -2478,13 +2481,13 @@ function xerBaseline(A, mode, skip){
         if(!(w > 0)) return;
         const s = xDate(t.target_start_date), e = xDate(t.target_end_date);
         if(!s && !e){ noDate++; return; }
-        xSpread(bucket, s, e, w, wbucket);
+        xSpread(bucket, s, e, w);
         used++;
     });
     const months = Object.keys(bucket).sort();
     const sum = months.reduce((a, k) => a + bucket[k], 0);
     const usedMode = mode === 'auto' ? (A.hasCost ? 'cost' : (A.hasQty ? 'qty' : 'drtn')) : mode;
-    return {bucket, wbucket, months, sum, used, skipped, noDate, usedMode};
+    return {bucket, months, sum, used, skipped, noDate, usedMode};
 }
 
 /** التحديث الفعلي: من الفترات المخزّنة إن وُجدت، وإلا شهر تاريخ البيانات وحده */
@@ -2502,8 +2505,9 @@ function xerActual(A, mode, skip){
     if(A.periods.length){
         const by = {};
         A.periods.forEach(p => {
-            const o = by[p.ym] || (by[p.ym] = {ym:p.ym, cost:0, ev:0, names:[]});
+            const o = by[p.ym] || (by[p.ym] = {ym:p.ym, cost:0, ev:0, names:[], date:p.date});
             o.cost += p.cost; o.ev += p.ev; o.names.push(p.name);
+            if(p.date > o.date) o.date = p.date;                 // نهاية آخر فترة مالية داخل الشهر
         });
         const rows = Object.keys(by).sort().map(k => by[k]);
         const useEv = rows.some(r => r.ev > 0);
@@ -2513,7 +2517,7 @@ function xerActual(A, mode, skip){
                 count:A.periods.length, finRows:A.finRows};
     }
     return {kind:'datedate', rows:[], pctNow, cost:A.actCostTotal,
-            ym:A.dataDate ? xYm(A.dataDate) : null};
+            ym:A.dataDate ? xYm(A.dataDate) : null, date:A.dataDate ? xYmd(A.dataDate) : null};
 }
 
 /* ---------- واجهة النافذة ---------- */
@@ -2614,13 +2618,6 @@ function xerRefresh(){
     B.total = total;
     const scale = B.sum > 0 ? total / B.sum : 0;
     B.plan = {}; B.months.forEach(m => { B.plan[m] = Math.round(B.bucket[m] * scale * 100) / 100; });
-    // توزيع كل شهر على أسابيعه من الأنشطة نفسها (يتخزّن مع الشهر ويُستخدم كنِسَب)
-    B.planWeeks = {};
-    B.months.forEach(m => {
-        const arr = [];
-        for(let w = 1; w <= WK; w++) arr.push(Math.round((B.wbucket[m + '#' + w] || 0) * scale * 100) / 100);
-        B.planWeeks[m] = arr.some(v => v > 0) ? arr : null;
-    });
     let cum = 0;
     $('#xPrevBase').innerHTML = `<table class="cf"><thead><tr><th>الشهر</th><th>المخطط للفترة</th>
         <th>التراكمي</th><th>% تراكمية</th></tr></thead><tbody>` +
@@ -2645,9 +2642,9 @@ function xerRefresh(){
     const pb = planBase() || 1;
     let arows = [];
     if(C.kind === 'periods'){
-        arows = C.rows.map(r => ({ym:r.ym, amt:r.cost, pct:+(r.cum / pb * 100).toFixed(2)}));
+        arows = C.rows.map(r => ({ym:r.ym, date:r.date, amt:r.cost, pct:+(r.cum / pb * 100).toFixed(2)}));
     }else if(C.ym){
-        arows = [{ym:C.ym, amt:C.cost, pct:C.pctNow}];
+        arows = [{ym:C.ym, date:C.date, amt:C.cost, pct:C.pctNow}];
     }
     C.applyRows = arows;
     const aOut = arows.filter(r => tblFirst && (r.ym < tblFirst || r.ym > tblLast));
@@ -2700,12 +2697,12 @@ async function applyXer(){
         ST.rows.forEach(m => {
             const v = D.plan[m.ym];
             m.plan_amount = (v === undefined) ? 0 : v;
-            m.plan_weeks = (D.planWeeks && D.planWeeks[m.ym]) || null;
             if(m.has_weeks){
-                const split = planSplit(m.plan_amount, m.plan_weeks);
+                const base = Math.round(m.plan_amount / WK * 100) / 100;
                 for(let w = 1; w <= WK; w++){
                     if(!m.weeks[w - 1]) m.weeks[w - 1] = emptyWeek(m.ym, w);
-                    m.weeks[w - 1].plan_amount = split[w - 1];
+                    m.weeks[w - 1].plan_amount = (w === WK)
+                        ? +(m.plan_amount - base * (WK - 1)).toFixed(2) : base;
                 }
                 aggMonth(m);
             }
@@ -2713,7 +2710,7 @@ async function applyXer(){
         let cum = 0;
         ST.rows.forEach(m => {
             cum += (m.plan_amount || 0);
-            cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount, plan_weeks:m.plan_weeks,
+            cells.push({ym:m.ym, wk:0, plan_amount:m.plan_amount,
                         plan_pct: cv > 0 ? +(cum / cv * 100).toFixed(4) : null});
             if(m.has_weeks) m.weeks.forEach((w, k) => { if(w)
                 cells.push({ym:m.ym, wk:k + 1, plan_amount:w.plan_amount}); });
@@ -2727,16 +2724,20 @@ async function applyXer(){
             const m = ST.rows[i];
             if(m.has_weeks){
                 if(doPct){
-                    if(!m.weeks[WK - 1]) m.weeks[WK - 1] = emptyWeek(m.ym, WK);
-                    m.weeks[WK - 1].act_pct = r.pct;
-                    m.weeks[WK - 1].act_amount = r.pct / 100 * rv;
-                    cells.push({ym:m.ym, wk:WK, act_pct:r.pct});
+                    // الرقم يروح لأسبوع تاريخه الحقيقي (Data Date أو نهاية الفترة)، مش آخر أسبوع دايماً
+                    const wk = r.date ? wkOfDate(r.date) : WK;
+                    if(!m.weeks[wk - 1]) m.weeks[wk - 1] = emptyWeek(m.ym, wk);
+                    m.weeks[wk - 1].act_pct = r.pct;
+                    m.weeks[wk - 1].act_amount = r.pct / 100 * rv;
+                    cells.push({ym:m.ym, wk:wk, act_pct:r.pct});
                     aggMonth(m);
+                    m.act_date = r.date || null;
+                    cells.push({ym:m.ym, wk:0, act_pct:m.act_pct, act_amount:m.act_amount, act_date:m.act_date});
                 }
                 return;
             }
             const c = {ym:m.ym, wk:0};
-            if(doPct){ m.act_pct = r.pct; c.act_pct = r.pct; }
+            if(doPct){ m.act_pct = r.pct; c.act_pct = r.pct; m.act_date = r.date || null; c.act_date = m.act_date; }
             if(doAmt){ m.act_amount = r.amt; c.act_amount = r.amt; }
             if(doPct || doAmt) cells.push(c);
         });
