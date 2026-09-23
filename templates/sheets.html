@@ -245,6 +245,8 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
       <input class="fld" id="colWidth" type="number" min="70" max="900" step="10" style="width:72px"></label>
     <label class="inline"><span data-i18n="total">Total</span>
       <select class="fld" id="colAgg" style="width:104px"></select></label>
+    <button class="btn icon" id="colSortA" data-i18n-title="sortAsc">↑A</button>
+    <button class="btn icon" id="colSortD" data-i18n-title="sortDesc">↓Z</button>
     <button class="btn icon" id="colLeft" data-i18n-title="moveColBefore">◀</button>
     <button class="btn icon" id="colRight" data-i18n-title="moveColAfter">▶</button>
     <button class="btn icon" id="colInsL" data-i18n-title="insColBefore">⇤+</button>
@@ -326,9 +328,9 @@ const I18N = {
   delete:['Delete','حذف'], duplicate:['Duplicate','تكرار'], clearSel:['Clear selection','إلغاء التحديد'],
   name:['Name','الاسم'], type:['Type','النوع'], width:['Width','العرض'], decimals:['Decimals','خانات عشرية'],
   clearFilters:['Clear filters','مسح الفلاتر'], copy:['Copy','نسخ'],
-  fillDown:['Fill down (Ctrl+D) — copies from the cell above','تكرار لتحت (Ctrl+D) — بينسخ من الخلية اللي فوق'],
-  fillRight:['Fill right (Ctrl+Shift+R) — copies from the cell beside it',
-             'تكرار للجنب (Ctrl+Shift+R) — بينسخ من الخلية اللي جنبها'], clearCells:['Clear','مسح'],
+  fillDown:['Fill down (Ctrl+D) — copies the cell downwards','تكرار لتحت (Ctrl+D) — بينزل بقيمة الخلية لتحت'],
+  fillRight:['Fill right (Ctrl+Shift+R) — copies the cell across',
+             'تكرار للجنب (Ctrl+Shift+R) — بيكرر قيمة الخلية للجنب'], clearCells:['Clear','مسح'],
   unit:['Unit','الوحدة'], options:['Choices','الاختيارات'], formula:['Formula','المعادلة'], source:['Source','المصدر'],
   total:['Total','الإجمالي'], undo:['Undo (Ctrl+Z)','تراجع (Ctrl+Z)'], redo:['Redo (Ctrl+Y)','إعادة (Ctrl+Y)'],
   freeze:['Freeze first column','تثبيت أول عمود'], bold:['Bold (Ctrl+B)','عريض (Ctrl+B)'],
@@ -342,10 +344,11 @@ const I18N = {
   colLbl:['Column','العمود'], rowsLbl:['Rows','الصفوف'], cellsLbl:['Cells','الخلايا'], fmtLbl:['Format','التنسيق'],
   moveColBefore:['Move column before','تحريك العمود للخلف'], moveColAfter:['Move column after','تحريك العمود للأمام'],
   moveRowUp:['Move row up','تحريك الصف لأعلى'], moveRowDown:['Move row down','تحريك الصف لأسفل'],
+  sortAsc:['Sort A → Z (smallest first)','فرز تصاعدي'], sortDesc:['Sort Z → A (largest first)','فرز تنازلي'],
   colSettings:['Column settings','إعدادات العمود'], delCol:['Delete column','حذف العمود'],
   delRow:['Delete rows','حذف الصفوف'],
-  sortedRows:['Rows follow the sort — click the sorted column header to clear it first',
-              'الصفوف مرتبة بالفرز — اضغط عنوان العمود المفروز لإلغائه أولاً']
+  sortedRows:['Rows follow the sort — press the highlighted sort button again to clear it first',
+              'الصفوف مرتبة بالفرز — اضغط زرار الفرز المميّز تاني لإلغائه الأول']
 };
 const TYPES = [['text','Text','نص'], ['number','Number','رقم'], ['date','Date','تاريخ'],
                ['select','Choice list','قائمة اختيارات'], ['bool','Yes / No','صح / غلط'],
@@ -504,46 +507,53 @@ function touch(row){
   if(!String(row.id).startsWith('n')) S.dirty.set(row.id, row);
   $('#btnSave').disabled = false;
 }
-/** يطبّق التنسيق على: الأعمدة المحددة، وإلا الصفوف المحددة، وإلا مدى الخلايا */
-function fmtRange(){
-  if(!S.sheet) return null;
-  if(S.rowsSel.size){
-    const idx = selRowIdx();
-    if(idx.length) return {r1:Math.min.apply(null, idx), r2:Math.max.apply(null, idx),
-                           c1:0, c2:S.sheet.columns.length - 1, rows:true};
+/** التنسيق بيتطبق على كل اللي محدد مع بعض: الأعمدة + الصفوف + مدى الخلايا */
+function fmtHasTarget(){ return !!(S.cols.size || S.rowsSel.size || rng()); }
+function applyFmt(patch, live){
+  if(!S.sheet || !fmtHasTarget()) return;
+  const cols = selCols(), rowsIdx = selRowIdx(), R = rng();
+  const before = snap();
+  let changed = false;
+  if(cols.length){
+    cols.forEach(c => { const f = mergeFmt(c.fmt, patch); if(f) c.fmt = f; else delete c.fmt; });
+    changed = true;
   }
-  return rng();
-}
-function applyFmt(patch){
-  if(!S.sheet) return;
-  if(S.cols.size){
-    pushUndo();
-    selCols().forEach(c => { const f = mergeFmt(c.fmt, patch); if(f) c.fmt = f; else delete c.fmt; });
-    saveColumns(); return;
-  }
-  const R = fmtRange(); if(!R) return;
-  const pick = R.rows ? selRowIdx() : null;
-  pushUndo();
-  for(let r = R.r1; r <= R.r2; r++){
-    if(pick && pick.indexOf(r) < 0) continue;
-    const row = S.rows[r]; if(!row) continue;
+  const cells = new Map();                       // رقم الصف -> أرقام الأعمدة
+  const add = (r, ci) => { if(!cells.has(r)) cells.set(r, new Set()); cells.get(r).add(ci); };
+  rowsIdx.forEach(r => S.sheet.columns.forEach((c, ci) => add(r, ci)));
+  if(R) for(let r = R.r1; r <= R.r2; r++) for(let ci = R.c1; ci <= R.c2; ci++) add(r, ci);
+  cells.forEach((set, r) => {
+    const row = S.rows[r]; if(!row) return;
     const fm = Object.assign({}, row.data.__fmt || {});
-    for(let c = R.c1; c <= R.c2; c++){
-      const col = S.sheet.columns[c]; if(!col) continue;
+    set.forEach(ci => {
+      const col = S.sheet.columns[ci]; if(!col) return;
       const nf = mergeFmt(fm[col.key], patch);
       if(nf) fm[col.key] = nf; else delete fm[col.key];
-    }
+    });
     if(Object.keys(fm).length) row.data.__fmt = fm; else delete row.data.__fmt;
     touch(row);
-  }
-  renderGrid(); scheduleSave();
+    changed = true;
+  });
+  if(!changed) return;
+  if(live) pushUndoLive(before); else commitUndo(before);
+  if(cols.length) saveColumns(); else { renderGrid(); syncBars(); }
+  scheduleSave();
+}
+/** أثناء سحب منتقي الألوان: لقطة تراجع واحدة لكل سلسلة */
+let LIVE_U = 0;
+function pushUndoLive(before){
+  const now = Date.now();
+  if(now - LIVE_U < 1500){ LIVE_U = now; return; }
+  LIVE_U = now;
+  commitUndo(before);
 }
 function curFmt(){
   if(!S.sheet) return {};
   if(S.cols.size){ const c = selCols()[0]; return (c && c.fmt) || {}; }
-  const R = fmtRange(); if(!R) return {};
-  const r0 = R.rows ? (selRowIdx()[0] || 0) : R.r1;
-  const row = S.rows[r0], col = S.sheet.columns[R.c1];
+  const idx = selRowIdx(), R = rng();
+  const r0 = idx.length ? idx[0] : (R ? R.r1 : -1);
+  const c0 = idx.length && !R ? 0 : (R ? R.c1 : 0);
+  const row = S.rows[r0], col = S.sheet.columns[c0];
   return (row && col && effFmt(row, col)) || {};
 }
 
@@ -838,13 +848,18 @@ function applyFill(src, target, plain){
   SEL = {r1:target.r1, c1:target.c1, r2:target.r2, c2:target.c2};
   renderGrid();
   if(n){ commitUndo(before); toast(U(`Filled ${n} cells`, `تم نسخ القيمة في ${n} خلية`)); scheduleSave(); }
+  else toast(U('Nothing changed — the cells already hold the same value, or they are calculated',
+               'مفيش حاجة اتغيرت — الخلايا فيها نفس القيمة أصلاً أو بتتحسب بمعادلة'));
 }
 /** يكتب قيمة في خلية حسب نوع عمودها؛ يرجّع true لو اتغيّرت */
 function writeCell(ri, ci, raw){
   const row = S.rows[ri], col = S.sheet.columns[ci];
   if(!row || !col || isCalc(col)) return false;
   let v = raw;
-  if(col.type === 'number') v = (raw === '' || raw === null || raw === undefined) ? null : num(raw);
+  if(col.type === 'number'){                       // نص مش رقم = نسيبها فاضية مش صفر
+    if(raw === '' || raw === null || raw === undefined) v = null;
+    else { const n = parseFloat(String(raw).replace(/,/g, '')); v = isNaN(n) ? null : n; }
+  }
   else if(col.type === 'bool') v = !!(raw === true || raw === 1 || /^(1|true|yes|نعم|صح)$/i.test(String(raw || '')));
   else if(col.type === 'project') v = PROJECTS.includes(String(raw)) ? String(raw) : (raw ? String(raw) : '');
   else if(col.type === 'select') v = (col.options || []).includes(String(raw)) ? String(raw) : '';
@@ -927,7 +942,7 @@ function renderGrid(){
     return `<th class="${on ? 'sel ' : ''}${isCalc(c) ? 'calc ' : ''}${fzCls(ci)}" data-col="${c.key}" draggable="true"${fzPos(ci)}>
         <div class="thin"><span class="grip">⣿</span>
           <input type="checkbox" data-colsel="${c.key}" ${on ? 'checked' : ''}>
-          <span class="thlbl" data-sort="${c.key}" data-no-tr title="${esc(colLabel(c))}">${esc(colLabel(c))}${mark}</span></div></th>`;
+          <span class="thlbl" data-pick="${c.key}" data-no-tr title="${esc(colLabel(c))}">${esc(colLabel(c))}${mark}</span></div></th>`;
   }).join('');
   const filt = S.showFilters ? `<tr class="filters"><td class="rownum ${fzCls(-1)}"${fzPos(-1)}></td>${cols.map((c, ci) =>
       `<td class="${fzCls(ci)}"${fzPos(ci)}><input data-filter="${c.key}" value="${esc(S.filters[c.key] || '')}" placeholder="—"></td>`).join('')}<td></td></tr>` : '';
@@ -995,11 +1010,10 @@ function cellHtml(r, c, ri, ci){
 function bindGrid(){
   $('#thAddCol').addEventListener('click', addColumn);
   $('#addRowBtn').addEventListener('click', addRow);
-  $$('#wrap [data-sort]').forEach(el => el.addEventListener('click', () => {
-    const k = el.dataset.sort;
-    if(S.sort === k){ if(S.dir === 'asc') S.dir = 'desc'; else { S.sort = ''; S.dir = 'asc'; } }
-    else { S.sort = k; S.dir = 'asc'; }
-    S.page = 0; refresh();
+  $$('#wrap [data-pick]').forEach(el => el.addEventListener('click', () => {
+    const k = el.dataset.pick;                       // الضغط على اسم العمود = اختياره (الفرز من الشريط)
+    if(S.cols.has(k)) S.cols.delete(k); else S.cols.add(k);
+    renderGrid(); syncBars();
   }));
   $$('#wrap [data-colsel]').forEach(cb => cb.addEventListener('change', () => {
     if(cb.checked) S.cols.add(cb.dataset.colsel); else S.cols.delete(cb.dataset.colsel);
@@ -1241,6 +1255,9 @@ function syncBars(){
     ['#fmtBold', '#fmtItalic', '#fmtUnder'].forEach(k => $(k).classList.remove('on'));
     $('#fmtSize').value = ''; $('#fmtAlign').value = '';
   }
+  const sortKey = cols.length ? cols[0].key : '';
+  $('#colSortA').classList.toggle('on', !!sortKey && S.sort === sortKey && S.dir === 'asc');
+  $('#colSortD').classList.toggle('on', !!sortKey && S.sort === sortKey && S.dir === 'desc');
   $('#btnFreeze').classList.toggle('on', !!(S.sheet && S.sheet.settings && S.sheet.settings.freeze));
   $('#btnClearFilters').disabled = !Object.values(S.filters).some(v => v);
   const one = cols.length === 1 ? cols[0] : null;
@@ -1398,6 +1415,17 @@ $('#colAgg').addEventListener('change', () => {
   const v = $('#colAgg').value;
   applyToSelectedCols(c => { if(v) c.agg = v; else delete c.agg; });
 });
+/* الفرز بقى من الشريط — الضغط على رأس العمود بيختاره بس */
+function setSort(dir){
+  const c = selCols()[0];
+  if(!c) return;
+  if(S.sort === c.key && S.dir === dir){ S.sort = ''; S.dir = 'asc'; }
+  else { S.sort = c.key; S.dir = dir; }
+  S.page = 0;
+  refresh();
+}
+$('#colSortA').addEventListener('click', () => setSort('asc'));
+$('#colSortD').addEventListener('click', () => setSort('desc'));
 $('#colLeft').addEventListener('click', () => shiftCols(-1));
 $('#colRight').addEventListener('click', () => shiftCols(1));
 $('#colInsL').addEventListener('click', () => insertColumn(-1));
@@ -1674,27 +1702,40 @@ $('#cellCopy').addEventListener('click', async () => {
   catch(e){ toast(U('Use Ctrl+C to copy', 'استخدم Ctrl+C للنسخ'), true); }
 });
 $('#cellClear').addEventListener('click', clearCells);
-/* تكرار لتحت: لو محدد أكتر من صف بيملا من أول صف، ولو خلية واحدة بياخد من الصف اللي فوقها */
+/* تكرار لتحت / للجنب:
+   - محدد مدى  → بيملاه من أول صف (أو أول عمود) في المدى
+   - محدد خلية واحدة → بينزل بقيمتها لآخر الجدول (أو للجنب لآخر عمود) — نفس اتجاه السحب */
+const cellVal = (r, ci) => { const row = S.rows[r], col = S.sheet.columns[ci];
+                             return row && col ? row.data[col.key] : null; };
+function rangeEmpty(R){
+  for(let r = R.r1; r <= R.r2; r++) for(let ci = R.c1; ci <= R.c2; ci++){
+    const v = cellVal(r, ci);
+    if(v !== null && v !== undefined && v !== '' && v !== false) return false;
+  }
+  return true;
+}
 $('#cellFillDown').addEventListener('click', () => {
-  const R = rng(); if(!R) return;
+  const R = rng(); if(!R || !S.sheet) return;
   if(R.r1 === R.r2){
-    if(R.r1 === 0){ toast(U('There is no row above to copy from', 'مفيش صف فوقه عشان ننسخ منه')); return; }
-    applyFill({r1:R.r1 - 1, r2:R.r1 - 1, c1:R.c1, c2:R.c2}, {r1:R.r1 - 1, r2:R.r2, c1:R.c1, c2:R.c2}, true);
-    SEL = {r1:R.r1, c1:R.c1, r2:R.r2, c2:R.c2}; paintSel();
+    const src = {r1:R.r1, r2:R.r1, c1:R.c1, c2:R.c2};
+    if(rangeEmpty(src)){ toast(U('This cell is empty — nothing to copy down', 'الخلية فاضية — مفيش قيمة نكررها')); return; }
+    if(R.r1 >= S.rows.length - 1){ toast(U('There are no rows below it', 'مفيش صفوف تحتها')); return; }
+    applyFill(src, {r1:R.r1, r2:S.rows.length - 1, c1:R.c1, c2:R.c2}, true);
     return;
   }
-  applyFill({r1:R.r1, r2:R.r1, c1:R.c1, c2:R.c2}, {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c2}, true);
+  applyFill({r1:R.r1, r2:R.r1, c1:R.c1, c2:R.c2}, R, true);
 });
-/* تكرار للجنب: نفس الفكرة بالأعمدة */
 $('#cellFillRight').addEventListener('click', () => {
-  const R = rng(); if(!R) return;
+  const R = rng(); if(!R || !S.sheet) return;
+  const last = S.sheet.columns.length - 1;
   if(R.c1 === R.c2){
-    if(R.c1 === 0){ toast(U('There is no column before it to copy from', 'مفيش عمود جنبه عشان ننسخ منه')); return; }
-    applyFill({r1:R.r1, r2:R.r2, c1:R.c1 - 1, c2:R.c1 - 1}, {r1:R.r1, r2:R.r2, c1:R.c1 - 1, c2:R.c2}, true);
-    SEL = {r1:R.r1, c1:R.c1, r2:R.r2, c2:R.c2}; paintSel();
+    const src = {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c1};
+    if(rangeEmpty(src)){ toast(U('This cell is empty — nothing to copy across', 'الخلية فاضية — مفيش قيمة نكررها')); return; }
+    if(R.c1 >= last){ toast(U('There are no columns beside it', 'مفيش أعمدة جنبها')); return; }
+    applyFill(src, {r1:R.r1, r2:R.r2, c1:R.c1, c2:last}, true);
     return;
   }
-  applyFill({r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c1}, {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c2}, true);
+  applyFill({r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c1}, R, true);
 });
 /* ---- تنسيق ---- */
 $('#fmtBold').addEventListener('click', () => applyFmt({bold:!curFmt().bold}));
@@ -1702,16 +1743,37 @@ $('#fmtItalic').addEventListener('click', () => applyFmt({italic:!curFmt().itali
 $('#fmtUnder').addEventListener('click', () => applyFmt({under:!curFmt().under}));
 $('#fmtSize').addEventListener('change', e => applyFmt({size:e.target.value ? num(e.target.value) : null}));
 $('#fmtAlign').addEventListener('change', e => applyFmt({align:e.target.value || null}));
-$('#fmtFg').addEventListener('change', e => applyFmt({fg:e.target.value}));
-$('#fmtBg').addEventListener('change', e => applyFmt({bg:e.target.value}));
-$('#fmtNone').addEventListener('click', () => applyFmt({bold:null, italic:null, under:null, size:null, align:null, fg:null, bg:null}));
+/* اللون بيتغير وانت بتختاره من المنتقي، مش بعد ما تقفله */
+const liveColor = (el, key) => {
+  let t = 0;
+  el.addEventListener('input', e => {
+    clearTimeout(t);
+    const v = e.target.value;
+    t = setTimeout(() => applyFmt({[key]:v}, true), 90);
+  });
+  el.addEventListener('change', e => { clearTimeout(t); applyFmt({[key]:e.target.value}, true); });
+};
+liveColor($('#fmtFg'), 'fg');
+liveColor($('#fmtBg'), 'bg');
+$('#fmtNone').addEventListener('click', () => {
+  const R = rng(), rowsOn = S.rowsSel.size, colsOn = S.cols.size;
+  applyFmt({bold:null, italic:null, under:null, size:null, align:null, fg:null, bg:null});
+  if(!colsOn && (R || rowsOn) && S.sheet){                 // ألوان جاية من تنسيق العمود نفسه؟
+    const cs = new Set();
+    if(rowsOn) S.sheet.columns.forEach(c => cs.add(c));
+    if(R) for(let i = R.c1; i <= R.c2; i++) cs.add(S.sheet.columns[i]);
+    if(Array.from(cs).some(c => c && c.fmt))
+      toast(U('Some of this colouring comes from the column itself — tick the column to clear it',
+              'فيه ألوان جاية من تنسيق العمود نفسه — علّم على العمود عشان تمسحها'));
+  }
+});
 /* ---- تجميد أول عمود ---- */
 $('#btnFreeze').addEventListener('click', async () => {
   if(!S.sheet) return;
   S.sheet.settings = S.sheet.settings || {};
   S.sheet.settings.freeze = !S.sheet.settings.freeze;
   renderGrid(); syncBars();
-  const meta = S.sheets.find(s => String(s.id) === String(S.sheet.id));
+  const meta = S.sheets.find(x => String(x.id) === String(S.sheet.id));
   if(meta) meta.settings = JSON.parse(JSON.stringify(S.sheet.settings));
   await api(`/api/sheets/${S.sheet.id}`, {method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({settings:S.sheet.settings})});
