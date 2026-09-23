@@ -47,8 +47,17 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 
 .bar{flex:0 0 auto; min-height:46px; background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05); display:flex; align-items:center;
      flex-wrap:wrap; gap:8px; padding:6px 16px; position:relative; z-index:20;}
-.bar.ctx{background:#EAF0F8; box-shadow:inset 0 -1px 0 #D6E0EE;}
-.bar .sep{width:1px; height:22px; background:var(--line);}
+.bar.ctx{background:#EAF0F8; box-shadow:inset 0 -1px 0 #D6E0EE; gap:7px; row-gap:6px;}
+.bar .sep{width:1px; height:22px; background:#D3DEEC;}
+/* مجموعة خيارات: ظاهرة دايماً، ورمادية لحد ما يكون فيه تحديد */
+.grp{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.grp .glbl{font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
+.grp .gval{font-size:12px; font-weight:600; color:var(--navy); background:#fff; padding:4px 8px;
+  max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.grp.off{opacity:.42;}
+.grp.off .gval{color:var(--muted); background:#F2F5F9;}
+.bar .fld[disabled], .bar select[disabled]{background:#E4E9F0; color:var(--muted); cursor:default;}
+.swatch.off{pointer-events:none;}
 .bar label.inline{font-size:12.5px; color:var(--muted); display:inline-flex; align-items:center; gap:6px;}
 .bar .fld, .bar select, .bar input[type=text], .bar input[type=number]{height:34px;}
 .count{font-size:12.5px; color:var(--muted); white-space:nowrap;}
@@ -80,6 +89,7 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
 .grid td.rownum, .grid th.rownum{width:74px; background:#F7F8FA; text-align:center; color:var(--muted); font-size:11.5px;}
 .grid td.rownum .rn{display:flex; align-items:center; justify-content:center; gap:5px; height:100%;}
 .grid td.rownum .rgrip{cursor:grab; color:#C2C8D2; font-size:11px; letter-spacing:-1px;}
+.grid td.rownum .rgrip.off{cursor:not-allowed; color:#E0E4EA;}
 .grid td input[type=text], .grid td input[type=number], .grid td input[type=date], .grid td select{
   width:100%; height:33px; border:none; background:transparent; padding:0 10px; font-size:inherit; color:inherit;
   font-family:inherit; font-weight:inherit; font-style:inherit; text-decoration:inherit;}
@@ -192,56 +202,58 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
   <button class="btn icon" id="btnNext">›</button>
 </div>
 
-<!-- شريط واحد لكل ما هو محدد -->
-<div class="bar ctx" id="ctxBar" hidden>
-  <span id="colGroup" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-    <span class="chip" id="colChip"></span>
+<!-- شريط ثابت: كل الخيارات ظاهرة دايماً، ورمادية لحد ما تحدد -->
+<div class="bar ctx" id="ctxBar">
+  <span class="grp" id="colGroup">
+    <span class="glbl" data-i18n="colLbl">Column</span><span class="gval" id="colChip">—</span>
     <label class="inline"><span data-i18n="name">Name</span>
-      <input class="fld" id="colName" style="width:150px" data-no-tr></label>
+      <input class="fld" id="colName" style="width:140px" data-no-tr></label>
     <label class="inline"><span data-i18n="type">Type</span>
-      <select class="fld" id="colType" style="width:160px"></select></label>
-    <span id="colExtra" style="display:flex; gap:8px; align-items:center;"></span>
+      <select class="fld" id="colType" style="width:150px"></select></label>
     <label class="inline"><span data-i18n="width">Width</span>
-      <input class="fld" id="colWidth" type="number" min="70" max="900" step="10" style="width:78px"></label>
+      <input class="fld" id="colWidth" type="number" min="70" max="900" step="10" style="width:74px"></label>
     <label class="inline"><span data-i18n="total">Total</span>
-      <select class="fld" id="colAgg" style="width:120px"></select></label>
-    <button class="btn icon" id="colLeft" title="◀">◀</button>
-    <button class="btn icon" id="colRight" title="▶">▶</button>
+      <select class="fld" id="colAgg" style="width:110px"></select></label>
+    <button class="btn icon" id="colLeft" data-i18n-title="moveColBefore">◀</button>
+    <button class="btn icon" id="colRight" data-i18n-title="moveColAfter">▶</button>
     <button class="btn icon" id="colInsL" data-i18n-title="insColBefore">⇤+</button>
     <button class="btn icon" id="colInsR" data-i18n-title="insColAfter">+⇥</button>
     <button class="btn danger" id="colDel" data-i18n="delete">Delete</button>
+    <span id="colExtra" style="display:flex; gap:8px; align-items:center;"></span>
   </span>
-  <span id="cellGroup" hidden style="display:flex; align-items:center; gap:8px;">
-    <span class="chip" id="cellChip"></span>
-    <button class="btn" id="cellCopy" data-i18n="copy">Copy</button>
-    <button class="btn" id="cellFillDown" data-i18n="fillDown">Fill down</button>
-    <button class="btn" id="cellFillRight" data-i18n="fillRight">Fill right</button>
-    <button class="btn danger" id="cellClear" data-i18n="clearCells">Clear</button>
-  </span>
-  <span class="sep" id="ctxSep" hidden></span>
-  <span id="rowGroup" style="display:flex; align-items:center; gap:8px;">
-    <span class="chip" id="rowChip"></span>
-    <button class="btn icon" id="rowUp">▲</button>
-    <button class="btn icon" id="rowDown">▼</button>
+  <span class="sep"></span>
+  <span class="grp" id="rowGroup">
+    <span class="glbl" data-i18n="rowsLbl">Rows</span><span class="gval" id="rowChip">—</span>
+    <button class="btn icon" id="rowUp" data-i18n-title="moveRowUp">▲</button>
+    <button class="btn icon" id="rowDown" data-i18n-title="moveRowDown">▼</button>
     <button class="btn icon" id="rowInsA" data-i18n-title="insRowAbove">↑+</button>
     <button class="btn icon" id="rowInsB" data-i18n-title="insRowBelow">+↓</button>
     <button class="btn" id="rowDup" data-i18n="duplicate">Duplicate</button>
     <button class="btn danger" id="rowDel" data-i18n="delete">Delete</button>
   </span>
-  <div class="spacer"></div>
-  <span id="fmtGroup" hidden style="display:flex; align-items:center; gap:5px;">
+  <span class="sep"></span>
+  <span class="grp" id="cellGroup">
+    <span class="glbl" data-i18n="cellsLbl">Cells</span><span class="gval" id="cellChip">—</span>
+    <button class="btn" id="cellCopy" data-i18n="copy">Copy</button>
+    <button class="btn" id="cellFillDown" data-i18n="fillDown">Fill down</button>
+    <button class="btn" id="cellFillRight" data-i18n="fillRight">Fill right</button>
+    <button class="btn danger" id="cellClear" data-i18n="clearCells">Clear</button>
+  </span>
+  <span class="sep"></span>
+  <span class="grp" id="fmtGroup">
+    <span class="glbl" data-i18n="fmtLbl">Format</span>
     <button class="btn icon" id="fmtBold" data-i18n-title="bold" style="font-weight:800">B</button>
     <button class="btn icon" id="fmtItalic" data-i18n-title="italic" style="font-style:italic">I</button>
     <button class="btn icon" id="fmtUnder" data-i18n-title="underline" style="text-decoration:underline">U</button>
     <select class="fld" id="fmtSize" style="width:64px" data-i18n-title="fontSize"></select>
-    <select class="fld" id="fmtAlign" style="width:96px" data-i18n-title="align"></select>
-    <label class="swatch" data-i18n-title="textColor">A<i id="fgDot"></i>
+    <select class="fld" id="fmtAlign" style="width:92px" data-i18n-title="align"></select>
+    <label class="swatch" data-i18n-title="textColor" id="fgSwatch">A<i id="fgDot"></i>
       <input type="color" id="fmtFg" value="#172033"></label>
     <label class="swatch" data-i18n-title="fillColor" id="bgSwatch">▧
       <input type="color" id="fmtBg" value="#FFF3CD"></label>
     <button class="btn icon" id="fmtNone" data-i18n-title="clearFmt">⌫</button>
-    <span class="sep"></span>
   </span>
+  <div class="spacer"></div>
   <button class="btn" id="ctxClear" data-i18n="clearSel">Clear selection</button>
 </div>
 
@@ -288,7 +300,12 @@ const I18N = {
   dragFill:['Drag to fill','اسحب للتكرار'], insRowAbove:['Insert row above','إدراج صف فوق'],
   insRowBelow:['Insert row below','إدراج صف تحت'], insColBefore:['Insert column before','إدراج عمود قبل'],
   insColAfter:['Insert column after','إدراج عمود بعد'], sum:['Sum','المجموع'], avg:['Average','المتوسط'],
-  countL:['Count','العدد'], minL:['Min','الأصغر'], maxL:['Max','الأكبر'], sel:['Selected','المحدد']
+  countL:['Count','العدد'], minL:['Min','الأصغر'], maxL:['Max','الأكبر'], sel:['Selected','المحدد'],
+  colLbl:['Column','العمود'], rowsLbl:['Rows','الصفوف'], cellsLbl:['Cells','الخلايا'], fmtLbl:['Format','التنسيق'],
+  moveColBefore:['Move column before','تحريك العمود للخلف'], moveColAfter:['Move column after','تحريك العمود للأمام'],
+  moveRowUp:['Move row up','تحريك الصف لأعلى'], moveRowDown:['Move row down','تحريك الصف لأسفل'],
+  sortedRows:['Rows follow the sort — click the sorted column header to clear it first',
+              'الصفوف مرتبة بالفرز — اضغط عنوان العمود المفروز لإلغائه أولاً']
 };
 const TYPES = [['text','Text','نص'], ['number','Number','رقم'], ['date','Date','تاريخ'],
                ['select','Choice list','قائمة اختيارات'], ['bool','Yes / No','صح / غلط'],
@@ -447,7 +464,16 @@ function touch(row){
   if(!String(row.id).startsWith('n')) S.dirty.set(row.id, row);
   $('#btnSave').disabled = false;
 }
-/** يطبّق التنسيق على الأعمدة المحددة لو فيه أعمدة، وإلا على مدى الخلايا المحدد */
+/** يطبّق التنسيق على: الأعمدة المحددة، وإلا الصفوف المحددة، وإلا مدى الخلايا */
+function fmtRange(){
+  if(!S.sheet) return null;
+  if(S.rowsSel.size){
+    const idx = selRowIdx();
+    if(idx.length) return {r1:Math.min.apply(null, idx), r2:Math.max.apply(null, idx),
+                           c1:0, c2:S.sheet.columns.length - 1, rows:true};
+  }
+  return rng();
+}
 function applyFmt(patch){
   if(!S.sheet) return;
   if(S.cols.size){
@@ -455,9 +481,11 @@ function applyFmt(patch){
     selCols().forEach(c => { const f = mergeFmt(c.fmt, patch); if(f) c.fmt = f; else delete c.fmt; });
     saveColumns(); return;
   }
-  const R = rng(); if(!R) return;
+  const R = fmtRange(); if(!R) return;
+  const pick = R.rows ? selRowIdx() : null;
   pushUndo();
   for(let r = R.r1; r <= R.r2; r++){
+    if(pick && pick.indexOf(r) < 0) continue;
     const row = S.rows[r]; if(!row) continue;
     const fm = Object.assign({}, row.data.__fmt || {});
     for(let c = R.c1; c <= R.c2; c++){
@@ -473,8 +501,9 @@ function applyFmt(patch){
 function curFmt(){
   if(!S.sheet) return {};
   if(S.cols.size){ const c = selCols()[0]; return (c && c.fmt) || {}; }
-  const R = rng(); if(!R) return {};
-  const row = S.rows[R.r1], col = S.sheet.columns[R.c1];
+  const R = fmtRange(); if(!R) return {};
+  const r0 = R.rows ? (selRowIdx()[0] || 0) : R.r1;
+  const row = S.rows[r0], col = S.sheet.columns[R.c1];
   return (row && col && effFmt(row, col)) || {};
 }
 
@@ -836,7 +865,8 @@ function renderGrid(){
     }).join('')}<td></td></tr></tfoot>` : '';
   wrap.innerHTML = `<table class="grid" style="width:${total}px">
       ${group}
-      <thead><tr><th class="rownum ${fzCls(-1)}"${fzPos(-1)}><input type="checkbox" id="selAll"></th>${head}
+      <thead><tr><th class="rownum ${fzCls(-1)}"${fzPos(-1)}><input type="checkbox" id="selAll"${
+          S.rows.length && S.rowsSel.size === S.rows.length ? ' checked' : ''}></th>${head}
         <th class="addcol" id="thAddCol" title="${U('Add column', 'إضافة عمود')}">+</th></tr>${filt}</thead>
       <tbody id="gridBody">${body}</tbody>${foot}</table>
     <div class="addrow" id="addRowBtn">+ <span>${U('New row', 'صف جديد')}</span></div>`;
@@ -853,8 +883,9 @@ function rowHtml(r, i, cols){
   const cells = cols.map((c, ci) => cellHtml(r, c, i, ci)).join('');
   const isNew = String(r.id).startsWith('n');
   const n = S.page * S.per + i + 1;
-  return `<tr data-id="${r.id}" draggable="true" class="${S.dirty.has(r.id) || isNew ? 'dirty' : ''}${S.rowsSel.has(String(r.id)) ? ' sel' : ''}">
-      <td class="rownum ${fzCls(-1)}"${fzPos(-1)}><div class="rn"><span class="rgrip">⣿</span>
+  return `<tr data-id="${r.id}" draggable="${S.sort ? 'false' : 'true'}" class="${S.dirty.has(r.id) || isNew ? 'dirty' : ''}${S.rowsSel.has(String(r.id)) ? ' sel' : ''}">
+      <td class="rownum ${fzCls(-1)}"${fzPos(-1)}><div class="rn"><span class="rgrip${S.sort ? ' off' : ''}"${
+        S.sort ? ` title="${esc(I18N.sortedRows[en() ? 0 : 1])}"` : ''}>⣿</span>
         <input type="checkbox" data-rowsel="${r.id}" ${S.rowsSel.has(String(r.id)) ? 'checked' : ''}><span>${n}</span></div></td>
       ${cells}<td></td></tr>`;
 }
@@ -912,13 +943,18 @@ function bindGrid(){
     inp.addEventListener('change', run);
   });
   const sa = $('#selAll');
+  if(sa) sa.indeterminate = S.rowsSel.size > 0 && S.rowsSel.size < S.rows.length;
   if(sa) sa.addEventListener('change', () => {
     S.rowsSel = new Set(sa.checked ? S.rows.map(r => String(r.id)) : []);
     renderGrid(); syncBars();
   });
   $$('#wrap [data-rowsel]').forEach(cb => cb.addEventListener('change', () => {
     if(cb.checked) S.rowsSel.add(cb.dataset.rowsel); else S.rowsSel.delete(cb.dataset.rowsel);
-    cb.closest('tr').classList.toggle('sel', cb.checked); syncBars();
+    cb.closest('tr').classList.toggle('sel', cb.checked);
+    const all = $('#selAll');
+    if(all){ all.checked = S.rows.length > 0 && S.rowsSel.size === S.rows.length;
+             all.indeterminate = S.rowsSel.size > 0 && S.rowsSel.size < S.rows.length; }
+    syncBars();
   }));
   $$('#wrap [data-cell]').forEach(inp => {
     const ev = (inp.tagName === 'SELECT' || inp.type === 'checkbox' || inp.type === 'date') ? 'change' : 'input';
@@ -1017,7 +1053,7 @@ function bindDnd(){
   });
   $$('#wrap tbody tr[data-id]').forEach(tr => {
     tr.addEventListener('dragstart', e => {
-      if(S.sort){ e.preventDefault(); toast(U('Clear the sort first to reorder rows', 'ألغِ الفرز أولاً لترتيب الصفوف'), true); return; }
+      if(S.sort){ e.preventDefault(); toast(I18N.sortedRows[en() ? 0 : 1]); return; }
       DRAG = {kind:'row', id:tr.dataset.id}; tr.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', tr.dataset.id);
     });
@@ -1088,19 +1124,30 @@ function applyToSelectedCols(fn){
   cols.forEach(fn);
   saveColumns();
 }
+/** الشريط ثابت مكانه: كل المجموعات ظاهرة، واللي مالوش تحديد بيبقى رمادي ومقفول */
+function setGroup(sel, on){
+  const g = $(sel); if(!g) return on;
+  g.classList.toggle('off', !on);
+  g.querySelectorAll('button, input, select').forEach(el => { el.disabled = !on; });
+  g.querySelectorAll('.swatch').forEach(el => el.classList.toggle('off', !on));
+  return on;
+}
 function syncBars(){
   if(S.sheet) S.cols = new Set(Array.from(S.cols).filter(k => S.sheet.columns.some(c => c.key === k)));
   const cols = selCols(), rows = S.rowsSel.size;
   const R = rng(), nCells = R ? (R.r2 - R.r1 + 1) * (R.c2 - R.c1 + 1) : 0;
-  $('#colGroup').hidden = !cols.length;
-  $('#rowGroup').hidden = !rows;
-  $('#cellGroup').hidden = nCells < 2;
-  $('#ctxBar').hidden = !(cols.length || rows || nCells >= 2);
-  $('#ctxSep').hidden = !((cols.length ? 1 : 0) + (rows ? 1 : 0) + (nCells >= 2 ? 1 : 0) > 1);
-  $('#fmtGroup').hidden = !(cols.length || R);
-  if(R) $('#cellChip').textContent = U(`${R.r2 - R.r1 + 1} × ${R.c2 - R.c1 + 1} cells`,
-                                       `${R.r2 - R.r1 + 1} × ${R.c2 - R.c1 + 1} خلية`);
-  if(cols.length || R){
+  const none = '—';
+  setGroup('#colGroup', cols.length > 0);
+  setGroup('#rowGroup', rows > 0);
+  setGroup('#cellGroup', nCells > 0);
+  setGroup('#fmtGroup', !!(cols.length || rows || R));
+  $('#ctxClear').disabled = !(cols.length || rows || R);
+  $('#cellChip').textContent = R ? `${R.r2 - R.r1 + 1} × ${R.c2 - R.c1 + 1}` : none;
+  $('#rowChip').textContent  = rows ? U(rows === 1 ? '1 row' : `${rows} rows`,
+                                        rows === 1 ? 'صف واحد' : `${rows} صفوف`) : none;
+  $('#colChip').textContent  = !cols.length ? none : (cols.length === 1 ? colLabel(cols[0])
+      : U(`${cols.length} columns`, `${cols.length} أعمدة`));
+  if(cols.length || rows || R){
     const f = curFmt();
     $('#fmtBold').classList.toggle('on', !!f.bold);
     $('#fmtItalic').classList.toggle('on', !!f.italic);
@@ -1111,23 +1158,20 @@ function syncBars(){
     if(f.bg) $('#fmtBg').value = f.bg;
     $('#fgDot').style.background = f.fg || 'var(--ink)';
     $('#bgSwatch').style.background = f.bg || '';
+  }else{
+    ['#fmtBold', '#fmtItalic', '#fmtUnder'].forEach(k => $(k).classList.remove('on'));
+    $('#fmtSize').value = ''; $('#fmtAlign').value = '';
   }
   $('#btnFreeze').classList.toggle('on', !!(S.sheet && S.sheet.settings && S.sheet.settings.freeze));
   $('#btnClearFilters').hidden = !Object.values(S.filters).some(v => v);
-  if(cols.length){
-    $('#colChip').textContent = cols.length === 1 ? colLabel(cols[0])
-      : U(`${cols.length} columns selected`, `${cols.length} أعمدة محددة`);
-    const one = cols.length === 1 ? cols[0] : null;
-    const set = (el, v) => { if(document.activeElement !== el) el.value = v; };
-    set($('#colName'), one ? (en() ? (one.label_en || '') : (one.label || '')) : '');
-    $('#colName').disabled = !one;
-    set($('#colType'), one ? one.type : (cols.every(c => c.type === cols[0].type) ? cols[0].type : ''));
-    set($('#colWidth'), one ? (one.width || 150) : (cols.every(c => c.width === cols[0].width) ? (cols[0].width || 150) : ''));
-    set($('#colAgg'), one ? (one.agg || '') : (cols.every(c => (c.agg || '') === (cols[0].agg || '')) ? (cols[0].agg || '') : ''));
-    if(document.activeElement !== $('#colExtra').querySelector('input, select')) drawColExtra(one);
-  }
-  if(rows) $('#rowChip').textContent = U(rows === 1 ? '1 row selected' : `${rows} rows selected`,
-                                          rows === 1 ? 'صف واحد محدد' : `${rows} صفوف محددة`);
+  const one = cols.length === 1 ? cols[0] : null;
+  const set = (el, v) => { if(document.activeElement !== el) el.value = v; };
+  set($('#colName'), one ? (en() ? (one.label_en || '') : (one.label || '')) : '');
+  if(!one) $('#colName').disabled = true;
+  set($('#colType'), !cols.length ? '' : (one ? one.type : (cols.every(c => c.type === cols[0].type) ? cols[0].type : '')));
+  set($('#colWidth'), !cols.length ? '' : (one ? (one.width || 150) : (cols.every(c => c.width === cols[0].width) ? (cols[0].width || 150) : '')));
+  set($('#colAgg'), !cols.length ? '' : (one ? (one.agg || '') : (cols.every(c => (c.agg || '') === (cols[0].agg || '')) ? (cols[0].agg || '') : '')));
+  if(document.activeElement !== $('#colExtra').querySelector('input, select')) drawColExtra(one);
 }
 function drawColExtra(c){
   const box = $('#colExtra');
@@ -1239,7 +1283,7 @@ function addRow(){
 }
 function selRowIdx(){ return S.rows.map((r, i) => S.rowsSel.has(String(r.id)) ? i : -1).filter(i => i >= 0); }
 function shiftRows(dir){
-  if(S.sort){ toast(U('Clear the sort first to reorder rows', 'ألغِ الفرز أولاً لترتيب الصفوف'), true); return; }
+  if(S.sort){ toast(I18N.sortedRows[en() ? 0 : 1]); return; }
   const idx = selRowIdx(); if(!idx.length) return;
   const order = dir < 0 ? idx : idx.slice().reverse();
   for(const i of order){
@@ -1256,7 +1300,7 @@ $('#rowInsB').addEventListener('click', () => insertRow(1));
 /** صف جديد فوق أو تحت الصف المحدد */
 async function insertRow(dir){
   if(!S.sheet) return;
-  if(S.sort){ toast(U('Clear the sort first to insert a row here', 'ألغِ الفرز أولاً لإدراج صف في مكانه'), true); return; }
+  if(S.sort){ toast(I18N.sortedRows[en() ? 0 : 1]); return; }
   const idx = selRowIdx();
   const at = idx.length ? (dir < 0 ? Math.min.apply(null, idx) : Math.max.apply(null, idx) + 1) : S.rows.length;
   pushUndo();
@@ -1524,7 +1568,7 @@ document.addEventListener('keydown', e => {
   if(ctrl && (k === 'y' || (k === 'z' && e.shiftKey))){ e.preventDefault(); redo(); return; }
   if(ctrl && k === 'd'){ e.preventDefault(); $('#cellFillDown').click(); return; }
   if(ctrl && k === 'r' && e.shiftKey){ e.preventDefault(); $('#cellFillRight').click(); return; }
-  if(ctrl && (k === 'b' || k === 'i' || k === 'u') && (S.cols.size || SEL)){
+  if(ctrl && (k === 'b' || k === 'i' || k === 'u') && (S.cols.size || S.rowsSel.size || SEL)){
     e.preventDefault();
     const f = curFmt();
     applyFmt(k === 'b' ? {bold:!f.bold} : k === 'i' ? {italic:!f.italic} : {under:!f.under});
