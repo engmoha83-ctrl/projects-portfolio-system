@@ -361,10 +361,10 @@ function bindGrid(){
   $$('#wrap th[data-sort]').forEach(th => th.addEventListener('click', () => {
     const k = th.dataset.sort;
     if(S.sort === k) S.dir = (S.dir === 'asc') ? 'desc' : 'asc'; else { S.sort = k; S.dir = 'asc'; }
-    S.page = 0; loadRows();
+    S.page = 0; refresh();
   }));
   $$('#wrap [data-filter]').forEach(inp => inp.addEventListener('change', () => {
-    S.filters[inp.dataset.filter] = inp.value.trim(); S.page = 0; loadRows();
+    S.filters[inp.dataset.filter] = inp.value.trim(); S.page = 0; refresh();
   }));
   const sa = $('#selAll');
   if(sa) sa.addEventListener('change', () => $$('#wrap [data-rowsel]').forEach(c => { c.checked = sa.checked; c.closest('tr').classList.toggle('sel', sa.checked); }));
@@ -396,6 +396,7 @@ function bindGrid(){
     });
   });
 }
+markDirty._t = 0;
 function markDirty(r){
   if(!String(r.id).startsWith('n')) S.dirty.set(r.id, r);
   const tr = $(`#wrap tr[data-id="${r.id}"]`); if(tr) tr.classList.add('dirty');
@@ -456,17 +457,31 @@ function updatePager(){
   $('#btnPrev').disabled = S.page <= 0;
   $('#btnNext').disabled = (S.page + 1) * S.per >= S.total;
 }
-async function saveChanges(){
-  if(!S.sheet) return;
+function hasPending(){
+  return S.dirty.size > 0 || S.dels.size > 0 || S.rows.some(r => String(r.id).startsWith('n'));
+}
+/** يحفظ التعديلات المعلّقة ويرجّع true لو الدنيا تمام (أو مفيش حاجة تتحفظ) */
+async function saveChanges(skipReload){
+  if(!S.sheet) return true;
+  clearTimeout(markDirty._t);
   const add = S.rows.filter(r => String(r.id).startsWith('n')).map(r => ({data:r.data}));
   const update = Array.from(S.dirty.values()).map(r => ({id:r.id, data:r.data}));
   const del = Array.from(S.dels);
-  if(!add.length && !update.length && !del.length){ $('#btnSave').disabled = true; return; }
+  if(!add.length && !update.length && !del.length){ $('#btnSave').disabled = true; return true; }
   const j = await api(`/api/sheets/${S.sheet.id}/rows`, {method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({add, update, delete:del})});
-  if(!j.success) return;
+  if(!j.success) return false;
   S.dirty.clear(); S.dels.clear(); $('#btnSave').disabled = true;
   $('#savedAt').textContent = U('Saved ', 'تم الحفظ ') + new Date().toLocaleTimeString(en() ? 'en-GB' : 'ar-EG', {hour:'2-digit', minute:'2-digit'});
+  if(!skipReload) await loadRows();
+  return true;
+}
+/** أي إعادة تحميل من السيرفر (فرز/بحث/فلتر/صفحة) بتحفظ الأول — عشان صف جديد أو تعديل ما يضيعش */
+async function refresh(){
+  if(hasPending() && !(await saveChanges(true))){
+    toast(U('Could not save your changes — nothing was reloaded', 'تعذّر حفظ تعديلاتك — لم يُعد التحميل'), true);
+    return;
+  }
   await loadRows();
 }
 
@@ -571,7 +586,7 @@ $('#btnNew').addEventListener('click', async () => {
 $('#btnManage').addEventListener('click', openMgr);
 $('#btnCols').addEventListener('click', () => { if(S.sheet) openCols(); });
 $('#btnSave').addEventListener('click', saveChanges);
-$('#sheetSel').addEventListener('change', e => openSheet(e.target.value));
+$('#sheetSel').addEventListener('change', async e => { await saveChanges(true); openSheet(e.target.value); });
 $('#btnAddRow').addEventListener('click', () => {
   if(!S.sheet) return;
   const r = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
@@ -591,13 +606,13 @@ $('#btnDelRows').addEventListener('click', async () => {
   renderGrid();
   await saveChanges();
 });
-$('#btnFilters').addEventListener('click', () => { S.showFilters = !S.showFilters; if(!S.showFilters) S.filters = {}; renderGrid(); if(!S.showFilters) loadRows(); });
+$('#btnFilters').addEventListener('click', () => { S.showFilters = !S.showFilters; if(!S.showFilters) S.filters = {}; renderGrid(); if(!S.showFilters) refresh(); });
 $('#search').addEventListener('input', e => {
   clearTimeout(window._sq);
-  window._sq = setTimeout(() => { S.q = e.target.value.trim(); S.page = 0; loadRows(); }, 350);
+  window._sq = setTimeout(() => { S.q = e.target.value.trim(); S.page = 0; refresh(); }, 350);
 });
-$('#btnPrev').addEventListener('click', () => { if(S.page > 0){ S.page--; loadRows(); } });
-$('#btnNext').addEventListener('click', () => { if((S.page + 1) * S.per < S.total){ S.page++; loadRows(); } });
+$('#btnPrev').addEventListener('click', () => { if(S.page > 0){ S.page--; refresh(); } });
+$('#btnNext').addEventListener('click', () => { if((S.page + 1) * S.per < S.total){ S.page++; refresh(); } });
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('.modal-back').classList.remove('open')));
 $$('.modal-back').forEach(m => m.addEventListener('click', e => { if(e.target === m) m.classList.remove('open'); }));
 document.addEventListener('keydown', e => {
@@ -610,9 +625,7 @@ $('#btnLang').addEventListener('click', () => {
   applyLang(); renderGrid(); updatePager();
   if(S.sheet) $('#sheetName').textContent = en() ? (S.sheet.name_en || S.sheet.name) : S.sheet.name;
 });
-window.addEventListener('beforeunload', e => {
-  if(S.dirty.size || S.dels.size || S.rows.some(r => String(r.id).startsWith('n'))){ e.preventDefault(); e.returnValue = ''; }
-});
+window.addEventListener('beforeunload', e => { if(hasPending()){ e.preventDefault(); e.returnValue = ''; } });
 
 applyLang();
 loadSheets();
