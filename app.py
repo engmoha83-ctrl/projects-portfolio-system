@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import re
 import secrets
 import string
@@ -48,6 +49,20 @@ def get_db_connection():
             cur.execute("""CREATE TABLE IF NOT EXISTS cashflow_plan_daily (
                                project_name TEXT NOT NULL, d TEXT NOT NULL, amount NUMERIC,
                                PRIMARY KEY (project_name, d))""")
+            # الجداول المخصصة: تعريف الأعمدة والصفوف في JSONB، فإضافة عمود ما تحتاجش هجرة
+            cur.execute("""CREATE TABLE IF NOT EXISTS sheets (
+                               id SERIAL PRIMARY KEY, name TEXT NOT NULL, name_en TEXT,
+                               columns JSONB NOT NULL DEFAULT '[]'::jsonb,
+                               settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+                               created_by TEXT, created_at TIMESTAMP DEFAULT NOW(),
+                               updated_at TIMESTAMP DEFAULT NOW())""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS sheet_rows (
+                               id SERIAL PRIMARY KEY,
+                               sheet_id INTEGER NOT NULL REFERENCES sheets(id) ON DELETE CASCADE,
+                               seq INTEGER NOT NULL DEFAULT 0,
+                               data JSONB NOT NULL DEFAULT '{}'::jsonb,
+                               updated_by TEXT, updated_at TIMESTAMP DEFAULT NOW())""")
+            cur.execute("CREATE INDEX IF NOT EXISTS sheet_rows_sheet_seq ON sheet_rows (sheet_id, seq, id)")
             conn.commit()
             _SCHEMA_READY = True
         except Exception:
@@ -823,6 +838,490 @@ async def builder_delete_layout(layout_id: int, request: Request, background_tas
         return {"success": True}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+# ==================== الجداول المخصصة (Sheets) ====================
+# جداول يعرّفها المستخدم بنفسه: الأعمدة وأنواعها في JSONB، والصفوف في JSONB كمان،
+# فإضافة عمود أو حذفه ما يحتاجش أي تعديل في قاعدة البيانات.
+# أنواع الأعمدة: text | number | date | select | bool | project | lookup | formula
+#   project = اختيار مشروع من مشاريع النظام
+#   lookup  = قيمة جاهزة من آخر تحديث للمشروع المختار في عمود المشروع (تتحدث تلقائياً)
+#   formula = معادلة حسابية على أعمدة نفس الصف
+
+SHEET_TYPES = {"text", "number", "date", "select", "bool", "project", "lookup", "formula"}
+_LATEST_CACHE = {"at": 0.0, "data": None}
+
+
+def _latest_by_project():
+    """آخر تحديث لكل مشروع (لأعمدة lookup) — بكاش قصير عشان ما نحمّلش القاعدة مع كل طلب."""
+    now = time.time()
+    if _LATEST_CACHE["data"] is not None and now - _LATEST_CACHE["at"] < 60:
+        return _LATEST_CACHE["data"]
+    latest = {}
+    for rec in fetch_every_record():
+        name = rec.get("project_name")
+        if name:
+            latest[name] = rec
+    _LATEST_CACHE["data"] = latest
+    _LATEST_CACHE["at"] = now
+    return latest
+
+
+# ---------- مُقيِّم المعادلات (بدون eval) ----------
+_FORMULA_FUNCS = {
+    "sum": lambda *a: sum(_fnum(x) for x in a),
+    "min": lambda *a: min([_fnum(x) for x in a] or [0]),
+    "max": lambda *a: max([_fnum(x) for x in a] or [0]),
+    "abs": lambda x: abs(_fnum(x)),
+    "round": lambda x, n=0: round(_fnum(x), int(_fnum(n))),
+    "avg": lambda *a: (sum(_fnum(x) for x in a) / len(a)) if a else 0,
+    "if": lambda c, a, b=0: a if c else b,
+}
+
+
+def _fnum(v):
+    if isinstance(v, bool):
+        return 1.0 if v else 0.0
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v).replace(",", "").strip() or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+class _FormulaParser:
+    """محلل بسيط: أرقام، [اسم_العمود]، + - * / ^ ( )، مقارنات، ودوال SUM/IF/ROUND/MIN/MAX/ABS/AVG."""
+
+    def __init__(self, text, values):
+        self.s = str(text or "")
+        self.i = 0
+        self.v = values
+
+    def parse(self):
+        val = self._cmp()
+        self._ws()
+        if self.i < len(self.s):
+            raise ValueError("bad formula")
+        return val
+
+    def _ws(self):
+        while self.i < len(self.s) and self.s[self.i].isspace():
+            self.i += 1
+
+    def _eat(self, token):
+        self._ws()
+        if self.s.startswith(token, self.i):
+            self.i += len(token)
+            return True
+        return False
+
+    def _cmp(self):
+        left = self._add()
+        for op in (">=", "<=", "<>", "!=", "=", ">", "<"):
+            if self._eat(op):
+                right = self._add()
+                a, b = _fnum(left), _fnum(right)
+                return {">=": a >= b, "<=": a <= b, "<>": a != b, "!=": a != b,
+                        "=": a == b, ">": a > b, "<": a < b}[op]
+        return left
+
+    def _add(self):
+        val = self._mul()
+        while True:
+            if self._eat("+"):
+                val = _fnum(val) + _fnum(self._mul())
+            elif self._eat("-"):
+                val = _fnum(val) - _fnum(self._mul())
+            else:
+                return val
+
+    def _mul(self):
+        val = self._pow()
+        while True:
+            if self._eat("*"):
+                val = _fnum(val) * _fnum(self._pow())
+            elif self._eat("/"):
+                d = _fnum(self._pow())
+                val = (_fnum(val) / d) if d else 0.0
+            elif self._eat("%"):
+                d = _fnum(self._pow())
+                val = (_fnum(val) % d) if d else 0.0
+            else:
+                return val
+
+    def _pow(self):
+        val = self._unary()
+        if self._eat("^"):
+            return _fnum(val) ** _fnum(self._pow())
+        return val
+
+    def _unary(self):
+        if self._eat("-"):
+            return -_fnum(self._unary())
+        if self._eat("+"):
+            return self._unary()
+        return self._atom()
+
+    def _atom(self):
+        self._ws()
+        if self.i >= len(self.s):
+            raise ValueError("bad formula")
+        ch = self.s[self.i]
+        if ch == "(":
+            self.i += 1
+            val = self._cmp()
+            if not self._eat(")"):
+                raise ValueError("bad formula")
+            return val
+        if ch == "[":
+            end = self.s.find("]", self.i)
+            if end < 0:
+                raise ValueError("bad formula")
+            key = self.s[self.i + 1:end].strip()
+            self.i = end + 1
+            return self.v.get(key, 0)
+        if ch.isdigit() or ch == ".":
+            j = self.i
+            while j < len(self.s) and (self.s[j].isdigit() or self.s[j] == "."):
+                j += 1
+            num = float(self.s[self.i:j])
+            self.i = j
+            return num
+        if ch.isalpha() or ch == "_":
+            j = self.i
+            while j < len(self.s) and (self.s[j].isalnum() or self.s[j] == "_"):
+                j += 1
+            name = self.s[self.i:j].lower()
+            self.i = j
+            if not self._eat("("):
+                raise ValueError("bad formula")
+            args = []
+            if not self._eat(")"):
+                while True:
+                    args.append(self._cmp())
+                    if self._eat(","):
+                        continue
+                    if self._eat(")"):
+                        break
+                    raise ValueError("bad formula")
+            fn = _FORMULA_FUNCS.get(name)
+            if not fn:
+                raise ValueError("unknown function")
+            return fn(*args)
+        raise ValueError("bad formula")
+
+
+def _eval_formula(expr, values):
+    try:
+        out = _FormulaParser(expr, values).parse()
+        if isinstance(out, bool):
+            return 1 if out else 0
+        return round(float(out), 6) if isinstance(out, (int, float)) else out
+    except Exception:
+        return None
+
+
+def _compute_row(columns, data, latest):
+    """يرجّع نسخة من بيانات الصف مضافاً لها قيم أعمدة lookup والمعادلات."""
+    out = dict(data or {})
+    proj_key = next((c["key"] for c in columns if c.get("type") == "project"), None)
+    project = out.get(proj_key) if proj_key else None
+    rec = latest.get(project) if project else None
+    for col in columns:
+        if col.get("type") == "lookup":
+            src = col.get("source")
+            out[col["key"]] = (rec or {}).get(src) if src else None
+    for _ in range(4):                       # معادلة ممكن تعتمد على معادلة تانية
+        changed = False
+        for col in columns:
+            if col.get("type") != "formula":
+                continue
+            val = _eval_formula(col.get("formula"), out)
+            if out.get(col["key"]) != val:
+                out[col["key"]] = val
+                changed = True
+        if not changed:
+            break
+    return out
+
+
+def _sheet_meta(row):
+    cols = row[3]
+    if isinstance(cols, str):
+        cols = json.loads(cols)
+    settings = row[4]
+    if isinstance(settings, str):
+        settings = json.loads(settings)
+    return {"id": row[0], "name": row[1], "name_en": row[2], "columns": cols or [],
+            "settings": settings or {}, "updated_at": str(row[5])}
+
+
+def _clean_columns(raw):
+    """تنظيف تعريف الأعمدة الجاي من المتصفح."""
+    out, seen = [], set()
+    for i, c in enumerate(raw or []):
+        if not isinstance(c, dict):
+            continue
+        key = re.sub(r"[^a-zA-Z0-9_]", "", str(c.get("key") or "")) or f"c{i + 1}"
+        while key in seen:
+            key += "_"
+        seen.add(key)
+        typ = c.get("type") if c.get("type") in SHEET_TYPES else "text"
+        col = {"key": key, "type": typ,
+               "label": str(c.get("label") or key)[:80],
+               "label_en": str(c.get("label_en") or "")[:80],
+               "width": max(70, min(600, int(_fnum(c.get("width")) or 150)))}
+        if typ == "select":
+            col["options"] = [str(o)[:60] for o in (c.get("options") or [])][:60]
+        if typ == "number":
+            col["decimals"] = max(0, min(4, int(_fnum(c.get("decimals")))))
+            col["unit"] = str(c.get("unit") or "")[:12]
+        if typ == "formula":
+            col["formula"] = str(c.get("formula") or "")[:400]
+            col["decimals"] = max(0, min(4, int(_fnum(c.get("decimals")))))
+            col["unit"] = str(c.get("unit") or "")[:12]
+        if typ == "lookup":
+            col["source"] = str(c.get("source") or "")[:60]
+        out.append(col)
+    return out
+
+
+def _sheet_admin(request):
+    return request.cookies.get("super_admin_auth") == "admin_mohamed"
+
+
+@app.get("/admin-sheets", response_class=HTMLResponse)
+async def sheets_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return RedirectResponse(url="/admin", status_code=303)
+    if admin_user != "admin_mohamed":
+        return RedirectResponse(url="/admin-dashboard", status_code=303)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT project_name FROM project_updates WHERE project_name IS NOT NULL ORDER BY project_name")
+    projects = [r[0] for r in cursor.fetchall()]
+    conn.close()
+    return templates.TemplateResponse(request, "sheets.html", {
+        "admin_user": admin_user, "projects": projects, "active_page": "sheets",
+        "field_meta": build_field_meta()
+    })
+
+
+@app.get("/api/sheets")
+async def sheets_list(request: Request):
+    if not _sheet_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""SELECT s.id, s.name, s.name_en, s.columns, s.settings, s.updated_at,
+                                 (SELECT COUNT(*) FROM sheet_rows r WHERE r.sheet_id = s.id)
+                          FROM sheets s ORDER BY s.updated_at DESC""")
+        rows = cursor.fetchall()
+        conn.close()
+        out = []
+        for r in rows:
+            meta = _sheet_meta(r)
+            meta["rows"] = r[6]
+            out.append(meta)
+        return {"success": True, "sheets": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/sheets")
+async def sheets_create(request: Request, background_tasks: BackgroundTasks):
+    if not _sheet_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        body = await request.json()
+        name = (body.get("name") or "").strip() or "جدول جديد"
+        columns = _clean_columns(body.get("columns") or [
+            {"key": "project", "type": "project", "label": "المشروع", "label_en": "Project", "width": 220},
+            {"key": "item", "type": "text", "label": "البند", "label_en": "Item", "width": 220},
+            {"key": "value", "type": "number", "label": "القيمة", "label_en": "Value", "width": 130},
+        ])
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""INSERT INTO sheets (name, name_en, columns, settings, created_by)
+                          VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+                       (name, (body.get("name_en") or "").strip() or None,
+                        json.dumps(columns, ensure_ascii=False),
+                        json.dumps(body.get("settings") or {}, ensure_ascii=False),
+                        request.cookies.get("super_admin_auth")))
+        sid = cursor.fetchone()[0]
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"), "إنشاء جدول مخصص", name)
+        return {"success": True, "id": sid}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/sheets/{sheet_id}")
+async def sheets_update(sheet_id: int, request: Request):
+    """تعديل اسم الجدول أو تعريف أعمدته."""
+    if not _sheet_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        body = await request.json()
+        sets, vals = [], []
+        if "name" in body:
+            sets.append("name = %s"); vals.append((body.get("name") or "").strip() or "جدول بدون اسم")
+        if "name_en" in body:
+            sets.append("name_en = %s"); vals.append((body.get("name_en") or "").strip() or None)
+        if "columns" in body:
+            sets.append("columns = %s"); vals.append(json.dumps(_clean_columns(body["columns"]), ensure_ascii=False))
+        if "settings" in body:
+            sets.append("settings = %s"); vals.append(json.dumps(body.get("settings") or {}, ensure_ascii=False))
+        if not sets:
+            return {"success": True}
+        sets.append("updated_at = NOW()")
+        vals.append(sheet_id)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"UPDATE sheets SET {', '.join(sets)} WHERE id = %s", vals)
+        conn.commit()
+        conn.close()
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/sheets/{sheet_id}")
+async def sheets_delete(sheet_id: int, request: Request, background_tasks: BackgroundTasks):
+    if not _sheet_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM sheets WHERE id = %s", (sheet_id,))
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"), "حذف جدول مخصص", str(sheet_id))
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+def _load_sheet(cursor, sheet_id):
+    cursor.execute("SELECT id, name, name_en, columns, settings, updated_at FROM sheets WHERE id = %s", (sheet_id,))
+    row = cursor.fetchone()
+    return _sheet_meta(row) if row else None
+
+
+@app.get("/api/sheets/_latest")
+async def sheets_latest(request: Request):
+    """آخر تحديث لكل مشروع — يستعمله المتصفح لتعبئة أعمدة «من بيانات المشروع» فور اختيار المشروع."""
+    if not _sheet_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        keys = [f["key"] for f in build_field_meta()]
+        out = {}
+        for name, rec in _latest_by_project().items():
+            out[name] = {k: rec.get(k) for k in keys if rec.get(k) is not None}
+        return {"success": True, "latest": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/sheets/{sheet_id}/rows")
+async def sheets_rows(sheet_id: int, request: Request, q: str = "", sort: str = "", dir: str = "asc",
+                      limit: int = 200, offset: int = 0, filters: str = ""):
+    """صفوف الجدول بعد حساب أعمدة lookup والمعادلات، مع بحث وفرز وفلترة وتحميل بالصفحات."""
+    if not _sheet_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        sheet = _load_sheet(cursor, sheet_id)
+        if not sheet:
+            conn.close()
+            return JSONResponse({"success": False, "error": "الجدول غير موجود"}, status_code=404)
+        cursor.execute("SELECT id, seq, data, updated_at FROM sheet_rows WHERE sheet_id = %s ORDER BY seq, id", (sheet_id,))
+        raw = cursor.fetchall()
+        conn.close()
+        latest = _latest_by_project()
+        cols = sheet["columns"]
+        rows = []
+        for r in raw:
+            data = r[2] if isinstance(r[2], dict) else json.loads(r[2] or "{}")
+            rows.append({"id": r[0], "seq": r[1], "data": _compute_row(cols, data, latest),
+                         "updated_at": str(r[3])[:16]})
+        try:
+            flt = json.loads(filters) if filters else {}
+        except Exception:
+            flt = {}
+        needle = (q or "").strip().lower()
+        if needle:
+            rows = [x for x in rows if any(needle in str(v).lower() for v in x["data"].values() if v is not None)]
+        for key, want in (flt or {}).items():
+            if want in ("", None):
+                continue
+            rows = [x for x in rows if str(x["data"].get(key, "")).lower().find(str(want).lower()) >= 0]
+        if sort:
+            col = next((c for c in cols if c["key"] == sort), None)
+            numeric = col and col.get("type") in ("number", "formula", "lookup", "bool")
+
+            def keyf(x):
+                v = x["data"].get(sort)
+                if numeric:
+                    return (v is None, _fnum(v))
+                return (v is None, str(v if v is not None else "").lower())
+            rows.sort(key=keyf, reverse=(dir == "desc"))
+        total = len(rows)
+        limit = max(1, min(1000, int(limit or 200)))
+        offset = max(0, int(offset or 0))
+        return {"success": True, "sheet": sheet, "total": total,
+                "rows": rows[offset:offset + limit]}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/sheets/{sheet_id}/rows")
+async def sheets_rows_save(sheet_id: int, request: Request):
+    """حفظ التعديلات دفعة واحدة: إضافة/تعديل/حذف صفوف."""
+    if not _sheet_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        body = await request.json()
+        who = request.cookies.get("super_admin_auth")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        sheet = _load_sheet(cursor, sheet_id)
+        if not sheet:
+            conn.close()
+            return JSONResponse({"success": False, "error": "الجدول غير موجود"}, status_code=404)
+        keys = {c["key"] for c in sheet["columns"] if c.get("type") not in ("formula", "lookup")}
+
+        def clean(d):
+            return {k: v for k, v in (d or {}).items() if k in keys}
+
+        new_ids = []
+        for item in (body.get("add") or [])[:2000]:
+            cursor.execute("""INSERT INTO sheet_rows (sheet_id, seq, data, updated_by)
+                              VALUES (%s, COALESCE((SELECT MAX(seq) + 1 FROM sheet_rows WHERE sheet_id = %s), 1), %s, %s)
+                              RETURNING id""",
+                           (sheet_id, sheet_id, json.dumps(clean(item.get("data")), ensure_ascii=False), who))
+            new_ids.append(cursor.fetchone()[0])
+        for item in (body.get("update") or [])[:2000]:
+            cursor.execute("""UPDATE sheet_rows SET data = %s, updated_by = %s, updated_at = NOW()
+                              WHERE id = %s AND sheet_id = %s""",
+                           (json.dumps(clean(item.get("data")), ensure_ascii=False), who, item.get("id"), sheet_id))
+        dels = [int(x) for x in (body.get("delete") or [])[:5000] if str(x).isdigit()]
+        if dels:
+            cursor.execute("DELETE FROM sheet_rows WHERE sheet_id = %s AND id = ANY(%s)", (sheet_id, dels))
+        for item in (body.get("reorder") or [])[:5000]:
+            cursor.execute("UPDATE sheet_rows SET seq = %s WHERE id = %s AND sheet_id = %s",
+                           (int(_fnum(item.get("seq"))), item.get("id"), sheet_id))
+        cursor.execute("UPDATE sheets SET updated_at = NOW() WHERE id = %s", (sheet_id,))
+        conn.commit()
+        conn.close()
+        return {"success": True, "ids": new_ids}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
 
 # ==================== التدفق النقدي ومنحنى الإنجاز (Cash Flow & S-Curve) ====================
 # صفحة إدارية مخفية عن مديري المشاريع. لإظهارها لهم لاحقاً كتبويب في صفحة التحديث
