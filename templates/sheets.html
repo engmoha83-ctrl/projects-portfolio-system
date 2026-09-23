@@ -14,6 +14,7 @@
   --ease:cubic-bezier(.2,.8,.2,1);
 }
 *{box-sizing:border-box;}
+[hidden]{display:none !important;}
 html,body{height:100%;margin:0;}
 body{font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif; background:var(--bg); color:var(--ink);
      overflow:hidden; -webkit-font-smoothing:antialiased; display:flex; flex-direction:column;}
@@ -55,8 +56,9 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 .search{height:34px; background:var(--tint); border:none; padding:0 10px; font-size:13px; width:220px;}
 
 .wrap{flex:1 1 auto; min-height:0; overflow:auto; background:var(--bg); padding:14px 16px 60px;}
-table.grid{border-collapse:separate; border-spacing:0; background:#fff;
+table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-layout:fixed;
            box-shadow:0 1px 2px rgba(23,32,51,.05), 0 8px 20px rgba(23,32,51,.06);}
+.grid td, .grid th{overflow:hidden;}
 .grid th, .grid td{border-bottom:1px solid var(--line); border-inline-end:1px solid var(--line); padding:0; height:34px;}
 .grid th{position:sticky; top:0; z-index:5; background:#F7F8FA; font-size:12px; font-weight:600; color:var(--ink);
          text-align:start; white-space:nowrap; user-select:none;}
@@ -79,7 +81,9 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff;
 .grid td.rownum .rn{display:flex; align-items:center; justify-content:center; gap:5px; height:100%;}
 .grid td.rownum .rgrip{cursor:grab; color:#C2C8D2; font-size:11px; letter-spacing:-1px;}
 .grid td input[type=text], .grid td input[type=number], .grid td input[type=date], .grid td select{
-  width:100%; height:33px; border:none; background:transparent; padding:0 10px; font-size:13px; color:inherit; font-family:inherit;}
+  width:100%; height:33px; border:none; background:transparent; padding:0 10px; font-size:inherit; color:inherit;
+  font-family:inherit; font-weight:inherit; font-style:inherit; text-decoration:inherit;}
+.grid td{font-size:13px;}
 .grid td input:focus, .grid td select:focus{outline:2px solid var(--navy); outline-offset:-2px; background:#F4F8FF;}
 .grid td.num input, .grid td.cell-calc.num{text-align:end; font-variant-numeric:tabular-nums;}
 .grid td.chk{text-align:center;}
@@ -87,6 +91,35 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff;
 .grid tr.dirty td.rownum{box-shadow:inset 3px 0 0 var(--gold);}
 .grid tr.drag-over td{box-shadow:inset 0 3px 0 var(--navy);}
 .grid tr.dragging{opacity:.45;}
+.grid td.cell-sel{background:#EDF3FB; outline:1px solid #AFC6E4; outline-offset:-1px;}
+.grid td.cell-sel.cell-calc{background:#E7EEF8;}
+.grid td.cell-anchor{box-shadow:inset 0 0 0 2px var(--navy); outline:none;}
+/* تجميد أول عمود مع عمود الترقيم */
+.grid td.fz, .grid th.fz{position:sticky; z-index:4;}
+.grid th.fz{z-index:7;}
+.grid td.fz{box-shadow:1px 0 0 var(--line);}
+[dir="rtl"] .grid td.fz{box-shadow:-1px 0 0 var(--line);}
+/* صف المجاميع */
+.grid tfoot td{position:sticky; bottom:0; z-index:4; background:#F1F4F8; font-weight:600; font-size:12.5px;
+  padding:0 10px; white-space:nowrap; box-shadow:inset 0 1px 0 var(--line);}
+.grid tfoot td.num{text-align:end; font-variant-numeric:tabular-nums;}
+.grid tfoot td .ag{color:var(--muted); font-weight:500; font-size:11px; margin-inline-end:5px;}
+/* شريط الحالة */
+.statusbar{position:fixed; inset-inline-start:0; inset-inline-end:0; bottom:0; height:30px; background:#fff; z-index:40;
+  display:flex; align-items:center; gap:16px; padding:0 16px; font-size:12px; color:var(--muted);
+  box-shadow:0 -1px 2px rgba(23,32,51,.06); transform:translateY(100%); transition:transform .18s var(--ease);}
+.statusbar.on{transform:none;}
+.statusbar b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums;}
+/* أدوات التنسيق */
+.swatch{position:relative; width:34px; height:34px; background:var(--tint); display:inline-flex; align-items:center;
+  justify-content:center; cursor:pointer; font-size:13px; font-weight:700; overflow:hidden;}
+.swatch:hover{background:var(--tint2);}
+.swatch input[type=color]{position:absolute; inset:0; opacity:0; width:100%; height:100%; cursor:pointer; border:none; padding:0;}
+.swatch i{position:absolute; left:4px; right:4px; bottom:4px; height:4px; background:var(--ink);}
+.btn.on{background:var(--navy); color:#fff;}
+#fillHandle{position:absolute; width:9px; height:9px; background:var(--navy); border:1px solid #fff;
+  cursor:crosshair; z-index:6;}
+#fillHandle[hidden]{display:none;}
 .grid th.addcol{width:44px; text-align:center; cursor:pointer; color:var(--muted); font-size:17px; background:#F7F8FA;}
 .grid th.addcol:hover{background:var(--tint2); color:var(--navy);}
 .filters td{background:#FCFCFD; height:30px;}
@@ -145,8 +178,13 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff;
   <button class="btn" id="btnAddRow" data-i18n="addRow">+ Row</button>
   <button class="btn" id="btnAddCol" data-i18n="addCol">+ Column</button>
   <div class="sep"></div>
+  <button class="btn icon" id="btnUndo" data-i18n-title="undo" disabled>↶</button>
+  <button class="btn icon" id="btnRedo" data-i18n-title="redo" disabled>↷</button>
+  <button class="btn icon" id="btnFreeze" data-i18n-title="freeze">❄</button>
+  <div class="sep"></div>
   <input class="search" id="search" data-i18n-ph="search" placeholder="Search…">
   <button class="btn" id="btnFilters" data-i18n="filters">Filters</button>
+  <button class="btn" id="btnClearFilters" hidden data-i18n="clearFilters">Clear filters</button>
   <div class="spacer"></div>
   <span class="count" id="rowCount"></span>
   <button class="btn icon" id="btnPrev">‹</button>
@@ -154,34 +192,63 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff;
   <button class="btn icon" id="btnNext">›</button>
 </div>
 
-<!-- شريط الأعمدة المحددة -->
-<div class="bar ctx" id="colBar" hidden>
-  <span class="chip" id="colChip"></span>
-  <input class="fld" id="colName" data-i18n-ph="colName" placeholder="Column name" style="width:170px" data-no-tr>
-  <select class="fld" id="colType" style="width:170px"></select>
-  <span id="colExtra" style="display:flex; gap:8px; align-items:center;"></span>
-  <label class="inline"><span data-i18n="width">Width</span>
-    <input class="fld" id="colWidth" type="number" min="70" max="600" style="width:84px"></label>
-  <div class="sep"></div>
-  <button class="btn icon" id="colLeft" title="◀">◀</button>
-  <button class="btn icon" id="colRight" title="▶">▶</button>
-  <button class="btn danger" id="colDel" data-i18n="delete">Delete</button>
+<!-- شريط واحد لكل ما هو محدد -->
+<div class="bar ctx" id="ctxBar" hidden>
+  <span id="colGroup" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+    <span class="chip" id="colChip"></span>
+    <label class="inline"><span data-i18n="name">Name</span>
+      <input class="fld" id="colName" style="width:150px" data-no-tr></label>
+    <label class="inline"><span data-i18n="type">Type</span>
+      <select class="fld" id="colType" style="width:160px"></select></label>
+    <span id="colExtra" style="display:flex; gap:8px; align-items:center;"></span>
+    <label class="inline"><span data-i18n="width">Width</span>
+      <input class="fld" id="colWidth" type="number" min="70" max="900" step="10" style="width:78px"></label>
+    <label class="inline"><span data-i18n="total">Total</span>
+      <select class="fld" id="colAgg" style="width:120px"></select></label>
+    <button class="btn icon" id="colLeft" title="◀">◀</button>
+    <button class="btn icon" id="colRight" title="▶">▶</button>
+    <button class="btn icon" id="colInsL" data-i18n-title="insColBefore">⇤+</button>
+    <button class="btn icon" id="colInsR" data-i18n-title="insColAfter">+⇥</button>
+    <button class="btn danger" id="colDel" data-i18n="delete">Delete</button>
+  </span>
+  <span id="cellGroup" hidden style="display:flex; align-items:center; gap:8px;">
+    <span class="chip" id="cellChip"></span>
+    <button class="btn" id="cellCopy" data-i18n="copy">Copy</button>
+    <button class="btn" id="cellFillDown" data-i18n="fillDown">Fill down</button>
+    <button class="btn" id="cellFillRight" data-i18n="fillRight">Fill right</button>
+    <button class="btn danger" id="cellClear" data-i18n="clearCells">Clear</button>
+  </span>
+  <span class="sep" id="ctxSep" hidden></span>
+  <span id="rowGroup" style="display:flex; align-items:center; gap:8px;">
+    <span class="chip" id="rowChip"></span>
+    <button class="btn icon" id="rowUp">▲</button>
+    <button class="btn icon" id="rowDown">▼</button>
+    <button class="btn icon" id="rowInsA" data-i18n-title="insRowAbove">↑+</button>
+    <button class="btn icon" id="rowInsB" data-i18n-title="insRowBelow">+↓</button>
+    <button class="btn" id="rowDup" data-i18n="duplicate">Duplicate</button>
+    <button class="btn danger" id="rowDel" data-i18n="delete">Delete</button>
+  </span>
   <div class="spacer"></div>
-  <button class="btn" id="colClear" data-i18n="clearSel">Clear selection</button>
+  <span id="fmtGroup" hidden style="display:flex; align-items:center; gap:5px;">
+    <button class="btn icon" id="fmtBold" data-i18n-title="bold" style="font-weight:800">B</button>
+    <button class="btn icon" id="fmtItalic" data-i18n-title="italic" style="font-style:italic">I</button>
+    <button class="btn icon" id="fmtUnder" data-i18n-title="underline" style="text-decoration:underline">U</button>
+    <select class="fld" id="fmtSize" style="width:64px" data-i18n-title="fontSize"></select>
+    <select class="fld" id="fmtAlign" style="width:96px" data-i18n-title="align"></select>
+    <label class="swatch" data-i18n-title="textColor">A<i id="fgDot"></i>
+      <input type="color" id="fmtFg" value="#172033"></label>
+    <label class="swatch" data-i18n-title="fillColor" id="bgSwatch">▧
+      <input type="color" id="fmtBg" value="#FFF3CD"></label>
+    <button class="btn icon" id="fmtNone" data-i18n-title="clearFmt">⌫</button>
+    <span class="sep"></span>
+  </span>
+  <button class="btn" id="ctxClear" data-i18n="clearSel">Clear selection</button>
 </div>
 
-<!-- شريط الصفوف المحددة -->
-<div class="bar ctx" id="rowBar" hidden>
-  <span class="chip" id="rowChip"></span>
-  <button class="btn icon" id="rowUp">▲</button>
-  <button class="btn icon" id="rowDown">▼</button>
-  <button class="btn" id="rowDup" data-i18n="duplicate">Duplicate</button>
-  <button class="btn danger" id="rowDel" data-i18n="delete">Delete</button>
-  <div class="spacer"></div>
-  <button class="btn" id="rowClear" data-i18n="clearSel">Clear selection</button>
-</div>
+<div class="wrap" id="wrap" style="position:relative;">
+  <div id="fillHandle" hidden data-i18n-title="dragFill"></div><div class="empty" id="empty" data-i18n="noSheet">No sheet yet — create one to start.</div></div>
 
-<div class="wrap" id="wrap"><div class="empty" id="empty" data-i18n="noSheet">No sheet yet — create one to start.</div></div>
+<div class="statusbar" id="statusBar"></div>
 
 <div class="modal-back" id="mgrModal">
   <div class="modal">
@@ -209,13 +276,28 @@ const I18N = {
   noSheet:['No sheet yet — create one to start.','لا توجد جداول — أنشئ جدول للبدء.'],
   close:['Close','إغلاق'], open:['Open','فتح'], rename:['Rename','إعادة تسمية'], del:['Delete','حذف'],
   delete:['Delete','حذف'], duplicate:['Duplicate','تكرار'], clearSel:['Clear selection','إلغاء التحديد'],
-  colName:['Column name','اسم العمود'], width:['Width','العرض'], decimals:['Decimals','خانات عشرية'],
-  unit:['Unit','الوحدة'], options:['Choices','الاختيارات'], formula:['Formula','المعادلة'], source:['Source','المصدر']
+  name:['Name','الاسم'], type:['Type','النوع'], width:['Width','العرض'], decimals:['Decimals','خانات عشرية'],
+  clearFilters:['Clear filters','مسح الفلاتر'], copy:['Copy','نسخ'],
+  fillDown:['Fill down','تكرار لتحت'], fillRight:['Fill right','تكرار للجنب'], clearCells:['Clear','مسح'],
+  unit:['Unit','الوحدة'], options:['Choices','الاختيارات'], formula:['Formula','المعادلة'], source:['Source','المصدر'],
+  total:['Total','الإجمالي'], undo:['Undo (Ctrl+Z)','تراجع (Ctrl+Z)'], redo:['Redo (Ctrl+Y)','إعادة (Ctrl+Y)'],
+  freeze:['Freeze first column','تثبيت أول عمود'], bold:['Bold (Ctrl+B)','عريض (Ctrl+B)'],
+  italic:['Italic (Ctrl+I)','مائل (Ctrl+I)'], underline:['Underline (Ctrl+U)','تسطير (Ctrl+U)'],
+  fontSize:['Font size','حجم الخط'], align:['Alignment','المحاذاة'], textColor:['Text colour','لون النص'],
+  fillColor:['Fill colour','لون الخلفية'], clearFmt:['Clear formatting','مسح التنسيق'],
+  dragFill:['Drag to fill','اسحب للتكرار'], insRowAbove:['Insert row above','إدراج صف فوق'],
+  insRowBelow:['Insert row below','إدراج صف تحت'], insColBefore:['Insert column before','إدراج عمود قبل'],
+  insColAfter:['Insert column after','إدراج عمود بعد'], sum:['Sum','المجموع'], avg:['Average','المتوسط'],
+  countL:['Count','العدد'], minL:['Min','الأصغر'], maxL:['Max','الأكبر'], sel:['Selected','المحدد']
 };
 const TYPES = [['text','Text','نص'], ['number','Number','رقم'], ['date','Date','تاريخ'],
                ['select','Choice list','قائمة اختيارات'], ['bool','Yes / No','صح / غلط'],
                ['project','Project','المشروع'], ['lookup','From project data','من بيانات المشروع'],
                ['formula','Formula','معادلة']];
+const AGGS  = [['','None','بدون'], ['sum','Sum','المجموع'], ['avg','Average','المتوسط'],
+               ['count','Count','العدد'], ['min','Min','الأصغر'], ['max','Max','الأكبر']];
+const ALIGNS = [['','Auto','تلقائي'], ['left','Left','يسار'], ['center','Centre','وسط'], ['right','Right','يمين']];
+const SIZES = [11, 12, 13, 14, 16, 18, 22];
 function applyLang(){
   const i = en() ? 0 : 1;
   document.documentElement.lang = en() ? 'en' : 'ar';
@@ -225,8 +307,16 @@ function applyLang(){
   document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = (I18N[el.dataset.i18nPh] || ['', ''])[i]);
   document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = (I18N[el.dataset.i18nTitle] || ['', ''])[i]);
   const b = $('#btnLang'); if(b) b.textContent = en() ? 'Arabic' : 'English';
-  const ct = $('#colType');
-  ct.innerHTML = TYPES.map(([v, e2, a]) => `<option value="${v}">${en() ? e2 : a}</option>`).join('');
+  const opts = (el, list) => { if(!el) return; const keep = el.value;
+    el.innerHTML = list.map(([v, e2, a]) => `<option value="${v}">${en() ? e2 : a}</option>`).join('');
+    el.value = keep; };
+  opts($('#colType'), TYPES);
+  opts($('#colAgg'), AGGS);
+  opts($('#fmtAlign'), ALIGNS);
+  const fs = $('#fmtSize');
+  if(fs){ const keep = fs.value;
+    fs.innerHTML = `<option value="">${U('Size', 'حجم')}</option>` + SIZES.map(s => `<option value="${s}">${s}</option>`).join('');
+    fs.value = keep; }
 }
 
 /* ================= أدوات ================= */
@@ -325,57 +415,477 @@ function shownValue(r, c){
     return num(v).toLocaleString('en-US', {maximumFractionDigits:2}) + (fld.type === 'percent' ? '%' : '');
   return v;
 }
+/* ================= التنسيق (ألوان وخطوط) =================
+   تنسيق العمود يتخزّن في تعريف العمود، وتنسيق الخلية في __fmt جوه بيانات الصف،
+   وتنسيق الخلية بيغلب على تنسيق العمود. */
+function effFmt(r, c){
+  const cf = (r.data && r.data.__fmt) ? (r.data.__fmt[c.key] || null) : null;
+  if(!c.fmt && !cf) return null;
+  return Object.assign({}, c.fmt || {}, cf || {});
+}
+function fmtStyle(f){
+  if(!f) return '';
+  let s = '';
+  if(f.bg) s += `background:${f.bg};`;
+  if(f.fg) s += `color:${f.fg};`;
+  if(f.bold) s += 'font-weight:700;';
+  if(f.italic) s += 'font-style:italic;';
+  if(f.under) s += 'text-decoration:underline;';
+  if(f.size) s += `font-size:${f.size}px;`;
+  if(f.align) s += `text-align:${f.align};`;
+  return s;
+}
+function mergeFmt(base, patch){
+  const f = Object.assign({}, base || {});
+  Object.keys(patch).forEach(k => {
+    const v = patch[k];
+    if(v === null || v === false || v === '') delete f[k]; else f[k] = v;
+  });
+  return Object.keys(f).length ? f : null;
+}
+function touch(row){
+  if(!String(row.id).startsWith('n')) S.dirty.set(row.id, row);
+  $('#btnSave').disabled = false;
+}
+/** يطبّق التنسيق على الأعمدة المحددة لو فيه أعمدة، وإلا على مدى الخلايا المحدد */
+function applyFmt(patch){
+  if(!S.sheet) return;
+  if(S.cols.size){
+    pushUndo();
+    selCols().forEach(c => { const f = mergeFmt(c.fmt, patch); if(f) c.fmt = f; else delete c.fmt; });
+    saveColumns(); return;
+  }
+  const R = rng(); if(!R) return;
+  pushUndo();
+  for(let r = R.r1; r <= R.r2; r++){
+    const row = S.rows[r]; if(!row) continue;
+    const fm = Object.assign({}, row.data.__fmt || {});
+    for(let c = R.c1; c <= R.c2; c++){
+      const col = S.sheet.columns[c]; if(!col) continue;
+      const nf = mergeFmt(fm[col.key], patch);
+      if(nf) fm[col.key] = nf; else delete fm[col.key];
+    }
+    if(Object.keys(fm).length) row.data.__fmt = fm; else delete row.data.__fmt;
+    touch(row);
+  }
+  renderGrid(); scheduleSave();
+}
+function curFmt(){
+  if(!S.sheet) return {};
+  if(S.cols.size){ const c = selCols()[0]; return (c && c.fmt) || {}; }
+  const R = rng(); if(!R) return {};
+  const row = S.rows[R.r1], col = S.sheet.columns[R.c1];
+  return (row && col && effFmt(row, col)) || {};
+}
+
+/* ================= التراجع والإعادة ================= */
+const UNDO = [], REDO = [];
+let LAST_U = {k:'', t:0};
+function snap(){
+  return JSON.stringify({rows:S.rows.map(r => ({id:r.id, data:r.data})),
+                         cols:S.sheet ? S.sheet.columns : []});
+}
+function commitUndo(before){
+  if(!S.sheet) return;
+  UNDO.push(before);
+  if(UNDO.length > 60) UNDO.shift();
+  REDO.length = 0;
+  LAST_U = {k:'', t:0};
+  syncUndoBtns();
+}
+function pushUndo(){ if(S.sheet) commitUndo(snap()); }
+/** لقطة واحدة لسلسلة كتابة متتالية في نفس الخلية بدل لقطة لكل حرف */
+function pushUndoCell(key){
+  const now = Date.now();
+  if(key === LAST_U.k && now - LAST_U.t < 1500){ LAST_U.t = now; return; }
+  pushUndo();
+  LAST_U = {k:key, t:now};
+}
+function syncUndoBtns(){
+  $('#btnUndo').disabled = !UNDO.length;
+  $('#btnRedo').disabled = !REDO.length;
+}
+function applySnap(str){
+  const o = JSON.parse(str);
+  const colsChanged = JSON.stringify(S.sheet.columns) !== JSON.stringify(o.cols);
+  S.sheet.columns = o.cols;
+  const before = new Map(S.rows.map(r => [String(r.id), r]));
+  const keep = new Set(o.rows.map(r => String(r.id)));
+  // صف اتشال في اللقطة ولسه موجود = كان اتضاف بعدها، يتحذف
+  before.forEach((r, id) => { if(!keep.has(id) && !id.startsWith('n')) S.dels.add(+id); });
+  S.rows = o.rows.map(r0 => {
+    const id = String(r0.id);
+    const r = before.get(id) || {id:r0.id};
+    r.data = JSON.parse(JSON.stringify(r0.data));
+    recalcRow(r);
+    if(!id.startsWith('n')){ S.dels.delete(+id); S.dirty.set(r.id, r); }
+    return r;
+  });
+  S.total += S.rows.length - before.size;
+  S.rowsSel = new Set(Array.from(S.rowsSel).filter(id => keep.has(String(id))));
+  if(SEL && (SEL.r1 >= S.rows.length || SEL.r2 >= S.rows.length)) SEL = null;
+  $('#btnSave').disabled = false;
+  if(colsChanged) saveColumns(); else { S.rows.forEach(recalcRow); renderGrid(); syncBars(); }
+  updatePager(); scheduleSave(); syncUndoBtns();
+}
+function undo(){
+  if(!UNDO.length || !S.sheet){ toast(U('Nothing to undo', 'لا يوجد ما يمكن التراجع عنه')); return; }
+  REDO.push(snap());
+  applySnap(UNDO.pop());
+  toast(U('Undone', 'تم التراجع'));
+}
+function redo(){
+  if(!REDO.length || !S.sheet) return;
+  UNDO.push(snap());
+  applySnap(REDO.pop());
+  toast(U('Redone', 'تمت الإعادة'));
+}
+
+/* ================= صف المجاميع ================= */
+function aggValue(c){
+  if(!c.agg) return '';
+  const vals = S.rows.map(r => r.data[c.key]).filter(v => v !== null && v !== undefined && v !== '' && v !== false);
+  if(c.agg === 'count') return String(vals.length);
+  const nums = vals.map(num);
+  if(!nums.length) return '';
+  let v;
+  if(c.agg === 'sum') v = nums.reduce((a, b) => a + b, 0);
+  else if(c.agg === 'avg') v = nums.reduce((a, b) => a + b, 0) / nums.length;
+  else if(c.agg === 'min') v = Math.min.apply(null, nums);
+  else if(c.agg === 'max') v = Math.max.apply(null, nums);
+  else return '';
+  const dec = c.decimals != null ? c.decimals : (c.agg === 'avg' ? 2 : 0);
+  return fmtNum(v, Math.abs(v) < 1000 && v % 1 !== 0 ? Math.max(dec, 2) : dec, c.unit);
+}
+const aggLabel = k => ({sum:I18N.sum, avg:I18N.avg, count:I18N.countL, min:I18N.minL, max:I18N.maxL}[k] || ['', ''])[en() ? 0 : 1];
+
+/* ================= شريط الحالة (زي إكسل) ================= */
+function syncStatus(){
+  const bar = $('#statusBar'); if(!bar) return;
+  const R = rng();
+  if(!R || !S.sheet){ bar.classList.remove('on'); bar.innerHTML = ''; return; }
+  const nCells = (R.r2 - R.r1 + 1) * (R.c2 - R.c1 + 1);
+  const nums = [];
+  for(let r = R.r1; r <= R.r2; r++) for(let c = R.c1; c <= R.c2; c++){
+    const row = S.rows[r], col = S.sheet.columns[c];
+    if(!row || !col) continue;
+    const v = row.data[col.key];
+    if(v === null || v === undefined || v === '' || typeof v === 'boolean') continue;
+    const n = parseFloat(String(v).replace(/,/g, ''));
+    if(!isNaN(n) && /^[-+]?[\d,. ]+%?$/.test(String(v).trim())) nums.push(n);
+  }
+  const f = v => v.toLocaleString('en-US', {maximumFractionDigits:2});
+  let html = `<span>${I18N.sel[en() ? 0 : 1]}: <b>${nCells}</b></span>`;
+  if(nums.length){
+    const sum = nums.reduce((a, b) => a + b, 0);
+    html += `<span>${I18N.sum[en() ? 0 : 1]}: <b>${f(sum)}</b></span>`
+          + `<span>${I18N.avg[en() ? 0 : 1]}: <b>${f(sum / nums.length)}</b></span>`
+          + `<span>${I18N.minL[en() ? 0 : 1]}: <b>${f(Math.min.apply(null, nums))}</b></span>`
+          + `<span>${I18N.maxL[en() ? 0 : 1]}: <b>${f(Math.max.apply(null, nums))}</b></span>`
+          + `<span>${I18N.countL[en() ? 0 : 1]}: <b>${nums.length}</b></span>`;
+  }
+  bar.innerHTML = html;
+  bar.classList.toggle('on', nCells > 1 || nums.length > 0);
+}
+
+/* ================= تحديد الخلايا · السحب للتكرار · نسخ ولصق ================= */
+let SEL = null;                      // {r1,c1,r2,c2} بأرقام الصف والعمود في الشاشة
+let EXT_AT = 0;                      // آخر توسيع للتحديد بالـ Shift
+let FILL = null;                     // أثناء سحب مربع التكرار
+const rng = () => SEL && {r1:Math.min(SEL.r1, SEL.r2), r2:Math.max(SEL.r1, SEL.r2),
+                          c1:Math.min(SEL.c1, SEL.c2), c2:Math.max(SEL.c1, SEL.c2)};
+function inRange(ri, ci){
+  const R = FILL ? FILL.preview : rng();
+  return !!R && ri >= R.r1 && ri <= R.r2 && ci >= R.c1 && ci <= R.c2;
+}
+function setSel(r, c, extend){
+  if(!SEL || !extend){ SEL = {r1:r, c1:c, r2:r, c2:c}; }
+  else { SEL.r2 = r; SEL.c2 = c; }
+  paintSel();
+}
+function paintSel(){
+  const R = FILL ? FILL.preview : rng();
+  $$('#wrap td[data-r]').forEach(td => {
+    const ri = +td.dataset.r, ci = +td.dataset.c;
+    td.classList.toggle('cell-sel', !!R && ri >= R.r1 && ri <= R.r2 && ci >= R.c1 && ci <= R.c2);
+    td.classList.toggle('cell-anchor', !!SEL && !FILL && ri === SEL.r1 && ci === SEL.c1);
+  });
+  placeHandle();
+  syncBars();
+  syncStatus();
+}
+function placeHandle(){
+  const h = $('#fillHandle'); if(!h) return;
+  const R = rng();
+  const wrap = $('#wrap');
+  if(!R || FILL){ h.hidden = !!(!R); if(FILL) h.hidden = true; return; }
+  const td = $(`#wrap td[data-r="${R.r2}"][data-c="${R.c2}"]`);
+  if(!td){ h.hidden = true; return; }
+  const a = td.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+  h.hidden = false;
+  h.style.top  = (a.bottom - w.top + wrap.scrollTop - 4) + 'px';
+  h.style.left = ((document.documentElement.dir === 'rtl' ? a.left : a.right) - w.left + wrap.scrollLeft - 4) + 'px';
+}
+function cellFromPoint(x, y){
+  const el = document.elementFromPoint(x, y);
+  const td = el && el.closest ? el.closest('td[data-r]') : null;
+  return td ? {r:+td.dataset.r, c:+td.dataset.c} : null;
+}
+function startFill(ev){
+  ev.preventDefault();
+  const R = rng(); if(!R) return;
+  FILL = {src:R, preview:Object.assign({}, R)};
+  const move = e => {
+    const p = cellFromPoint(e.clientX, e.clientY); if(!p) return;
+    const wide = Math.abs(p.c - (p.c >= R.c1 && p.c <= R.c2 ? p.c : (p.c < R.c1 ? R.c1 : R.c2)));
+    const vert = (p.r < R.r1) || (p.r > R.r2);
+    FILL.preview = vert || !wide
+      ? {r1:Math.min(R.r1, p.r), r2:Math.max(R.r2, p.r), c1:R.c1, c2:R.c2}
+      : {r1:R.r1, r2:R.r2, c1:Math.min(R.c1, p.c), c2:Math.max(R.c2, p.c)};
+    paintSel();
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
+    const target = FILL.preview, src = FILL.src;
+    FILL = null;
+    applyFill(src, target);
+  };
+  document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+}
+/* ---- متتاليات ذكية: 1,2,3… / تواريخ / "بند 1" ---- */
+const DAY = 86400000;
+const dayNum = v => { const t = Date.parse(String(v) + 'T00:00:00Z'); return isNaN(t) ? null : t / DAY; };
+function seriesStep(col, vals){
+  const clean = vals.filter(v => v !== null && v !== undefined && v !== '');
+  if(!clean.length || clean.length !== vals.length) return null;
+  if(col.type === 'number'){
+    if(clean.length < 2) return null;                       // خلية واحدة: تكرار زي إكسل
+    const d = num(clean[1]) - num(clean[0]);
+    if(!d) return null;
+    for(let i = 1; i < clean.length; i++) if(Math.abs((num(clean[i]) - num(clean[i - 1])) - d) > 1e-9) return null;
+    return {kind:'num', step:d};
+  }
+  if(col.type === 'date'){
+    const ds = clean.map(dayNum);
+    if(ds.some(x => x === null)) return null;
+    if(ds.length === 1) return {kind:'date', step:1};
+    const d = ds[1] - ds[0];
+    if(!d) return null;
+    for(let i = 1; i < ds.length; i++) if(ds[i] - ds[i - 1] !== d) return null;
+    return {kind:'date', step:d};
+  }
+  if(col.type === 'text'){
+    const m = clean.map(v => String(v).match(/^(.*?)(\d+)(\D*)$/));
+    if(m.some(x => !x)) return null;
+    const pre = m[0][1], post = m[0][3], pad = m[0][2].length;
+    if(m.some(x => x[1] !== pre || x[3] !== post)) return null;
+    const ns = m.map(x => parseInt(x[2], 10));
+    if(ns.length === 1) return {kind:'text', step:1, pre, post, pad};
+    const d = ns[1] - ns[0];
+    if(!d) return null;
+    for(let i = 1; i < ns.length; i++) if(ns[i] - ns[i - 1] !== d) return null;
+    return {kind:'text', step:d, pre, post, pad};
+  }
+  return null;
+}
+function seriesAt(vals, s, k, back){
+  const base = back ? vals[0] : vals[vals.length - 1];
+  const mul = (k + 1) * (back ? -1 : 1);
+  if(s.kind === 'num') return num(base) + s.step * mul;
+  if(s.kind === 'date') return new Date((dayNum(base) + s.step * mul) * DAY).toISOString().slice(0, 10);
+  const m = String(base).match(/^(.*?)(\d+)(\D*)$/);
+  let n = parseInt(m[2], 10) + s.step * mul;
+  if(n < 0) n = 0;
+  let str = String(n);
+  while(str.length < s.pad) str = '0' + str;
+  return s.pre + str + s.post;
+}
+/** يكرّر قيم المصدر على المدى المطلوب — ولو القيم متتالية بيكمّلها (زي السحب في إكسل) */
+function applyFill(src, target){
+  if(!S.sheet) return;
+  const before = snap();
+  const vertical = (target.r1 < src.r1 || target.r2 > src.r2);
+  const sw = src.c2 - src.c1 + 1;
+  let n = 0;
+  if(vertical){
+    for(let c = src.c1; c <= src.c2; c++){
+      const col = S.sheet.columns[c]; if(!col || isCalc(col)) continue;
+      const vals = [];
+      for(let r = src.r1; r <= src.r2; r++) vals.push(S.rows[r] ? S.rows[r].data[col.key] : '');
+      const s = seriesStep(col, vals);
+      for(let r = src.r2 + 1; r <= target.r2; r++){
+        const k = r - src.r2 - 1;
+        if(writeCell(r, c, s ? seriesAt(vals, s, k, false) : vals[k % vals.length])) n++;
+      }
+      for(let r = src.r1 - 1; r >= target.r1; r--){
+        const k = src.r1 - r - 1;
+        if(writeCell(r, c, s ? seriesAt(vals, s, k, true) : vals[vals.length - 1 - (k % vals.length)])) n++;
+      }
+    }
+  }else{
+    for(let r = src.r1; r <= src.r2; r++){
+      const row = S.rows[r]; if(!row) continue;
+      const val = sc => { const col = S.sheet.columns[sc]; return col ? row.data[col.key] : ''; };
+      for(let c = src.c2 + 1; c <= target.c2; c++)
+        if(writeCell(r, c, val(src.c1 + ((c - src.c2 - 1) % sw)))) n++;
+      for(let c = src.c1 - 1; c >= target.c1; c--)
+        if(writeCell(r, c, val(src.c2 - ((src.c1 - c - 1) % sw)))) n++;
+    }
+  }
+  SEL = {r1:target.r1, c1:target.c1, r2:target.r2, c2:target.c2};
+  renderGrid();
+  if(n){ commitUndo(before); toast(U(`Filled ${n} cells`, `تم نسخ القيمة في ${n} خلية`)); scheduleSave(); }
+}
+/** يكتب قيمة في خلية حسب نوع عمودها؛ يرجّع true لو اتغيّرت */
+function writeCell(ri, ci, raw){
+  const row = S.rows[ri], col = S.sheet.columns[ci];
+  if(!row || !col || isCalc(col)) return false;
+  let v = raw;
+  if(col.type === 'number') v = (raw === '' || raw === null || raw === undefined) ? null : num(raw);
+  else if(col.type === 'bool') v = !!(raw === true || raw === 1 || /^(1|true|yes|نعم|صح)$/i.test(String(raw || '')));
+  else if(col.type === 'project') v = PROJECTS.includes(String(raw)) ? String(raw) : (raw ? String(raw) : '');
+  else if(col.type === 'select') v = (col.options || []).includes(String(raw)) ? String(raw) : '';
+  else v = (raw === null || raw === undefined) ? '' : String(raw);
+  if(row.data[col.key] === v) return false;
+  row.data[col.key] = v;
+  recalcRow(row);
+  if(!String(row.id).startsWith('n')) S.dirty.set(row.id, row);
+  return true;
+}
+function scheduleSave(){
+  $('#btnSave').disabled = false;
+  clearTimeout(markDirty._t);
+  markDirty._t = setTimeout(() => saveChanges(true), 1200);
+}
+function selValues(){
+  const R = rng(); if(!R) return '';
+  const out = [];
+  for(let r = R.r1; r <= R.r2; r++){
+    const line = [];
+    for(let c = R.c1; c <= R.c2; c++){
+      const row = S.rows[r], col = S.sheet.columns[c];
+      let v = row && col ? row.data[col.key] : '';
+      if(v === null || v === undefined) v = '';
+      if(v === true) v = '1'; if(v === false) v = '';
+      line.push(String(v).replace(/[\t\n]/g, ' '));
+    }
+    out.push(line.join('\t'));
+  }
+  return out.join('\n');
+}
+function pasteValues(text){
+  if(!SEL) return;
+  const before = snap();
+  const rowsIn = String(text).replace(/\r/g, '').split('\n');
+  if(rowsIn.length && rowsIn[rowsIn.length - 1] === '') rowsIn.pop();
+  const grid = rowsIn.map(l => l.split('\t'));
+  const R = rng();
+  let n = 0;
+  grid.forEach((line, dr) => {
+    const ri = R.r1 + dr;
+    while(ri >= S.rows.length){                   // صفوف جديدة لو اللصق أطول من الجدول
+      const nr = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
+      recalcRow(nr); S.rows.push(nr); S.total++;
+    }
+    line.forEach((val, dc) => { if(writeCell(ri, R.c1 + dc, val)) n++; });
+  });
+  SEL = {r1:R.r1, c1:R.c1, r2:R.r1 + grid.length - 1, c2:R.c1 + Math.max(...grid.map(l => l.length)) - 1};
+  renderGrid(); updatePager();
+  if(n){ commitUndo(before); toast(U(`Pasted into ${n} cells`, `تم اللصق في ${n} خلية`)); scheduleSave(); }
+}
+function clearCells(){
+  const R = rng(); if(!R) return;
+  const before = snap();
+  let n = 0;
+  for(let r = R.r1; r <= R.r2; r++) for(let c = R.c1; c <= R.c2; c++) if(writeCell(r, c, '')) n++;
+  renderGrid();
+  if(n){ commitUndo(before); toast(U(`Cleared ${n} cells`, `تم مسح ${n} خلية`)); scheduleSave(); }
+}
+let FOCUS = null;                 // الرجوع لخانة الفلتر بعد إعادة الرسم
+function restoreFocus(){
+  if(!FOCUS) return;
+  const el = $(`#wrap [data-filter="${FOCUS.filter}"]`);
+  if(el){ el.focus(); try{ el.setSelectionRange(FOCUS.pos ?? el.value.length, FOCUS.pos ?? el.value.length); }catch(e){} }
+  FOCUS = null;
+}
 function renderGrid(){
   const wrap = $('#wrap');
-  if(!S.sheet){ wrap.innerHTML = `<div class="empty">${I18N.noSheet[en() ? 0 : 1]}</div>`; return; }
+  const fh = $('#fillHandle');                       // العنصر ده بيتشال مع إعادة الرسم — بنرجّعه
+  if(!S.sheet){ wrap.innerHTML = `<div class="empty">${I18N.noSheet[en() ? 0 : 1]}</div>`;
+    if(fh){ fh.hidden = true; wrap.appendChild(fh); } return; }
   const cols = S.sheet.columns;
-  const head = cols.map(c => {
+  const W_NUM = 74, W_ADD = 44;
+  const total = W_NUM + W_ADD + cols.reduce((t, c) => t + (+c.width || 150), 0);
+  const group = `<colgroup><col style="width:${W_NUM}px">${cols.map(c =>
+      `<col style="width:${+c.width || 150}px">`).join('')}<col style="width:${W_ADD}px"></colgroup>`;
+  const head = cols.map((c, ci) => {
     const on = S.cols.has(c.key);
     const mark = S.sort === c.key ? ` <span class="sortmark">${S.dir === 'asc' ? '▲' : '▼'}</span>` : '';
-    return `<th style="min-width:${c.width || 150}px" class="${on ? 'sel ' : ''}${isCalc(c) ? 'calc' : ''}" data-col="${c.key}" draggable="true">
+    return `<th class="${on ? 'sel ' : ''}${isCalc(c) ? 'calc ' : ''}${fzCls(ci)}" data-col="${c.key}" draggable="true"${fzPos(ci)}>
         <div class="thin"><span class="grip">⣿</span>
           <input type="checkbox" data-colsel="${c.key}" ${on ? 'checked' : ''}>
           <span class="thlbl" data-sort="${c.key}" data-no-tr title="${esc(colLabel(c))}">${esc(colLabel(c))}${mark}</span></div></th>`;
   }).join('');
-  const filt = S.showFilters ? `<tr class="filters"><td class="rownum"></td>${cols.map(c =>
-      `<td><input data-filter="${c.key}" value="${esc(S.filters[c.key] || '')}" placeholder="—"></td>`).join('')}<td></td></tr>` : '';
+  const filt = S.showFilters ? `<tr class="filters"><td class="rownum ${fzCls(-1)}"${fzPos(-1)}></td>${cols.map((c, ci) =>
+      `<td class="${fzCls(ci)}"${fzPos(ci)}><input data-filter="${c.key}" value="${esc(S.filters[c.key] || '')}" placeholder="—"></td>`).join('')}<td></td></tr>` : '';
   const body = S.rows.map((r, i) => rowHtml(r, i, cols)).join('');
-  wrap.innerHTML = `<table class="grid">
-      <thead><tr><th class="rownum"><input type="checkbox" id="selAll"></th>${head}
+  const foot = cols.some(c => c.agg) ? `<tfoot><tr><td class="rownum ${fzCls(-1)}"${fzPos(-1)}>Σ</td>${cols.map((c, ci) => {
+      const v = aggValue(c);
+      return `<td class="${c.agg ? 'num ' : ''}${fzCls(ci)}"${fzPos(ci)} data-no-tr>${
+        v === '' ? '' : `<span class="ag">${esc(aggLabel(c.agg))}</span>${esc(v)}`}</td>`;
+    }).join('')}<td></td></tr></tfoot>` : '';
+  wrap.innerHTML = `<table class="grid" style="width:${total}px">
+      ${group}
+      <thead><tr><th class="rownum ${fzCls(-1)}"${fzPos(-1)}><input type="checkbox" id="selAll"></th>${head}
         <th class="addcol" id="thAddCol" title="${U('Add column', 'إضافة عمود')}">+</th></tr>${filt}</thead>
-      <tbody id="gridBody">${body}</tbody></table>
+      <tbody id="gridBody">${body}</tbody>${foot}</table>
     <div class="addrow" id="addRowBtn">+ <span>${U('New row', 'صف جديد')}</span></div>`;
+  if(fh) wrap.appendChild(fh);
   bindGrid();
+  restoreFocus();
+  $('#btnClearFilters').hidden = !Object.values(S.filters).some(v => v);
 }
+/* تجميد أول عمود: -1 يعني عمود الترقيم */
+const frozen = () => !!(S.sheet && S.sheet.settings && S.sheet.settings.freeze);
+const fzCls = ci => (frozen() && ci <= 0) ? 'fz' : '';
+const fzPos = ci => (frozen() && ci <= 0) ? ` style="inset-inline-start:${ci < 0 ? 0 : 74}px"` : '';
 function rowHtml(r, i, cols){
-  const cells = cols.map(c => cellHtml(r, c)).join('');
+  const cells = cols.map((c, ci) => cellHtml(r, c, i, ci)).join('');
   const isNew = String(r.id).startsWith('n');
   const n = S.page * S.per + i + 1;
   return `<tr data-id="${r.id}" draggable="true" class="${S.dirty.has(r.id) || isNew ? 'dirty' : ''}${S.rowsSel.has(String(r.id)) ? ' sel' : ''}">
-      <td class="rownum"><div class="rn"><span class="rgrip">⣿</span>
+      <td class="rownum ${fzCls(-1)}"${fzPos(-1)}><div class="rn"><span class="rgrip">⣿</span>
         <input type="checkbox" data-rowsel="${r.id}" ${S.rowsSel.has(String(r.id)) ? 'checked' : ''}><span>${n}</span></div></td>
       ${cells}<td></td></tr>`;
 }
-function cellHtml(r, c){
-  const v = r.data[c.key], on = S.cols.has(c.key) ? ' colsel' : '';
+function cellHtml(r, c, ri, ci){
+  const v = r.data[c.key];
+  const inSel = inRange(ri, ci);
+  const on = (S.cols.has(c.key) ? ' colsel' : '') + (inSel ? ' cell-sel' : '')
+           + (SEL && SEL.r1 === ri && SEL.c1 === ci ? ' cell-anchor' : '') + (fzCls(ci) ? ' fz' : '');
+  const st = fmtStyle(effFmt(r, c));
+  const fz = (frozen() && ci === 0) ? `inset-inline-start:74px;` : '';
+  const sty = (st || fz) ? ` style="${fz}${st}"` : '';
+  const isty = st ? ` style="${st}background:transparent;"` : '';
+  const pos = ` data-r="${ri}" data-c="${ci}"`;
   if(isCalc(c)){
     const shown = shownValue(r, c);
     const cls = (c.type === 'formula' || (FIELDS.find(f => f.key === c.source) || {}).type !== 'text') ? ' num' : '';
-    return `<td class="cell-calc${cls}${on}" data-no-tr title="${esc(shown)}">${esc(shown)}</td>`;
+    return `<td class="cell-calc${cls}${on}"${pos}${sty} data-no-tr title="${esc(shown)}">${esc(shown)}</td>`;
   }
   if(c.type === 'project')
-    return `<td class="${on}"><select data-cell="${c.key}" data-no-tr><option value=""></option>${PROJECTS.map(p =>
+    return `<td class="${on}"${pos}${sty}><select data-cell="${c.key}" data-no-tr${isty}><option value=""></option>${PROJECTS.map(p =>
       `<option value="${esc(p)}" ${v === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></td>`;
   if(c.type === 'select')
-    return `<td class="${on}"><select data-cell="${c.key}" data-no-tr><option value=""></option>${(c.options || []).map(o =>
+    return `<td class="${on}"${pos}${sty}><select data-cell="${c.key}" data-no-tr${isty}><option value=""></option>${(c.options || []).map(o =>
       `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
   if(c.type === 'bool')
-    return `<td class="chk${on}"><input type="checkbox" data-cell="${c.key}" ${v ? 'checked' : ''}></td>`;
+    return `<td class="chk${on}"${pos}${sty}><input type="checkbox" data-cell="${c.key}" ${v ? 'checked' : ''}></td>`;
   if(c.type === 'date')
-    return `<td class="${on}"><input type="date" data-cell="${c.key}" value="${esc(v || '')}"></td>`;
+    return `<td class="${on}"${pos}${sty}><input type="date" data-cell="${c.key}" value="${esc(v || '')}"${isty}></td>`;
   if(c.type === 'number')
-    return `<td class="num${on}"><input type="number" step="any" data-cell="${c.key}" value="${v === null || v === undefined ? '' : esc(v)}"></td>`;
-  return `<td class="${on}"><input type="text" data-cell="${c.key}" value="${esc(v || '')}" data-no-tr></td>`;
+    return `<td class="num${on}"${pos}${sty}><input type="number" step="any" data-cell="${c.key}" value="${v === null || v === undefined ? '' : esc(v)}"${isty}></td>`;
+  return `<td class="${on}"${pos}${sty}><input type="text" data-cell="${c.key}" value="${esc(v || '')}" data-no-tr${isty}></td>`;
 }
 function bindGrid(){
   $('#thAddCol').addEventListener('click', addColumn);
@@ -390,9 +900,17 @@ function bindGrid(){
     if(cb.checked) S.cols.add(cb.dataset.colsel); else S.cols.delete(cb.dataset.colsel);
     renderGrid(); syncBars();
   }));
-  $$('#wrap [data-filter]').forEach(inp => inp.addEventListener('change', () => {
-    S.filters[inp.dataset.filter] = inp.value.trim(); S.page = 0; refresh();
-  }));
+  $$('#wrap [data-filter]').forEach(inp => {
+    const run = () => {
+      const k = inp.dataset.filter;
+      if((S.filters[k] || '') === inp.value.trim()) return;
+      S.filters[k] = inp.value.trim(); S.page = 0;
+      FOCUS = {filter:k, pos:inp.selectionStart};
+      refresh();
+    };
+    inp.addEventListener('input', () => { clearTimeout(inp._t); inp._t = setTimeout(run, 400); });
+    inp.addEventListener('change', run);
+  });
   const sa = $('#selAll');
   if(sa) sa.addEventListener('change', () => {
     S.rowsSel = new Set(sa.checked ? S.rows.map(r => String(r.id)) : []);
@@ -406,12 +924,51 @@ function bindGrid(){
     const ev = (inp.tagName === 'SELECT' || inp.type === 'checkbox' || inp.type === 'date') ? 'change' : 'input';
     inp.addEventListener(ev, () => onCellEdit(inp));
   });
+  $$('#wrap td[data-r]').forEach(td => td.addEventListener('mousedown', e => {
+    if(e.target.closest('#fillHandle')) return;
+    if(e.shiftKey) EXT_AT = Date.now();
+    setSel(+td.dataset.r, +td.dataset.c, e.shiftKey);
+  }));
   bindDnd();
+  paintSel();
+}
+/* التحديد يمشي مع مكان الكتابة (كليك أو Tab) */
+document.addEventListener('focusin', e => {
+  const td = e.target.closest ? e.target.closest('#wrap td[data-r]') : null;
+  if(!td || Date.now() - EXT_AT < 250) return;       // توسيع بالـ Shift لسه حاصل
+  const r = +td.dataset.r, c = +td.dataset.c;
+  if(SEL && SEL.r1 === r && SEL.c1 === c && SEL.r2 === r && SEL.c2 === c) return;
+  setSel(r, c, false);
+});
+/* ================= التنقل بلوحة المفاتيح ================= */
+function focusCell(r, c, select){
+  if(!S.sheet || !S.rows.length) return;
+  r = Math.max(0, Math.min(S.rows.length - 1, r));
+  c = Math.max(0, Math.min(S.sheet.columns.length - 1, c));
+  setSel(r, c, false);
+  const td = $(`#wrap td[data-r="${r}"][data-c="${c}"]`);
+  if(!td) return;
+  td.scrollIntoView({block:'nearest', inline:'nearest'});
+  const inp = td.querySelector('[data-cell]');
+  if(inp){ inp.focus(); if(select && inp.select && inp.type !== 'checkbox' && inp.type !== 'date'){ try{ inp.select(); }catch(e){} } }
+  else { td.tabIndex = -1; td.focus(); }
+  placeHandle();
+}
+/** هل الأسهم يمين/شمال تنقل بين الخلايا ولا تحرّك المؤشر جوه النص؟ */
+function caretAtEdge(el, dir){
+  if(!el || el.tagName === 'SELECT') return false;
+  if(el.type === 'checkbox' || el.type === 'date' || el.type === 'number') return true;
+  try{
+    const p = el.selectionStart, q = el.selectionEnd;
+    if(p === null || p === undefined) return true;
+    return dir < 0 ? (p === 0 && q === 0) : (p === el.value.length && q === el.value.length);
+  }catch(e){ return true; }
 }
 function onCellEdit(inp){
   const tr = inp.closest('tr'), id = tr.dataset.id;
   const r = S.rows.find(x => String(x.id) === String(id)); if(!r) return;
   const key = inp.dataset.cell, col = S.sheet.columns.find(c => c.key === key);
+  pushUndoCell(id + '|' + key);
   let val = inp.type === 'checkbox' ? inp.checked : inp.value;
   if(col.type === 'number') val = (val === '' ? null : num(val));
   r.data[key] = val;
@@ -503,43 +1060,71 @@ async function saveOrder(){
 
 /* ================= الأعمدة ================= */
 function selCols(){ return S.sheet ? S.sheet.columns.filter(c => S.cols.has(c.key)) : []; }
-async function saveColumns(reload){
-  const j = await api(`/api/sheets/${S.sheet.id}`, {method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({columns:S.sheet.columns})});
-  if(!j.success) return false;
+/* الشاشة بتتغير على طول، والحفظ بيروح للسيرفر في الخلفية — فإضافة عمود أو تغيير نوعه فوري */
+function saveColumns(){
+  S.rows.forEach(recalcRow);
+  renderGrid(); syncBars();
   const meta = S.sheets.find(s => String(s.id) === String(S.sheet.id));
   if(meta) meta.columns = JSON.parse(JSON.stringify(S.sheet.columns));
-  if(reload) await loadRows(); else { renderGrid(); syncBars(); }
-  return true;
+  const sid = S.sheet.id, payload = JSON.stringify({columns:S.sheet.columns});
+  COL_LOCK = COL_LOCK.then(async () => {
+    const j = await api(`/api/sheets/${sid}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:payload});
+    if(!j.success) toast(U('Could not save the columns', 'تعذّر حفظ الأعمدة'), true);
+  }).catch(() => {});
+  return COL_LOCK;
 }
-async function addColumn(){
+let COL_LOCK = Promise.resolve();
+function addColumn(){
   if(!S.sheet) return;
   const n = S.sheet.columns.length + 1;
   const key = 'c' + n + Math.random().toString(36).slice(2, 5);
   S.sheet.columns.push({key, type:'text', label:'عمود ' + n, label_en:'Column ' + n, width:150});
   S.cols = new Set([key]);
-  await saveColumns();
+  saveColumns();
   const inp = $('#colName'); if(inp){ inp.focus(); inp.select(); }
 }
-async function applyToSelectedCols(fn, reload){
+function applyToSelectedCols(fn){
   const cols = selCols(); if(!cols.length) return;
   cols.forEach(fn);
-  await saveColumns(reload);
+  saveColumns();
 }
 function syncBars(){
+  if(S.sheet) S.cols = new Set(Array.from(S.cols).filter(k => S.sheet.columns.some(c => c.key === k)));
   const cols = selCols(), rows = S.rowsSel.size;
-  $('#colBar').hidden = !cols.length;
-  $('#rowBar').hidden = !rows;
-  $('#mainBar').hidden = false;
+  const R = rng(), nCells = R ? (R.r2 - R.r1 + 1) * (R.c2 - R.c1 + 1) : 0;
+  $('#colGroup').hidden = !cols.length;
+  $('#rowGroup').hidden = !rows;
+  $('#cellGroup').hidden = nCells < 2;
+  $('#ctxBar').hidden = !(cols.length || rows || nCells >= 2);
+  $('#ctxSep').hidden = !((cols.length ? 1 : 0) + (rows ? 1 : 0) + (nCells >= 2 ? 1 : 0) > 1);
+  $('#fmtGroup').hidden = !(cols.length || R);
+  if(R) $('#cellChip').textContent = U(`${R.r2 - R.r1 + 1} × ${R.c2 - R.c1 + 1} cells`,
+                                       `${R.r2 - R.r1 + 1} × ${R.c2 - R.c1 + 1} خلية`);
+  if(cols.length || R){
+    const f = curFmt();
+    $('#fmtBold').classList.toggle('on', !!f.bold);
+    $('#fmtItalic').classList.toggle('on', !!f.italic);
+    $('#fmtUnder').classList.toggle('on', !!f.under);
+    if(document.activeElement !== $('#fmtSize'))  $('#fmtSize').value  = f.size || '';
+    if(document.activeElement !== $('#fmtAlign')) $('#fmtAlign').value = f.align || '';
+    if(f.fg) $('#fmtFg').value = f.fg;
+    if(f.bg) $('#fmtBg').value = f.bg;
+    $('#fgDot').style.background = f.fg || 'var(--ink)';
+    $('#bgSwatch').style.background = f.bg || '';
+  }
+  $('#btnFreeze').classList.toggle('on', !!(S.sheet && S.sheet.settings && S.sheet.settings.freeze));
+  $('#btnClearFilters').hidden = !Object.values(S.filters).some(v => v);
   if(cols.length){
     $('#colChip').textContent = cols.length === 1 ? colLabel(cols[0])
       : U(`${cols.length} columns selected`, `${cols.length} أعمدة محددة`);
     const one = cols.length === 1 ? cols[0] : null;
-    $('#colName').value = one ? (en() ? (one.label_en || '') : (one.label || '')) : '';
+    const set = (el, v) => { if(document.activeElement !== el) el.value = v; };
+    set($('#colName'), one ? (en() ? (one.label_en || '') : (one.label || '')) : '');
     $('#colName').disabled = !one;
-    $('#colType').value = one ? one.type : (cols.every(c => c.type === cols[0].type) ? cols[0].type : '');
-    $('#colWidth').value = one ? (one.width || 150) : '';
-    drawColExtra(one);
+    set($('#colType'), one ? one.type : (cols.every(c => c.type === cols[0].type) ? cols[0].type : ''));
+    set($('#colWidth'), one ? (one.width || 150) : (cols.every(c => c.width === cols[0].width) ? (cols[0].width || 150) : ''));
+    set($('#colAgg'), one ? (one.agg || '') : (cols.every(c => (c.agg || '') === (cols[0].agg || '')) ? (cols[0].agg || '') : ''));
+    if(document.activeElement !== $('#colExtra').querySelector('input, select')) drawColExtra(one);
   }
   if(rows) $('#rowChip').textContent = U(rows === 1 ? '1 row selected' : `${rows} rows selected`,
                                           rows === 1 ? 'صف واحد محدد' : `${rows} صفوف محددة`);
@@ -563,7 +1148,7 @@ function drawColExtra(c){
     box.innerHTML = `<label class="inline">${I18N.decimals[en() ? 0 : 1]}<input class="fld" id="xDec" type="number" min="0" max="4" style="width:70px" value="${c.decimals || 0}"></label>
       <label class="inline">${I18N.unit[en() ? 0 : 1]}<input class="fld" id="xUnit" style="width:90px" value="${esc(c.unit || '')}" data-no-tr></label>`;
   else box.innerHTML = '';
-  const bind = (id, f) => { const el = $(id); if(el) el.addEventListener('change', () => { f(el.value); saveColumns(true); }); };
+  const bind = (id, f) => { const el = $(id); if(el) el.addEventListener('change', () => { f(el.value); saveColumns(); }); };
   bind('#xOptions', v => c.options = v.split(/[,،]/).map(x => x.trim()).filter(Boolean));
   bind('#xFormula', v => c.formula = v);
   bind('#xSource',  v => c.source = v);
@@ -584,14 +1169,40 @@ $('#colType').addEventListener('change', () => {
     if((t === 'number' || t === 'formula') && c.decimals == null) c.decimals = 0;
     if(t === 'lookup' && !c.source) c.source = (FIELDS[0] || {}).key;
     if(t === 'formula' && !c.formula) c.formula = '';
-  }, true);
+  });
 });
-$('#colWidth').addEventListener('change', () => {
-  const w = Math.max(70, Math.min(600, num($('#colWidth').value) || 150));
+function applyWidth(){
+  const raw = num($('#colWidth').value);
+  if(!raw) return;
+  const w = Math.max(70, Math.min(900, raw));
+  if(selCols().every(c => (+c.width || 150) === w)) return;
   applyToSelectedCols(c => c.width = w);
+}
+$('#colWidth').addEventListener('input', () => { clearTimeout($('#colWidth')._t); $('#colWidth')._t = setTimeout(applyWidth, 250); });
+$('#colWidth').addEventListener('change', applyWidth);
+$('#colAgg').addEventListener('change', () => {
+  const v = $('#colAgg').value;
+  applyToSelectedCols(c => { if(v) c.agg = v; else delete c.agg; });
 });
 $('#colLeft').addEventListener('click', () => shiftCols(-1));
 $('#colRight').addEventListener('click', () => shiftCols(1));
+$('#colInsL').addEventListener('click', () => insertColumn(-1));
+$('#colInsR').addEventListener('click', () => insertColumn(1));
+/** عمود جديد جنب العمود المحدد */
+function insertColumn(dir){
+  if(!S.sheet) return;
+  const cols = S.sheet.columns;
+  const idx = cols.map((c, i) => S.cols.has(c.key) ? i : -1).filter(i => i >= 0);
+  if(!idx.length) return addColumn();
+  const at = dir < 0 ? Math.min.apply(null, idx) : Math.max.apply(null, idx) + 1;
+  pushUndo();
+  const n = cols.length + 1;
+  const key = 'c' + n + Math.random().toString(36).slice(2, 5);
+  cols.splice(at, 0, {key, type:'text', label:'عمود ' + n, label_en:'Column ' + n, width:150});
+  S.cols = new Set([key]);
+  saveColumns();
+  const inp = $('#colName'); if(inp){ inp.focus(); inp.select(); }
+}
 function shiftCols(dir){
   const cols = S.sheet.columns;
   const idx = cols.map((c, i) => S.cols.has(c.key) ? i : -1).filter(i => i >= 0);
@@ -608,15 +1219,18 @@ $('#colDel').addEventListener('click', async () => {
   const cols = selCols(); if(!cols.length) return;
   if(!confirm(U(`Delete ${cols.length} column(s)? The data in them is removed too.`,
                 `حذف ${cols.length} عمود؟ البيانات اللي فيهم هتتشال كمان.`))) return;
+  pushUndo();
   S.sheet.columns = S.sheet.columns.filter(c => !S.cols.has(c.key));
   S.cols.clear();
-  await saveColumns(true);
+  saveColumns();
 });
-$('#colClear').addEventListener('click', () => { S.cols.clear(); renderGrid(); syncBars(); });
+$('#ctxClear').addEventListener('click', clearSelection);
+function clearSelection(){ S.cols.clear(); S.rowsSel.clear(); SEL = null; renderGrid(); syncBars(); }
 
 /* ================= الصفوف ================= */
 function addRow(){
   if(!S.sheet) return;
+  pushUndo();
   const r = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
   recalcRow(r); S.rows.push(r); S.total++;
   renderGrid(); updatePager(); $('#btnSave').disabled = false;
@@ -637,8 +1251,27 @@ function shiftRows(dir){
 }
 $('#rowUp').addEventListener('click', () => shiftRows(-1));
 $('#rowDown').addEventListener('click', () => shiftRows(1));
+$('#rowInsA').addEventListener('click', () => insertRow(-1));
+$('#rowInsB').addEventListener('click', () => insertRow(1));
+/** صف جديد فوق أو تحت الصف المحدد */
+async function insertRow(dir){
+  if(!S.sheet) return;
+  if(S.sort){ toast(U('Clear the sort first to insert a row here', 'ألغِ الفرز أولاً لإدراج صف في مكانه'), true); return; }
+  const idx = selRowIdx();
+  const at = idx.length ? (dir < 0 ? Math.min.apply(null, idx) : Math.max.apply(null, idx) + 1) : S.rows.length;
+  pushUndo();
+  const r = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
+  recalcRow(r);
+  S.rows.splice(at, 0, r); S.total++;
+  S.rowsSel.clear();
+  renderGrid(); syncBars(); updatePager(); $('#btnSave').disabled = false;
+  await saveChanges(true);
+  await saveOrder();
+  focusCell(at, 0, false);
+}
 $('#rowDup').addEventListener('click', () => {
   const idx = selRowIdx(); if(!idx.length) return;
+  pushUndo();
   idx.forEach(i => {
     const c = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:JSON.parse(JSON.stringify(S.rows[i].data))};
     recalcRow(c); S.rows.push(c); S.total++;
@@ -649,12 +1282,13 @@ $('#rowDup').addEventListener('click', () => {
 $('#rowDel').addEventListener('click', async () => {
   const ids = Array.from(S.rowsSel); if(!ids.length) return;
   if(!confirm(U(`Delete ${ids.length} row(s)?`, `حذف ${ids.length} صف؟`))) return;
+  pushUndo();
   ids.forEach(id => { if(!String(id).startsWith('n')) S.dels.add(+id); S.dirty.delete(+id); });
   S.rows = S.rows.filter(r => !ids.includes(String(r.id)));
   S.rowsSel.clear(); renderGrid(); syncBars();
   await saveChanges();
 });
-$('#rowClear').addEventListener('click', () => { S.rowsSel.clear(); renderGrid(); syncBars(); });
+
 
 /* ================= السيرفر ================= */
 async function api(url, opts){
@@ -697,6 +1331,7 @@ async function loadRows(){
   if(!j.success) return;
   S.sheet = j.sheet; S.rows = j.rows || []; S.total = j.total || 0;
   S.rowsSel = new Set(Array.from(S.rowsSel).filter(id => S.rows.some(r => String(r.id) === id)));
+  if(SEL && (SEL.r1 >= S.rows.length || SEL.r2 >= S.rows.length)) SEL = null;
   if(!Object.keys(S.lookup).length) loadLatest();
   renderGrid(); updatePager(); syncBars();
 }
@@ -804,7 +1439,13 @@ $('#btnAddCol').addEventListener('click', addColumn);
 $('#sheetSel').addEventListener('change', async e => { await saveChanges(true); openSheet(e.target.value); });
 $('#btnFilters').addEventListener('click', () => {
   S.showFilters = !S.showFilters;
-  if(!S.showFilters){ S.filters = {}; renderGrid(); refresh(); } else renderGrid();
+  const had = Object.values(S.filters).some(v => v);
+  if(!S.showFilters) S.filters = {};
+  renderGrid(); syncBars();
+  if(!S.showFilters && had) refresh();
+});
+$('#btnClearFilters').addEventListener('click', () => {
+  S.filters = {}; S.page = 0; renderGrid(); syncBars(); refresh();
 });
 $('#search').addEventListener('input', e => {
   clearTimeout(window._sq);
@@ -814,17 +1455,127 @@ $('#btnPrev').addEventListener('click', () => { if(S.page > 0){ S.page--; refres
 $('#btnNext').addEventListener('click', () => { if((S.page + 1) * S.per < S.total){ S.page++; refresh(); } });
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('.modal-back').classList.remove('open')));
 $$('.modal-back').forEach(m => m.addEventListener('click', e => { if(e.target === m) m.classList.remove('open'); }));
+$('#cellCopy').addEventListener('click', async () => {
+  try{ await navigator.clipboard.writeText(selValues()); toast(U('Copied', 'تم النسخ')); }
+  catch(e){ toast(U('Use Ctrl+C to copy', 'استخدم Ctrl+C للنسخ'), true); }
+});
+$('#cellClear').addEventListener('click', clearCells);
+$('#cellFillDown').addEventListener('click', () => {
+  const R = rng(); if(!R) return;
+  applyFill({r1:R.r1, r2:R.r1, c1:R.c1, c2:R.c2}, {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c2});
+});
+$('#cellFillRight').addEventListener('click', () => {
+  const R = rng(); if(!R) return;
+  applyFill({r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c1}, {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c2});
+});
+/* ---- تنسيق ---- */
+$('#fmtBold').addEventListener('click', () => applyFmt({bold:!curFmt().bold}));
+$('#fmtItalic').addEventListener('click', () => applyFmt({italic:!curFmt().italic}));
+$('#fmtUnder').addEventListener('click', () => applyFmt({under:!curFmt().under}));
+$('#fmtSize').addEventListener('change', e => applyFmt({size:e.target.value ? num(e.target.value) : null}));
+$('#fmtAlign').addEventListener('change', e => applyFmt({align:e.target.value || null}));
+$('#fmtFg').addEventListener('change', e => applyFmt({fg:e.target.value}));
+$('#fmtBg').addEventListener('change', e => applyFmt({bg:e.target.value}));
+$('#fmtNone').addEventListener('click', () => applyFmt({bold:null, italic:null, under:null, size:null, align:null, fg:null, bg:null}));
+/* ---- تجميد أول عمود ---- */
+$('#btnFreeze').addEventListener('click', async () => {
+  if(!S.sheet) return;
+  S.sheet.settings = S.sheet.settings || {};
+  S.sheet.settings.freeze = !S.sheet.settings.freeze;
+  renderGrid(); syncBars();
+  const meta = S.sheets.find(s => String(s.id) === String(S.sheet.id));
+  if(meta) meta.settings = JSON.parse(JSON.stringify(S.sheet.settings));
+  await api(`/api/sheets/${S.sheet.id}`, {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({settings:S.sheet.settings})});
+});
+/* ---- تراجع وإعادة ---- */
+$('#btnUndo').addEventListener('click', undo);
+$('#btnRedo').addEventListener('click', redo);
+$('#fillHandle').addEventListener('mousedown', startFill);
+$('#wrap').addEventListener('scroll', () => placeHandle());
+window.addEventListener('resize', () => placeHandle());
+document.addEventListener('copy', e => {
+  const R = rng();
+  if(!R || (R.r1 === R.r2 && R.c1 === R.c2)) return;        // خلية واحدة: النسخ العادي
+  e.clipboardData.setData('text/plain', selValues());
+  e.preventDefault();
+});
+document.addEventListener('paste', e => {
+  if(!SEL || !S.sheet) return;
+  const txt = (e.clipboardData || window.clipboardData).getData('text');
+  if(!txt) return;
+  const multi = /[\t\n]/.test(txt.replace(/\n$/, ''));
+  const inInput = document.activeElement && /input|textarea/i.test(document.activeElement.tagName)
+                  && document.activeElement.closest('#wrap');
+  if(!multi && inInput) return;                              // قيمة واحدة داخل خانة: لصق عادي
+  e.preventDefault();
+  pasteValues(txt);
+});
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){
     $$('.modal-back.open').forEach(m => m.classList.remove('open'));
-    if(S.cols.size || S.rowsSel.size){ S.cols.clear(); S.rowsSel.clear(); renderGrid(); syncBars(); }
+    if(S.cols.size || S.rowsSel.size) clearSelection();
+    if(SEL){ SEL = null; paintSel(); }
   }
-  if((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){ e.preventDefault(); saveChanges(); }
+  const ctrl = e.ctrlKey || e.metaKey;
+  const k = (e.key || '').toLowerCase();
+  if(ctrl && k === 's'){ e.preventDefault(); saveChanges(); return; }
+  if(ctrl && k === 'z' && !e.shiftKey){ e.preventDefault(); undo(); return; }
+  if(ctrl && (k === 'y' || (k === 'z' && e.shiftKey))){ e.preventDefault(); redo(); return; }
+  if(ctrl && k === 'd'){ e.preventDefault(); $('#cellFillDown').click(); return; }
+  if(ctrl && k === 'r' && e.shiftKey){ e.preventDefault(); $('#cellFillRight').click(); return; }
+  if(ctrl && (k === 'b' || k === 'i' || k === 'u') && (S.cols.size || SEL)){
+    e.preventDefault();
+    const f = curFmt();
+    applyFmt(k === 'b' ? {bold:!f.bold} : k === 'i' ? {italic:!f.italic} : {under:!f.under});
+    return;
+  }
+  const ae = document.activeElement;
+  const inFilter = !!(ae && ae.dataset && ae.dataset.filter);
+  const inWrap = !!(ae && ae.closest && ae.closest('#wrap'));
+  const typing = !!(ae && /input|textarea|select/i.test(ae.tagName) && !inWrap);
+  const R = rng();
+  if((e.key === 'Delete' || e.key === 'Backspace') && R && !(R.r1 === R.r2 && R.c1 === R.c2) && !inFilter){
+    const inInput = ae && /input|textarea/i.test(ae.tagName);
+    if(!inInput || !ae.value){ e.preventDefault(); clearCells(); }
+  }
+  if(!SEL || !S.sheet || inFilter || typing) return;
+  if(ctrl && k === 'a'){
+    e.preventDefault();
+    SEL = {r1:0, c1:0, r2:S.rows.length - 1, c2:S.sheet.columns.length - 1};
+    paintSel(); return;
+  }
+  const rtl = document.documentElement.dir === 'rtl' ? -1 : 1;
+  const step = (dr, dc) => {
+    e.preventDefault();
+    if(e.shiftKey && (e.key.indexOf('Arrow') === 0)){
+      setSel(Math.max(0, Math.min(S.rows.length - 1, SEL.r2 + dr)),
+             Math.max(0, Math.min(S.sheet.columns.length - 1, SEL.c2 + dc)), true);
+    }else focusCell(SEL.r1 + dr, SEL.c1 + dc, true);
+  };
+  if(e.key === 'ArrowDown')  return step(ctrl ? S.rows.length : 1, 0);
+  if(e.key === 'ArrowUp')    return step(ctrl ? -S.rows.length : -1, 0);
+  if(e.key === 'Enter')      return step(e.shiftKey ? -1 : 1, 0);
+  if(e.key === 'Tab')        return step(0, e.shiftKey ? -1 : 1);   // Tab بيمشي مع ترتيب الأعمدة مش مع اتجاه الشاشة
+  if(e.key === 'ArrowRight' && (ctrl || caretAtEdge(ae, rtl > 0 ? 1 : -1))) return step(0, ctrl ? S.sheet.columns.length * rtl : rtl);
+  if(e.key === 'ArrowLeft'  && (ctrl || caretAtEdge(ae, rtl > 0 ? -1 : 1))) return step(0, ctrl ? -S.sheet.columns.length * rtl : -rtl);
+  if(e.key === 'Home' && ctrl) return step(-S.rows.length, -S.sheet.columns.length);
+  if(e.key === 'End'  && ctrl) return step(S.rows.length, S.sheet.columns.length);
+  if(e.key === 'F2'){ e.preventDefault(); focusCell(SEL.r1, SEL.c1, true); }
+});
+document.addEventListener('cut', e => {
+  const R = rng();
+  if(!R || (R.r1 === R.r2 && R.c1 === R.c2)) return;
+  const ae = document.activeElement;
+  if(ae && /input|textarea/i.test(ae.tagName) && ae.selectionStart !== ae.selectionEnd) return;
+  e.clipboardData.setData('text/plain', selValues());
+  e.preventDefault();
+  clearCells();
 });
 $('#btnLang').addEventListener('click', () => {
   UIL = en() ? 'ar' : 'en';
   try{ localStorage.setItem(UI_KEY, UIL); }catch(e){}
-  applyLang(); renderGrid(); updatePager(); syncBars();
+  applyLang(); renderGrid(); updatePager(); syncBars(); syncStatus();
   if(S.sheet) $('#sheetName').textContent = en() ? (S.sheet.name_en || S.sheet.name) : S.sheet.name;
 });
 window.addEventListener('beforeunload', e => { if(hasPending()){ e.preventDefault(); e.returnValue = ''; } });
