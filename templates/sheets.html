@@ -66,9 +66,24 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
   box-shadow:0 14px 34px rgba(23,32,51,.18); display:flex; flex-direction:column; gap:10px; min-width:280px;}
 .pop-hd{display:flex; align-items:center; justify-content:space-between; gap:14px;
   font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
-.pop #colExtra{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
+.pop{max-width:min(460px, 92vw);}
+.pop #colExtra{display:flex; flex-direction:column; gap:9px;}
+.pop-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.pop-lbl{flex:0 0 66px; font-size:12.5px; color:var(--muted);}
+.chips{display:flex; flex-wrap:wrap; gap:6px; flex:1; min-width:180px;}
+.chip2{display:inline-flex; align-items:center; gap:5px; background:var(--tint); color:var(--ink);
+  font-size:12.5px; padding:5px 8px; border:none; font-family:inherit; max-width:200px;}
+.chip2 button{border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:11px; padding:0 1px;}
+.chip2 button:hover{color:var(--danger);}
+.chip2.ins{cursor:pointer; background:#E7EEF8; color:var(--navy); font-weight:500;}
+.chip2.ins:hover{background:#D9E5F5;}
+.addopt{display:flex; gap:6px; flex:1; min-width:200px;}
+.hintline{font-size:11.5px; color:var(--muted); line-height:1.55;}
 .bar .fld[disabled], .bar select[disabled]{background:#E4E9F0; color:var(--muted); cursor:default;}
 .swatch.off{pointer-events:none;}
+body.picking, body.picking .grid td, body.picking .grid td input{user-select:none; cursor:cell;}
+#colOpts.has{background:var(--navy); color:#fff;}
+#colOpts.has:hover{background:var(--navy2);}
 /* الأسهم دي بتشاور على ترتيب الأعمدة — بتتقلب مع الواجهة العربية */
 [dir="rtl"] #colLeft, [dir="rtl"] #colRight, [dir="rtl"] #colInsL, [dir="rtl"] #colInsR,
 [dir="rtl"] #cellFillRight{transform:scaleX(-1);}
@@ -311,7 +326,9 @@ const I18N = {
   delete:['Delete','حذف'], duplicate:['Duplicate','تكرار'], clearSel:['Clear selection','إلغاء التحديد'],
   name:['Name','الاسم'], type:['Type','النوع'], width:['Width','العرض'], decimals:['Decimals','خانات عشرية'],
   clearFilters:['Clear filters','مسح الفلاتر'], copy:['Copy','نسخ'],
-  fillDown:['Fill down','تكرار لتحت'], fillRight:['Fill right','تكرار للجنب'], clearCells:['Clear','مسح'],
+  fillDown:['Fill down (Ctrl+D) — copies from the cell above','تكرار لتحت (Ctrl+D) — بينسخ من الخلية اللي فوق'],
+  fillRight:['Fill right (Ctrl+Shift+R) — copies from the cell beside it',
+             'تكرار للجنب (Ctrl+Shift+R) — بينسخ من الخلية اللي جنبها'], clearCells:['Clear','مسح'],
   unit:['Unit','الوحدة'], options:['Choices','الاختيارات'], formula:['Formula','المعادلة'], source:['Source','المصدر'],
   total:['Total','الإجمالي'], undo:['Undo (Ctrl+Z)','تراجع (Ctrl+Z)'], redo:['Redo (Ctrl+Y)','إعادة (Ctrl+Y)'],
   freeze:['Freeze first column','تثبيت أول عمود'], bold:['Bold (Ctrl+B)','عريض (Ctrl+B)'],
@@ -678,6 +695,40 @@ function placeHandle(){
   h.style.top  = (a.bottom - w.top + wrap.scrollTop - 4) + 'px';
   h.style.left = ((document.documentElement.dir === 'rtl' ? a.left : a.right) - w.left + wrap.scrollLeft - 4) + 'px';
 }
+/** سحب بالماوس فوق الخلايا = تحديد مدى (زي إكسل) */
+let GRIP = false;
+document.addEventListener('mouseup', () => { GRIP = false; });
+function startPick(r0, c0){
+  let moved = false;
+  const wrap = $('#wrap');
+  const move = e => {
+    const p = cellFromPoint(e.clientX, e.clientY);
+    if(!p) return;
+    if(!moved && p.r === r0 && p.c === c0) return;       // لسه في نفس الخلية
+    if(!moved){
+      moved = true;
+      document.body.classList.add('picking');
+      const ae = document.activeElement;
+      if(ae && ae.blur && ae.closest && ae.closest('#wrap')) ae.blur();
+    }
+    e.preventDefault();
+    EXT_AT = Date.now();
+    if(p.r !== SEL.r2 || p.c !== SEL.c2) setSel(p.r, p.c, true);
+    const b = wrap.getBoundingClientRect();             // تمرير تلقائي عند الحواف
+    if(e.clientY > b.bottom - 34) wrap.scrollTop += 18;
+    else if(e.clientY < b.top + 34) wrap.scrollTop -= 18;
+    if(e.clientX > b.right - 40) wrap.scrollLeft += 18;
+    else if(e.clientX < b.left + 40) wrap.scrollLeft -= 18;
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    document.body.classList.remove('picking');
+    if(moved) EXT_AT = Date.now();
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
 function cellFromPoint(x, y){
   const el = document.elementFromPoint(x, y);
   const td = el && el.closest ? el.closest('td[data-r]') : null;
@@ -753,7 +804,7 @@ function seriesAt(vals, s, k, back){
   return s.pre + str + s.post;
 }
 /** يكرّر قيم المصدر على المدى المطلوب — ولو القيم متتالية بيكمّلها (زي السحب في إكسل) */
-function applyFill(src, target){
+function applyFill(src, target, plain){
   if(!S.sheet) return;
   const before = snap();
   const vertical = (target.r1 < src.r1 || target.r2 > src.r2);
@@ -764,7 +815,7 @@ function applyFill(src, target){
       const col = S.sheet.columns[c]; if(!col || isCalc(col)) continue;
       const vals = [];
       for(let r = src.r1; r <= src.r2; r++) vals.push(S.rows[r] ? S.rows[r].data[col.key] : '');
-      const s = seriesStep(col, vals);
+      const s = plain ? null : seriesStep(col, vals);
       for(let r = src.r2 + 1; r <= target.r2; r++){
         const k = r - src.r2 - 1;
         if(writeCell(r, c, s ? seriesAt(vals, s, k, false) : vals[k % vals.length])) n++;
@@ -984,10 +1035,12 @@ function bindGrid(){
     inp.addEventListener(ev, () => onCellEdit(inp));
   });
   $$('#wrap td[data-r]').forEach(td => td.addEventListener('mousedown', e => {
-    if(e.target.closest('#fillHandle')) return;
+    if(e.target.closest('#fillHandle') || e.button !== 0) return;
     if(e.shiftKey) EXT_AT = Date.now();
     setSel(+td.dataset.r, +td.dataset.c, e.shiftKey);
+    if(!e.shiftKey) startPick(+td.dataset.r, +td.dataset.c);
   }));
+  $$('#wrap .rgrip').forEach(g => g.addEventListener('mousedown', () => { GRIP = true; }));
   bindDnd();
   paintSel();
 }
@@ -1076,6 +1129,7 @@ function bindDnd(){
   });
   $$('#wrap tbody tr[data-id]').forEach(tr => {
     tr.addEventListener('dragstart', e => {
+      if(!GRIP){ e.preventDefault(); return; }          // السحب من وسط الصف = تحديد خلايا
       if(S.sort){ e.preventDefault(); toast(I18N.sortedRows[en() ? 0 : 1]); return; }
       DRAG = {kind:'row', id:tr.dataset.id}; tr.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', tr.dataset.id);
@@ -1192,6 +1246,7 @@ function syncBars(){
   const one = cols.length === 1 ? cols[0] : null;
   const hasOpts = !!(one && ['select', 'formula', 'lookup', 'number'].includes(one.type));
   $('#colOpts').disabled = !hasOpts;
+  $('#colOpts').classList.toggle('has', hasOpts);
   if(!hasOpts) closePop();
   const set = (el, v) => { if(document.activeElement !== el) el.value = v; };
   set($('#colName'), one ? (en() ? (one.label_en || '') : (one.label || '')) : '');
@@ -1199,39 +1254,104 @@ function syncBars(){
   set($('#colType'), !cols.length ? '' : (one ? one.type : (cols.every(c => c.type === cols[0].type) ? cols[0].type : '')));
   set($('#colWidth'), !cols.length ? '' : (one ? (one.width || 150) : (cols.every(c => c.width === cols[0].width) ? (cols[0].width || 150) : '')));
   set($('#colAgg'), !cols.length ? '' : (one ? (one.agg || '') : (cols.every(c => (c.agg || '') === (cols[0].agg || '')) ? (cols[0].agg || '') : '')));
-  if(!(document.activeElement && document.activeElement.closest('#colExtra'))) drawColExtra(one);
+  const sig = one ? (one.key + '|' + one.type) : '';
+  const inExtra = !!(document.activeElement && document.activeElement.closest('#colExtra'));
+  if(!inExtra || sig !== drawColExtra._sig) drawColExtra(one);   // النوع اتغير = نرسم تاني حتى لو المؤشر جوه
 }
+drawColExtra._sig = '';
 function drawColExtra(c){
   const box = $('#colExtra');
+  drawColExtra._sig = c ? (c.key + '|' + c.type) : '';
   if(!c){ box.innerHTML = ''; return; }
-  if(c.type === 'select')
-    box.innerHTML = `<label class="inline">${I18N.options[en() ? 0 : 1]}
-      <input class="fld" id="xOptions" style="width:220px" value="${esc((c.options || []).join(', '))}" data-no-tr></label>`;
-  else if(c.type === 'formula')
-    box.innerHTML = `<label class="inline">${I18N.formula[en() ? 0 : 1]}
-      <input class="fld" id="xFormula" style="width:230px" value="${esc(c.formula || '')}" placeholder="[qty] * [price]" data-no-tr></label>
-      <label class="inline">${I18N.decimals[en() ? 0 : 1]}<input class="fld" id="xDec" type="number" min="0" max="4" style="width:70px" value="${c.decimals || 0}"></label>
-      <label class="inline">${I18N.unit[en() ? 0 : 1]}<input class="fld" id="xUnit" style="width:80px" value="${esc(c.unit || '')}" data-no-tr></label>`;
-  else if(c.type === 'lookup')
-    box.innerHTML = `<label class="inline">${I18N.source[en() ? 0 : 1]}
-      <select class="fld" id="xSource" style="width:240px">${FIELDS.map(f =>
-        `<option value="${f.key}" ${c.source === f.key ? 'selected' : ''}>${esc(fieldLabel(f))}</option>`).join('')}</select></label>`;
-  else if(c.type === 'number')
-    box.innerHTML = `<label class="inline">${I18N.decimals[en() ? 0 : 1]}<input class="fld" id="xDec" type="number" min="0" max="4" style="width:70px" value="${c.decimals || 0}"></label>
-      <label class="inline">${I18N.unit[en() ? 0 : 1]}<input class="fld" id="xUnit" style="width:90px" value="${esc(c.unit || '')}" data-no-tr></label>`;
-  else box.innerHTML = '';
+  const L = k => I18N[k][en() ? 0 : 1];
+  if(c.type === 'select'){
+    const opts = c.options || [];
+    box.innerHTML = `<div class="pop-row"><span class="pop-lbl">${L('options')}</span>
+        <div class="chips" id="xChips">${opts.length ? opts.map((o, i) =>
+          `<span class="chip2" data-no-tr>${esc(o)}<button data-rm="${i}" title="${L('del')}">✕</button></span>`).join('')
+          : `<span class="hintline">${U('No choices yet', 'لا توجد اختيارات بعد')}</span>`}</div></div>
+      <div class="pop-row"><span class="pop-lbl"></span>
+        <div class="addopt"><input class="fld" id="xNewOpt" style="flex:1; min-width:150px"
+            placeholder="${U('Type a choice, then Enter', 'اكتب اختيار ثم اضغط Enter')}" data-no-tr>
+          <button class="btn primary" id="xAddOpt">${U('Add', 'إضافة')}</button></div></div>
+      <div class="hintline">${U('These are the choices people pick from inside the cell.',
+                                'دي الاختيارات اللي بتظهر في قائمة الخلية.')}</div>`;
+  }else if(c.type === 'formula'){
+    const keys = S.sheet.columns.filter(x => x.key !== c.key && x.type !== 'formula');
+    box.innerHTML = `<div class="pop-row"><span class="pop-lbl">${L('formula')}</span>
+        <input class="fld" id="xFormula" style="flex:1; min-width:210px" value="${esc(c.formula || '')}"
+          placeholder="[qty] * [price]" data-no-tr></div>
+      <div class="pop-row"><span class="pop-lbl">${L('decimals')}</span>
+        <input class="fld" id="xDec" type="number" min="0" max="4" style="width:70px" value="${c.decimals || 0}">
+        <span class="pop-lbl" style="flex:0 0 auto; margin-inline-start:10px">${L('unit')}</span>
+        <input class="fld" id="xUnit" style="width:90px" value="${esc(c.unit || '')}" data-no-tr></div>
+      <div class="chips" id="xKeys">${keys.map(x =>
+        `<button class="chip2 ins" data-ins="[${x.key}]" data-no-tr>${esc(colLabel(x))}</button>`).join('')}</div>
+      <div class="hintline">${U('Click a column to insert it. You can use + − × ÷ and SUM, AVG, MIN, MAX, ROUND, IF.',
+                                'اضغط على أي عمود لإدراجه. تقدر تستخدم + − × ÷ ودوال SUM و AVG و MIN و MAX و ROUND و IF.')}</div>`;
+  }else if(c.type === 'lookup'){
+    box.innerHTML = `<div class="pop-row"><span class="pop-lbl">${L('source')}</span>
+        <select class="fld" id="xSource" style="flex:1; min-width:220px">${FIELDS.map(f =>
+          `<option value="${f.key}" ${c.source === f.key ? 'selected' : ''}>${esc(fieldLabel(f))}</option>`).join('')}</select></div>
+      <div class="hintline">${U('The value is read from the latest update of the project chosen in that row.',
+                                'القيمة بتتقري من آخر تحديث للمشروع المختار في نفس الصف.')}</div>`;
+  }else if(c.type === 'number'){
+    box.innerHTML = `<div class="pop-row"><span class="pop-lbl">${L('decimals')}</span>
+        <input class="fld" id="xDec" type="number" min="0" max="4" style="width:70px" value="${c.decimals || 0}">
+        <span class="pop-lbl" style="flex:0 0 auto; margin-inline-start:10px">${L('unit')}</span>
+        <input class="fld" id="xUnit" style="width:90px" value="${esc(c.unit || '')}" data-no-tr></div>`;
+  }else box.innerHTML = '';
+
   const bind = (id, f) => { const el = $(id); if(el) el.addEventListener('change', () => { f(el.value); saveColumns(); }); };
-  bind('#xOptions', v => c.options = v.split(/[,،]/).map(x => x.trim()).filter(Boolean));
   bind('#xFormula', v => c.formula = v);
   bind('#xSource',  v => c.source = v);
   bind('#xDec',     v => c.decimals = Math.max(0, Math.min(4, num(v))));
   bind('#xUnit',    v => c.unit = v);
+  // اختيارات القائمة: إضافة وحذف بضغطة
+  const redraw = () => { drawColExtra(c); const f = $('#xNewOpt'); if(f) f.focus(); };
+  const addOpt = () => {
+    const el = $('#xNewOpt'); if(!el) return;
+    const vals = el.value.split(/[,،\n]/).map(x => x.trim()).filter(Boolean);
+    if(!vals.length) return;
+    c.options = (c.options || []).concat(vals.filter(v => (c.options || []).indexOf(v) < 0)).slice(0, 60);
+    el.value = '';
+    saveColumns(); redraw();
+  };
+  const addBtn = $('#xAddOpt'); if(addBtn) addBtn.addEventListener('click', addOpt);
+  const newOpt = $('#xNewOpt');
+  if(newOpt) newOpt.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); e.stopPropagation(); addOpt(); }
+  });
+  $$('#xChips [data-rm]').forEach(btn => btn.addEventListener('click', () => {
+    c.options = (c.options || []).filter((o, i) => i !== +btn.dataset.rm);
+    saveColumns(); redraw();
+  }));
+  $$('#xKeys [data-ins]').forEach(btn => btn.addEventListener('click', () => {
+    const f = $('#xFormula'); if(!f) return;
+    const at = f.selectionStart == null ? f.value.length : f.selectionStart;
+    const before = f.value.slice(0, at);
+    const ins = (before && !/[\s(+\-*/%^]$/.test(before) ? ' ' : '') + btn.dataset.ins;
+    f.value = before + ins + f.value.slice(f.selectionEnd == null ? at : f.selectionEnd);
+    f.focus(); f.setSelectionRange(at + ins.length, at + ins.length);
+    c.formula = f.value; saveColumns();
+  }));
 }
 $('#colName').addEventListener('change', () => {
   const c = selCols()[0]; if(!c) return;
   if(en()) c.label_en = $('#colName').value; else c.label = $('#colName').value;
   if(!c.label) c.label = c.label_en; if(!c.label_en) c.label_en = c.label;
   saveColumns();
+});
+/* لو النوع الحالي ليه إعدادات، أول ما تفتح قائمة النوع تفتح معاها نافذة الإعدادات
+   — عشان لو اخترت نفس النوع تاني تلاقي خياراتك قدامك تعدّلها */
+$('#colType').addEventListener('mousedown', () => {
+  const one = selCols().length === 1 ? selCols()[0] : null;
+  if(one && ['select', 'formula', 'lookup', 'number'].includes(one.type)) togglePop(true);
+});
+$('#colType').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ' && !e.key.startsWith('Arrow')) return;
+  const one = selCols().length === 1 ? selCols()[0] : null;
+  if(one && ['select', 'formula', 'lookup', 'number'].includes(one.type)) togglePop(true);
 });
 $('#colType').addEventListener('change', () => {
   const t = $('#colType').value; if(!t) return;
@@ -1271,7 +1391,8 @@ $('#colOpts').addEventListener('click', e => { e.stopPropagation(); togglePop();
 $('#popClose').addEventListener('click', () => closePop());
 document.addEventListener('mousedown', e => {
   const p = $('#colPop');
-  if(p && !p.hidden && !e.target.closest('#colPop') && !e.target.closest('#colOpts')) closePop();
+  if(p && !p.hidden && !e.target.closest('#colPop') && !e.target.closest('#colOpts')
+     && !e.target.closest('#colType')) closePop();
 });
 $('#colAgg').addEventListener('change', () => {
   const v = $('#colAgg').value;
@@ -1553,13 +1674,27 @@ $('#cellCopy').addEventListener('click', async () => {
   catch(e){ toast(U('Use Ctrl+C to copy', 'استخدم Ctrl+C للنسخ'), true); }
 });
 $('#cellClear').addEventListener('click', clearCells);
+/* تكرار لتحت: لو محدد أكتر من صف بيملا من أول صف، ولو خلية واحدة بياخد من الصف اللي فوقها */
 $('#cellFillDown').addEventListener('click', () => {
   const R = rng(); if(!R) return;
-  applyFill({r1:R.r1, r2:R.r1, c1:R.c1, c2:R.c2}, {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c2});
+  if(R.r1 === R.r2){
+    if(R.r1 === 0){ toast(U('There is no row above to copy from', 'مفيش صف فوقه عشان ننسخ منه')); return; }
+    applyFill({r1:R.r1 - 1, r2:R.r1 - 1, c1:R.c1, c2:R.c2}, {r1:R.r1 - 1, r2:R.r2, c1:R.c1, c2:R.c2}, true);
+    SEL = {r1:R.r1, c1:R.c1, r2:R.r2, c2:R.c2}; paintSel();
+    return;
+  }
+  applyFill({r1:R.r1, r2:R.r1, c1:R.c1, c2:R.c2}, {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c2}, true);
 });
+/* تكرار للجنب: نفس الفكرة بالأعمدة */
 $('#cellFillRight').addEventListener('click', () => {
   const R = rng(); if(!R) return;
-  applyFill({r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c1}, {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c2});
+  if(R.c1 === R.c2){
+    if(R.c1 === 0){ toast(U('There is no column before it to copy from', 'مفيش عمود جنبه عشان ننسخ منه')); return; }
+    applyFill({r1:R.r1, r2:R.r2, c1:R.c1 - 1, c2:R.c1 - 1}, {r1:R.r1, r2:R.r2, c1:R.c1 - 1, c2:R.c2}, true);
+    SEL = {r1:R.r1, c1:R.c1, r2:R.r2, c2:R.c2}; paintSel();
+    return;
+  }
+  applyFill({r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c1}, {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c2}, true);
 });
 /* ---- تنسيق ---- */
 $('#fmtBold').addEventListener('click', () => applyFmt({bold:!curFmt().bold}));
