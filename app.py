@@ -237,6 +237,26 @@ def upload_to_cloudinary(file: UploadFile):
     except:
         return None
 
+# ==================== الجلسة: تمديد تلقائي + منع تخزين صفحات الإدارة ====================
+ADMIN_SESSION_SECONDS = 86400          # 24 ساعة من آخر نشاط (وليس من وقت الدخول)
+
+@app.middleware("http")
+async def session_refresh(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    admin = request.cookies.get("super_admin_auth")
+    # كل طلب ناجح يجدّد الجلسة، فالشغل المفتوح لا ينتهي فجأة أثناء الاستخدام
+    if admin and response.status_code < 400 and path not in ("/admin-logout", "/logout"):
+        response.set_cookie(key="super_admin_auth", value=admin, httponly=True,
+                            max_age=ADMIN_SESSION_SECONDS, samesite="lax")
+    # صفحات الإدارة لا تُخزَّن في المتصفح، فلا تظهر نسخة قديمة بعد انتهاء الجلسة
+    if (admin or request.cookies.get("auth_user")) and \
+       "text/html" in (response.headers.get("content-type") or ""):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 @app.get("/", response_class=HTMLResponse)
 async def main_landing_page(request: Request):
     return templates.TemplateResponse(request, "landing.html", {})
@@ -288,7 +308,8 @@ async def do_admin_login(request: Request, background_tasks: BackgroundTasks, us
     if username in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[username] == password:
         background_tasks.add_task(log_audit, username, "تسجيل دخول إداري", f"دخول حساب {username}")
         response = RedirectResponse(url="/admin-hub", status_code=303)
-        response.set_cookie(key="super_admin_auth", value=username, httponly=True, max_age=86400)
+        response.set_cookie(key="super_admin_auth", value=username, httponly=True,
+                            max_age=ADMIN_SESSION_SECONDS, samesite="lax")
         return response
     return templates.TemplateResponse(request, "admin_login.html", {"error": "بيانات الدخول غير صحيحة"})
 
