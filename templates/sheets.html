@@ -50,14 +50,29 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 .bar.ctx{background:#EAF0F8; box-shadow:inset 0 -1px 0 #D6E0EE; gap:7px; row-gap:6px;}
 .bar .sep{width:1px; height:22px; background:#D3DEEC;}
 /* مجموعة خيارات: ظاهرة دايماً، ورمادية لحد ما يكون فيه تحديد */
-.grp{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-.grp .glbl{font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
-.grp .gval{font-size:12px; font-weight:600; color:var(--navy); background:#fff; padding:4px 8px;
-  max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.grp.off{opacity:.42;}
-.grp.off .gval{color:var(--muted); background:#F2F5F9;}
+.bar.ctx{position:relative;}
+.grp{display:flex; align-items:center; gap:6px; flex-wrap:nowrap;}
+/* كل مجموعة بتبدأ بخانة عرضها ثابت (اسم المجموعة فوق والمحدد تحته) — الأزرار ما بتتحركش */
+.gtag{flex:0 0 92px; width:92px; display:flex; flex-direction:column; justify-content:center;
+  line-height:1.25; overflow:hidden; margin-inline-end:2px;}
+.gtag b{font-size:9.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#8E98A8;}
+.gtag i{font-style:normal; font-size:12px; font-weight:600; color:var(--navy);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.grp.off{opacity:.5;}
+.grp.off .gtag i{color:#9AA4B4;}
+.bar label.inline > span{white-space:nowrap;}
+/* نافذة إعدادات العمود */
+.pop{position:absolute; top:calc(100% - 2px); inset-inline-start:16px; z-index:60; background:#fff; padding:12px 14px;
+  box-shadow:0 14px 34px rgba(23,32,51,.18); display:flex; flex-direction:column; gap:10px; min-width:280px;}
+.pop-hd{display:flex; align-items:center; justify-content:space-between; gap:14px;
+  font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+.pop #colExtra{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
 .bar .fld[disabled], .bar select[disabled]{background:#E4E9F0; color:var(--muted); cursor:default;}
 .swatch.off{pointer-events:none;}
+/* الأسهم دي بتشاور على ترتيب الأعمدة — بتتقلب مع الواجهة العربية */
+[dir="rtl"] #colLeft, [dir="rtl"] #colRight, [dir="rtl"] #colInsL, [dir="rtl"] #colInsR,
+[dir="rtl"] #cellFillRight{transform:scaleX(-1);}
+.btn.icon svg{display:block;}
 .bar label.inline{font-size:12.5px; color:var(--muted); display:inline-flex; align-items:center; gap:6px;}
 .bar .fld, .bar select, .bar input[type=text], .bar input[type=number]{height:34px;}
 .count{font-size:12.5px; color:var(--muted); white-space:nowrap;}
@@ -194,7 +209,7 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
   <div class="sep"></div>
   <input class="search" id="search" data-i18n-ph="search" placeholder="Search…">
   <button class="btn" id="btnFilters" data-i18n="filters">Filters</button>
-  <button class="btn" id="btnClearFilters" hidden data-i18n="clearFilters">Clear filters</button>
+  <button class="btn" id="btnClearFilters" disabled data-i18n="clearFilters">Clear filters</button>
   <div class="spacer"></div>
   <span class="count" id="rowCount"></span>
   <button class="btn icon" id="btnPrev">‹</button>
@@ -202,51 +217,51 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
   <button class="btn icon" id="btnNext">›</button>
 </div>
 
-<!-- شريط ثابت: كل الخيارات ظاهرة دايماً، ورمادية لحد ما تحدد -->
+<!-- شريط ثابت: كل خانة عرضها ثابت عشان مفيش حاجة تتحرك لما تحدد -->
 <div class="bar ctx" id="ctxBar">
   <span class="grp" id="colGroup">
-    <span class="glbl" data-i18n="colLbl">Column</span><span class="gval" id="colChip">—</span>
+    <span class="gtag"><b data-i18n="colLbl">Column</b><i id="colChip">—</i></span>
     <label class="inline"><span data-i18n="name">Name</span>
-      <input class="fld" id="colName" style="width:140px" data-no-tr></label>
+      <input class="fld" id="colName" style="width:136px" data-no-tr></label>
     <label class="inline"><span data-i18n="type">Type</span>
-      <select class="fld" id="colType" style="width:150px"></select></label>
+      <select class="fld" id="colType" style="width:142px"></select></label>
+    <button class="btn icon" id="colOpts" data-i18n-title="colSettings">⚙</button>
     <label class="inline"><span data-i18n="width">Width</span>
-      <input class="fld" id="colWidth" type="number" min="70" max="900" step="10" style="width:74px"></label>
+      <input class="fld" id="colWidth" type="number" min="70" max="900" step="10" style="width:72px"></label>
     <label class="inline"><span data-i18n="total">Total</span>
-      <select class="fld" id="colAgg" style="width:110px"></select></label>
+      <select class="fld" id="colAgg" style="width:104px"></select></label>
     <button class="btn icon" id="colLeft" data-i18n-title="moveColBefore">◀</button>
     <button class="btn icon" id="colRight" data-i18n-title="moveColAfter">▶</button>
     <button class="btn icon" id="colInsL" data-i18n-title="insColBefore">⇤+</button>
     <button class="btn icon" id="colInsR" data-i18n-title="insColAfter">+⇥</button>
-    <button class="btn danger" id="colDel" data-i18n="delete">Delete</button>
-    <span id="colExtra" style="display:flex; gap:8px; align-items:center;"></span>
+    <button class="btn icon danger" id="colDel" data-i18n-title="delCol"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </span>
   <span class="sep"></span>
   <span class="grp" id="rowGroup">
-    <span class="glbl" data-i18n="rowsLbl">Rows</span><span class="gval" id="rowChip">—</span>
+    <span class="gtag"><b data-i18n="rowsLbl">Rows</b><i id="rowChip">—</i></span>
     <button class="btn icon" id="rowUp" data-i18n-title="moveRowUp">▲</button>
     <button class="btn icon" id="rowDown" data-i18n-title="moveRowDown">▼</button>
     <button class="btn icon" id="rowInsA" data-i18n-title="insRowAbove">↑+</button>
     <button class="btn icon" id="rowInsB" data-i18n-title="insRowBelow">+↓</button>
-    <button class="btn" id="rowDup" data-i18n="duplicate">Duplicate</button>
-    <button class="btn danger" id="rowDel" data-i18n="delete">Delete</button>
+    <button class="btn icon" id="rowDup" data-i18n-title="duplicate">⧉</button>
+    <button class="btn icon danger" id="rowDel" data-i18n-title="delRow"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </span>
   <span class="sep"></span>
   <span class="grp" id="cellGroup">
-    <span class="glbl" data-i18n="cellsLbl">Cells</span><span class="gval" id="cellChip">—</span>
-    <button class="btn" id="cellCopy" data-i18n="copy">Copy</button>
-    <button class="btn" id="cellFillDown" data-i18n="fillDown">Fill down</button>
-    <button class="btn" id="cellFillRight" data-i18n="fillRight">Fill right</button>
-    <button class="btn danger" id="cellClear" data-i18n="clearCells">Clear</button>
+    <span class="gtag"><b data-i18n="cellsLbl">Cells</b><i id="cellChip">—</i></span>
+    <button class="btn" id="cellCopy" style="width:64px" data-i18n="copy">Copy</button>
+    <button class="btn icon" id="cellFillDown" data-i18n-title="fillDown">⇓</button>
+    <button class="btn icon" id="cellFillRight" data-i18n-title="fillRight">⇒</button>
+    <button class="btn icon danger" id="cellClear" data-i18n-title="clearCells">⌫</button>
   </span>
   <span class="sep"></span>
   <span class="grp" id="fmtGroup">
-    <span class="glbl" data-i18n="fmtLbl">Format</span>
+    <span class="gtag"><b data-i18n="fmtLbl">Format</b><i id="fmtChip">—</i></span>
     <button class="btn icon" id="fmtBold" data-i18n-title="bold" style="font-weight:800">B</button>
     <button class="btn icon" id="fmtItalic" data-i18n-title="italic" style="font-style:italic">I</button>
     <button class="btn icon" id="fmtUnder" data-i18n-title="underline" style="text-decoration:underline">U</button>
-    <select class="fld" id="fmtSize" style="width:64px" data-i18n-title="fontSize"></select>
-    <select class="fld" id="fmtAlign" style="width:92px" data-i18n-title="align"></select>
+    <select class="fld" id="fmtSize" style="width:72px" data-i18n-title="fontSize"></select>
+    <select class="fld" id="fmtAlign" style="width:86px" data-i18n-title="align"></select>
     <label class="swatch" data-i18n-title="textColor" id="fgSwatch">A<i id="fgDot"></i>
       <input type="color" id="fmtFg" value="#172033"></label>
     <label class="swatch" data-i18n-title="fillColor" id="bgSwatch">▧
@@ -254,7 +269,13 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
     <button class="btn icon" id="fmtNone" data-i18n-title="clearFmt">⌫</button>
   </span>
   <div class="spacer"></div>
-  <button class="btn" id="ctxClear" data-i18n="clearSel">Clear selection</button>
+  <button class="btn icon" id="ctxClear" data-i18n-title="clearSel">✕</button>
+  <!-- إعدادات العمود حسب نوعه: نافذة صغيرة عشان ما تزقّش الأزرار -->
+  <div class="pop" id="colPop" hidden>
+    <div class="pop-hd"><span data-i18n="colSettings">Column settings</span>
+      <button class="btn icon" id="popClose">✕</button></div>
+    <div id="colExtra"></div>
+  </div>
 </div>
 
 <div class="wrap" id="wrap" style="position:relative;">
@@ -304,6 +325,8 @@ const I18N = {
   colLbl:['Column','العمود'], rowsLbl:['Rows','الصفوف'], cellsLbl:['Cells','الخلايا'], fmtLbl:['Format','التنسيق'],
   moveColBefore:['Move column before','تحريك العمود للخلف'], moveColAfter:['Move column after','تحريك العمود للأمام'],
   moveRowUp:['Move row up','تحريك الصف لأعلى'], moveRowDown:['Move row down','تحريك الصف لأسفل'],
+  colSettings:['Column settings','إعدادات العمود'], delCol:['Delete column','حذف العمود'],
+  delRow:['Delete rows','حذف الصفوف'],
   sortedRows:['Rows follow the sort — click the sorted column header to clear it first',
               'الصفوف مرتبة بالفرز — اضغط عنوان العمود المفروز لإلغائه أولاً']
 };
@@ -873,7 +896,7 @@ function renderGrid(){
   if(fh) wrap.appendChild(fh);
   bindGrid();
   restoreFocus();
-  $('#btnClearFilters').hidden = !Object.values(S.filters).some(v => v);
+  $('#btnClearFilters').disabled = !Object.values(S.filters).some(v => v);
 }
 /* تجميد أول عمود: -1 يعني عمود الترقيم */
 const frozen = () => !!(S.sheet && S.sheet.settings && S.sheet.settings.freeze);
@@ -1147,6 +1170,8 @@ function syncBars(){
                                         rows === 1 ? 'صف واحد' : `${rows} صفوف`) : none;
   $('#colChip').textContent  = !cols.length ? none : (cols.length === 1 ? colLabel(cols[0])
       : U(`${cols.length} columns`, `${cols.length} أعمدة`));
+  $('#fmtChip').textContent  = cols.length ? I18N.colLbl[en() ? 0 : 1]
+      : rows ? I18N.rowsLbl[en() ? 0 : 1] : (R ? I18N.cellsLbl[en() ? 0 : 1] : none);
   if(cols.length || rows || R){
     const f = curFmt();
     $('#fmtBold').classList.toggle('on', !!f.bold);
@@ -1163,15 +1188,18 @@ function syncBars(){
     $('#fmtSize').value = ''; $('#fmtAlign').value = '';
   }
   $('#btnFreeze').classList.toggle('on', !!(S.sheet && S.sheet.settings && S.sheet.settings.freeze));
-  $('#btnClearFilters').hidden = !Object.values(S.filters).some(v => v);
+  $('#btnClearFilters').disabled = !Object.values(S.filters).some(v => v);
   const one = cols.length === 1 ? cols[0] : null;
+  const hasOpts = !!(one && ['select', 'formula', 'lookup', 'number'].includes(one.type));
+  $('#colOpts').disabled = !hasOpts;
+  if(!hasOpts) closePop();
   const set = (el, v) => { if(document.activeElement !== el) el.value = v; };
   set($('#colName'), one ? (en() ? (one.label_en || '') : (one.label || '')) : '');
   if(!one) $('#colName').disabled = true;
   set($('#colType'), !cols.length ? '' : (one ? one.type : (cols.every(c => c.type === cols[0].type) ? cols[0].type : '')));
   set($('#colWidth'), !cols.length ? '' : (one ? (one.width || 150) : (cols.every(c => c.width === cols[0].width) ? (cols[0].width || 150) : '')));
   set($('#colAgg'), !cols.length ? '' : (one ? (one.agg || '') : (cols.every(c => (c.agg || '') === (cols[0].agg || '')) ? (cols[0].agg || '') : '')));
-  if(document.activeElement !== $('#colExtra').querySelector('input, select')) drawColExtra(one);
+  if(!(document.activeElement && document.activeElement.closest('#colExtra'))) drawColExtra(one);
 }
 function drawColExtra(c){
   const box = $('#colExtra');
@@ -1207,6 +1235,8 @@ $('#colName').addEventListener('change', () => {
 });
 $('#colType').addEventListener('change', () => {
   const t = $('#colType').value; if(!t) return;
+  const openAfter = ['select', 'formula', 'lookup'].includes(t) && S.cols.size === 1;
+  if(openAfter) setTimeout(() => togglePop(true), 60);
   applyToSelectedCols(c => {
     c.type = t;
     if(t === 'select' && !c.options) c.options = [];
@@ -1224,6 +1254,25 @@ function applyWidth(){
 }
 $('#colWidth').addEventListener('input', () => { clearTimeout($('#colWidth')._t); $('#colWidth')._t = setTimeout(applyWidth, 250); });
 $('#colWidth').addEventListener('change', applyWidth);
+function closePop(){ const p = $('#colPop'); if(p) p.hidden = true; }
+function togglePop(force){
+  const p = $('#colPop'); if(!p) return;
+  const open = force !== undefined ? force : p.hidden;
+  p.hidden = !open;
+  if(open){
+    const btn = $('#colOpts'), bar = $('#ctxBar');
+    const a = btn.getBoundingClientRect(), b = bar.getBoundingClientRect();
+    p.style.insetInlineStart = (document.documentElement.dir === 'rtl'
+      ? (b.right - a.right) : (a.left - b.left)) + 'px';
+    const f = p.querySelector('input, select'); if(f) f.focus();
+  }
+}
+$('#colOpts').addEventListener('click', e => { e.stopPropagation(); togglePop(); });
+$('#popClose').addEventListener('click', () => closePop());
+document.addEventListener('mousedown', e => {
+  const p = $('#colPop');
+  if(p && !p.hidden && !e.target.closest('#colPop') && !e.target.closest('#colOpts')) closePop();
+});
 $('#colAgg').addEventListener('change', () => {
   const v = $('#colAgg').value;
   applyToSelectedCols(c => { if(v) c.agg = v; else delete c.agg; });
@@ -1558,6 +1607,7 @@ document.addEventListener('paste', e => {
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){
     $$('.modal-back.open').forEach(m => m.classList.remove('open'));
+    closePop();
     if(S.cols.size || S.rowsSel.size) clearSelection();
     if(SEL){ SEL = null; paintSel(); }
   }
