@@ -9,20 +9,18 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#E9EBEF; --panel:#fff; --tint:#F1F3F7; --tint2:#E6EAF0; --line:#E3E6EC;
-  --ink:#172033; --muted:#5B6577; --navy:#1F3A5F; --navy2:#274A78; --gold:#C8A165;
-  --danger:#C8543E; --ok:#1C6A43; --head-h:58px;
+  --bg:#E9EBEF; --tint:#F1F3F7; --tint2:#E6EAF0; --line:#E3E6EC; --ink:#172033; --muted:#5B6577;
+  --navy:#1F3A5F; --navy2:#274A78; --gold:#C8A165; --danger:#C8543E; --head-h:58px;
   --ease:cubic-bezier(.2,.8,.2,1);
 }
 *{box-sizing:border-box;}
 html,body{height:100%;margin:0;}
 body{font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif; background:var(--bg); color:var(--ink);
-     overflow:hidden; -webkit-font-smoothing:antialiased;}
+     overflow:hidden; -webkit-font-smoothing:antialiased; display:flex; flex-direction:column;}
 html[lang="ar"] body{font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;}
 button,input,select,textarea{font-family:inherit; border-radius:0;}
 
-/* ===== الهيدر ===== */
-.hdr{height:var(--head-h); background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07); display:flex;
+.hdr{height:var(--head-h); flex:0 0 auto; background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07); display:flex;
      align-items:center; gap:6px; padding:0 16px; position:relative; z-index:30;}
 .hdr-back{width:36px; height:36px; display:flex; align-items:center; justify-content:center;
           background:var(--tint); color:var(--ink); text-decoration:none; flex:0 0 auto; transition:background-color .15s ease;}
@@ -32,74 +30,81 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 .hdr-title small{font-size:11px; color:var(--muted); font-weight:500;}
 .hdr-title b{font-size:14px; font-weight:600;}
 .spacer{flex:1;}
-.btn{height:36px; border:none; background:var(--tint); padding:0 13px; font-size:13px; font-weight:500;
-     color:var(--ink); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:7px;
+.btn{height:34px; border:none; background:var(--tint); padding:0 12px; font-size:13px; font-weight:500;
+     color:var(--ink); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
      transition:background-color .15s ease, transform .15s ease;}
 .btn:hover{background:var(--tint2);}
 .btn:active{transform:scale(.98);}
-.btn.primary{background:var(--navy); color:#fff; font-weight:600;}
+.btn[disabled]{opacity:.4; pointer-events:none;}
+.btn.primary{background:var(--navy); color:#fff; font-weight:600; height:36px;}
 .btn.primary:hover{background:var(--navy2);}
-.btn.primary[disabled]{opacity:.45; pointer-events:none;}
 .btn.danger{color:var(--danger);}
 .btn.danger:hover{background:#FBEDEA;}
-.fld{height:36px; background:var(--tint); border:none; padding:0 10px; font-size:13px; color:var(--ink); max-width:280px;}
+.btn.icon{width:34px; padding:0; justify-content:center; font-size:15px;}
+.fld{height:36px; background:var(--tint); border:none; padding:0 10px; font-size:13px; color:var(--ink); max-width:260px;}
 .fld:focus{outline:2px solid #C9D6E8;}
 
-/* ===== شريط الأدوات ===== */
-.bar{height:46px; background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05); display:flex; align-items:center;
-     gap:8px; padding:0 16px; position:relative; z-index:20;}
+.bar{flex:0 0 auto; min-height:46px; background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05); display:flex; align-items:center;
+     flex-wrap:wrap; gap:8px; padding:6px 16px; position:relative; z-index:20;}
+.bar.ctx{background:#EAF0F8; box-shadow:inset 0 -1px 0 #D6E0EE;}
 .bar .sep{width:1px; height:22px; background:var(--line);}
+.bar label.inline{font-size:12.5px; color:var(--muted); display:inline-flex; align-items:center; gap:6px;}
+.bar .fld, .bar select, .bar input[type=text], .bar input[type=number]{height:34px;}
 .count{font-size:12.5px; color:var(--muted); white-space:nowrap;}
-.search{height:32px; background:var(--tint); border:none; padding:0 10px; font-size:13px; width:230px;}
+.chip{font-size:12px; font-weight:600; background:var(--navy); color:#fff; padding:5px 10px; white-space:nowrap;}
+.search{height:34px; background:var(--tint); border:none; padding:0 10px; font-size:13px; width:220px;}
 
-/* ===== الشبكة ===== */
-.wrap{height:calc(100% - var(--head-h) - 46px); overflow:auto; background:var(--bg); padding:14px 16px 40px;}
-table.grid{border-collapse:separate; border-spacing:0; background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 8px 20px rgba(23,32,51,.06);}
+.wrap{flex:1 1 auto; min-height:0; overflow:auto; background:var(--bg); padding:14px 16px 60px;}
+table.grid{border-collapse:separate; border-spacing:0; background:#fff;
+           box-shadow:0 1px 2px rgba(23,32,51,.05), 0 8px 20px rgba(23,32,51,.06);}
 .grid th, .grid td{border-bottom:1px solid var(--line); border-inline-end:1px solid var(--line); padding:0; height:34px;}
 .grid th{position:sticky; top:0; z-index:5; background:#F7F8FA; font-size:12px; font-weight:600; color:var(--ink);
-         text-align:start; padding:0 10px; white-space:nowrap; cursor:pointer; user-select:none;}
-.grid th:hover{background:var(--tint);}
-.grid th .sortmark{color:var(--muted); font-size:10px; margin-inline-start:5px;}
-.grid th.col-calc{color:var(--muted);}
+         text-align:start; white-space:nowrap; user-select:none;}
+.grid th .thin{display:flex; align-items:center; gap:6px; padding:0 8px; height:100%;}
+.grid th .thlbl{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; cursor:pointer; padding:3px 2px;}
+.grid th .thlbl:hover{color:var(--navy);}
+.grid th .sortmark{font-size:10px; color:var(--muted);}
+.grid th .grip{cursor:grab; color:#C2C8D2; font-size:11px; letter-spacing:-1px;}
+.grid th .grip:active{cursor:grabbing;}
+.grid th.sel{background:#EAF0F8; box-shadow:inset 0 -2px 0 var(--navy);}
+.grid th.calc .thlbl{color:var(--muted);}
+.grid th.drop-before{box-shadow:inset 3px 0 0 var(--navy);}
+.grid th.drop-after{box-shadow:inset -3px 0 0 var(--navy);}
 .grid td{font-size:13px; background:#fff;}
 .grid tr:hover td{background:#FAFBFC;}
-.grid td.cell-calc{background:#F7F8FA; color:var(--ink); padding:0 10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.grid td.colsel{background:#F5F8FC;}
+.grid td.cell-calc{background:#F7F8FA; padding:0 10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .grid tr:hover td.cell-calc{background:#F4F6F8;}
-.grid td.rownum{width:46px; text-align:center; color:var(--muted); font-size:11.5px; background:#F7F8FA; position:relative;}
-.grid th.rownum{width:46px; text-align:center; cursor:default;}
-.grid td.rownum input{margin:0;}
+.grid td.rownum, .grid th.rownum{width:74px; background:#F7F8FA; text-align:center; color:var(--muted); font-size:11.5px;}
+.grid td.rownum .rn{display:flex; align-items:center; justify-content:center; gap:5px; height:100%;}
+.grid td.rownum .rgrip{cursor:grab; color:#C2C8D2; font-size:11px; letter-spacing:-1px;}
 .grid td input[type=text], .grid td input[type=number], .grid td input[type=date], .grid td select{
-  width:100%; height:33px; border:none; background:transparent; padding:0 10px; font-size:13px; color:inherit;
-  font-family:inherit;}
+  width:100%; height:33px; border:none; background:transparent; padding:0 10px; font-size:13px; color:inherit; font-family:inherit;}
 .grid td input:focus, .grid td select:focus{outline:2px solid var(--navy); outline-offset:-2px; background:#F4F8FF;}
-.grid td.num input{text-align:end; font-variant-numeric:tabular-nums;}
-.grid td.cell-calc.num{text-align:end; font-variant-numeric:tabular-nums;}
+.grid td.num input, .grid td.cell-calc.num{text-align:end; font-variant-numeric:tabular-nums;}
 .grid td.chk{text-align:center;}
 .grid tr.sel td{background:#EAF0F8;}
 .grid tr.dirty td.rownum{box-shadow:inset 3px 0 0 var(--gold);}
+.grid tr.drag-over td{box-shadow:inset 0 3px 0 var(--navy);}
+.grid tr.dragging{opacity:.45;}
+.grid th.addcol{width:44px; text-align:center; cursor:pointer; color:var(--muted); font-size:17px; background:#F7F8FA;}
+.grid th.addcol:hover{background:var(--tint2); color:var(--navy);}
 .filters td{background:#FCFCFD; height:30px;}
 .filters input{width:100%; height:29px; border:none; background:transparent; padding:0 10px; font-size:12px;}
-.filters input::placeholder{color:#A9B0BC;}
-.empty{padding:40px 10px; text-align:center; color:var(--muted); font-size:13.5px;}
+.empty{padding:44px 10px; text-align:center; color:var(--muted); font-size:13.5px;}
+.addrow{display:flex; align-items:center; gap:7px; height:34px; padding:0 12px; font-size:13px; color:var(--muted);
+        background:#fff; cursor:pointer; box-shadow:0 1px 2px rgba(23,32,51,.05); transition:background-color .15s ease;}
+.addrow:hover{background:var(--tint); color:var(--navy);}
 
-/* ===== النوافذ ===== */
 .modal-back{position:fixed; inset:0; background:rgba(23,32,51,.40); display:flex; align-items:center; justify-content:center;
   z-index:80; opacity:0; visibility:hidden; transition:opacity .2s ease, visibility 0s linear .2s;}
 .modal-back.open{opacity:1; visibility:visible; transition:opacity .2s ease, visibility 0s;}
-.modal{background:#fff; width:min(860px,95vw); max-height:86vh; display:flex; flex-direction:column;
+.modal{background:#fff; width:min(620px,95vw); max-height:86vh; display:flex; flex-direction:column;
   box-shadow:0 24px 60px rgba(23,32,51,.28); transform:translateY(8px) scale(.98); transition:transform .25s var(--ease);}
 .modal-back.open .modal{transform:none;}
 .modal h3{margin:0; padding:16px 20px 6px; font-size:16px; font-weight:700;}
 .modal-body{padding:8px 20px 16px; overflow:auto;}
 .modal-foot{padding:12px 20px; background:#F7F8FA; display:flex; justify-content:flex-end; gap:8px;}
-.col-row{display:grid; grid-template-columns:26px 1fr 1fr 130px 1fr 76px 64px; gap:8px; align-items:center;
-         padding:8px 0; border-bottom:1px solid #F0F2F5;}
-.col-row input, .col-row select{height:32px; background:var(--tint); border:none; padding:0 8px; font-size:12.5px; width:100%;}
-.col-row .mv{display:flex; flex-direction:column; gap:2px;}
-.col-row .mv button{width:22px; height:15px; border:none; background:var(--tint); font-size:9px; cursor:pointer; color:var(--muted);}
-.col-row .mv button:hover{background:var(--navy); color:#fff;}
-.col-head{display:grid; grid-template-columns:26px 1fr 1fr 130px 1fr 76px 64px; gap:8px; font-size:10.5px;
-          font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; padding-bottom:6px;}
 .sheet-item{display:flex; align-items:center; gap:10px; padding:10px 12px; background:#F7F8FA; margin-bottom:6px;}
 .sheet-item .nm{flex:1; min-width:0;}
 .sheet-item .nm b{font-size:13.5px; font-weight:600; display:block;}
@@ -127,7 +132,6 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; box-shad
   <select class="fld" id="sheetSel" style="margin-inline-start:10px;" data-no-tr></select>
   <button class="btn" id="btnNew" data-i18n="newSheet">New sheet</button>
   <button class="btn" id="btnManage" data-i18n="manage">Manage…</button>
-  <button class="btn" id="btnCols" data-i18n="columns">Columns…</button>
   <div class="spacer"></div>
   <span class="count" id="savedAt"></span>
   <button class="btn" id="btnLang">العربية</button>
@@ -136,44 +140,51 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; box-shad
 
 <div class="load-bar" id="loadBar"><i></i></div>
 
-<div class="bar">
+<!-- شريط عادي -->
+<div class="bar" id="mainBar">
   <button class="btn" id="btnAddRow" data-i18n="addRow">+ Row</button>
-  <button class="btn danger" id="btnDelRows" data-i18n="delRows">Delete selected</button>
+  <button class="btn" id="btnAddCol" data-i18n="addCol">+ Column</button>
   <div class="sep"></div>
   <input class="search" id="search" data-i18n-ph="search" placeholder="Search…">
   <button class="btn" id="btnFilters" data-i18n="filters">Filters</button>
   <div class="spacer"></div>
   <span class="count" id="rowCount"></span>
-  <button class="btn" id="btnPrev">‹</button>
+  <button class="btn icon" id="btnPrev">‹</button>
   <span class="count" id="pageLbl"></span>
-  <button class="btn" id="btnNext">›</button>
+  <button class="btn icon" id="btnNext">›</button>
+</div>
+
+<!-- شريط الأعمدة المحددة -->
+<div class="bar ctx" id="colBar" hidden>
+  <span class="chip" id="colChip"></span>
+  <input class="fld" id="colName" data-i18n-ph="colName" placeholder="Column name" style="width:170px" data-no-tr>
+  <select class="fld" id="colType" style="width:170px"></select>
+  <span id="colExtra" style="display:flex; gap:8px; align-items:center;"></span>
+  <label class="inline"><span data-i18n="width">Width</span>
+    <input class="fld" id="colWidth" type="number" min="70" max="600" style="width:84px"></label>
+  <div class="sep"></div>
+  <button class="btn icon" id="colLeft" title="◀">◀</button>
+  <button class="btn icon" id="colRight" title="▶">▶</button>
+  <button class="btn danger" id="colDel" data-i18n="delete">Delete</button>
+  <div class="spacer"></div>
+  <button class="btn" id="colClear" data-i18n="clearSel">Clear selection</button>
+</div>
+
+<!-- شريط الصفوف المحددة -->
+<div class="bar ctx" id="rowBar" hidden>
+  <span class="chip" id="rowChip"></span>
+  <button class="btn icon" id="rowUp">▲</button>
+  <button class="btn icon" id="rowDown">▼</button>
+  <button class="btn" id="rowDup" data-i18n="duplicate">Duplicate</button>
+  <button class="btn danger" id="rowDel" data-i18n="delete">Delete</button>
+  <div class="spacer"></div>
+  <button class="btn" id="rowClear" data-i18n="clearSel">Clear selection</button>
 </div>
 
 <div class="wrap" id="wrap"><div class="empty" id="empty" data-i18n="noSheet">No sheet yet — create one to start.</div></div>
 
-<!-- نافذة الأعمدة -->
-<div class="modal-back" id="colsModal">
-  <div class="modal">
-    <h3 data-i18n="columnsT">Columns</h3>
-    <div class="modal-body">
-      <div class="col-head">
-        <span></span><span data-i18n="cLabelAr">Name (AR)</span><span data-i18n="cLabelEn">Name (EN)</span>
-        <span data-i18n="cType">Type</span><span data-i18n="cExtra">Source / options / formula</span>
-        <span data-i18n="cWidth">Width</span><span></span>
-      </div>
-      <div id="colList"></div>
-      <div style="margin-top:12px;"><button class="btn" id="btnAddCol" data-i18n="addCol">+ Column</button></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" data-close data-i18n="cancel">Cancel</button>
-      <button class="btn primary" id="btnColsSave" data-i18n="apply">Apply</button>
-    </div>
-  </div>
-</div>
-
-<!-- نافذة إدارة الجداول -->
 <div class="modal-back" id="mgrModal">
-  <div class="modal" style="width:min(620px,95vw);">
+  <div class="modal">
     <h3 data-i18n="manageT">Sheets</h3>
     <div class="modal-body" id="mgrBody"></div>
     <div class="modal-foot"><button class="btn" data-close data-i18n="close">Close</button></div>
@@ -186,21 +197,20 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; box-shad
 const PROJECTS = {{ projects | tojson }};
 const FIELDS   = {{ field_meta | tojson }};
 
-/* ================= لغة الواجهة (إنجليزي افتراضي) ================= */
+/* ================= اللغة ================= */
 const UI_KEY = 'pmis_ui_lang';
 let UIL = (() => { try{ return localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){ return 'en'; } })();
 const en = () => UIL !== 'ar';
 const U  = (e, a) => en() ? e : a;
 const I18N = {
   sheets:['Sheets','الجداول'], back:['Back','رجوع'], newSheet:['New sheet','جدول جديد'],
-  manage:['Manage…','إدارة…'], manageT:['Sheets','الجداول'], columns:['Columns…','الأعمدة…'],
-  columnsT:['Columns','الأعمدة'], save:['Save','حفظ'], addRow:['+ Row','+ صف'],
-  delRows:['Delete selected','حذف المحدد'], search:['Search…','بحث…'], filters:['Filters','فلاتر'],
+  manage:['Manage…','إدارة…'], manageT:['Sheets','الجداول'], save:['Save','حفظ'],
+  addRow:['+ Row','+ صف'], addCol:['+ Column','+ عمود'], search:['Search…','بحث…'], filters:['Filters','فلاتر'],
   noSheet:['No sheet yet — create one to start.','لا توجد جداول — أنشئ جدول للبدء.'],
-  cLabelAr:['Name (AR)','الاسم (عربي)'], cLabelEn:['Name (EN)','الاسم (إنجليزي)'], cType:['Type','النوع'],
-  cExtra:['Source / options / formula','المصدر / الاختيارات / المعادلة'], cWidth:['Width','العرض'],
-  addCol:['+ Column','+ عمود'], cancel:['Cancel','إلغاء'], apply:['Apply','تطبيق'], close:['Close','إغلاق'],
-  open:['Open','فتح'], rename:['Rename','إعادة تسمية'], del:['Delete','حذف']
+  close:['Close','إغلاق'], open:['Open','فتح'], rename:['Rename','إعادة تسمية'], del:['Delete','حذف'],
+  delete:['Delete','حذف'], duplicate:['Duplicate','تكرار'], clearSel:['Clear selection','إلغاء التحديد'],
+  colName:['Column name','اسم العمود'], width:['Width','العرض'], decimals:['Decimals','خانات عشرية'],
+  unit:['Unit','الوحدة'], options:['Choices','الاختيارات'], formula:['Formula','المعادلة'], source:['Source','المصدر']
 };
 const TYPES = [['text','Text','نص'], ['number','Number','رقم'], ['date','Date','تاريخ'],
                ['select','Choice list','قائمة اختيارات'], ['bool','Yes / No','صح / غلط'],
@@ -215,6 +225,8 @@ function applyLang(){
   document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = (I18N[el.dataset.i18nPh] || ['', ''])[i]);
   document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = (I18N[el.dataset.i18nTitle] || ['', ''])[i]);
   const b = $('#btnLang'); if(b) b.textContent = en() ? 'Arabic' : 'English';
+  const ct = $('#colType');
+  ct.innerHTML = TYPES.map(([v, e2, a]) => `<option value="${v}">${en() ? e2 : a}</option>`).join('');
 }
 
 /* ================= أدوات ================= */
@@ -226,15 +238,13 @@ function toast(msg, isErr){
   clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', 2800);
 }
 let BUSY = 0;
-function busy(on){
-  BUSY = Math.max(0, BUSY + (on ? 1 : -1));
-  $('#loadBar').classList.toggle('on', BUSY > 0);
-}
+function busy(on){ BUSY = Math.max(0, BUSY + (on ? 1 : -1)); $('#loadBar').classList.toggle('on', BUSY > 0); }
 const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return isNaN(n) ? 0 : n; };
-const colLabel = c => (en() ? (c.label_en || c.label) : c.label) || c.key;
+const colLabel = c => (en() ? (c.label_en || c.label) : (c.label || c.label_en)) || c.key;
 const fieldLabel = f => (en() ? (f.label_en || f.label) : f.label) || f.key;
+const isCalc = c => c.type === 'formula' || c.type === 'lookup';
 
-/* ================= المعادلات (نفس قواعد السيرفر) ================= */
+/* ================= المعادلات ================= */
 const FN = {
   sum:(...a) => a.reduce((s, x) => s + num(x), 0),
   min:(...a) => Math.min(...a.map(num)), max:(...a) => Math.max(...a.map(num)),
@@ -247,8 +257,7 @@ function evalFormula(expr, vals){
   const ws = () => { while(i < s.length && /\s/.test(s[i])) i++; };
   const eat = t => { ws(); if(s.startsWith(t, i)){ i += t.length; return true; } return false; };
   function atom(){
-    ws();
-    if(i >= s.length) throw 0;
+    ws(); if(i >= s.length) throw 0;
     const ch = s[i];
     if(ch === '('){ i++; const v = cmp(); if(!eat(')')) throw 0; return v; }
     if(ch === '['){ const e = s.indexOf(']', i); if(e < 0) throw 0; const k = s.slice(i + 1, e).trim(); i = e + 1; return vals[k] != null ? vals[k] : 0; }
@@ -272,7 +281,7 @@ function evalFormula(expr, vals){
     const l = add();
     for(const op of ['>=', '<=', '<>', '!=', '=', '>', '<']){
       if(eat(op)){ const r = add(), a = num(l), b = num(r);
-        return op === '>=' ? a >= b : op === '<=' ? a <= b : op === '<>' || op === '!=' ? a !== b : op === '=' ? a === b : op === '>' ? a > b : a < b; }
+        return op === '>=' ? a >= b : op === '<=' ? a <= b : (op === '<>' || op === '!=') ? a !== b : op === '=' ? a === b : op === '>' ? a > b : a < b; }
     }
     return l;
   }
@@ -287,15 +296,14 @@ function evalFormula(expr, vals){
 const S = {
   sheets:[], sheet:null, rows:[], total:0, page:0, per:200,
   sort:'', dir:'asc', q:'', filters:{}, showFilters:false,
-  dirty:new Map(), adds:[], dels:new Set(), colsDraft:null, lookup:{}
+  dirty:new Map(), dels:new Set(), lookup:{}, cols:new Set(), rowsSel:new Set()
 };
 const fmtNum = (v, dec, unit) => (v === null || v === undefined || v === '') ? ''
   : num(v).toLocaleString('en-US', {minimumFractionDigits:dec || 0, maximumFractionDigits:dec || 0}) + (unit ? ' ' + unit : '');
 
 /* ================= الشبكة ================= */
 function recalcRow(r){
-  const cols = S.sheet.columns;
-  const vals = Object.assign({}, r.data);
+  const cols = S.sheet.columns, vals = Object.assign({}, r.data);
   const pk = (cols.find(c => c.type === 'project') || {}).key;
   const rec = pk ? (S.lookup[vals[pk]] || null) : null;
   cols.forEach(c => { if(c.type === 'lookup') vals[c.key] = rec ? rec[c.source] : null; });
@@ -308,93 +316,113 @@ function recalcRow(r){
   }
   r.data = vals;
 }
+function shownValue(r, c){
+  const v = r.data[c.key];
+  if(v === null || v === undefined || v === '') return '';
+  if(c.type === 'formula') return fmtNum(v, c.decimals, c.unit);
+  const fld = FIELDS.find(f => f.key === c.source);
+  if(fld && ['number','percent','currency','days'].includes(fld.type))
+    return num(v).toLocaleString('en-US', {maximumFractionDigits:2}) + (fld.type === 'percent' ? '%' : '');
+  return v;
+}
 function renderGrid(){
   const wrap = $('#wrap');
-  if(!S.sheet){ wrap.innerHTML = `<div class="empty">${(I18N.noSheet)[en() ? 0 : 1]}</div>`; return; }
+  if(!S.sheet){ wrap.innerHTML = `<div class="empty">${I18N.noSheet[en() ? 0 : 1]}</div>`; return; }
   const cols = S.sheet.columns;
-  if(!cols.length){ wrap.innerHTML = `<div class="empty">${U('This sheet has no columns yet — open Columns…', 'الجدول ملوش أعمدة — افتح «الأعمدة…»')}</div>`; return; }
   const head = cols.map(c => {
-    const calc = (c.type === 'formula' || c.type === 'lookup');
-    const mark = S.sort === c.key ? `<span class="sortmark">${S.dir === 'asc' ? '▲' : '▼'}</span>` : '';
-    return `<th style="min-width:${c.width || 150}px" class="${calc ? 'col-calc' : ''}" data-sort="${c.key}" data-no-tr>${esc(colLabel(c))}${mark}</th>`;
+    const on = S.cols.has(c.key);
+    const mark = S.sort === c.key ? ` <span class="sortmark">${S.dir === 'asc' ? '▲' : '▼'}</span>` : '';
+    return `<th style="min-width:${c.width || 150}px" class="${on ? 'sel ' : ''}${isCalc(c) ? 'calc' : ''}" data-col="${c.key}" draggable="true">
+        <div class="thin"><span class="grip">⣿</span>
+          <input type="checkbox" data-colsel="${c.key}" ${on ? 'checked' : ''}>
+          <span class="thlbl" data-sort="${c.key}" data-no-tr title="${esc(colLabel(c))}">${esc(colLabel(c))}${mark}</span></div></th>`;
   }).join('');
   const filt = S.showFilters ? `<tr class="filters"><td class="rownum"></td>${cols.map(c =>
-      `<td><input data-filter="${c.key}" value="${esc(S.filters[c.key] || '')}" placeholder="—"></td>`).join('')}</tr>` : '';
+      `<td><input data-filter="${c.key}" value="${esc(S.filters[c.key] || '')}" placeholder="—"></td>`).join('')}<td></td></tr>` : '';
   const body = S.rows.map((r, i) => rowHtml(r, i, cols)).join('');
   wrap.innerHTML = `<table class="grid">
-      <thead><tr><th class="rownum"><input type="checkbox" id="selAll"></th>${head}</tr>${filt}</thead>
-      <tbody id="gridBody">${body}</tbody></table>`;
+      <thead><tr><th class="rownum"><input type="checkbox" id="selAll"></th>${head}
+        <th class="addcol" id="thAddCol" title="${U('Add column', 'إضافة عمود')}">+</th></tr>${filt}</thead>
+      <tbody id="gridBody">${body}</tbody></table>
+    <div class="addrow" id="addRowBtn">+ <span>${U('New row', 'صف جديد')}</span></div>`;
   bindGrid();
 }
 function rowHtml(r, i, cols){
   const cells = cols.map(c => cellHtml(r, c)).join('');
   const isNew = String(r.id).startsWith('n');
-  return `<tr data-id="${r.id}" class="${S.dirty.has(r.id) || isNew ? 'dirty' : ''}">
-      <td class="rownum"><input type="checkbox" data-rowsel="${r.id}"></td>${cells}</tr>`;
+  const n = S.page * S.per + i + 1;
+  return `<tr data-id="${r.id}" draggable="true" class="${S.dirty.has(r.id) || isNew ? 'dirty' : ''}${S.rowsSel.has(String(r.id)) ? ' sel' : ''}">
+      <td class="rownum"><div class="rn"><span class="rgrip">⣿</span>
+        <input type="checkbox" data-rowsel="${r.id}" ${S.rowsSel.has(String(r.id)) ? 'checked' : ''}><span>${n}</span></div></td>
+      ${cells}<td></td></tr>`;
 }
 function cellHtml(r, c){
-  const v = r.data[c.key];
-  if(c.type === 'formula' || c.type === 'lookup'){
-    const fld = c.type === 'lookup' ? FIELDS.find(f => f.key === c.source) : null;
-    let shown = v;
-    if(v === null || v === undefined || v === '') shown = '';
-    else if(c.type === 'formula') shown = fmtNum(v, c.decimals, c.unit);
-    else if(fld && ['number','percent','currency','days'].includes(fld.type)) shown = num(v).toLocaleString('en-US', {maximumFractionDigits:2}) + (fld.type === 'percent' ? '%' : '');
-    const cls = (c.type === 'formula' || (fld && fld.type !== 'text' && fld.type !== 'date')) ? 'num' : '';
-    return `<td class="cell-calc ${cls}" data-no-tr title="${esc(shown)}">${esc(shown)}</td>`;
+  const v = r.data[c.key], on = S.cols.has(c.key) ? ' colsel' : '';
+  if(isCalc(c)){
+    const shown = shownValue(r, c);
+    const cls = (c.type === 'formula' || (FIELDS.find(f => f.key === c.source) || {}).type !== 'text') ? ' num' : '';
+    return `<td class="cell-calc${cls}${on}" data-no-tr title="${esc(shown)}">${esc(shown)}</td>`;
   }
   if(c.type === 'project')
-    return `<td><select data-cell="${c.key}" data-no-tr><option value=""></option>${PROJECTS.map(p =>
+    return `<td class="${on}"><select data-cell="${c.key}" data-no-tr><option value=""></option>${PROJECTS.map(p =>
       `<option value="${esc(p)}" ${v === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></td>`;
   if(c.type === 'select')
-    return `<td><select data-cell="${c.key}" data-no-tr><option value=""></option>${(c.options || []).map(o =>
+    return `<td class="${on}"><select data-cell="${c.key}" data-no-tr><option value=""></option>${(c.options || []).map(o =>
       `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
   if(c.type === 'bool')
-    return `<td class="chk"><input type="checkbox" data-cell="${c.key}" ${v ? 'checked' : ''}></td>`;
+    return `<td class="chk${on}"><input type="checkbox" data-cell="${c.key}" ${v ? 'checked' : ''}></td>`;
   if(c.type === 'date')
-    return `<td><input type="date" data-cell="${c.key}" value="${esc(v || '')}"></td>`;
+    return `<td class="${on}"><input type="date" data-cell="${c.key}" value="${esc(v || '')}"></td>`;
   if(c.type === 'number')
-    return `<td class="num"><input type="number" step="any" data-cell="${c.key}" value="${v === null || v === undefined ? '' : esc(v)}"></td>`;
-  return `<td><input type="text" data-cell="${c.key}" value="${esc(v || '')}" data-no-tr></td>`;
+    return `<td class="num${on}"><input type="number" step="any" data-cell="${c.key}" value="${v === null || v === undefined ? '' : esc(v)}"></td>`;
+  return `<td class="${on}"><input type="text" data-cell="${c.key}" value="${esc(v || '')}" data-no-tr></td>`;
 }
 function bindGrid(){
-  $$('#wrap th[data-sort]').forEach(th => th.addEventListener('click', () => {
-    const k = th.dataset.sort;
-    if(S.sort === k) S.dir = (S.dir === 'asc') ? 'desc' : 'asc'; else { S.sort = k; S.dir = 'asc'; }
+  $('#thAddCol').addEventListener('click', addColumn);
+  $('#addRowBtn').addEventListener('click', addRow);
+  $$('#wrap [data-sort]').forEach(el => el.addEventListener('click', () => {
+    const k = el.dataset.sort;
+    if(S.sort === k){ if(S.dir === 'asc') S.dir = 'desc'; else { S.sort = ''; S.dir = 'asc'; } }
+    else { S.sort = k; S.dir = 'asc'; }
     S.page = 0; refresh();
+  }));
+  $$('#wrap [data-colsel]').forEach(cb => cb.addEventListener('change', () => {
+    if(cb.checked) S.cols.add(cb.dataset.colsel); else S.cols.delete(cb.dataset.colsel);
+    renderGrid(); syncBars();
   }));
   $$('#wrap [data-filter]').forEach(inp => inp.addEventListener('change', () => {
     S.filters[inp.dataset.filter] = inp.value.trim(); S.page = 0; refresh();
   }));
   const sa = $('#selAll');
-  if(sa) sa.addEventListener('change', () => $$('#wrap [data-rowsel]').forEach(c => { c.checked = sa.checked; c.closest('tr').classList.toggle('sel', sa.checked); }));
-  $$('#wrap [data-rowsel]').forEach(c => c.addEventListener('change', () => c.closest('tr').classList.toggle('sel', c.checked)));
+  if(sa) sa.addEventListener('change', () => {
+    S.rowsSel = new Set(sa.checked ? S.rows.map(r => String(r.id)) : []);
+    renderGrid(); syncBars();
+  });
+  $$('#wrap [data-rowsel]').forEach(cb => cb.addEventListener('change', () => {
+    if(cb.checked) S.rowsSel.add(cb.dataset.rowsel); else S.rowsSel.delete(cb.dataset.rowsel);
+    cb.closest('tr').classList.toggle('sel', cb.checked); syncBars();
+  }));
   $$('#wrap [data-cell]').forEach(inp => {
     const ev = (inp.tagName === 'SELECT' || inp.type === 'checkbox' || inp.type === 'date') ? 'change' : 'input';
-    inp.addEventListener(ev, () => {
-      const tr = inp.closest('tr'), id = tr.dataset.id;
-      const r = S.rows.find(x => String(x.id) === String(id)); if(!r) return;
-      const key = inp.dataset.cell;
-      const col = S.sheet.columns.find(c => c.key === key);
-      let val = inp.type === 'checkbox' ? inp.checked : inp.value;
-      if(col.type === 'number') val = (val === '' ? null : num(val));
-      r.data[key] = val;
-      recalcRow(r);
-      // الأعمدة المحسوبة تتحدث فوراً من غير إعادة بناء الصف كله (عشان مكان الكتابة ما يضيعش)
-      S.sheet.columns.forEach((c, ci) => {
-        if(c.type !== 'formula' && c.type !== 'lookup') return;
-        const td = tr.children[ci + 1]; if(!td) return;
-        const nv = r.data[c.key];
-        const fld = c.type === 'lookup' ? FIELDS.find(f => f.key === c.source) : null;
-        let shown = (nv === null || nv === undefined || nv === '') ? ''
-          : (c.type === 'formula') ? fmtNum(nv, c.decimals, c.unit)
-          : (fld && ['number','percent','currency','days'].includes(fld.type))
-            ? num(nv).toLocaleString('en-US', {maximumFractionDigits:2}) + (fld.type === 'percent' ? '%' : '') : nv;
-        td.textContent = shown; td.title = shown;
-      });
-      markDirty(r);
-    });
+    inp.addEventListener(ev, () => onCellEdit(inp));
   });
+  bindDnd();
+}
+function onCellEdit(inp){
+  const tr = inp.closest('tr'), id = tr.dataset.id;
+  const r = S.rows.find(x => String(x.id) === String(id)); if(!r) return;
+  const key = inp.dataset.cell, col = S.sheet.columns.find(c => c.key === key);
+  let val = inp.type === 'checkbox' ? inp.checked : inp.value;
+  if(col.type === 'number') val = (val === '' ? null : num(val));
+  r.data[key] = val;
+  recalcRow(r);
+  S.sheet.columns.forEach((c, ci) => {
+    if(!isCalc(c)) return;
+    const td = tr.children[ci + 1]; if(!td) return;
+    const shown = shownValue(r, c);
+    td.textContent = shown; td.title = shown;
+  });
+  markDirty(r);
 }
 markDirty._t = 0;
 function markDirty(r){
@@ -402,10 +430,233 @@ function markDirty(r){
   const tr = $(`#wrap tr[data-id="${r.id}"]`); if(tr) tr.classList.add('dirty');
   $('#btnSave').disabled = false;
   clearTimeout(markDirty._t);
-  markDirty._t = setTimeout(saveChanges, 1500);      // حفظ تلقائي بعد ما تبطّل كتابة
+  markDirty._t = setTimeout(() => saveChanges(true), 1500);
 }
 
-/* ================= الاتصال بالسيرفر ================= */
+/* ================= السحب والإفلات ================= */
+let DRAG = null;
+function bindDnd(){
+  $$('#wrap th[data-col]').forEach(th => {
+    th.addEventListener('dragstart', e => {
+      DRAG = {kind:'col', key:th.dataset.col};
+      e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', th.dataset.col);
+    });
+    th.addEventListener('dragover', e => {
+      if(!DRAG || DRAG.kind !== 'col') return;
+      e.preventDefault();
+      const r = th.getBoundingClientRect();
+      const before = en() ? (e.clientX < r.left + r.width / 2) : (e.clientX > r.left + r.width / 2);
+      th.classList.toggle('drop-before', before); th.classList.toggle('drop-after', !before);
+    });
+    th.addEventListener('dragleave', () => th.classList.remove('drop-before', 'drop-after'));
+    th.addEventListener('drop', e => {
+      e.preventDefault();
+      const before = th.classList.contains('drop-before');
+      th.classList.remove('drop-before', 'drop-after');
+      if(!DRAG || DRAG.kind !== 'col' || DRAG.key === th.dataset.col) return;
+      moveColumnTo(DRAG.key, th.dataset.col, before);
+      DRAG = null;
+    });
+  });
+  $$('#wrap tbody tr[data-id]').forEach(tr => {
+    tr.addEventListener('dragstart', e => {
+      if(S.sort){ e.preventDefault(); toast(U('Clear the sort first to reorder rows', 'ألغِ الفرز أولاً لترتيب الصفوف'), true); return; }
+      DRAG = {kind:'row', id:tr.dataset.id}; tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', tr.dataset.id);
+    });
+    tr.addEventListener('dragend', () => tr.classList.remove('dragging'));
+    tr.addEventListener('dragover', e => {
+      if(!DRAG || DRAG.kind !== 'row') return;
+      e.preventDefault(); tr.classList.add('drag-over');
+    });
+    tr.addEventListener('dragleave', () => tr.classList.remove('drag-over'));
+    tr.addEventListener('drop', e => {
+      e.preventDefault(); tr.classList.remove('drag-over');
+      if(!DRAG || DRAG.kind !== 'row' || DRAG.id === tr.dataset.id) return;
+      moveRowTo(DRAG.id, tr.dataset.id); DRAG = null;
+    });
+  });
+}
+function moveColumnTo(key, targetKey, before){
+  const cols = S.sheet.columns;
+  const from = cols.findIndex(c => c.key === key);
+  const col = cols.splice(from, 1)[0];
+  let to = cols.findIndex(c => c.key === targetKey);
+  if(!before) to += 1;
+  cols.splice(to, 0, col);
+  saveColumns();
+}
+function moveRowTo(id, targetId){
+  const from = S.rows.findIndex(r => String(r.id) === String(id));
+  const row = S.rows.splice(from, 1)[0];
+  const to = S.rows.findIndex(r => String(r.id) === String(targetId));
+  S.rows.splice(to, 0, row);
+  renderGrid(); saveOrder();
+}
+async function saveOrder(){
+  const reorder = S.rows.filter(r => !String(r.id).startsWith('n'))
+                        .map((r, i) => ({id:r.id, seq:S.page * S.per + i + 1}));
+  if(!reorder.length) return;
+  await api(`/api/sheets/${S.sheet.id}/rows`, {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({reorder})});
+}
+
+/* ================= الأعمدة ================= */
+function selCols(){ return S.sheet ? S.sheet.columns.filter(c => S.cols.has(c.key)) : []; }
+async function saveColumns(reload){
+  const j = await api(`/api/sheets/${S.sheet.id}`, {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({columns:S.sheet.columns})});
+  if(!j.success) return false;
+  const meta = S.sheets.find(s => String(s.id) === String(S.sheet.id));
+  if(meta) meta.columns = JSON.parse(JSON.stringify(S.sheet.columns));
+  if(reload) await loadRows(); else { renderGrid(); syncBars(); }
+  return true;
+}
+async function addColumn(){
+  if(!S.sheet) return;
+  const n = S.sheet.columns.length + 1;
+  const key = 'c' + n + Math.random().toString(36).slice(2, 5);
+  S.sheet.columns.push({key, type:'text', label:'عمود ' + n, label_en:'Column ' + n, width:150});
+  S.cols = new Set([key]);
+  await saveColumns();
+  const inp = $('#colName'); if(inp){ inp.focus(); inp.select(); }
+}
+async function applyToSelectedCols(fn, reload){
+  const cols = selCols(); if(!cols.length) return;
+  cols.forEach(fn);
+  await saveColumns(reload);
+}
+function syncBars(){
+  const cols = selCols(), rows = S.rowsSel.size;
+  $('#colBar').hidden = !cols.length;
+  $('#rowBar').hidden = !rows;
+  $('#mainBar').hidden = false;
+  if(cols.length){
+    $('#colChip').textContent = cols.length === 1 ? colLabel(cols[0])
+      : U(`${cols.length} columns selected`, `${cols.length} أعمدة محددة`);
+    const one = cols.length === 1 ? cols[0] : null;
+    $('#colName').value = one ? (en() ? (one.label_en || '') : (one.label || '')) : '';
+    $('#colName').disabled = !one;
+    $('#colType').value = one ? one.type : (cols.every(c => c.type === cols[0].type) ? cols[0].type : '');
+    $('#colWidth').value = one ? (one.width || 150) : '';
+    drawColExtra(one);
+  }
+  if(rows) $('#rowChip').textContent = U(rows === 1 ? '1 row selected' : `${rows} rows selected`,
+                                          rows === 1 ? 'صف واحد محدد' : `${rows} صفوف محددة`);
+}
+function drawColExtra(c){
+  const box = $('#colExtra');
+  if(!c){ box.innerHTML = ''; return; }
+  if(c.type === 'select')
+    box.innerHTML = `<label class="inline">${I18N.options[en() ? 0 : 1]}
+      <input class="fld" id="xOptions" style="width:220px" value="${esc((c.options || []).join(', '))}" data-no-tr></label>`;
+  else if(c.type === 'formula')
+    box.innerHTML = `<label class="inline">${I18N.formula[en() ? 0 : 1]}
+      <input class="fld" id="xFormula" style="width:230px" value="${esc(c.formula || '')}" placeholder="[qty] * [price]" data-no-tr></label>
+      <label class="inline">${I18N.decimals[en() ? 0 : 1]}<input class="fld" id="xDec" type="number" min="0" max="4" style="width:70px" value="${c.decimals || 0}"></label>
+      <label class="inline">${I18N.unit[en() ? 0 : 1]}<input class="fld" id="xUnit" style="width:80px" value="${esc(c.unit || '')}" data-no-tr></label>`;
+  else if(c.type === 'lookup')
+    box.innerHTML = `<label class="inline">${I18N.source[en() ? 0 : 1]}
+      <select class="fld" id="xSource" style="width:240px">${FIELDS.map(f =>
+        `<option value="${f.key}" ${c.source === f.key ? 'selected' : ''}>${esc(fieldLabel(f))}</option>`).join('')}</select></label>`;
+  else if(c.type === 'number')
+    box.innerHTML = `<label class="inline">${I18N.decimals[en() ? 0 : 1]}<input class="fld" id="xDec" type="number" min="0" max="4" style="width:70px" value="${c.decimals || 0}"></label>
+      <label class="inline">${I18N.unit[en() ? 0 : 1]}<input class="fld" id="xUnit" style="width:90px" value="${esc(c.unit || '')}" data-no-tr></label>`;
+  else box.innerHTML = '';
+  const bind = (id, f) => { const el = $(id); if(el) el.addEventListener('change', () => { f(el.value); saveColumns(true); }); };
+  bind('#xOptions', v => c.options = v.split(/[,،]/).map(x => x.trim()).filter(Boolean));
+  bind('#xFormula', v => c.formula = v);
+  bind('#xSource',  v => c.source = v);
+  bind('#xDec',     v => c.decimals = Math.max(0, Math.min(4, num(v))));
+  bind('#xUnit',    v => c.unit = v);
+}
+$('#colName').addEventListener('change', () => {
+  const c = selCols()[0]; if(!c) return;
+  if(en()) c.label_en = $('#colName').value; else c.label = $('#colName').value;
+  if(!c.label) c.label = c.label_en; if(!c.label_en) c.label_en = c.label;
+  saveColumns();
+});
+$('#colType').addEventListener('change', () => {
+  const t = $('#colType').value; if(!t) return;
+  applyToSelectedCols(c => {
+    c.type = t;
+    if(t === 'select' && !c.options) c.options = [];
+    if((t === 'number' || t === 'formula') && c.decimals == null) c.decimals = 0;
+    if(t === 'lookup' && !c.source) c.source = (FIELDS[0] || {}).key;
+    if(t === 'formula' && !c.formula) c.formula = '';
+  }, true);
+});
+$('#colWidth').addEventListener('change', () => {
+  const w = Math.max(70, Math.min(600, num($('#colWidth').value) || 150));
+  applyToSelectedCols(c => c.width = w);
+});
+$('#colLeft').addEventListener('click', () => shiftCols(-1));
+$('#colRight').addEventListener('click', () => shiftCols(1));
+function shiftCols(dir){
+  const cols = S.sheet.columns;
+  const idx = cols.map((c, i) => S.cols.has(c.key) ? i : -1).filter(i => i >= 0);
+  if(!idx.length) return;
+  const order = dir < 0 ? idx : idx.slice().reverse();
+  for(const i of order){
+    const j = i + dir;
+    if(j < 0 || j >= cols.length || S.cols.has(cols[j].key)) continue;
+    const t = cols[i]; cols[i] = cols[j]; cols[j] = t;
+  }
+  saveColumns();
+}
+$('#colDel').addEventListener('click', async () => {
+  const cols = selCols(); if(!cols.length) return;
+  if(!confirm(U(`Delete ${cols.length} column(s)? The data in them is removed too.`,
+                `حذف ${cols.length} عمود؟ البيانات اللي فيهم هتتشال كمان.`))) return;
+  S.sheet.columns = S.sheet.columns.filter(c => !S.cols.has(c.key));
+  S.cols.clear();
+  await saveColumns(true);
+});
+$('#colClear').addEventListener('click', () => { S.cols.clear(); renderGrid(); syncBars(); });
+
+/* ================= الصفوف ================= */
+function addRow(){
+  if(!S.sheet) return;
+  const r = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
+  recalcRow(r); S.rows.push(r); S.total++;
+  renderGrid(); updatePager(); $('#btnSave').disabled = false;
+  const tr = $(`#wrap tr[data-id="${r.id}"]`);
+  if(tr){ tr.scrollIntoView({block:'nearest'}); const f = tr.querySelector('[data-cell]'); if(f) f.focus(); }
+}
+function selRowIdx(){ return S.rows.map((r, i) => S.rowsSel.has(String(r.id)) ? i : -1).filter(i => i >= 0); }
+function shiftRows(dir){
+  if(S.sort){ toast(U('Clear the sort first to reorder rows', 'ألغِ الفرز أولاً لترتيب الصفوف'), true); return; }
+  const idx = selRowIdx(); if(!idx.length) return;
+  const order = dir < 0 ? idx : idx.slice().reverse();
+  for(const i of order){
+    const j = i + dir;
+    if(j < 0 || j >= S.rows.length || S.rowsSel.has(String(S.rows[j].id))) continue;
+    const t = S.rows[i]; S.rows[i] = S.rows[j]; S.rows[j] = t;
+  }
+  renderGrid(); saveOrder();
+}
+$('#rowUp').addEventListener('click', () => shiftRows(-1));
+$('#rowDown').addEventListener('click', () => shiftRows(1));
+$('#rowDup').addEventListener('click', () => {
+  const idx = selRowIdx(); if(!idx.length) return;
+  idx.forEach(i => {
+    const c = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:JSON.parse(JSON.stringify(S.rows[i].data))};
+    recalcRow(c); S.rows.push(c); S.total++;
+  });
+  S.rowsSel.clear(); renderGrid(); syncBars(); updatePager();
+  saveChanges(false);
+});
+$('#rowDel').addEventListener('click', async () => {
+  const ids = Array.from(S.rowsSel); if(!ids.length) return;
+  if(!confirm(U(`Delete ${ids.length} row(s)?`, `حذف ${ids.length} صف؟`))) return;
+  ids.forEach(id => { if(!String(id).startsWith('n')) S.dels.add(+id); S.dirty.delete(+id); });
+  S.rows = S.rows.filter(r => !ids.includes(String(r.id)));
+  S.rowsSel.clear(); renderGrid(); syncBars();
+  await saveChanges();
+});
+$('#rowClear').addEventListener('click', () => { S.rowsSel.clear(); renderGrid(); syncBars(); });
+
+/* ================= السيرفر ================= */
 async function api(url, opts){
   busy(true);
   try{
@@ -428,15 +679,15 @@ async function loadSheets(keepId){
   sel.innerHTML = S.sheets.map(s => `<option value="${s.id}">${esc(en() ? (s.name_en || s.name) : s.name)}</option>`).join('');
   const want = keepId || (S.sheet && S.sheet.id) || (S.sheets[0] && S.sheets[0].id);
   if(want){ sel.value = want; await openSheet(want); }
-  else { S.sheet = null; renderGrid(); $('#sheetName').textContent = '—'; }
+  else { S.sheet = null; renderGrid(); $('#sheetName').textContent = '—'; syncBars(); }
 }
 async function openSheet(id){
   S.page = 0; S.sort = ''; S.dir = 'asc'; S.q = ''; S.filters = {}; $('#search').value = '';
-  S.dirty.clear(); S.adds = []; S.dels.clear(); $('#btnSave').disabled = true;
+  S.dirty.clear(); S.dels.clear(); S.cols.clear(); S.rowsSel.clear(); $('#btnSave').disabled = true;
   const meta = S.sheets.find(s => String(s.id) === String(id));
   S.sheet = meta ? JSON.parse(JSON.stringify(meta)) : null;
   $('#sheetName').textContent = meta ? (en() ? (meta.name_en || meta.name) : meta.name) : '—';
-  await loadRows();
+  await loadRows(); syncBars();
 }
 async function loadRows(){
   if(!S.sheet){ renderGrid(); return; }
@@ -444,11 +695,10 @@ async function loadRows(){
                                 filters:JSON.stringify(S.filters)});
   const j = await api(`/api/sheets/${S.sheet.id}/rows?` + p.toString());
   if(!j.success) return;
-  S.sheet = j.sheet;
-  S.rows = j.rows || [];
-  S.total = j.total || 0;
-  if(!Object.keys(S.lookup).length) loadLatest();     // بيانات المشاريع لحساب أعمدة lookup فوراً
-  renderGrid(); updatePager();
+  S.sheet = j.sheet; S.rows = j.rows || []; S.total = j.total || 0;
+  S.rowsSel = new Set(Array.from(S.rowsSel).filter(id => S.rows.some(r => String(r.id) === id)));
+  if(!Object.keys(S.lookup).length) loadLatest();
+  renderGrid(); updatePager(); syncBars();
 }
 function updatePager(){
   const from = S.total ? S.page * S.per + 1 : 0, to = Math.min(S.total, (S.page + 1) * S.per);
@@ -457,26 +707,48 @@ function updatePager(){
   $('#btnPrev').disabled = S.page <= 0;
   $('#btnNext').disabled = (S.page + 1) * S.per >= S.total;
 }
-function hasPending(){
-  return S.dirty.size > 0 || S.dels.size > 0 || S.rows.some(r => String(r.id).startsWith('n'));
+function hasPending(){ return S.dirty.size > 0 || S.dels.size > 0 || S.rows.some(r => String(r.id).startsWith('n')); }
+/* الحفظ يمشي واحد ورا التاني (مش أكتر من طلب في نفس الوقت)، والصف الجديد بياخد رقمه
+   من السيرفر على طول — عشان ما يتبعتش تاني في الحفظ اللي بعده فيتكرر أو تتبدّل الصفوف */
+let SAVE_LOCK = Promise.resolve();
+function saveChanges(skipReload){
+  const p = SAVE_LOCK.then(() => doSave(skipReload));
+  SAVE_LOCK = p.then(() => {}, () => {});
+  return p;
 }
-/** يحفظ التعديلات المعلّقة ويرجّع true لو الدنيا تمام (أو مفيش حاجة تتحفظ) */
-async function saveChanges(skipReload){
+async function doSave(skipReload){
   if(!S.sheet) return true;
   clearTimeout(markDirty._t);
-  const add = S.rows.filter(r => String(r.id).startsWith('n')).map(r => ({data:r.data}));
+  const addRows = S.rows.filter(r => String(r.id).startsWith('n'));
+  const add = addRows.map(r => ({data:r.data}));
   const update = Array.from(S.dirty.values()).map(r => ({id:r.id, data:r.data}));
   const del = Array.from(S.dels);
   if(!add.length && !update.length && !del.length){ $('#btnSave').disabled = true; return true; }
+  S.dirty.clear(); S.dels.clear();
   const j = await api(`/api/sheets/${S.sheet.id}/rows`, {method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({add, update, delete:del})});
-  if(!j.success) return false;
-  S.dirty.clear(); S.dels.clear(); $('#btnSave').disabled = true;
+  if(!j.success){
+    update.forEach(u => { const r = S.rows.find(x => String(x.id) === String(u.id)); if(r) S.dirty.set(r.id, r); });
+    del.forEach(id => S.dels.add(id));
+    return false;
+  }
+  // ربط الصفوف الجديدة بأرقامها الحقيقية من غير إعادة رسم (عشان مكان الكتابة ما يضيعش)
+  (j.ids || []).forEach((newId, i) => {
+    const r = addRows[i]; if(!r || newId == null) return;
+    const old = String(r.id);
+    r.id = newId;
+    const tr = $(`#wrap tr[data-id="${old}"]`);
+    if(tr){
+      tr.dataset.id = newId; tr.classList.remove('dirty');
+      const cb = tr.querySelector('[data-rowsel]'); if(cb) cb.dataset.rowsel = newId;
+    }
+    if(S.rowsSel.has(old)){ S.rowsSel.delete(old); S.rowsSel.add(String(newId)); }
+  });
+  $('#btnSave').disabled = hasPending() ? false : true;
   $('#savedAt').textContent = U('Saved ', 'تم الحفظ ') + new Date().toLocaleTimeString(en() ? 'en-GB' : 'ar-EG', {hour:'2-digit', minute:'2-digit'});
   if(!skipReload) await loadRows();
   return true;
 }
-/** أي إعادة تحميل من السيرفر (فرز/بحث/فلتر/صفحة) بتحفظ الأول — عشان صف جديد أو تعديل ما يضيعش */
 async function refresh(){
   if(hasPending() && !(await saveChanges(true))){
     toast(U('Could not save your changes — nothing was reloaded', 'تعذّر حفظ تعديلاتك — لم يُعد التحميل'), true);
@@ -485,76 +757,18 @@ async function refresh(){
   await loadRows();
 }
 
-/* ================= الأعمدة ================= */
-function openCols(){
-  S.colsDraft = JSON.parse(JSON.stringify(S.sheet.columns || []));
-  drawCols(); $('#colsModal').classList.add('open');
-}
-function drawCols(){
-  const list = $('#colList');
-  list.innerHTML = S.colsDraft.map((c, i) => {
-    const extra = c.type === 'lookup'
-      ? `<select data-cf="source" data-i="${i}">${FIELDS.map(f => `<option value="${f.key}" ${c.source === f.key ? 'selected' : ''}>${esc(fieldLabel(f))}</option>`).join('')}</select>`
-      : c.type === 'select'
-      ? `<input data-cf="options" data-i="${i}" value="${esc((c.options || []).join(', '))}" placeholder="${U('A, B, C', 'أ، ب، ج')}">`
-      : c.type === 'formula'
-      ? `<input data-cf="formula" data-i="${i}" value="${esc(c.formula || '')}" placeholder="[qty] * [price]" data-no-tr>`
-      : (c.type === 'number' ? `<input data-cf="unit" data-i="${i}" value="${esc(c.unit || '')}" placeholder="${U('unit (SAR, day…)', 'الوحدة (ر.س، يوم…)')}">` : '<span></span>');
-    return `<div class="col-row">
-      <div class="mv"><button data-mv="up" data-i="${i}">▲</button><button data-mv="dn" data-i="${i}">▼</button></div>
-      <input data-cf="label" data-i="${i}" value="${esc(c.label || '')}" data-no-tr>
-      <input data-cf="label_en" data-i="${i}" value="${esc(c.label_en || '')}" data-no-tr>
-      <select data-cf="type" data-i="${i}">${TYPES.map(([v, e, a]) => `<option value="${v}" ${c.type === v ? 'selected' : ''}>${en() ? e : a}</option>`).join('')}</select>
-      ${extra}
-      <input type="number" data-cf="width" data-i="${i}" value="${c.width || 150}" min="70" max="600">
-      <button class="btn danger" data-rmcol="${i}" style="height:32px;padding:0 10px;">${U('Remove', 'حذف')}</button>
-    </div>`;
-  }).join('');
-  list.querySelectorAll('[data-cf]').forEach(inp => inp.addEventListener('change', () => {
-    const c = S.colsDraft[+inp.dataset.i], f = inp.dataset.cf;
-    if(f === 'options') c.options = inp.value.split(/[,،]/).map(x => x.trim()).filter(Boolean);
-    else if(f === 'width') c.width = Math.max(70, Math.min(600, +inp.value || 150));
-    else c[f] = inp.value;
-    if(f === 'type'){
-      if(c.type === 'number' || c.type === 'formula') c.decimals = c.decimals || 0;
-      drawCols();
-    }
-  }));
-  list.querySelectorAll('[data-rmcol]').forEach(b => b.addEventListener('click', () => {
-    S.colsDraft.splice(+b.dataset.rmcol, 1); drawCols();
-  }));
-  list.querySelectorAll('[data-mv]').forEach(b => b.addEventListener('click', () => {
-    const i = +b.dataset.i, j = b.dataset.mv === 'up' ? i - 1 : i + 1;
-    if(j < 0 || j >= S.colsDraft.length) return;
-    const t = S.colsDraft[i]; S.colsDraft[i] = S.colsDraft[j]; S.colsDraft[j] = t; drawCols();
-  }));
-}
-$('#btnAddCol').addEventListener('click', () => {
-  const n = S.colsDraft.length + 1;
-  S.colsDraft.push({key:'c' + n + Math.random().toString(36).slice(2, 5), type:'text',
-                    label:'عمود ' + n, label_en:'Column ' + n, width:150});
-  drawCols();
-});
-$('#btnColsSave').addEventListener('click', async () => {
-  const j = await api(`/api/sheets/${S.sheet.id}`, {method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({columns:S.colsDraft})});
-  if(!j.success) return;
-  $('#colsModal').classList.remove('open');
-  await loadSheets(S.sheet.id);
-  toast(U('Columns updated', 'تم تحديث الأعمدة'));
-});
-
 /* ================= إدارة الجداول ================= */
 function openMgr(){
   $('#mgrBody').innerHTML = S.sheets.map(s => `
     <div class="sheet-item">
       <div class="nm"><b data-no-tr>${esc(en() ? (s.name_en || s.name) : s.name)}</b>
         <span>${U(s.rows + ' rows', s.rows + ' صف')} · ${esc(String(s.updated_at).slice(0, 16))}</span></div>
-      <button class="btn" data-open="${s.id}">${(I18N.open)[en() ? 0 : 1]}</button>
-      <button class="btn" data-ren="${s.id}">${(I18N.rename)[en() ? 0 : 1]}</button>
-      <button class="btn danger" data-del="${s.id}">${(I18N.del)[en() ? 0 : 1]}</button>
-    </div>`).join('') || `<div class="empty">${(I18N.noSheet)[en() ? 0 : 1]}</div>`;
+      <button class="btn" data-open="${s.id}">${I18N.open[en() ? 0 : 1]}</button>
+      <button class="btn" data-ren="${s.id}">${I18N.rename[en() ? 0 : 1]}</button>
+      <button class="btn danger" data-del="${s.id}">${I18N.del[en() ? 0 : 1]}</button>
+    </div>`).join('') || `<div class="empty">${I18N.noSheet[en() ? 0 : 1]}</div>`;
   $('#mgrBody').querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', async () => {
+    await saveChanges(true);
     $('#sheetSel').value = b.dataset.open; $('#mgrModal').classList.remove('open'); await openSheet(b.dataset.open);
   }));
   $('#mgrBody').querySelectorAll('[data-ren]').forEach(b => b.addEventListener('click', async () => {
@@ -563,7 +777,7 @@ function openMgr(){
     if(name === null) return;
     const nameEn = prompt(U('Sheet name (English):', 'اسم الجدول (بالإنجليزي):'), s.name_en || '');
     await api(`/api/sheets/${s.id}`, {method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:name, name_en:nameEn === null ? (s.name_en || '') : nameEn})});
+      body:JSON.stringify({name, name_en:nameEn === null ? (s.name_en || '') : nameEn})});
     await loadSheets(s.id); openMgr();
   }));
   $('#mgrBody').querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
@@ -575,7 +789,7 @@ function openMgr(){
   $('#mgrModal').classList.add('open');
 }
 
-/* ================= الأزرار ================= */
+/* ================= أزرار عامة ================= */
 $('#btnNew').addEventListener('click', async () => {
   const name = prompt(U('New sheet name:', 'اسم الجدول الجديد:'), U('New sheet', 'جدول جديد'));
   if(name === null) return;
@@ -584,29 +798,14 @@ $('#btnNew').addEventListener('click', async () => {
   if(j.success){ await loadSheets(j.id); toast(U('Sheet created', 'تم إنشاء الجدول')); }
 });
 $('#btnManage').addEventListener('click', openMgr);
-$('#btnCols').addEventListener('click', () => { if(S.sheet) openCols(); });
-$('#btnSave').addEventListener('click', saveChanges);
+$('#btnSave').addEventListener('click', () => saveChanges());
+$('#btnAddRow').addEventListener('click', addRow);
+$('#btnAddCol').addEventListener('click', addColumn);
 $('#sheetSel').addEventListener('change', async e => { await saveChanges(true); openSheet(e.target.value); });
-$('#btnAddRow').addEventListener('click', () => {
-  if(!S.sheet) return;
-  const r = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
-  recalcRow(r);
-  S.rows.push(r); S.total++;
-  renderGrid(); updatePager();
-  $('#btnSave').disabled = false;
-  const tr = $(`#wrap tr[data-id="${r.id}"]`);
-  if(tr){ tr.scrollIntoView({block:'nearest'}); const f = tr.querySelector('[data-cell]'); if(f) f.focus(); }
+$('#btnFilters').addEventListener('click', () => {
+  S.showFilters = !S.showFilters;
+  if(!S.showFilters){ S.filters = {}; renderGrid(); refresh(); } else renderGrid();
 });
-$('#btnDelRows').addEventListener('click', async () => {
-  const ids = $$('#wrap [data-rowsel]:checked').map(c => c.dataset.rowsel);
-  if(!ids.length){ toast(U('Select rows first', 'اختر صفوفاً أولاً'), true); return; }
-  if(!confirm(U(`Delete ${ids.length} row(s)?`, `حذف ${ids.length} صف؟`))) return;
-  ids.forEach(id => { if(!String(id).startsWith('n')) S.dels.add(+id); S.dirty.delete(+id); });
-  S.rows = S.rows.filter(r => !ids.includes(String(r.id)));
-  renderGrid();
-  await saveChanges();
-});
-$('#btnFilters').addEventListener('click', () => { S.showFilters = !S.showFilters; if(!S.showFilters) S.filters = {}; renderGrid(); if(!S.showFilters) refresh(); });
 $('#search').addEventListener('input', e => {
   clearTimeout(window._sq);
   window._sq = setTimeout(() => { S.q = e.target.value.trim(); S.page = 0; refresh(); }, 350);
@@ -616,13 +815,16 @@ $('#btnNext').addEventListener('click', () => { if((S.page + 1) * S.per < S.tota
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('.modal-back').classList.remove('open')));
 $$('.modal-back').forEach(m => m.addEventListener('click', e => { if(e.target === m) m.classList.remove('open'); }));
 document.addEventListener('keydown', e => {
-  if(e.key === 'Escape') $$('.modal-back.open').forEach(m => m.classList.remove('open'));
+  if(e.key === 'Escape'){
+    $$('.modal-back.open').forEach(m => m.classList.remove('open'));
+    if(S.cols.size || S.rowsSel.size){ S.cols.clear(); S.rowsSel.clear(); renderGrid(); syncBars(); }
+  }
   if((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){ e.preventDefault(); saveChanges(); }
 });
 $('#btnLang').addEventListener('click', () => {
   UIL = en() ? 'ar' : 'en';
   try{ localStorage.setItem(UI_KEY, UIL); }catch(e){}
-  applyLang(); renderGrid(); updatePager();
+  applyLang(); renderGrid(); updatePager(); syncBars();
   if(S.sheet) $('#sheetName').textContent = en() ? (S.sheet.name_en || S.sheet.name) : S.sheet.name;
 });
 window.addEventListener('beforeunload', e => { if(hasPending()){ e.preventDefault(); e.returnValue = ''; } });
@@ -640,8 +842,8 @@ loadSheets();
   var MSG = {ar:'انتهت الجلسة — يتم تحويلك لصفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
   function expired(){
     if(gone) return; gone = true;
-    var en = (document.documentElement.lang === 'en');
-    var msg = en ? MSG.en : MSG.ar;
+    var isEn = (document.documentElement.lang === 'en');
+    var msg = isEn ? MSG.en : MSG.ar;
     try{
       if(typeof toast === 'function'){
         var real = toast;
@@ -666,6 +868,5 @@ loadSheets();
   window.pmisSessionExpired = expired;
 })();
 </script>
-
 </body>
 </html>
