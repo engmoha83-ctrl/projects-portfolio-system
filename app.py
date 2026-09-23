@@ -1056,6 +1056,29 @@ def _sheet_meta(row):
             "settings": settings or {}, "updated_at": str(row[5])}
 
 
+SHEET_AGGS = ("sum", "avg", "count", "min", "max")
+
+
+def _clean_fmt(f):
+    """تنسيق خلية أو عمود: ألوان وخط ومحاذاة فقط — أي شيء آخر يُتجاهل."""
+    if not isinstance(f, dict):
+        return None
+    out = {}
+    for k in ("bg", "fg"):
+        v = str(f.get(k) or "")
+        if re.match(r"^#[0-9a-fA-F]{6}$", v):
+            out[k] = v
+    for k in ("bold", "italic", "under"):
+        if f.get(k) is True:
+            out[k] = True
+    if f.get("align") in ("left", "center", "right"):
+        out["align"] = f["align"]
+    size = int(_fnum(f.get("size")) or 0)
+    if 9 <= size <= 28:
+        out["size"] = size
+    return out or None
+
+
 def _clean_columns(raw):
     """تنظيف تعريف الأعمدة الجاي من المتصفح."""
     out, seen = [], set()
@@ -1070,7 +1093,7 @@ def _clean_columns(raw):
         col = {"key": key, "type": typ,
                "label": str(c.get("label") or key)[:80],
                "label_en": str(c.get("label_en") or "")[:80],
-               "width": max(70, min(600, int(_fnum(c.get("width")) or 150)))}
+               "width": max(70, min(900, int(_fnum(c.get("width")) or 150)))}
         if typ == "select":
             col["options"] = [str(o)[:60] for o in (c.get("options") or [])][:60]
         if typ == "number":
@@ -1082,6 +1105,11 @@ def _clean_columns(raw):
             col["unit"] = str(c.get("unit") or "")[:12]
         if typ == "lookup":
             col["source"] = str(c.get("source") or "")[:60]
+        fmt = _clean_fmt(c.get("fmt"))
+        if fmt:
+            col["fmt"] = fmt
+        if c.get("agg") in SHEET_AGGS:
+            col["agg"] = c["agg"]
         out.append(col)
     return out
 
@@ -1255,7 +1283,9 @@ async def sheets_rows(sheet_id: int, request: Request, q: str = "", sort: str = 
             flt = {}
         needle = (q or "").strip().lower()
         if needle:
-            rows = [x for x in rows if any(needle in str(v).lower() for v in x["data"].values() if v is not None)]
+            rows = [x for x in rows
+                    if any(needle in str(v).lower()
+                           for k, v in x["data"].items() if v is not None and not k.startswith("__"))]
         for key, want in (flt or {}).items():
             if want in ("", None):
                 continue
@@ -1294,9 +1324,22 @@ async def sheets_rows_save(sheet_id: int, request: Request):
             conn.close()
             return JSONResponse({"success": False, "error": "الجدول غير موجود"}, status_code=404)
         keys = {c["key"] for c in sheet["columns"] if c.get("type") not in ("formula", "lookup")}
+        all_keys = {c["key"] for c in sheet["columns"]}
 
         def clean(d):
-            return {k: v for k, v in (d or {}).items() if k in keys}
+            d = d or {}
+            out = {k: v for k, v in d.items() if k in keys}
+            fmt = d.get("__fmt")                      # تنسيق الخلايا (ألوان وخطوط)
+            if isinstance(fmt, dict):
+                kept = {}
+                for k, v in list(fmt.items())[:300]:
+                    if k in all_keys:
+                        cf = _clean_fmt(v)
+                        if cf:
+                            kept[k] = cf
+                if kept:
+                    out["__fmt"] = kept
+            return out
 
         new_ids = []
         for item in (body.get("add") or [])[:2000]:
