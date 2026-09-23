@@ -93,5 +93,42 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* انتهاء الجلسة: أي رد 401/403 من السيرفر معناه إن الجلسة خلصت —
+   نقول للمستخدم ونحوّله لصفحة الدخول بدل رسالة «غير مصرح» الغامضة */
+(function(){
+  if(window.__pmisAuthGuard) return;
+  window.__pmisAuthGuard = true;
+  var LOGIN = '/admin', gone = false;
+  var MSG = {ar:'انتهت الجلسة — يتم تحويلك لصفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
+  function expired(){
+    if(gone) return; gone = true;
+    var en = (document.documentElement.lang === 'en');
+    var msg = en ? MSG.en : MSG.ar;
+    try{
+      if(typeof toast === 'function'){
+        var real = toast;
+        window.toast = function(){ real(msg, true); };      // أي رسالة تانية بعد كده تفضل رسالة الجلسة
+        real(msg, true);
+      }else alert(msg);
+    }catch(e){}
+    try{ window.onbeforeunload = null; }catch(e){}
+    setTimeout(function(){ location.href = LOGIN; }, 1800);
+  }
+  var nativeFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    var u = String((input && input.url) || input || '');
+    return nativeFetch(input, init).then(function(r){
+      try{
+        var sameSite = !/^https?:\/\//.test(u) || u.indexOf(location.origin) === 0;
+        if((r.status === 401 || r.status === 403) && sameSite) expired();
+      }catch(e){}
+      return r;
+    });
+  };
+  window.pmisSessionExpired = expired;
+})();
+</script>
+
 </body>
 </html>
