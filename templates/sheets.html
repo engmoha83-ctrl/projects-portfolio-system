@@ -242,9 +242,9 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
 <body>
 
 <header class="hdr">
-  <a class="hdr-back" href="/admin-hub" data-i18n-title="back">
+  <a class="hdr-back" id="btnBack" href="/admin-hub" data-i18n-title="back">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
-  <div class="hdr-title"><small data-i18n="sheets">Sheets</small><b id="sheetName">—</b></div>
+  <div class="hdr-title"><small id="sheetScope">Sheets</small><b id="sheetName">—</b></div>
   <select class="fld" id="sheetSel" style="margin-inline-start:10px;" data-no-tr></select>
   <button class="btn" id="btnNew" data-i18n="newSheet">New sheet</button>
   <button class="btn" id="btnManage" data-i18n="manage">Manage…</button>
@@ -522,6 +522,7 @@ function evalFormula(expr, vals){
 /* ================= الحالة ================= */
 const S = {
   sheets:[], sheet:null, rows:[], total:0, page:0, per:200,
+  all:[], scope:null,
   sort:'', dir:'asc', q:'', filters:{}, showFilters:false, loaded:false,
   dirty:new Map(), dels:new Set(), lookup:{}, cols:new Set(), rowsSel:new Set()
 };
@@ -1716,11 +1717,31 @@ async function loadLatest(){
   const j = await api('/api/sheets/_latest');
   if(j && j.success) S.lookup = j.latest || {};
 }
+/* نطاق الصفحة: إما سجلات مشروع واحد، أو الجداول العامة غير المرتبطة بمشروع.
+   بغير ذلك تتكدّس سجلات كل المشاريع في قائمة واحدة ويصير اختيارها بلا معنى. */
+const sProj = s => ((s && s.settings) || {}).project_id || '';
+function applyScope(){
+  const p = S.scope;
+  $('#sheetScope').textContent = p ? p.name : U('Sheets', 'الجداول');
+  $('#btnBack').setAttribute('href', p ? '/admin-projects/' + p.id + '#logs' : '/admin-hub');
+  $('#btnBack').title = p ? U('Back to the project', 'رجوع إلى المشروع')
+                          : (I18N.back || ['Back', 'رجوع'])[en() ? 0 : 1];
+  $('#btnNew').hidden = !!p;          // سجلات المشروع تُنشأ من صفحة المشروع لا من هنا
+}
 async function loadSheets(keepId){
   const j = await api('/api/sheets');
   if(!j.success){ S.loaded = true; renderGrid(); return; }
   S.loaded = true;
-  S.sheets = j.sheets || [];
+  S.all = j.sheets || [];
+  // الجدول المطلوب هو ما يحدّد النطاق: لو كان سجل مشروع، فالصفحة كلها تخص ذلك المشروع
+  const asked = S.all.find(s => String(s.id) === String(keepId))
+             || (S.sheet && S.all.find(s => String(s.id) === String(S.sheet.id)));
+  const pid = sProj(asked);
+  S.scope = pid ? {id:pid,
+                   name:(asked.settings.project || ''),
+                   name_en:(asked.settings.project || '')} : null;
+  S.sheets = S.all.filter(s => sProj(s) === (pid || ''));
+  applyScope();
   const sel = $('#sheetSel');
   sel.innerHTML = S.sheets.map(s => `<option value="${s.id}">${esc(en() ? (s.name_en || s.name) : s.name)}</option>`).join('');
   const known = id => S.sheets.some(s => String(s.id) === String(id)) ? id : null;
@@ -1832,7 +1853,9 @@ function openMgr(){
     if(!confirm(U('Delete this sheet and all its rows? This cannot be undone.',
                   'حذف الجدول وكل صفوفه نهائياً؟ لا يمكن التراجع.'))) return;
     await api(`/api/sheets/${b.dataset.del}`, {method:'DELETE'});
-    S.sheet = null; await loadSheets(); openMgr();
+    // نبقى داخل نطاق المشروع نفسه بعد الحذف بدل القفز إلى الجداول العامة
+    const rest = S.sheets.find(s => String(s.id) !== b.dataset.del);
+    S.sheet = null; await loadSheets(rest ? rest.id : null); openMgr();
   }));
   $('#mgrModal').classList.add('open');
 }
@@ -2099,7 +2122,10 @@ document.addEventListener('cut', e => {
 $('#btnLang').addEventListener('click', () => {
   UIL = en() ? 'ar' : 'en';
   try{ localStorage.setItem(UI_KEY, UIL); }catch(e){}
-  applyLang(); renderGrid(); updatePager(); syncBars(); syncStatus();
+  applyLang(); applyScope(); renderGrid(); updatePager(); syncBars(); syncStatus();
+  $('#sheetSel').innerHTML = S.sheets.map(s =>
+    `<option value="${s.id}" ${S.sheet && S.sheet.id === s.id ? 'selected' : ''}>${
+      esc(en() ? (s.name_en || s.name) : s.name)}</option>`).join('');
   if(S.sheet) $('#sheetName').textContent = en() ? (S.sheet.name_en || S.sheet.name) : S.sheet.name;
 });
 window.addEventListener('beforeunload', e => { if(hasPending()){ e.preventDefault(); e.returnValue = ''; } });

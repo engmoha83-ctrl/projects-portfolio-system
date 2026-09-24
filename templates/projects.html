@@ -57,11 +57,48 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 .tabs button{height:32px; border:none; background:#fff; padding:0 13px; font-size:12.5px; color:var(--muted);
              cursor:pointer; font-weight:500;}
 .tabs button.on{background:var(--navy); color:#fff; font-weight:600;}
+.tabs button[style*="--c"].on{background:var(--c);}
+.tabs .n{font-size:10.5px; background:var(--tint2); color:var(--muted); padding:1px 5px; min-width:17px;
+         text-align:center; margin-inline-start:6px;}
+.tabs button.on .n{background:rgba(255,255,255,.22); color:#fff;}
+.tabs button.edit{padding:0 10px; color:var(--muted); font-size:14px;}
+.tabs.sw button{height:32px; padding:0 11px;}
 .bar .lbl{font-size:12px; color:var(--muted);}
 .bar select{height:32px; background:#fff; border:1px solid var(--line); padding:0 8px; font-size:12.5px; color:var(--ink);}
 
+/* ---- أوضاع العرض ---- */
+#grid.view-cards{display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:14px; align-items:start;}
+#grid.view-tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(196px, 1fr)); gap:11px; align-items:start;}
+#grid.view-list{display:block; background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 6px 16px rgba(23,32,51,.055);}
+.ltable{width:100%; border-collapse:collapse; font-size:12.5px;}
+.ltable th,.ltable td{border-bottom:1px solid var(--line); padding:10px 12px; text-align:start; vertical-align:middle;}
+.ltable th{background:#F7F8FA; font-size:11.5px; font-weight:600; color:var(--muted); white-space:nowrap;}
+.ltable th.num,.ltable td.num{text-align:end; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.ltable tbody tr{cursor:pointer;}
+.ltable tbody tr:hover td{background:#FAFBFC;}
+.ltable tr.off{opacity:.6;}
+.ltable .pn b{display:block; font-size:13px; font-weight:600;}
+.ltable .pn span{font-size:11px; color:var(--muted); font-family:ui-monospace,Menlo,Consolas,monospace;}
+.ltable td.up{color:var(--good);} .ltable td.down{color:var(--danger);} .ltable td.hot{color:var(--danger); font-weight:600;}
+.ltable .sub{display:block; font-size:10.5px; color:var(--muted); font-family:inherit;}
+.minibar{display:inline-block; position:relative; width:62px; height:5px; background:var(--tint2);
+         margin-inline-end:8px; vertical-align:middle;}
+.minibar i{position:absolute; inset-block:0; inset-inline-start:0; background:var(--navy);}
+.minibar u{position:absolute; inset-block:-2px; width:2px; background:var(--gold);}
+.ptile{background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 6px 16px rgba(23,32,51,.055);
+       text-decoration:none; color:inherit; display:flex; transition:transform .18s var(--ease), box-shadow .18s var(--ease);}
+.ptile:hover{transform:translateY(-2px); box-shadow:0 2px 4px rgba(23,32,51,.06), 0 14px 30px rgba(23,32,51,.12);}
+.ptile.off{opacity:.62;}
+.ptile .bar{width:4px; flex:0 0 4px;}
+.ptile .tin{padding:11px 13px 12px; flex:1; min-width:0;}
+.ptile .code{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:10.5px; color:var(--muted);}
+.ptile h3{margin:3px 0 8px; font-size:13.5px; font-weight:600; line-height:1.4; min-height:2.8em;
+          display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+.ptile .tfoot{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+.ptile .tfoot b{font-size:16px; font-weight:600; font-variant-numeric:tabular-nums;}
+.ptile .att{font-size:11px; font-weight:600; color:#fff; background:var(--danger); padding:1px 7px;}
+
 /* ---- شبكة البطاقات ---- */
-.grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:14px; align-items:start;}
 .pcard{background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 6px 16px rgba(23,32,51,.055);
        display:flex; flex-direction:column; text-decoration:none; color:inherit; position:relative;
        transition:transform .18s var(--ease), box-shadow .18s var(--ease);}
@@ -75,12 +112,9 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
 .pcard .meta{margin-top:5px; font-size:11.5px; color:var(--muted);
              white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.st{font-size:10.5px; padding:2px 8px; white-space:nowrap; background:var(--tint2); color:var(--muted);
-    display:inline-block; font-weight:500;}
-.st.active{background:#E7F1EC; color:var(--good);}
-.st.on_hold{background:#FDF3E7; color:var(--warn);}
-.st.done{background:#E7EEF8; color:var(--navy);}
-.st.cancelled{background:#FBEDEA; color:var(--danger);}
+/* لون الشارة يأتي من التصنيف نفسه عبر المتغيّر --c، فأي تصنيف جديد يظهر بلونه بلا كود */
+.st{font-size:10.5px; padding:2px 8px; white-space:nowrap; display:inline-block; font-weight:500;
+    color:var(--c, var(--muted)); background:color-mix(in srgb, var(--c, #5B6577) 13%, #fff);}
 .rowline{display:flex; align-items:center; gap:8px; justify-content:space-between; margin-top:9px;}
 
 /* شريط الإنجاز */
@@ -108,6 +142,32 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 .dot.on{background:var(--good);}
 .empty{padding:60px 20px; text-align:center; color:var(--muted); font-size:13.5px; background:#fff;}
 
+/* ---- محرّر التصنيفات ---- */
+.modal-back{position:fixed; inset:0; background:rgba(23,32,51,.45); z-index:80; display:none;
+  align-items:flex-start; justify-content:center; padding:60px 16px 30px; overflow:auto;}
+.modal-back.open{display:flex;}
+.modal{background:#fff; width:100%; max-width:720px; box-shadow:0 30px 70px rgba(23,32,51,.3);}
+.modal h2{margin:0; padding:17px 20px 4px; font-size:15px; font-weight:700;}
+.modal .note{font-size:12px; color:var(--muted); line-height:1.75; padding:2px 20px 14px; max-width:72ch;}
+.st-head,.st-row{display:grid; grid-template-columns:130px 1fr 1fr 56px 84px; gap:8px; align-items:center;
+  padding:0 20px;}
+.st-head{font-size:11px; color:var(--muted); padding-bottom:6px;}
+.st-row{margin-bottom:7px;}
+.st-rows{max-height:44vh; overflow:auto; padding-top:2px;}
+.fld{height:32px; background:var(--tint); border:none; padding:0 8px; font-size:12.5px; color:var(--ink); width:100%;}
+.fld:focus{outline:2px solid #C9D6E8;}
+.fld.k{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11.5px;}
+.fld.k[readonly]{opacity:.65;}
+.fld.c{padding:2px; cursor:pointer;}
+.ops{display:flex; gap:2px;}
+.ops button{width:25px; height:30px; border:none; background:var(--tint); color:var(--muted); cursor:pointer;
+  font-size:10px;}
+.ops button:hover{background:var(--tint2);}
+.ops button[disabled]{opacity:.35; pointer-events:none;}
+.ops button.danger:hover{background:#FBEDEA; color:var(--danger);}
+.st-add{display:flex; align-items:center; gap:12px; padding:8px 20px 4px; flex-wrap:wrap;}
+.st-add .hint{font-size:11px; color:var(--muted); line-height:1.6; flex:1 1 260px;}
+.modal-foot{display:flex; gap:8px; padding:14px 20px; background:#FAFBFC; margin-top:10px;}
 .toast{position:fixed; bottom:22px; inset-inline-end:22px; background:var(--ink); color:#fff; padding:12px 18px;
   font-size:13px; box-shadow:0 18px 40px rgba(23,32,51,.22); z-index:99; opacity:0; transform:translateY(12px);
   transition:opacity .25s ease, transform .3s var(--ease); pointer-events:none;}
@@ -119,7 +179,8 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 .load-bar i{position:absolute; top:0; bottom:0; width:35%; background:var(--gold); animation:ls 1.1s var(--ease) infinite;}
 .load-bar::before{content:''; position:absolute; inset:0; background:rgba(200,161,101,.22);}
 @keyframes ls{from{left:-35%}to{left:100%}}
-@media (max-width:560px){ .grid{grid-template-columns:1fr;} .search{width:100%;} }
+@media (max-width:560px){ #grid.view-cards{grid-template-columns:1fr;} .search{width:100%;}
+  .st-head,.st-row{grid-template-columns:1fr 1fr; } .st-head{display:none;} }
 </style>
 </head>
 <body>
@@ -143,12 +204,29 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
   <div class="bar">
     <div class="tabs" id="tabs"></div>
     <div class="spacer"></div>
+    <span class="lbl" data-i18n="view">View</span>
+    <div class="tabs sw" id="viewSw"></div>
     <span class="lbl" data-i18n="sortBy">Sort by</span>
     <select id="sortSel"></select>
     <span class="lbl" id="count"></span>
   </div>
 
-  <div class="grid" id="grid"></div>
+  <div id="grid" class="view-cards"></div>
+</div>
+
+<div class="modal-back" id="stModal">
+  <div class="modal">
+    <h2 data-i18n="stT">Project statuses</h2>
+    <div class="note" data-i18n="stNote"></div>
+    <div class="st-head" id="stHead"></div>
+    <div class="st-rows" id="stRows"></div>
+    <div class="st-add"><button class="btn" id="stAdd" data-i18n="stAdd">+ Add a status</button>
+      <span class="hint" data-i18n="stKeyHint"></span></div>
+    <div class="modal-foot">
+      <button class="btn primary" id="stSave" data-i18n="saveSt">Save</button>
+      <button class="btn" data-close data-i18n="close">Close</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -169,8 +247,22 @@ const I18N = {
   sCode:['Code','الكود'], sName:['Name','الاسم'], sProgress:['Progress','نسبة الإنجاز'],
   sDev:['Deviation','الانحراف'], sAttention:['Needs attention','ما يحتاج انتباهًا'],
   sUpdated:['Last update','آخر تحديث'],
-  tabAll:['All','الكل'], tabActive:['In progress','جارٍ التنفيذ'], tabHold:['On hold','متوقّف'],
-  tabDone:['Finished','منتهٍ'], tabArchived:['Archived','مؤرشف'],
+  tabAll:['All','الكل'], tabArchived:['Archived','مؤرشف'],
+  view:['View','العرض'], vCards:['Cards','بطاقات'], vList:['List','قائمة'], vTiles:['Tiles','مربّعات'],
+  editSt:['Edit statuses','تعديل التصنيفات'],
+  stT:['Project statuses','تصنيفات المشاريع'],
+  stNote:['This is your own list. Add what your company actually uses, rename, recolour and reorder — the tabs above and the status field on every project follow it. A status still in use is kept and hidden rather than deleted.',
+          'هذه قائمتك أنت. أضف ما تستخدمه شركتك فعلًا، وأعد التسمية والتلوين والترتيب — التبويبات أعلاه وحقل الحالة في كل مشروع تتبعها. والتصنيف المستخدَم في مشاريع قائمة يُخفى ولا يُحذف.'],
+  stKey:['Key','المفتاح'], stAr:['Arabic','بالعربية'], stEn:['English','بالإنجليزية'], stColor:['Colour','اللون'],
+  stAdd:['+ Add a status','+ أضف تصنيفًا'], stSaved:['Statuses saved','تم حفظ التصنيفات'],
+  stKeyHint:['Latin letters, digits and _ only. It is stored on the project, so changing it later leaves old projects on the old one.',
+             'حروف لاتينية وأرقام و_ فقط. يُخزَّن في المشروع، فتغييره لاحقًا يترك المشاريع القديمة على القديم.'],
+  stDupe:['That key is already used','هذا المفتاح مستخدَم بالفعل'],
+  stNeed:['A key and an Arabic label are required','المفتاح والاسم العربي مطلوبان'],
+  close:['Close','إغلاق'], saveSt:['Save','حفظ'],
+  colProject:['Project','المشروع'], colStatus:['Status','الحالة'], colProg:['Progress','الإنجاز'],
+  colDev:['Deviation','الانحراف'], colAtt:['Attention','انتباه'], colMgr:['Managers','المديرون'],
+  colUpd:['Updates','التحديثات'],
   kProjects:['Projects','مشروعًا'], kActive:['In progress','جارٍ التنفيذ'],
   kAvg:['Average progress','متوسط الإنجاز'], kBehind:['Behind plan','متأخّر عن المخطط'],
   kAttention:['Open items needing attention','بنود مفتوحة تحتاج انتباهًا'],
@@ -231,7 +323,8 @@ async function api(url, opts){
   finally{ busy(false); }
 }
 
-const S = {projects:[], statuses:{}, q:'', tab:'all', sort:'code'};
+const S = {projects:[], statuses:{}, q:'', tab:'all', sort:'code',
+  view:(() => { try{ return localStorage.getItem('pmis_projects_view') || 'cards'; }catch(e){ return 'cards'; } })()};
 const pName = p => (en() ? (p.name_en || p.name) : (p.name || p.name_en)) || p.code;
 const stLabel = k => { const s = S.statuses[k]; return s ? (en() ? s.label_en : s.label) : k; };
 const K = (p, k) => { const v = (p.kpi || {})[k]; return v === undefined ? null : v; };
@@ -239,10 +332,16 @@ const K = (p, k) => { const v = (p.kpi || {})[k]; return v === undefined ? null 
 const attention = p => ['issue_open', 'risk_high', 'mat_late', 'sub_overdue']
   .reduce((s, k) => s + (K(p, k) || 0), 0);
 
-const TABS = [['all', 'tabAll'], ['active', 'tabActive'], ['on_hold', 'tabHold'],
-              ['done', 'tabDone'], ['archived', 'tabArchived']];
 const SORTS = [['code', 'sCode'], ['name', 'sName'], ['progress', 'sProgress'],
                ['dev', 'sDev'], ['attention', 'sAttention'], ['updated', 'sUpdated']];
+const VIEWS = [['cards', 'vCards'], ['list', 'vList'], ['tiles', 'vTiles']];
+/* التبويبات تتبع قائمة التصنيفات التي يملكها المستخدم، لا قائمة ثابتة في الكود */
+const stKeys = () => Object.keys(S.statuses)
+  .filter(k => S.statuses[k].active !== false)
+  .sort((a, b) => (S.statuses[a].seq || 0) - (S.statuses[b].seq || 0));
+const stColor = k => (S.statuses[k] || {}).color || '#5B6577';
+const countIn = k => S.projects.filter(p => k === 'archived' ? !p.active
+  : p.active && (k === 'all' || p.status === k)).length;
 
 function applyLang(){
   const i = en() ? 0 : 1;
@@ -253,11 +352,31 @@ function applyLang(){
   document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = (I18N[el.dataset.i18nPh] || ['', ''])[i]);
   document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = (I18N[el.dataset.i18nTitle] || ['', ''])[i]);
   $('#btnLang').textContent = en() ? 'Arabic' : 'English';
-  $('#tabs').innerHTML = TABS.map(([k, t]) =>
-    `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${T(t)}</button>`).join('');
-  $$('#tabs button').forEach(b => b.addEventListener('click', () => { S.tab = b.dataset.tab; applyLang(); draw(); }));
-  const sel = $('#sortSel');
-  sel.innerHTML = SORTS.map(([k, t]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${T(t)}</option>`).join('');
+  drawTabs();
+  $('#sortSel').innerHTML = SORTS.map(([k, t]) =>
+    `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${T(t)}</option>`).join('');
+  $('#viewSw').innerHTML = VIEWS.map(([k, t]) =>
+    `<button data-view="${k}" class="${S.view === k ? 'on' : ''}">${T(t)}</button>`).join('');
+  $$('#viewSw button').forEach(b => b.addEventListener('click', () => {
+    S.view = b.dataset.view;
+    try{ localStorage.setItem('pmis_projects_view', S.view); }catch(e){}
+    applyLang(); draw();
+  }));
+}
+function drawTabs(){
+  const tabs = [['all', T('tabAll')]]
+    .concat(stKeys().map(k => [k, stLabel(k)]))
+    .concat([['archived', T('tabArchived')]]);
+  $('#tabs').innerHTML = tabs.map(([k, label]) => {
+    const n = countIn(k);
+    return `<button data-tab="${esc(k)}" class="${S.tab === k ? 'on' : ''}"${
+      k === 'all' || k === 'archived' ? '' : ` style="--c:${esc(stColor(k))}"`}>${esc(label)}${
+      n ? `<span class="n">${n}</span>` : ''}</button>`;
+  }).join('') + `<button id="btnStatuses" class="edit" title="${esc(T('editSt'))}">⚙</button>`;
+  $$('#tabs button[data-tab]').forEach(b => b.addEventListener('click', () => {
+    S.tab = b.dataset.tab; drawTabs(); draw();
+  }));
+  $('#btnStatuses').addEventListener('click', openStatuses);
 }
 
 function visible(){
@@ -301,6 +420,19 @@ function drawSummary(){
     `<div class="s ${t.alert ? 'alert' : ''}"><b>${esc(String(t.n))}</b><span>${esc(t.l)}</span></div>`).join('');
 }
 
+/* شارة الحالة تأخذ لونها من التصنيف نفسه، فأي تصنيف يضيفه المستخدم يظهر بلونه فورًا */
+function stChip(p){
+  if(!p.active) return `<span class="st" style="--c:#5B6577">${esc(T('archived'))}</span>`;
+  return `<span class="st" style="--c:${esc(stColor(p.status))}">${esc(stLabel(p.status))}</span>`;
+}
+function devText(dv){
+  if(dv === null) return '';
+  if(dv > 0.05)  return T('ahead').replace('%s', pct(dv));
+  if(dv < -0.05) return T('behind').replace('%s', pct(-dv));
+  return T('onplan');
+}
+const devCls = dv => dv === null ? 'flat' : dv > 0.05 ? 'up' : dv < -0.05 ? 'down' : 'flat';
+
 function card(p){
   const a = K(p, 'actual_pct'), pl = K(p, 'planned_pct'), dv = K(p, 'progress_dev');
   const bar = a === null && pl === null
@@ -330,7 +462,7 @@ function card(p){
       <h3>${esc(pName(p))}</h3>
       ${meta ? `<div class="meta">${esc(meta)}</div>` : ''}
       <div class="rowline">
-        <span class="st ${esc(p.active ? p.status : 'cancelled')}">${esc(p.active ? stLabel(p.status) : T('archived'))}</span>
+        ${stChip(p)}
         <span class="st" style="background:transparent">${
           p.updates ? esc(nOf(p.updates, 'updates')) + (p.last_update ? ' · ' + esc(T('lastUpd').replace('%s', p.last_update)) : '')
                     : esc(T('noUpdates'))}</span>
@@ -347,14 +479,113 @@ function card(p){
   </a>`;
 }
 
+/* عرض القائمة: صف لكل مشروع، مناسب حين تكثر المشاريع ويهمّ المقارنة السريعة */
+function listView(rows){
+  const head = ['colProject', 'colStatus', 'colProg', 'colDev', 'colAtt', 'colMgr', 'colUpd']
+    .map((k, i) => `<th class="${i >= 2 && i <= 4 ? 'num' : ''}">${esc(T(k))}</th>`).join('');
+  const body = rows.map(p => {
+    const a = K(p, 'actual_pct'), pl = K(p, 'planned_pct'), dv = K(p, 'progress_dev'), at = attention(p);
+    return `<tr onclick="location.href='/admin-projects/${p.id}'" class="${p.active ? '' : 'off'}">
+      <td class="pn"><b>${esc(pName(p))}</b><span>${esc(p.code)}${
+        [p.city, p.contractor].filter(Boolean).length ? ' · ' + esc([p.city, p.contractor].filter(Boolean).join(' · ')) : ''}</span></td>
+      <td>${stChip(p)}</td>
+      <td class="num">${a === null ? '—' : `<span class="minibar" title="${esc(T('planned'))} ${esc(pct(pl))}">
+            <i style="width:${Math.max(0, Math.min(100, a))}%"></i>${
+              pl === null ? '' : `<u style="inset-inline-start:${Math.max(0, Math.min(100, pl))}%"></u>`}</span>${esc(pct(a))}`}</td>
+      <td class="num ${devCls(dv)}">${dv === null ? '—' : esc(pct(dv))}</td>
+      <td class="num ${at ? 'hot' : ''}">${at || '—'}</td>
+      <td>${esc(p.managers.map(m => m.username).join(', ') || '—')}</td>
+      <td class="num">${p.updates || '—'}<span class="sub">${esc(p.last_update || '')}</span></td>
+    </tr>`;
+  }).join('');
+  return `<table class="ltable"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+/* عرض المربّعات: أصغر ما يمكن مع بقاء الاسم والإنجاز وما يحتاج انتباهًا ظاهرًا */
+function tile(p){
+  const a = K(p, 'actual_pct'), at = attention(p);
+  return `<a class="ptile ${p.active ? '' : 'off'}" href="/admin-projects/${p.id}">
+    <span class="bar" style="background:${esc(stColor(p.status))}"></span>
+    <div class="tin">
+      <div class="code">${esc(p.code)}</div>
+      <h3>${esc(pName(p))}</h3>
+      <div class="tfoot">
+        <b>${esc(a === null ? '—' : pct(a))}</b>
+        ${at ? `<span class="att">${at}</span>` : ''}
+      </div>
+      <div class="track"><i style="width:${Math.max(0, Math.min(100, a || 0))}%"></i></div>
+    </div></a>`;
+}
+
 function draw(){
   const rows = sorted(visible());
   $('#count').textContent = `${rows.length} / ${S.projects.length}`;
   drawSummary();
-  if(!S.projects.length){ $('#grid').innerHTML = `<div class="empty" style="grid-column:1/-1">${T('noProjects')}</div>`; return; }
-  if(!rows.length){ $('#grid').innerHTML = `<div class="empty" style="grid-column:1/-1">${T('noMatch')}</div>`; return; }
-  $('#grid').innerHTML = rows.map(card).join('');
+  const box = $('#grid');
+  box.className = 'view-' + S.view;
+  if(!S.projects.length){ box.innerHTML = `<div class="empty">${T('noProjects')}</div>`; return; }
+  if(!rows.length){ box.innerHTML = `<div class="empty">${T('noMatch')}</div>`; return; }
+  box.innerHTML = S.view === 'list' ? listView(rows)
+                : S.view === 'tiles' ? rows.map(tile).join('')
+                : rows.map(card).join('');
 }
+
+/* ---- محرّر التصنيفات: القائمة ملك المستخدم، يضيف ويعيد التسمية واللون والترتيب ---- */
+let DRAFT = [];
+function openStatuses(){
+  DRAFT = stKeys().map(k => Object.assign({key:k}, S.statuses[k]));
+  drawStatuses();
+  $('#stModal').classList.add('open');
+}
+function drawStatuses(){
+  $('#stHead').innerHTML = `<span class="h-k">${esc(T('stKey'))}</span><span>${esc(T('stAr'))}</span>
+    <span>${esc(T('stEn'))}</span><span class="h-c">${esc(T('stColor'))}</span><span></span>`;
+  $('#stRows').innerHTML = DRAFT.map((s, i) => `
+    <div class="st-row" data-i="${i}">
+      <input class="fld k" value="${esc(s.key)}" ${s.used ? 'readonly' : ''} data-f="key" data-no-tr>
+      <input class="fld" value="${esc(s.label)}" data-f="label">
+      <input class="fld" value="${esc(s.label_en || '')}" data-f="label_en" data-no-tr>
+      <input class="fld c" type="color" value="${esc(s.color || '#5B6577')}" data-f="color">
+      <span class="ops">
+        <button data-up="${i}" ${i === 0 ? 'disabled' : ''} title="▲">▲</button>
+        <button data-dn="${i}" ${i === DRAFT.length - 1 ? 'disabled' : ''} title="▼">▼</button>
+        <button data-rm="${i}" class="danger" title="✕">✕</button>
+      </span>
+    </div>`).join('');
+  $$('#stRows [data-f]').forEach(el => el.addEventListener('input', () => {
+    const i = +el.closest('.st-row').dataset.i;
+    DRAFT[i][el.dataset.f] = el.value;
+  }));
+  const swap = (i, j) => { const t = DRAFT[i]; DRAFT[i] = DRAFT[j]; DRAFT[j] = t; drawStatuses(); };
+  $$('#stRows [data-up]').forEach(b => b.addEventListener('click', () => swap(+b.dataset.up, +b.dataset.up - 1)));
+  $$('#stRows [data-dn]').forEach(b => b.addEventListener('click', () => swap(+b.dataset.dn, +b.dataset.dn + 1)));
+  $$('#stRows [data-rm]').forEach(b => b.addEventListener('click', () => {
+    DRAFT.splice(+b.dataset.rm, 1); drawStatuses();
+  }));
+}
+$('#stAdd').addEventListener('click', () => {
+  DRAFT.push({key:'', label:'', label_en:'', color:'#5B6577'});
+  drawStatuses();
+  const last = $('#stRows .st-row:last-child .k'); if(last) last.focus();
+});
+$('#stSave').addEventListener('click', async () => {
+  const clean = DRAFT.map(s => ({key:String(s.key || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, ''),
+                                 label:String(s.label || '').trim(),
+                                 label_en:String(s.label_en || '').trim(),
+                                 color:s.color}));
+  if(clean.some(s => !s.key || !s.label)){ toast(T('stNeed'), true); return; }
+  const keys = clean.map(s => s.key);
+  if(new Set(keys).size !== keys.length){ toast(T('stDupe'), true); return; }
+  const j = await api('/api/project-statuses', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({statuses:clean})});
+  if(!j.success) return;
+  S.statuses = j.statuses || {};
+  if(!S.statuses[S.tab] && S.tab !== 'all' && S.tab !== 'archived') S.tab = 'all';
+  $('#stModal').classList.remove('open');
+  toast(T('stSaved'));
+  await load();
+});
+$$('#stModal [data-close]').forEach(b => b.addEventListener('click', () => $('#stModal').classList.remove('open')));
+$('#stModal').addEventListener('click', e => { if(e.target.id === 'stModal') $('#stModal').classList.remove('open'); });
 
 async function load(){
   const j = await api('/api/projects');
