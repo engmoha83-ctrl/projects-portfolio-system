@@ -249,6 +249,7 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
     <button class="btn icon" id="colSortD" data-i18n-title="sortDesc">↓Z</button>
     <button class="btn icon" id="colLeft" data-i18n-title="moveColBefore">◀</button>
     <button class="btn icon" id="colRight" data-i18n-title="moveColAfter">▶</button>
+    <button class="btn icon" id="colDup" data-i18n-title="dupCol">⧉</button>
     <button class="btn icon" id="colInsL" data-i18n-title="insColBefore">⇤+</button>
     <button class="btn icon" id="colInsR" data-i18n-title="insColAfter">+⇥</button>
     <button class="btn icon danger" id="colDel" data-i18n-title="delCol"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
@@ -344,6 +345,7 @@ const I18N = {
   colLbl:['Column','العمود'], rowsLbl:['Rows','الصفوف'], cellsLbl:['Cells','الخلايا'], fmtLbl:['Format','التنسيق'],
   moveColBefore:['Move column before','تحريك العمود للخلف'], moveColAfter:['Move column after','تحريك العمود للأمام'],
   moveRowUp:['Move row up','تحريك الصف لأعلى'], moveRowDown:['Move row down','تحريك الصف لأسفل'],
+  dupCol:['Duplicate column','تكرار العمود'], copySuffix:['(copy)','نسخة'],
   sortAsc:['Sort A → Z (smallest first)','فرز تصاعدي'], sortDesc:['Sort Z → A (largest first)','فرز تنازلي'],
   colSettings:['Column settings','إعدادات العمود'], delCol:['Delete column','حذف العمود'],
   delRow:['Delete rows','حذف الصفوف'],
@@ -1428,6 +1430,40 @@ $('#colSortA').addEventListener('click', () => setSort('asc'));
 $('#colSortD').addEventListener('click', () => setSort('desc'));
 $('#colLeft').addEventListener('click', () => shiftCols(-1));
 $('#colRight').addEventListener('click', () => shiftCols(1));
+$('#colDup').addEventListener('click', duplicateColumns);
+/** نسخة من العمود المحدد تنزل جنبه على طول — بنفس النوع والعرض والتنسيق والمعادلة والبيانات */
+function duplicateColumns(){
+  if(!S.sheet) return;
+  const cols = S.sheet.columns;
+  const idx = cols.map((c, i) => S.cols.has(c.key) ? i : -1).filter(i => i >= 0);
+  if(!idx.length) return;
+  pushUndo();
+  const newKeys = [];
+  let n = 0;
+  idx.slice().sort((a, b) => b - a).forEach(i => {
+    const src = cols[i];
+    const key = 'c' + (cols.length + 1 + (n++)) + Math.random().toString(36).slice(2, 5);
+    const copy = JSON.parse(JSON.stringify(src));
+    copy.key = key;
+    copy.label    = 'نسخة من ' + (src.label || src.label_en || src.key);
+    copy.label_en = (src.label_en || src.label || src.key) + ' (copy)';
+    cols.splice(i + 1, 0, copy);
+    newKeys.push(key);
+    if(!isCalc(src)) S.rows.forEach(r => {                 // البيانات وتنسيق الخلايا كمان
+      let hit = false;
+      const v = r.data[src.key];
+      if(v !== undefined && v !== null && v !== ''){ r.data[key] = v; hit = true; }
+      const fm = r.data.__fmt;
+      if(fm && fm[src.key]){ fm[key] = JSON.parse(JSON.stringify(fm[src.key])); hit = true; }
+      if(hit) touch(r);
+    });
+  });
+  S.cols = new Set(newKeys);
+  saveColumns();
+  scheduleSave();
+  toast(U(newKeys.length === 1 ? 'Column duplicated' : `${newKeys.length} columns duplicated`,
+          newKeys.length === 1 ? 'تم تكرار العمود' : `تم تكرار ${newKeys.length} أعمدة`));
+}
 $('#colInsL').addEventListener('click', () => insertColumn(-1));
 $('#colInsR').addEventListener('click', () => insertColumn(1));
 /** عمود جديد جنب العمود المحدد */
@@ -1511,16 +1547,30 @@ async function insertRow(dir){
   await saveOrder();
   focusCell(at, 0, false);
 }
-$('#rowDup').addEventListener('click', () => {
-  const idx = selRowIdx(); if(!idx.length) return;
+$('#rowDup').addEventListener('click', duplicateRows);
+/** نسخة من كل صف محدد تنزل تحته مباشرة (مش في آخر الجدول) */
+async function duplicateRows(){
+  const idx = selRowIdx(); if(!idx.length || !S.sheet) return;
+  if(S.sort){ toast(I18N.sortedRows[en() ? 0 : 1]); return; }
   pushUndo();
-  idx.forEach(i => {
-    const c = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:JSON.parse(JSON.stringify(S.rows[i].data))};
-    recalcRow(c); S.rows.push(c); S.total++;
+  const newIds = [];
+  idx.slice().sort((a, b) => b - a).forEach(i => {
+    const copy = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5),
+                  data:JSON.parse(JSON.stringify(S.rows[i].data))};
+    recalcRow(copy);
+    S.rows.splice(i + 1, 0, copy);
+    S.total++;
+    newIds.push(String(copy.id));
   });
-  S.rowsSel.clear(); renderGrid(); syncBars(); updatePager();
-  saveChanges(false);
-});
+  S.rowsSel = new Set(newIds);
+  renderGrid(); syncBars(); updatePager();
+  $('#btnSave').disabled = false;
+  await saveChanges(true);
+  await saveOrder();
+  syncBars();
+  toast(U(newIds.length === 1 ? 'Row duplicated' : `${newIds.length} rows duplicated`,
+          newIds.length === 1 ? 'تم تكرار الصف' : `تم تكرار ${newIds.length} صفوف`));
+}
 $('#rowDel').addEventListener('click', async () => {
   const ids = Array.from(S.rowsSel); if(!ids.length) return;
   if(!confirm(U(`Delete ${ids.length} row(s)?`, `حذف ${ids.length} صف؟`))) return;
