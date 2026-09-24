@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects | Saudi Architects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EBEF; --tint:#F1F3F7; --tint2:#E6EAF0; --line:#E3E6EC; --ink:#172033; --muted:#5B6577;
+  --navy:#1F3A5F; --navy2:#274A78; --gold:#C8A165; --danger:#C8543E; --good:#2E7D5B; --head-h:58px;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+[hidden]{display:none !important;}
+html,body{height:100%;margin:0;}
+body{font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif; background:var(--bg); color:var(--ink);
+     -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; min-height:100%;}
+html[lang="ar"] body{font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;}
+button,input,select,textarea{font-family:inherit; border-radius:0;}
+.hdr{min-height:var(--head-h); flex:0 0 auto; background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07); display:flex;
+     align-items:center; gap:8px; padding:8px 16px; position:sticky; top:0; z-index:30; flex-wrap:wrap;}
+.hdr-back{width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+          background:var(--tint); color:var(--ink); text-decoration:none; transition:background-color .15s ease;}
+.hdr-back:hover{background:var(--tint2);}
+[dir="rtl"] .hdr-back svg{transform:scaleX(-1);}
+.hdr-title{display:flex; flex-direction:column; line-height:1.2; padding:0 10px;}
+.hdr-title small{font-size:11px; color:var(--muted); font-weight:500;}
+.hdr-title b{font-size:14px; font-weight:600;}
+.spacer{flex:1;}
+.btn{height:34px; border:none; background:var(--tint); padding:0 12px; font-size:13px; font-weight:500;
+     color:var(--ink); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
+     transition:background-color .15s ease, transform .15s ease;}
+.btn:hover{background:var(--tint2);}
+.btn:active{transform:scale(.98);}
+.btn[disabled]{opacity:.45; pointer-events:none;}
+.btn.primary{background:var(--navy); color:#fff; font-weight:600;}
+.btn.primary:hover{background:var(--navy2);}
+.btn.danger{color:var(--danger);}
+.btn.danger:hover{background:#FBEDEA;}
+.btn.sm{height:28px; font-size:12px; padding:0 9px;}
+.fld{height:34px; background:var(--tint); border:none; padding:0 9px; font-size:13px; color:var(--ink); width:100%;}
+.fld:focus{outline:2px solid #C9D6E8;}
+textarea.fld{height:64px; padding:8px 9px; resize:vertical;}
+.search{height:34px; background:var(--tint); border:none; padding:0 10px; font-size:13px; width:230px;}
+
+.wrap{flex:1 1 auto; padding:16px; display:flex; gap:16px; align-items:flex-start;
+      max-width:1600px; width:100%; margin:0 auto;}
+.col-list{flex:1 1 560px; min-width:0;}
+.col-side{flex:0 0 420px; position:sticky; top:calc(var(--head-h) + 16px);}
+@media (max-width:1100px){ .wrap{flex-direction:column;} .col-side{flex:1 1 auto; width:100%; position:static;} }
+.card{background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 8px 20px rgba(23,32,51,.06);}
+.card > h2{margin:0; padding:14px 18px 4px; font-size:14px; font-weight:700; display:flex; align-items:center; gap:10px;}
+.note{font-size:12px; color:var(--muted); line-height:1.7; padding:4px 18px 12px;}
+.card-body{padding:0 18px 16px;}
+
+table{width:100%; border-collapse:collapse; font-size:12.5px;}
+th,td{border-bottom:1px solid var(--line); padding:8px; text-align:start; vertical-align:middle;}
+th{background:#F7F8FA; font-size:11.5px; font-weight:600; color:var(--muted); white-space:nowrap;
+   position:sticky; top:0; z-index:2; box-shadow:inset 0 -1px 0 var(--line);}
+tbody tr{cursor:pointer;}
+tbody tr:hover td{background:#FAFBFC;}
+tbody tr.on td{background:#EAF0F8;}
+td.num{text-align:end; font-variant-numeric:tabular-nums;}
+.scroll{max-height:70vh; overflow:auto;}
+.code{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11.5px; color:var(--muted);}
+.pname b{display:block; font-size:13px; font-weight:600;}
+.pname span{font-size:11.5px; color:var(--muted);}
+.st{font-size:11px; padding:2px 8px; white-space:nowrap; background:var(--tint2); color:var(--muted);}
+.st.active{background:#E7F1EC; color:var(--good);}
+.st.on_hold{background:#FDF3E7; color:#8A5A1E;}
+.st.done{background:#E7EEF8; color:var(--navy);}
+.st.cancelled{background:#FBEDEA; color:var(--danger);}
+.dots{display:flex; gap:4px; align-items:center;}
+.dot{width:9px; height:9px; border-radius:50%; background:#DDE2EA;}
+.dot.on{background:var(--good);}
+.attach{display:flex; flex-direction:column; gap:8px; padding:0 18px 16px;}
+.att{display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--tint);}
+.att .ic{width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-size:14px;
+  background:#fff; color:var(--muted); flex:0 0 26px;}
+.att .tx{flex:1; min-width:0;}
+.att .tx b{display:block; font-size:12.5px; font-weight:600;}
+.att .tx span{font-size:11px; color:var(--muted);}
+.att.ok{background:#EFF5F2;}
+.att.ok .ic{color:var(--good);}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 18px 14px;}
+.grid2 label{display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--muted);}
+.grid2 label.wide{grid-column:1 / -1;}
+.mgrs{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;}
+.mgr{display:inline-flex; align-items:center; gap:5px; background:var(--tint2); font-size:11.5px; padding:3px 8px;}
+.mgr button{border:none; background:none; color:var(--muted); cursor:pointer; font-size:10px;}
+.mgr button:hover{color:var(--danger);}
+.alias{display:inline-flex; align-items:center; gap:5px; background:#F7F8FA; font-size:11px; padding:3px 8px;
+  color:var(--muted); margin:0 4px 4px 0;}
+.alias button{border:none; background:none; color:var(--muted); cursor:pointer; font-size:10px;}
+.foot{display:flex; gap:8px; padding:12px 18px; background:#F7F8FA; flex-wrap:wrap;}
+.empty{padding:34px 10px; text-align:center; color:var(--muted); font-size:13px;}
+.toast{position:fixed; bottom:22px; inset-inline-end:22px; background:var(--ink); color:#fff; padding:12px 18px;
+  font-size:13px; box-shadow:0 18px 40px rgba(23,32,51,.22); z-index:99; opacity:0; transform:translateY(12px);
+  transition:opacity .25s ease, transform .3s var(--ease); pointer-events:none;}
+.toast.show{opacity:1; transform:none;}
+.toast.err{background:var(--danger);}
+.load-bar{position:fixed; top:var(--head-h); left:0; right:0; height:3px; z-index:70; overflow:hidden; pointer-events:none;
+  opacity:0; transition:opacity .25s ease;}
+.load-bar.on{opacity:1;}
+.load-bar i{position:absolute; top:0; bottom:0; width:35%; background:var(--gold); animation:ls 1.1s var(--ease) infinite;}
+.load-bar::before{content:''; position:absolute; inset:0; background:rgba(200,161,101,.22);}
+@keyframes ls{from{left:-35%}to{left:100%}}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <a class="hdr-back" href="/admin-hub" data-i18n-title="back">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
+  <div class="hdr-title"><small data-i18n="sub">Registry</small><b data-i18n="title">Projects</b></div>
+  <input class="search" id="q" data-i18n-ph="search" placeholder="Search…">
+  <div class="spacer"></div>
+  <span class="st" id="count"></span>
+  <button class="btn" id="btnSync" data-i18n-title="syncHint" data-i18n="sync">Import existing</button>
+  <button class="btn primary" id="btnNew" data-i18n="newP">+ New project</button>
+  <button class="btn" id="btnLang">العربية</button>
+</header>
+
+<div class="load-bar" id="loadBar"><i></i></div>
+
+<div class="wrap">
+  <div class="col-list">
+    <div class="card">
+      <h2><span data-i18n="listT">All projects</span></h2>
+      <div class="note" data-i18n="listNote"></div>
+      <div class="scroll" id="listBox"></div>
+    </div>
+  </div>
+
+  <div class="col-side">
+    <div class="card" id="side">
+      <h2><span id="sideT" data-i18n="pick">Select a project</span><span class="code" id="sideCode"></span></h2>
+      <div class="note" id="sideNote" data-i18n="pickNote"></div>
+      <div id="sideBody" hidden>
+        <div class="grid2">
+          <label class="wide"><span data-i18n="nameAr">Name (Arabic)</span><input class="fld" id="f_name"></label>
+          <label class="wide"><span data-i18n="nameEn">Name (English)</span><input class="fld" id="f_name_en"></label>
+          <label><span data-i18n="status">Status</span><select class="fld" id="f_status"></select></label>
+          <label><span data-i18n="ptype">Type</span><input class="fld" id="f_ptype"></label>
+          <label><span data-i18n="owner">Owner</span><input class="fld" id="f_owner"></label>
+          <label><span data-i18n="developer">Developer</span><input class="fld" id="f_developer"></label>
+          <label><span data-i18n="contractor">Contractor</span><input class="fld" id="f_contractor"></label>
+          <label><span data-i18n="consultant">Consultant</span><input class="fld" id="f_consultant"></label>
+          <label><span data-i18n="city">City</span><input class="fld" id="f_city"></label>
+          <label><span data-i18n="value">Contract value</span><input class="fld" id="f_contract_value" type="number" step="any"></label>
+          <label><span data-i18n="start">Start</span><input class="fld" id="f_start_date" type="date"></label>
+          <label><span data-i18n="end">Finish</span><input class="fld" id="f_end_date" type="date"></label>
+          <label class="wide"><span data-i18n="managers">Managers</span>
+            <select class="fld" id="f_addmgr"></select>
+            <div class="mgrs" id="mgrs"></div></label>
+          <label class="wide"><span data-i18n="notes">Notes</span><textarea class="fld" id="f_notes"></textarea></label>
+        </div>
+        <div class="foot">
+          <button class="btn primary" id="btnSave" data-i18n="save">Save</button>
+          <button class="btn" id="btnArchive" data-i18n="archive">Archive</button>
+          <div class="spacer"></div>
+          <button class="btn" id="btnMerge" data-i18n="merge">Merge…</button>
+          <button class="btn danger" id="btnDel" data-i18n="del">Delete</button>
+        </div>
+
+        <h2 style="padding-top:14px"><span data-i18n="attachT">What is attached</span></h2>
+        <div class="note" data-i18n="attachNote"></div>
+        <div class="attach" id="attachBox"></div>
+
+        <h2 style="padding-top:6px"><span data-i18n="aliasT">Previous names</span></h2>
+        <div class="note" data-i18n="aliasNote"></div>
+        <div class="card-body" id="aliasBox"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const UI_KEY = 'pmis_ui_lang';
+let UIL = (() => { try{ return localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){ return 'en'; } })();
+const en = () => UIL !== 'ar';
+const U  = (e, a) => en() ? e : a;
+const I18N = {
+  title:['Projects','المشاريع'], sub:['Registry','السجل'], back:['Back','رجوع'],
+  search:['Search…','بحث…'], newP:['+ New project','+ مشروع جديد'],
+  sync:['Import existing','استيراد الموجود'],
+  syncHint:['Registers any project name that already exists in the data but is not in the registry yet',
+            'يسجّل أي اسم مشروع موجود في البيانات ولم يُسجَّل بعد'],
+  listT:['All projects','كل المشاريع'],
+  listNote:['One row per project. The code is generated by the system and never changes, so everything else can hang off it.',
+            'صف لكل مشروع. الكود يولّده النظام ولا يتغيّر أبدًا، فكل ما يُضاف للمشروع يتعلّق به.'],
+  pick:['Select a project','اختر مشروعًا'],
+  pickNote:['Select a project from the list, or create a new one.','اختر مشروعًا من القائمة، أو أنشئ مشروعًا جديدًا.'],
+  nameAr:['Name (Arabic)','الاسم بالعربية'], nameEn:['Name (English)','الاسم بالإنجليزية'],
+  status:['Status','الحالة'], ptype:['Type','النوع'], owner:['Owner','المالك'], developer:['Developer','المطوّر'],
+  contractor:['Contractor','المقاول'], consultant:['Consultant','الاستشاري'], city:['City','المدينة'],
+  value:['Contract value','قيمة العقد'], start:['Start','البداية'], end:['Finish','النهاية'],
+  managers:['Managers','مديرو المشروع'], notes:['Notes','ملاحظات'],
+  save:['Save','حفظ'], archive:['Archive','أرشفة'], unarchive:['Unarchive','إلغاء الأرشفة'],
+  merge:['Merge…','دمج…'], del:['Delete','حذف'],
+  attachT:['What is attached','ما هو متعلّق بالمشروع'],
+  attachNote:['Everything below hangs off this project. What is missing can be added from here.',
+              'كل ما يلي متعلّق بهذا المشروع. وما هو ناقص يمكن إضافته من هنا.'],
+  aliasT:['Previous names','الأسماء السابقة'],
+  aliasNote:['Old data is linked by name. Keeping previous names here means renaming a project never splits its history.',
+             'البيانات القديمة مرتبطة بالاسم. الاحتفاظ بالأسماء السابقة هنا يعني أن تغيير اسم المشروع لا يقسّم تاريخه.'],
+  colCode:['Code','الكود'], colName:['Project','المشروع'], colStatus:['Status','الحالة'],
+  colMgr:['Managers','المديرون'], colHas:['Attached','المتعلّق'], colUpd:['Updates','التحديثات'],
+  updates:['Manager updates','تحديثات المديرين'], cashflow:['Cash flow baseline','خط الأساس المالي'],
+  sheets:['Custom sheets','الجداول المخصصة'], facts:['Facts','الحقائق'],
+  schedule:['Schedule','البرنامج الزمني'], boq:['Bill of quantities','جداول الكميات'],
+  soon:['Coming later','قريبًا'], none:['Not added yet','لم يُضف بعد'],
+  open:['Open','فتح'], add:['Add','إضافة'], rows:['%s rows','%s صف'], one:['%s','%s'],
+  lastUpd:['last %s','آخرها %s'],
+  saved:['Saved','تم الحفظ'], created:['Project created','تم إنشاء المشروع'],
+  askName:['Project name (Arabic):','اسم المشروع بالعربية:'],
+  askAlias:['Add a previous name that appears in old data:','أضف اسمًا سابقًا يظهر في البيانات القديمة:'],
+  askMerge:['Merge this project into which one? Enter its code:','دمج هذا المشروع في أي مشروع؟ اكتب كوده:'],
+  mergeDone:['Merged','تم الدمج'], notFound:['No project with that code','لا يوجد مشروع بهذا الكود'],
+  confirmMerge:['Move all names of "%s" into "%s"? The first project disappears from the registry and its history joins the second.',
+                'نقل كل أسماء «%s» إلى «%s»؟ المشروع الأول يختفي من السجل وينضم تاريخه إلى الثاني.'],
+  confirmDel:['Delete this project from the registry?','حذف هذا المشروع من السجل؟'],
+  synced:['%s projects added, %s managers linked','أُضيف %s مشروع، ورُبط %s مدير'],
+  nothingNew:['Everything is already registered','كل شيء مسجَّل بالفعل'],
+  noProjects:['No projects yet — create one, or import what already exists in the data.',
+              'لا توجد مشاريع بعد — أنشئ مشروعًا، أو استورد ما هو موجود في البيانات.'],
+  addMgr:['+ add a manager','+ أضف مديرًا']
+};
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = t => String(t == null ? '' : t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const T = k => (I18N[k] || ['', ''])[en() ? 0 : 1];
+function toast(msg, isErr){
+  const t = $('#toast'); t.textContent = msg; t.classList.toggle('err', !!isErr); t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2800);
+}
+let BUSY = 0;
+const busy = on => { BUSY = Math.max(0, BUSY + (on ? 1 : -1)); $('#loadBar').classList.toggle('on', BUSY > 0); };
+async function api(url, opts){
+  busy(true);
+  try{
+    const r = await fetch(url, opts);
+    const j = await r.json().catch(() => ({success:false, error:'HTTP ' + r.status}));
+    if(!j.success && j.error) toast(j.error, true);
+    return j;
+  }catch(e){ toast(String(e.message || e), true); return {success:false}; }
+  finally{ busy(false); }
+}
+
+const S = {projects:[], users:[], statuses:{}, sel:null, q:''};
+const pName = p => (en() ? (p.name_en || p.name) : (p.name || p.name_en)) || p.code;
+const stLabel = k => { const s = S.statuses[k]; return s ? (en() ? s.label_en : s.label) : k; };
+
+function applyLang(){
+  const i = en() ? 0 : 1;
+  document.documentElement.lang = en() ? 'en' : 'ar';
+  document.documentElement.dir  = en() ? 'ltr' : 'rtl';
+  document.title = en() ? 'Projects | Saudi Architects' : 'المشاريع | المعماريون السعوديون';
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = (I18N[el.dataset.i18n] || ['', ''])[i]);
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = (I18N[el.dataset.i18nPh] || ['', ''])[i]);
+  document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = (I18N[el.dataset.i18nTitle] || ['', ''])[i]);
+  $('#btnLang').textContent = en() ? 'Arabic' : 'English';
+  const sel = $('#f_status'), keep = sel.value;
+  sel.innerHTML = Object.keys(S.statuses).map(k => `<option value="${k}">${esc(stLabel(k))}</option>`).join('');
+  sel.value = keep || 'active';
+  const mg = $('#f_addmgr');
+  mg.innerHTML = `<option value="">${T('addMgr')}</option>` +
+    S.users.map(u => `<option value="${esc(u.username)}">${esc(u.name)} · ${esc(u.username)}</option>`).join('');
+}
+
+function drawList(){
+  const q = S.q.trim().toLowerCase();
+  const rows = S.projects.filter(p => !q ||
+    [p.code, p.name, p.name_en, p.city, p.contractor, p.owner].some(v => String(v || '').toLowerCase().includes(q)));
+  $('#count').textContent = `${rows.length} / ${S.projects.length}`;
+  if(!S.projects.length){ $('#listBox').innerHTML = `<div class="empty">${T('noProjects')}</div>`; return; }
+  $('#listBox').innerHTML = `<table><thead><tr>
+      <th>${T('colCode')}</th><th>${T('colName')}</th><th>${T('colStatus')}</th>
+      <th>${T('colMgr')}</th><th>${T('colHas')}</th><th class="num">${T('colUpd')}</th></tr></thead><tbody>${
+    rows.map(p => `<tr data-id="${p.id}" class="${S.sel && S.sel.id === p.id ? 'on' : ''}">
+      <td class="code">${esc(p.code)}</td>
+      <td class="pname"><b>${esc(pName(p))}</b><span>${esc([p.city, p.contractor].filter(Boolean).join(' · '))}</span></td>
+      <td><span class="st ${esc(p.status)}">${esc(stLabel(p.status))}</span></td>
+      <td>${p.managers.length ? esc(p.managers.map(m => m.username).join(', ')) : '—'}</td>
+      <td><div class="dots" title="${T('cashflow')} · ${T('sheets')} · ${T('facts')}">
+          <i class="dot ${p.cashflow ? 'on' : ''}"></i><i class="dot ${p.sheets ? 'on' : ''}"></i>
+          <i class="dot ${p.facts ? 'on' : ''}"></i></div></td>
+      <td class="num">${p.updates || '—'}</td></tr>`).join('')}</tbody></table>`;
+  $$('#listBox tbody tr').forEach(tr => tr.addEventListener('click', () => select(+tr.dataset.id)));
+}
+
+function select(id){
+  S.sel = S.projects.find(p => p.id === id) || null;
+  drawList(); drawSide();
+}
+
+function setF(k, v){ const el = $('#f_' + k); if(el) el.value = v == null ? '' : v; }
+function getF(k){ const el = $('#f_' + k); return el ? el.value : ''; }
+
+function drawSide(){
+  const p = S.sel;
+  $('#sideBody').hidden = !p;
+  $('#sideNote').hidden = !!p;
+  $('#sideT').textContent = p ? pName(p) : T('pick');
+  $('#sideCode').textContent = p ? p.code : '';
+  if(!p) return;
+  ['name', 'name_en', 'status', 'ptype', 'owner', 'developer', 'contractor', 'consultant',
+   'city', 'contract_value', 'start_date', 'end_date', 'notes'].forEach(k => setF(k, p[k]));
+  $('#btnArchive').textContent = p.active ? T('archive') : T('unarchive');
+  drawManagers();
+  drawAttach();
+  drawAliases();
+}
+
+function drawManagers(){
+  const p = S.sel;
+  $('#mgrs').innerHTML = p.managers.map(m =>
+    `<span class="mgr">${esc(m.username)}<button data-rm="${esc(m.username)}">✕</button></span>`).join('')
+    || `<span class="mgr" style="opacity:.6">—</span>`;
+  $$('#mgrs [data-rm]').forEach(b => b.addEventListener('click', () => {
+    p.managers = p.managers.filter(m => m.username !== b.dataset.rm);
+    drawManagers();
+  }));
+}
+
+function drawAttach(){
+  const p = S.sel;
+  const items = [
+    {ic:'📝', k:'updates', on:!!p.updates,
+     sub:p.updates ? T('rows').replace('%s', p.updates) + (p.last_update ? ' · ' + T('lastUpd').replace('%s', p.last_update) : '') : T('none'),
+     href:'/admin-analytics'},
+    {ic:'💰', k:'cashflow', on:p.cashflow, sub:p.cashflow ? '' : T('none'),
+     href:'/admin-cashflow'},
+    {ic:'🗂️', k:'sheets', on:!!p.sheets, sub:p.sheets ? T('rows').replace('%s', p.sheets) : T('none'),
+     href:'/admin-sheets'},
+    {ic:'🧮', k:'facts', on:!!p.facts, sub:p.facts ? T('rows').replace('%s', p.facts) : T('none'),
+     href:'/admin-facts'},
+    {ic:'📐', k:'boq', on:false, sub:T('soon'), href:''},
+    {ic:'📅', k:'schedule', on:false, sub:T('soon'), href:''}
+  ];
+  $('#attachBox').innerHTML = items.map(it => `<div class="att ${it.on ? 'ok' : ''}">
+      <span class="ic">${it.ic}</span>
+      <span class="tx"><b>${T(it.k)}</b><span>${esc(it.sub)}</span></span>
+      ${it.href ? `<a class="btn sm" href="${it.href}">${it.on ? T('open') : T('add')}</a>` : ''}
+    </div>`).join('');
+}
+
+function drawAliases(){
+  const p = S.sel;
+  $('#aliasBox').innerHTML = p.aliases.map(a =>
+      `<span class="alias">${esc(a)}${a === p.name ? '' : `<button data-rma="${esc(a)}">✕</button>`}</span>`).join('')
+    + `<button class="btn sm" id="btnAddAlias">+</button>`;
+  $$('#aliasBox [data-rma]').forEach(b => b.addEventListener('click', async () => {
+    const j = await api(`/api/projects/${p.id}/aliases`, {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({remove:b.dataset.rma})});
+    if(j.success) await load(p.id);
+  }));
+  $('#btnAddAlias').addEventListener('click', async () => {
+    const v = prompt(T('askAlias'), '');
+    if(!v) return;
+    const j = await api(`/api/projects/${p.id}/aliases`, {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({add:v})});
+    if(j.success) await load(p.id);
+  });
+}
+
+async function save(){
+  const p = S.sel; if(!p) return;
+  const body = {id:p.id, managers:p.managers.map(m => m.username)};
+  ['name', 'name_en', 'status', 'ptype', 'owner', 'developer', 'contractor', 'consultant',
+   'city', 'contract_value', 'start_date', 'end_date', 'notes'].forEach(k => body[k] = getF(k));
+  body.active = p.active;
+  const j = await api('/api/projects', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  if(j.success){ toast(T('saved')); await load(p.id); }
+}
+
+async function load(keepId){
+  const j = await api('/api/projects');
+  if(!j.success) return;
+  S.projects = j.projects || [];
+  S.users = j.users || [];
+  S.statuses = j.statuses || {};
+  applyLang();
+  const id = keepId || (S.sel && S.sel.id);
+  S.sel = S.projects.find(p => p.id === id) || null;
+  drawList(); drawSide();
+}
+
+$('#q').addEventListener('input', e => { S.q = e.target.value; drawList(); });
+$('#btnSave').addEventListener('click', save);
+$('#f_addmgr').addEventListener('change', e => {
+  const u = e.target.value; e.target.value = '';
+  if(!u || !S.sel) return;
+  if(!S.sel.managers.some(m => m.username === u)) S.sel.managers.push({username:u, primary:!S.sel.managers.length});
+  drawManagers();
+});
+$('#btnNew').addEventListener('click', async () => {
+  const name = prompt(T('askName'), '');
+  if(!name || !name.trim()) return;
+  const j = await api('/api/projects', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:name.trim(), status:'planning'})});
+  if(j.success){ toast(T('created')); await load(j.id); }
+});
+$('#btnSync').addEventListener('click', async () => {
+  const j = await api('/api/projects?sync=1');
+  if(!j.success) return;
+  S.projects = j.projects || []; S.users = j.users || []; S.statuses = j.statuses || {};
+  applyLang(); drawList(); drawSide();
+  const s = j.synced || {};
+  toast((s.projects_added || s.managers_linked)
+    ? T('synced').replace('%s', s.projects_added || 0).replace('%s', s.managers_linked || 0)
+    : T('nothingNew'));
+});
+$('#btnArchive').addEventListener('click', async () => {
+  if(!S.sel) return;
+  S.sel.active = !S.sel.active;
+  await save();
+});
+$('#btnDel').addEventListener('click', async () => {
+  if(!S.sel || !confirm(T('confirmDel'))) return;
+  const j = await api(`/api/projects/${S.sel.id}`, {method:'DELETE'});
+  if(j.success){ S.sel = null; await load(); }
+});
+$('#btnMerge').addEventListener('click', async () => {
+  if(!S.sel) return;
+  const code = prompt(T('askMerge'), '');
+  if(!code) return;
+  const target = S.projects.find(p => p.code.toLowerCase() === code.trim().toLowerCase());
+  if(!target){ toast(T('notFound'), true); return; }
+  if(!confirm(T('confirmMerge').replace('%s', pName(S.sel)).replace('%s', pName(target)))) return;
+  const j = await api(`/api/projects/${S.sel.id}/merge`, {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({into:target.id})});
+  if(j.success){ toast(T('mergeDone')); S.sel = null; await load(target.id); }
+});
+$('#btnLang').addEventListener('click', () => {
+  UIL = en() ? 'ar' : 'en';
+  try{ localStorage.setItem(UI_KEY, UIL); }catch(e){}
+  applyLang(); drawList(); drawSide();
+});
+
+applyLang();
+load();
+</script>
+<script>
+(function(){
+  if(window.__pmisAuthGuard) return;
+  window.__pmisAuthGuard = true;
+  var LOGIN = '/admin', gone = false;
+  var MSG = {ar:'انتهت الجلسة — يتم تحويلك إلى صفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
+  function expired(){
+    if(gone) return; gone = true;
+    var isEn = (document.documentElement.lang === 'en');
+    try{ if(typeof toast === 'function') toast(isEn ? MSG.en : MSG.ar, true); }catch(e){}
+    setTimeout(function(){ location.href = LOGIN; }, 1800);
+  }
+  var nativeFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    var u = String((input && input.url) || input || '');
+    return nativeFetch(input, init).then(function(r){
+      try{
+        var sameSite = !/^https?:\/\//.test(u) || u.indexOf(location.origin) === 0;
+        if((r.status === 401 || r.status === 403) && sameSite) expired();
+      }catch(e){}
+      return r;
+    });
+  };
+})();
+</script>
+</body>
+</html>
