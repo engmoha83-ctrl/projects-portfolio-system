@@ -81,6 +81,35 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 .hintline{font-size:11.5px; color:var(--muted); line-height:1.55;}
 .bar .fld[disabled], .bar select[disabled]{background:#E4E9F0; color:var(--muted); cursor:default;}
 .swatch.off{pointer-events:none;}
+/* قائمة التصدير */
+.menu{position:absolute; top:calc(100% + 4px); inset-inline-start:0; z-index:70; background:#fff; min-width:230px;
+  box-shadow:0 14px 34px rgba(23,32,51,.18); padding:5px 0; display:flex; flex-direction:column;}
+.menu button{display:flex; flex-direction:column; align-items:flex-start; gap:1px; background:none; border:none;
+  padding:8px 14px; cursor:pointer; text-align:start; font-family:inherit; width:100%;}
+.menu button:hover{background:var(--tint);}
+.menu button b{font-size:13px; font-weight:600; color:var(--ink);}
+.menu button i{font-style:normal; font-size:11px; color:var(--muted);}
+/* الطباعة */
+#printArea{display:none;}
+@media print{
+  html, body{height:auto; overflow:visible; background:#fff;}
+  body{display:block;}
+  .hdr, .bar, .statusbar, .load-bar, .toast, .modal-back, .wrap, .pop, .menu{display:none !important;}
+  #printArea{display:block;}
+  .pr-head{margin:0 0 10px;}
+  .pr-head h1{font-size:15px; margin:0 0 3px; color:#1F3A5F;}
+  .pr-head small{font-size:10.5px; color:#5B6577;}
+  table.pr{width:100%; border-collapse:collapse; font-size:9.5px; table-layout:auto;}
+  table.pr th, table.pr td{border:1px solid #C9CFD8; padding:4px 6px; text-align:start; vertical-align:middle;}
+  table.pr thead th{background:#1F3A5F !important; color:#fff !important; font-weight:700;}
+  table.pr tfoot td{background:#EDF1F7 !important; font-weight:700;}
+  table.pr thead{display:table-header-group;}
+  table.pr tfoot{display:table-footer-group;}
+  table.pr tr{break-inside:avoid;}
+  table.pr td.pnum, table.pr th.pnum{width:24px; color:#5B6577; text-align:center;}
+  table.pr th.num, table.pr td.num{text-align:end; font-variant-numeric:tabular-nums;}
+  *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;}
+}
 body.picking, body.picking .grid td, body.picking .grid td input{user-select:none; cursor:cell;}
 #colOpts.has{background:var(--navy); color:#fff;}
 #colOpts.has:hover{background:var(--navy2);}
@@ -216,6 +245,15 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
   <select class="fld" id="sheetSel" style="margin-inline-start:10px;" data-no-tr></select>
   <button class="btn" id="btnNew" data-i18n="newSheet">New sheet</button>
   <button class="btn" id="btnManage" data-i18n="manage">Manage…</button>
+  <span style="position:relative">
+    <button class="btn" id="btnExport" data-i18n="exportBtn">Export ▾</button>
+    <div class="menu" id="exportMenu" hidden>
+      <button data-exp="xlsx-view"><b data-i18n="expXlsx">Excel (.xlsx)</b><i data-i18n="expView">what you see now</i></button>
+      <button data-exp="xlsx-all"><b data-i18n="expXlsxAll">Excel — all rows</b><i data-i18n="expAll">ignores search and filters</i></button>
+      <button data-exp="csv-view"><b data-i18n="expCsv">CSV</b><i data-i18n="expView">what you see now</i></button>
+      <button data-exp="print"><b data-i18n="expPrint">Print / PDF</b><i data-i18n="expPrintHint">opens the print window</i></button>
+    </div>
+  </span>
   <div class="spacer"></div>
   <span class="count" id="savedAt"></span>
   <button class="btn" id="btnLang">العربية</button>
@@ -324,6 +362,8 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
   </div>
 </div>
 
+<div id="printArea"></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -360,6 +400,10 @@ const I18N = {
   colLbl:['Column','العمود'], rowsLbl:['Rows','الصفوف'], cellsLbl:['Cells','الخلايا'], fmtLbl:['Format','التنسيق'],
   moveColBefore:['Move column before','تحريك العمود للخلف'], moveColAfter:['Move column after','تحريك العمود للأمام'],
   moveRowUp:['Move row up','تحريك الصف لأعلى'], moveRowDown:['Move row down','تحريك الصف لأسفل'],
+  exportBtn:['Export ▾','تصدير ▾'], expXlsx:['Excel (.xlsx)','إكسيل (.xlsx)'],
+  expXlsxAll:['Excel — all rows','إكسيل — كل الصفوف'], expCsv:['CSV','CSV'],
+  expView:['what you see now','زي ما هو ظاهر دلوقتي'], expAll:['ignores search and filters','من غير البحث والفلترة'],
+  expPrint:['Print / PDF','طباعة / PDF'], expPrintHint:['opens the print window','بتفتح نافذة الطباعة'],
   dupCol:['Duplicate column','تكرار العمود'], copySuffix:['(copy)','نسخة'],
   sortAsc:['Sort A → Z (smallest first)','فرز تصاعدي'], sortDesc:['Sort Z → A (largest first)','فرز تنازلي'],
   colSettings:['Column settings','إعدادات العمود'], delCol:['Delete column','حذف العمود'],
@@ -1748,6 +1792,67 @@ $('#btnNew').addEventListener('click', async () => {
     body:JSON.stringify({name:name.trim() || U('New sheet', 'جدول جديد'), name_en:name.trim()})});
   if(j.success){ await loadSheets(j.id); toast(U('Sheet created', 'تم إنشاء الجدول')); }
 });
+/* ================= التصدير والطباعة ================= */
+const sheetTitle = () => !S.sheet ? '' : (en() ? (S.sheet.name_en || S.sheet.name) : (S.sheet.name || S.sheet.name_en));
+function printValue(r, c){
+  if(isCalc(c)) return shownValue(r, c);
+  const v = r.data[c.key];
+  if(v === null || v === undefined || v === '') return '';
+  if(c.type === 'bool') return v ? U('Yes', 'نعم') : U('No', 'لا');
+  if(c.type === 'number') return fmtNum(v, c.decimals, c.unit);
+  return String(v);
+}
+/** بيبني نسخة نضيفة للطباعة: من غير خانات إدخال ولا أزرار، ورأس الجدول بيتكرر كل صفحة */
+function buildPrint(){
+  if(!S.sheet) return;
+  const cols = S.sheet.columns;
+const isNumCol = c => c.type === 'number' || c.type === 'formula'
+    || (c.type === 'lookup' && ['number', 'percent', 'currency', 'days'].includes((FIELDS.find(f => f.key === c.source) || {}).type));
+  const nc = c => isNumCol(c) ? ' class="num"' : '';
+  const head = `<tr><th class="pnum">#</th>${cols.map(c => `<th${nc(c)}>${esc(colLabel(c))}</th>`).join('')}</tr>`;
+  const body = S.rows.map((r, i) => `<tr><td class="pnum">${S.page * S.per + i + 1}</td>${
+    cols.map(c => { const st = fmtStyle(effFmt(r, c));
+      return `<td${nc(c)}${st ? ` style="${st}"` : ''}>${esc(printValue(r, c))}</td>`; }).join('')}</tr>`).join('');
+  const foot = cols.some(c => c.agg) ? `<tfoot><tr><td class="pnum">Σ</td>${cols.map(c => {
+      const v = aggValue(c);
+      return `<td${nc(c)}>${v === '' ? '' : esc(aggLabel(c.agg) + ' ' + v)}</td>`; }).join('')}</tr></tfoot>` : '';
+  const filtered = S.q || Object.values(S.filters).some(v => v);
+  const from = S.total ? S.page * S.per + 1 : 0, to = Math.min(S.total, (S.page + 1) * S.per);
+  const bits = [new Date().toLocaleString(en() ? 'en-GB' : 'ar-EG'),
+                U(`rows ${from}–${to} of ${S.total}`, `الصفوف ${from}–${to} من ${S.total}`)];
+  if(filtered) bits.push(U('filtered view', 'حسب الفلترة الظاهرة'));
+  $('#printArea').innerHTML = `<div class="pr-head"><h1>${esc(sheetTitle())}</h1>
+      <small>${esc(bits.join('  ·  '))}</small></div>
+    <table class="pr"><thead>${head}</thead><tbody>${body}</tbody>${foot}</table>`;
+  const wide = cols.length > 5 || cols.reduce((t, c) => t + (+c.width || 150), 0) > 760;   // أعمدة كتير = ورق أفقي
+  let st = document.getElementById('pageStyle');
+  if(!st){ st = document.createElement('style'); st.id = 'pageStyle'; document.head.appendChild(st); }
+  st.textContent = `@page{size:A4 ${wide ? 'landscape' : 'portrait'}; margin:12mm;}`;
+}
+window.addEventListener('beforeprint', buildPrint);
+function closeExportMenu(){ const m = $('#exportMenu'); if(m) m.hidden = true; }
+$('#btnExport').addEventListener('click', e => {
+  e.stopPropagation();
+  if(!S.sheet){ toast(U('Open a sheet first', 'افتح جدول الأول')); return; }
+  $('#exportMenu').hidden = !$('#exportMenu').hidden;
+});
+document.addEventListener('mousedown', e => {
+  if(!e.target.closest('#exportMenu') && !e.target.closest('#btnExport')) closeExportMenu();
+});
+$$('#exportMenu [data-exp]').forEach(b => b.addEventListener('click', async () => {
+  closeExportMenu();
+  if(!S.sheet) return;
+  if(hasPending()) await saveChanges(true);            // نصدّر آخر نسخة محفوظة
+  const [fmt, scope] = b.dataset.exp.split('-');
+  if(fmt === 'print'){ buildPrint(); setTimeout(() => window.print(), 60); return; }
+  const p = new URLSearchParams({fmt, scope, lang:en() ? 'en' : 'ar',
+    q:S.q, sort:S.sort, dir:S.dir, filters:JSON.stringify(S.filters)});
+  const a = document.createElement('a');
+  a.href = `/api/sheets/${S.sheet.id}/export?` + p.toString();
+  a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  toast(U('Preparing the file…', 'جاري تجهيز الملف…'));
+}));
 $('#btnManage').addEventListener('click', openMgr);
 $('#btnSave').addEventListener('click', () => saveChanges());
 $('#btnAddRow').addEventListener('click', addRow);
@@ -1878,7 +1983,7 @@ document.addEventListener('paste', e => {
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){
     $$('.modal-back.open').forEach(m => m.classList.remove('open'));
-    closePop();
+    closePop(); closeExportMenu();
     if(S.cols.size || S.rowsSel.size) clearSelection();
     if(SEL){ SEL = null; paintSel(); }
   }
