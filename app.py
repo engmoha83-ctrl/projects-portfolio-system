@@ -99,6 +99,14 @@ def get_db_connection():
                                notes TEXT, active BOOLEAN DEFAULT TRUE,
                                created_by TEXT, created_at TIMESTAMP DEFAULT NOW(),
                                updated_at TIMESTAMP DEFAULT NOW())""")
+            # تصنيفات المشاريع: قائمة يملكها المستخدم لا ثوابت في الكود
+            cur.execute("""CREATE TABLE IF NOT EXISTS project_statuses (
+                               key TEXT PRIMARY KEY,
+                               label TEXT NOT NULL, label_en TEXT,
+                               color TEXT DEFAULT '#5B6577',
+                               seq INTEGER DEFAULT 100,
+                               active BOOLEAN DEFAULT TRUE)""")
+            _seed_statuses(cur)
             # كل اسم استُخدم للمشروع يُسجَّل هنا، فتغيير الاسم لا يقطع التاريخ القديم
             cur.execute("""CREATE TABLE IF NOT EXISTS project_aliases (
                                alias TEXT PRIMARY KEY,
@@ -120,6 +128,22 @@ def get_db_connection():
 def _today_ksa():
     """تاريخ اليوم بتوقيت السعودية (UTC+3) كنص YYYY-MM-DD."""
     return (datetime.utcnow() + timedelta(hours=3)).strftime("%Y-%m-%d")
+
+
+def _as_pct(v):
+    """نسبة مئوية بوحدة واحدة.
+
+    مديرو المشاريع يكتبون النسبة بصيغتين: 45 بمعنى ٤٥٪، و0.45 بمعنى ٤٥٪ أيضًا.
+    الداشبورد يعالج هذا منذ البداية بالقاعدة نفسها (أي قيمة ≤ 1 كسر يُضرب في 100)،
+    وطبقة الحقائق كانت تخزّن الرقم كما هو فتختلط الوحدتان في بطاقة واحدة.
+    هذه الدالة توحّدها هنا عند القراءة، فتتطابق الطبقة مع الداشبورد.
+    """
+    if v in (None, ""):
+        return None
+    n = _fnum(v)
+    if abs(n) <= 1.0001:
+        n *= 100
+    return round(n, 2)
 
 
 def _clean_date(v):
@@ -1652,13 +1676,35 @@ async def sheets_rows_save(sheet_id: int, request: Request):
 # المشروع كيان مستقل له معرّف ثابت، والاسم مجرد صفة للعرض. كل ما يُضاف للمشروع
 # لاحقًا (خط أساس، جداول كميات، برنامج زمني، سجلات) يتعلّق بهذا المعرّف.
 
-PROJECT_STATUS = {
-    "planning":  {"label": "قيد التخطيط",  "label_en": "Planning"},
-    "active":    {"label": "جارٍ التنفيذ",  "label_en": "In progress"},
-    "on_hold":   {"label": "متوقف",        "label_en": "On hold"},
-    "done":      {"label": "مكتمل",        "label_en": "Completed"},
-    "cancelled": {"label": "ملغي",         "label_en": "Cancelled"},
-}
+# التصنيفات الافتراضية — تُزرع مرة واحدة ثم تصبح تحت يد المستخدم يضيف ويعدّل ويحذف
+SEED_STATUSES = [
+    # key, عربي, إنجليزي, لون, ترتيب
+    ("upcoming",  "قادم",          "Upcoming",    "#5B6577", 10),
+    ("planning",  "قيد التخطيط",   "Planning",    "#7A6BA8", 20),
+    ("active",    "جارٍ التنفيذ",   "In progress", "#2E7D5B", 30),
+    ("on_hold",   "متوقف",         "On hold",     "#8A5A1E", 40),
+    ("done",      "مكتمل",         "Completed",   "#1F3A5F", 50),
+    ("cancelled", "ملغي",          "Cancelled",   "#C8543E", 60),
+]
+_STATUS_FALLBACK = {k: {"label": ar, "label_en": en, "color": c, "seq": s, "active": True}
+                    for k, ar, en, c, s in SEED_STATUSES}
+
+
+def _seed_statuses(cursor):
+    for k, ar, en, color, seq in SEED_STATUSES:
+        cursor.execute("""INSERT INTO project_statuses (key, label, label_en, color, seq)
+                          VALUES (%s,%s,%s,%s,%s) ON CONFLICT (key) DO NOTHING""",
+                       (k, ar, en, color, seq))
+
+
+def _statuses_map(cursor=None):
+    """قائمة التصنيفات كما عدّلها المستخدم، وإن تعذّر ذلك فالافتراضية."""
+    rows = _try_sql(cursor, """SELECT key, label, label_en, color, seq, active
+                               FROM project_statuses ORDER BY seq, key""") if cursor else None
+    if not rows:
+        return dict(_STATUS_FALLBACK)
+    return {r[0]: {"label": r[1], "label_en": r[2] or r[1], "color": r[3] or "#5B6577",
+                   "seq": r[4], "active": bool(r[5])} for r in rows}
 
 
 def _try_sql(cursor, sql, args=None):
@@ -1816,14 +1862,21 @@ def _projects_payload(cursor):
             p["last_update"] = st["last"]
 
     # أرقام العنوان لبطاقة المشروع في صفحة العرض العام — من طبقة الحقائق مباشرة
+    # أرقام البطاقة تُقرأ بنفس قاعدة بقية الصفحات: أولوية المصادر، وسقف «حتى اليوم»
+    # (خط التدفق النقدي يمتد لشهور قادمة، فبغير السقف يظهر المخطط 100% دائمًا)
     kpi_of = {}
-    for name, metric, val in _try_sql(cursor, """
-            SELECT DISTINCT ON (project_name, metric) project_name, metric, value
-            FROM project_facts
-            WHERE metric = ANY(%s) AND value IS NOT NULL
-            ORDER BY project_name, metric, period DESC, updated_at DESC""",
-            (PROJECT_KPIS,)):
-        kpi_of.setdefault((name or "").strip(), {})[metric] = float(val)
+    try:
+        cursor.execute("SAVEPOINT s_kpi")
+        for proj, per_metric in _facts_latest_on(cursor, PROJECT_KPIS).items():
+            kpi_of[(proj or "").strip()] = {k: v["value"] for k, v in per_metric.items()
+                                            if v.get("value") is not None}
+        cursor.execute("RELEASE SAVEPOINT s_kpi")
+    except Exception:
+        # لا نترك المعاملة مجهضة وإلا فشل كل استعلام بعدها بصمت
+        try:
+            cursor.execute("ROLLBACK TO SAVEPOINT s_kpi")
+        except Exception:
+            pass
 
     for p in projects:
         scored = sorted(p["aliases"],
@@ -1840,6 +1893,9 @@ def _projects_payload(cursor):
         for alias in p["aliases"]:                        # الأرقام قد تكون تحت اسم سابق
             for k, v in (kpi_of.get(alias) or {}).items():
                 kpi.setdefault(k, v)
+        # الانحراف يُحسب من الرقمين المعروضين نفسيهما، وإلا ظهرت بطاقة تناقض نفسها
+        if kpi.get("actual_pct") is not None and kpi.get("planned_pct") is not None:
+            kpi["progress_dev"] = round(kpi["actual_pct"] - kpi["planned_pct"], 2)
         p["kpi"] = kpi
     return projects
 
@@ -1881,13 +1937,58 @@ async def api_projects(request: Request, sync: int = 0):
         payload = _projects_payload(cursor)
         users = [{"username": r[0], "name": r[1] or r[0]}
                  for r in _try_sql(cursor, "SELECT username, manager_name FROM users ORDER BY username")]
+        statuses = _statuses_map(cursor)          # قبل الإغلاق: المؤشّر يُغلق مع الاتصال
         conn.close()
         return {"success": True, "projects": payload, "users": users,
-                "statuses": PROJECT_STATUS, "templates": _templates_meta(), "synced": synced}
+                "statuses": statuses, "templates": _templates_meta(), "synced": synced}
     except Exception as e:
         import traceback
         return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}",
                              "trace": traceback.format_exc()[-600:]}, status_code=500)
+
+
+@app.post("/api/project-statuses")
+async def api_statuses_save(request: Request):
+    """حفظ قائمة التصنيفات كما رتّبها المستخدم: إضافة وتعديل وحذف في طلب واحد."""
+    if request.cookies.get("super_admin_auth") != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        items = b.get("statuses") or []
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        keep, seq = [], 0
+        for it in items:
+            key = re.sub(r"[^a-z0-9_]", "", str(it.get("key") or "").strip().lower())[:40]
+            label = str(it.get("label") or "").strip()[:60]
+            if not key or not label:
+                continue
+            seq += 10
+            color = str(it.get("color") or "#5B6577")[:9]
+            if not re.match(r"^#[0-9a-fA-F]{6}$", color):
+                color = "#5B6577"
+            cursor.execute("""INSERT INTO project_statuses (key, label, label_en, color, seq, active)
+                              VALUES (%s,%s,%s,%s,%s,TRUE)
+                              ON CONFLICT (key) DO UPDATE SET label = EXCLUDED.label,
+                                label_en = EXCLUDED.label_en, color = EXCLUDED.color,
+                                seq = EXCLUDED.seq, active = TRUE""",
+                           (key, label, str(it.get("label_en") or "").strip()[:60] or label, color, seq))
+            keep.append(key)
+        if keep:
+            # تصنيف محذوف ولا يزال على مشاريع: نُبقيه معطّلًا حتى لا تفقد تلك المشاريع تصنيفها
+            cursor.execute("""SELECT key FROM project_statuses WHERE key <> ALL(%s)""", (keep,))
+            for (gone,) in cursor.fetchall():
+                cursor.execute("SELECT COUNT(*) FROM projects WHERE status = %s", (gone,))
+                if (cursor.fetchone() or [0])[0]:
+                    cursor.execute("UPDATE project_statuses SET active = FALSE WHERE key = %s", (gone,))
+                else:
+                    cursor.execute("DELETE FROM project_statuses WHERE key = %s", (gone,))
+        out = _statuses_map(cursor)
+        conn.commit()
+        conn.close()
+        return {"success": True, "statuses": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
 @app.post("/api/projects")
@@ -1902,7 +2003,7 @@ async def api_projects_save(request: Request, background_tasks: BackgroundTasks)
             return JSONResponse({"success": False, "error": "اسم المشروع مطلوب"}, status_code=400)
         pid = b.get("id")
         fields = {"name": name[:200], "name_en": (b.get("name_en") or "").strip()[:200] or None,
-                  "status": b.get("status") if b.get("status") in PROJECT_STATUS else "active",
+                  "status": (b.get("status") or "").strip()[:40] or "active",
                   "ptype": (b.get("ptype") or "").strip()[:80] or None,
                   "owner": (b.get("owner") or "").strip()[:120] or None,
                   "developer": (b.get("developer") or "").strip()[:120] or None,
@@ -2710,11 +2811,11 @@ def collect_updates(project=None, conn=None):
             out.append({"project": proj, "metric": metric, "period": per, "value": value,
                         "text": text, "source": "updates", "ref": ref})
 
-        act = _fnum(rec.get("act_prog_cur"))
-        plan = _fnum(rec.get("plan_prog_cur"))
-        add("actual_pct", act if rec.get("act_prog_cur") not in (None, "") else None)
-        add("planned_pct", plan if rec.get("plan_prog_cur") not in (None, "") else None)
-        if rec.get("act_prog_cur") not in (None, "") and rec.get("plan_prog_cur") not in (None, ""):
+        act = _as_pct(rec.get("act_prog_cur"))
+        plan = _as_pct(rec.get("plan_prog_cur"))
+        add("actual_pct", act)
+        add("planned_pct", plan)
+        if act is not None and plan is not None:
             add("progress_dev", round(act - plan, 2))
         cv = _fnum(rec.get("contractor_val"))
         add("contract_value", cv or None)
@@ -2930,16 +3031,22 @@ def facts_read(metric, projects=None, date_from=None, date_to=None, meta=None, s
 def facts_latest(metrics, projects=None, as_of=None, source=None):
     """آخر قيمة لكل مؤشر لكل مشروع حتى تاريخ معيّن (الافتراضي: اليوم — حتى لا تُحسب
        الخطة المستقبلية كأنها الوضع الحالي). اتصال واحد واستعلام واحد للجميع."""
-    as_of = as_of or _today_ksa()
     conn = get_db_connection()
-    cursor = conn.cursor()
+    try:
+        return _facts_latest_on(conn.cursor(), metrics, projects, as_of, source)
+    finally:
+        conn.close()
+
+
+def _facts_latest_on(cursor, metrics, projects=None, as_of=None, source=None):
+    """نفس المنطق على مؤشِّر قائم — حتى تقرأ كل الصفحات القيمة الحالية بقاعدة واحدة:
+       أولوية المصادر نفسها، والسقف الزمني نفسه."""
+    as_of = as_of or _today_ksa()
     mm = _metrics_map(cursor)
     keys = [k for k in metrics if k in mm]
     if not keys:
-        conn.close()
         return {}
     grouped = _facts_fetch(cursor, keys, projects, None, as_of, source)
-    conn.close()
 
     out = {}
     for key in keys:
