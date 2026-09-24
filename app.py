@@ -64,6 +64,29 @@ def get_db_connection():
                                data JSONB NOT NULL DEFAULT '{}'::jsonb,
                                updated_by TEXT, updated_at TIMESTAMP DEFAULT NOW())""")
             cur.execute("CREATE INDEX IF NOT EXISTS sheet_rows_sheet_seq ON sheet_rows (sheet_id, seq, id)")
+            # ===== طبقة الحقائق: كل المديولات بتكتب أرقامها هنا، والداشبورد بيقرا من هنا بس =====
+            cur.execute("""CREATE TABLE IF NOT EXISTS fact_metrics (
+                               key TEXT PRIMARY KEY,
+                               label TEXT NOT NULL, label_en TEXT,
+                               unit TEXT DEFAULT '', kind TEXT DEFAULT 'number',
+                               agg TEXT DEFAULT 'last', direction TEXT DEFAULT 'neutral',
+                               sources JSONB NOT NULL DEFAULT '[]'::jsonb,
+                               note TEXT, active BOOLEAN DEFAULT TRUE, seq INTEGER DEFAULT 100)""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS project_facts (
+                               id SERIAL PRIMARY KEY,
+                               project_name TEXT NOT NULL,
+                               metric TEXT NOT NULL,
+                               period DATE NOT NULL,
+                               value DOUBLE PRECISION,
+                               text_value TEXT,
+                               source TEXT NOT NULL,
+                               source_ref TEXT,
+                               is_baseline BOOLEAN DEFAULT FALSE,
+                               updated_at TIMESTAMP DEFAULT NOW())""")
+            cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS project_facts_key
+                           ON project_facts (project_name, metric, period, source,
+                                             COALESCE(source_ref, ''), is_baseline)""")
+            cur.execute("CREATE INDEX IF NOT EXISTS project_facts_lookup ON project_facts (metric, project_name, period)")
             conn.commit()
             _SCHEMA_READY = True
         except Exception:
@@ -1535,6 +1558,467 @@ async def sheets_rows_save(sheet_id: int, request: Request):
         return {"success": True, "ids": new_ids}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+# ==================== طبقة الحقائق (Facts Layer) ====================
+# المبدأ: أي مديول (تحديثات المديرين، التدفق النقدي، الجداول المخصصة، وبعدين البرنامج
+# الزمني والسجلات) بيكتب أرقامه هنا كـ «حقائق». والداشبورد والتقارير بيقروا من هنا بس،
+# فإضافة مديول جديد ما بتحتاجش أي تعديل في الداشبورد.
+#
+#   project_facts : المشروع + المؤشر + الفترة + القيمة + المصدر
+#   fact_metrics  : تعريف كل مؤشر، وأهمه ترتيب أولوية المصادر (مصدر واحد معتمد لكل رقم)
+
+SEED_METRICS = [
+    # key, عربي, إنجليزي, وحدة, نوع, تجميع, اتجاه, مصادر بالأولوية, ترتيب
+    ("actual_pct",      "الإنجاز الفعلي",        "Actual progress",   "%",   "percent",  "last", "up_good",   ["cashflow", "updates"], 10),
+    ("planned_pct",     "الإنجاز المخطط",        "Planned progress",  "%",   "percent",  "last", "neutral",   ["cashflow", "updates"], 20),
+    ("progress_dev",    "الانحراف عن المخطط",    "Progress deviation", "%",  "percent",  "last", "up_good",   ["cashflow", "updates"], 30),
+    ("spi",             "مؤشر أداء الجدول SPI",  "Schedule index",    "",    "number",   "last", "up_good",   ["cashflow"],            40),
+    ("contract_value",  "قيمة العقد",            "Contract value",    "SAR", "currency", "last", "neutral",   ["cashflow", "updates"], 50),
+    ("revised_value",   "القيمة بعد التعديلات",  "Revised value",     "SAR", "currency", "last", "neutral",   ["cashflow", "updates"], 60),
+    ("planned_cost",    "المخطط صرفه (شهري)",    "Planned cost",      "SAR", "currency", "sum",  "neutral",   ["cashflow"],            70),
+    ("actual_cost",     "المنصرف الفعلي (شهري)", "Actual cost",       "SAR", "currency", "sum",  "neutral",   ["cashflow"],            80),
+    ("invoiced_value",  "قيمة الفواتير",         "Invoiced value",    "SAR", "currency", "last", "neutral",   ["updates"],             90),
+    ("delay_days",      "التأخير عن نهاية العقد", "Delay",            "day", "number",   "last", "down_good", ["updates"],            100),
+    ("end_expected",    "النهاية المتوقعة",      "Expected finish",   "",    "date",     "last", "neutral",   ["updates"],            110),
+    ("end_contractual", "نهاية العقد",           "Contract finish",   "",    "date",     "last", "neutral",   ["updates"],            120),
+    ("drawings_pending", "مخططات قيد المراجعة",  "Drawings in review", "",   "count",    "last", "down_good", ["updates"],            130),
+    ("ir_pending",      "طلبات IR قيد المراجعة", "IRs in review",     "",    "count",    "last", "down_good", ["updates"],            140),
+    ("ncr_open",        "مخالفات NCR مفتوحة",    "Open NCRs",         "",    "count",    "last", "down_good", ["updates"],            150),
+]
+
+FACT_SOURCES = {
+    "updates":  {"label": "تحديثات مديري المشاريع", "label_en": "Manager updates"},
+    "cashflow": {"label": "التدفق النقدي",          "label_en": "Cash flow"},
+    "sheet":    {"label": "جدول مخصص",              "label_en": "Custom sheet"},
+    "wbs":      {"label": "هيكل الأعمال",           "label_en": "WBS"},
+    "manual":   {"label": "إدخال يدوي",             "label_en": "Manual entry"},
+}
+
+
+def _seed_metrics(cursor):
+    """يضيف المؤشرات القياسية مرة واحدة — وما بيلمسش أي تعديل عملته إنت عليها."""
+    for m in SEED_METRICS:
+        cursor.execute("""INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, seq)
+                          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (key) DO NOTHING""",
+                       (m[0], m[1], m[2], m[3], m[4], m[5], m[6], json.dumps(m[7]), m[8]))
+
+
+def _metrics_map(cursor=None):
+    own = cursor is None
+    if own:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+    cursor.execute("""SELECT key, label, label_en, unit, kind, agg, direction, sources, note, active, seq
+                      FROM fact_metrics ORDER BY seq, key""")
+    out = {}
+    for r in cursor.fetchall():
+        src = r[7] if isinstance(r[7], list) else json.loads(r[7] or "[]")
+        out[r[0]] = {"key": r[0], "label": r[1], "label_en": r[2], "unit": r[3] or "", "kind": r[4] or "number",
+                     "agg": r[5] or "last", "direction": r[6] or "neutral", "sources": src,
+                     "note": r[8] or "", "active": bool(r[9]), "seq": r[10]}
+    if own:
+        conn.close()
+    return out
+
+
+def _fact_period(v, default=None):
+    """يحوّل أي تاريخ (نص أو date أو YYYY-MM) لتاريخ حقيقي."""
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    t = str(v or "").strip()[:10]
+    if len(t) == 7:
+        t += "-01"
+    try:
+        return datetime.strptime(t, "%Y-%m-%d").date()
+    except Exception:
+        return default
+
+
+def facts_write(rows, replace_source=None, project=None):
+    """يكتب الحقائق (upsert). replace_source = يمسح حقائق المصدر ده الأول (إعادة بناء نظيفة)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        if replace_source:
+            if project:
+                cursor.execute("DELETE FROM project_facts WHERE source = %s AND project_name = %s",
+                               (replace_source, project))
+            else:
+                cursor.execute("DELETE FROM project_facts WHERE source = %s", (replace_source,))
+        n = 0
+        for f in rows:
+            per = _fact_period(f.get("period"))
+            proj = (f.get("project") or f.get("project_name") or "").strip()
+            metric = (f.get("metric") or "").strip()
+            if not (per and proj and metric):
+                continue
+            val = f.get("value")
+            val = None if val in ("", None) else _fnum(val)
+            cursor.execute("""INSERT INTO project_facts
+                                (project_name, metric, period, value, text_value, source, source_ref, is_baseline)
+                              VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                              ON CONFLICT (project_name, metric, period, source, COALESCE(source_ref, ''), is_baseline)
+                              DO UPDATE SET value = EXCLUDED.value, text_value = EXCLUDED.text_value,
+                                            updated_at = NOW()""",
+                           (proj, metric, per, val,
+                            (str(f.get("text")) if f.get("text") not in (None, "") else None),
+                            f.get("source") or "manual", f.get("ref"), bool(f.get("baseline"))))
+            n += 1
+        conn.commit()
+        return n
+    finally:
+        conn.close()
+
+
+# ---------- جامعو الحقائق من المديولات الموجودة ----------
+
+def collect_updates(project=None):
+    """حقائق من تحديثات مديري المشاريع — نقطة لكل تاريخ بيانات، فبتطلع سلسلة زمنية."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if project:
+        cursor.execute("SELECT * FROM project_updates WHERE project_name = %s ORDER BY current_data_date", (project,))
+    else:
+        cursor.execute("SELECT * FROM project_updates ORDER BY project_name, current_data_date")
+    cols = [d[0] for d in cursor.description]
+    rows = [dict(zip(cols, r)) for r in cursor.fetchall()]
+    conn.close()
+
+    out = []
+    for rec in rows:
+        proj = rec.get("project_name")
+        per = _fact_period(rec.get("current_data_date"))
+        if not proj or not per:
+            continue
+        ref = str(rec.get("id") or "")
+
+        def add(metric, value=None, text=None):
+            if value in ("", None) and text in ("", None):
+                return
+            out.append({"project": proj, "metric": metric, "period": per, "value": value,
+                        "text": text, "source": "updates", "ref": ref})
+
+        act = _fnum(rec.get("act_prog_cur"))
+        plan = _fnum(rec.get("plan_prog_cur"))
+        add("actual_pct", act if rec.get("act_prog_cur") not in (None, "") else None)
+        add("planned_pct", plan if rec.get("plan_prog_cur") not in (None, "") else None)
+        if rec.get("act_prog_cur") not in (None, "") and rec.get("plan_prog_cur") not in (None, ""):
+            add("progress_dev", round(act - plan, 2))
+        cv = _fnum(rec.get("contractor_val"))
+        add("contract_value", cv or None)
+        mods = _fnum(rec.get("contractor_mods_val"))
+        if cv:
+            add("revised_value", round(cv + mods, 2))
+        add("invoiced_value", _fnum(rec.get("cont_inv_val")) or None)
+        add("drawings_pending", _fnum(rec.get("drawings_rev")) or None)
+        add("ir_pending", _fnum(rec.get("ir_rev")) or None)
+        add("ncr_open", _fnum(rec.get("ncr_open")) or None)
+        end_c = _fact_period(rec.get("end_contractual"))
+        end_e = _fact_period(rec.get("end_expected"))
+        if end_c:
+            add("end_contractual", None, str(end_c))
+        if end_e:
+            add("end_expected", None, str(end_e))
+        if end_c and end_e:
+            add("delay_days", (end_e - end_c).days)
+    return out
+
+
+def collect_cashflow(project=None):
+    """حقائق من التدفق النقدي: النسب المخططة والفعلية والمبالغ الشهرية و SPI."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if project:
+        cursor.execute("SELECT DISTINCT project_name FROM cashflow_meta WHERE project_name = %s", (project,))
+    else:
+        cursor.execute("SELECT DISTINCT project_name FROM cashflow_meta")
+    projects = [r[0] for r in cursor.fetchall()]
+    conn.close()
+
+    out = []
+    for proj in projects:
+        try:
+            p = _cashflow_payload(proj)
+        except Exception:
+            continue
+        meta, rows = p["meta"], p["rows"]
+        base = float(meta.get("plan_base") or meta.get("contract_value") or 0)
+        rev = float(meta.get("revised_value") or meta.get("contract_value") or 0)
+        cum_plan, prev_act_amount = 0.0, 0.0
+        for r in rows:
+            per = _fact_period(r.get("ym"))
+            if not per:
+                continue
+
+            def add(metric, value=None, text=None, when=per):
+                if value in ("", None) and text in ("", None):
+                    return
+                out.append({"project": proj, "metric": metric, "period": when, "value": value,
+                            "text": text, "source": "cashflow", "ref": r.get("ym")})
+
+            pa = r.get("plan_amount")
+            if pa not in (None, ""):
+                cum_plan += float(pa)
+                add("planned_cost", float(pa))
+            plan_pct = (cum_plan / base * 100) if base else None
+            if plan_pct is not None and pa not in (None, ""):
+                add("planned_pct", round(plan_pct, 2))
+            ap = r.get("act_pct")
+            if ap not in (None, ""):
+                when = _fact_period(r.get("act_date"), per)
+                out.append({"project": proj, "metric": "actual_pct", "period": when,
+                            "value": round(float(ap), 2), "source": "cashflow", "ref": r.get("ym")})
+                act_amount = float(ap) / 100 * rev
+                out.append({"project": proj, "metric": "actual_cost", "period": per,
+                            "value": round(act_amount - prev_act_amount, 2), "source": "cashflow", "ref": r.get("ym")})
+                prev_act_amount = act_amount
+                if plan_pct:
+                    out.append({"project": proj, "metric": "progress_dev", "period": when,
+                                "value": round(float(ap) - plan_pct, 2), "source": "cashflow", "ref": r.get("ym")})
+                    out.append({"project": proj, "metric": "spi", "period": when,
+                                "value": round(float(ap) / plan_pct, 3), "source": "cashflow", "ref": r.get("ym")})
+        if base:
+            first = _fact_period((rows[0] or {}).get("ym")) if rows else None
+            if first:
+                out.append({"project": proj, "metric": "contract_value", "period": first,
+                            "value": float(meta.get("contract_value") or 0), "source": "cashflow", "ref": "meta"})
+                out.append({"project": proj, "metric": "revised_value", "period": first,
+                            "value": rev, "source": "cashflow", "ref": "meta"})
+    return out
+
+
+COLLECTORS = {"updates": collect_updates, "cashflow": collect_cashflow}
+
+
+def facts_rebuild(source="all", project=None):
+    """يعيد بناء الحقائق من المديولات — آمن تكراره، بيمسح حقائق المصدر ويكتبها من الأول."""
+    done = {}
+    names = list(COLLECTORS.keys()) if source in ("all", "", None) else [source]
+    for name in names:
+        fn = COLLECTORS.get(name)
+        if not fn:
+            continue
+        rows = fn(project)
+        done[name] = facts_write(rows, replace_source=name, project=project)
+    return done
+
+
+# ---------- القراءة: أولوية المصادر + التجميع ----------
+
+def facts_read(metric, projects=None, date_from=None, date_to=None, meta=None):
+    """يرجّع حقائق مؤشر واحد بعد تطبيق أولوية المصادر: لكل (مشروع، فترة) القيمة من
+       أول مصدر متاح حسب ترتيب المؤشر — وده تطبيق قاعدة «مصدر واحد معتمد لكل رقم»."""
+    meta = meta or _metrics_map().get(metric)
+    if not meta:
+        return []
+    order = meta.get("sources") or []
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    sql = ["SELECT project_name, period, value, text_value, source FROM project_facts",
+           "WHERE metric = %s AND is_baseline = FALSE"]
+    args = [metric]
+    if projects:
+        sql.append("AND project_name = ANY(%s)")
+        args.append(list(projects))
+    if date_from:
+        sql.append("AND period >= %s")
+        args.append(_fact_period(date_from))
+    if date_to:
+        sql.append("AND period <= %s")
+        args.append(_fact_period(date_to))
+    sql.append("ORDER BY project_name, period")
+    cursor.execute(" ".join(sql), args)
+    raw = cursor.fetchall()
+    conn.close()
+
+    # المصدر بيتقرر لكل مشروع كله، مش لكل نقطة — عشان السلسلة ما تبقاش خليط مصدرين
+    rank = lambda src: order.index(src) if src in order else len(order) + 1
+    chosen = {}
+    for proj, per, val, txt, src in raw:
+        r = rank(src)
+        if proj not in chosen or r < chosen[proj]:
+            chosen[proj] = r
+    out = []
+    for proj, per, val, txt, src in raw:
+        if rank(src) != chosen.get(proj):
+            continue
+        out.append({"project": proj, "period": str(per), "value": val, "text": txt, "source": src})
+    out.sort(key=lambda x: (x["project"], x["period"]))
+    return out
+
+
+def facts_latest(metrics, projects=None, as_of=None):
+    """آخر قيمة لكل مؤشر لكل مشروع حتى تاريخ معيّن (الافتراضي: النهارده — عشان الخطة
+       اللي لسه جاية في المستقبل ما تتحسبش كإنها الوضع الحالي)."""
+    as_of = as_of or _today_ksa()
+    mm = _metrics_map()
+    out = {}
+    for key in metrics:
+        meta = mm.get(key)
+        if not meta:
+            continue
+        rows = facts_read(key, projects, None, as_of, meta)
+        for r in rows:
+            cur = out.setdefault(r["project"], {})
+            old = cur.get(key)
+            if meta.get("agg") == "sum":
+                cur[key] = {"value": (old or {}).get("value", 0) + (r["value"] or 0),
+                            "period": r["period"], "source": r["source"]}
+            elif not old or r["period"] >= old["period"]:
+                cur[key] = {"value": r["value"], "text": r["text"],
+                            "period": r["period"], "source": r["source"]}
+    return out
+
+
+def _fact_admin(request):
+    return request.cookies.get("super_admin_auth") == "admin_mohamed"
+
+
+@app.get("/admin-facts", response_class=HTMLResponse)
+async def facts_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return RedirectResponse(url="/admin", status_code=303)
+    if admin_user != "admin_mohamed":
+        return RedirectResponse(url="/admin-dashboard", status_code=303)
+    return templates.TemplateResponse(request, "facts.html", {"admin_user": admin_user, "active_page": "facts"})
+
+
+@app.get("/api/facts/metrics")
+async def api_fact_metrics(request: Request):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    _seed_metrics(cursor)
+    conn.commit()
+    mm = _metrics_map(cursor)
+    conn.close()
+    return {"success": True, "metrics": list(mm.values()), "sources": FACT_SOURCES}
+
+
+@app.post("/api/facts/metrics")
+async def api_fact_metrics_save(request: Request):
+    """إضافة أو تعديل تعريف مؤشر (الاسم، الوحدة، طريقة التجميع، ترتيب أولوية المصادر)."""
+    if not _fact_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        key = re.sub(r"[^a-z0-9_]", "", str(b.get("key") or "").lower())
+        if not key:
+            return JSONResponse({"success": False, "error": "المفتاح مطلوب"}, status_code=400)
+        srcs = [s for s in (b.get("sources") or []) if s in FACT_SOURCES or str(s).startswith("sheet:")]
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, note, active, seq)
+                          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                          ON CONFLICT (key) DO UPDATE SET label = EXCLUDED.label, label_en = EXCLUDED.label_en,
+                            unit = EXCLUDED.unit, kind = EXCLUDED.kind, agg = EXCLUDED.agg,
+                            direction = EXCLUDED.direction, sources = EXCLUDED.sources,
+                            note = EXCLUDED.note, active = EXCLUDED.active, seq = EXCLUDED.seq""",
+                       (key, str(b.get("label") or key)[:80], str(b.get("label_en") or "")[:80],
+                        str(b.get("unit") or "")[:12],
+                        b.get("kind") if b.get("kind") in ("number", "percent", "currency", "count", "date", "text") else "number",
+                        b.get("agg") if b.get("agg") in ("last", "sum", "avg", "min", "max") else "last",
+                        b.get("direction") if b.get("direction") in ("up_good", "down_good", "neutral") else "neutral",
+                        json.dumps(srcs), str(b.get("note") or "")[:300],
+                        bool(b.get("active", True)), int(_fnum(b.get("seq")) or 100)))
+        conn.commit()
+        conn.close()
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/facts")
+async def api_facts_write(request: Request):
+    """كتابة حقائق من أي مديول (أو يدوي)."""
+    if not _fact_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        rows = b.get("facts") or []
+        if not isinstance(rows, list):
+            return JSONResponse({"success": False, "error": "facts لازم تكون قائمة"}, status_code=400)
+        n = facts_write(rows[:5000], replace_source=b.get("replace_source"), project=b.get("project"))
+        return {"success": True, "written": n}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/facts/series")
+async def api_facts_series(request: Request, metric: str, projects: str = "", date_from: str = "", date_to: str = ""):
+    """سلسلة زمنية لمؤشر واحد لمشروع أو أكتر — ده اللي الداشبورد هيقرا منه."""
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        mm = _metrics_map()
+        meta = mm.get(metric)
+        if not meta:
+            return JSONResponse({"success": False, "error": "مؤشر غير معروف"}, status_code=404)
+        plist = [p for p in projects.split("|") if p] or None
+        rows = facts_read(metric, plist, date_from or None, date_to or None, meta)
+        series = {}
+        for r in rows:
+            series.setdefault(r["project"], []).append(
+                {"period": r["period"], "value": r["value"], "text": r["text"], "source": r["source"]})
+        return {"success": True, "metric": meta,
+                "series": [{"project": k, "points": v} for k, v in sorted(series.items())]}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/facts/latest")
+async def api_facts_latest(request: Request, metrics: str = "", projects: str = "", as_of: str = ""):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        keys = [k for k in metrics.split(",") if k] or list(_metrics_map().keys())
+        plist = [p for p in projects.split("|") if p] or None
+        return {"success": True, "latest": facts_latest(keys, plist, as_of or None)}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/facts/rebuild")
+async def api_facts_rebuild(request: Request, background_tasks: BackgroundTasks):
+    """إعادة بناء الحقائق من المديولات الحالية."""
+    if not _fact_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        _seed_metrics(cursor)
+        conn.commit()
+        conn.close()
+        done = facts_rebuild(b.get("source") or "all", (b.get("project") or "").strip() or None)
+        background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"),
+                                  "إعادة بناء طبقة الحقائق", json.dumps(done, ensure_ascii=False))
+        return {"success": True, "written": done}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/facts/health")
+async def api_facts_health(request: Request):
+    """نظرة سريعة: كام حقيقة لكل مصدر ومؤشر، وآخر تحديث — عشان تعرف الطبقة صحية ولا لأ."""
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""SELECT source, metric, COUNT(*), COUNT(DISTINCT project_name),
+                             MIN(period), MAX(period), MAX(updated_at)
+                      FROM project_facts GROUP BY source, metric ORDER BY source, metric""")
+    stats = [{"source": r[0], "metric": r[1], "facts": r[2], "projects": r[3],
+              "from": str(r[4]), "to": str(r[5]), "updated_at": str(r[6])[:16]} for r in cursor.fetchall()]
+    cursor.execute("SELECT COUNT(*), COUNT(DISTINCT project_name), COUNT(DISTINCT metric) FROM project_facts")
+    t = cursor.fetchone()
+    conn.close()
+    return {"success": True, "total": {"facts": t[0], "projects": t[1], "metrics": t[2]}, "stats": stats}
 
 
 # ==================== التدفق النقدي ومنحنى الإنجاز (Cash Flow & S-Curve) ====================
