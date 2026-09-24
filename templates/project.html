@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project | Saudi Architects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EBEF; --tint:#F1F3F7; --tint2:#E6EAF0; --line:#E3E6EC; --ink:#172033; --muted:#5B6577;
+  --navy:#1F3A5F; --navy2:#274A78; --gold:#C8A165; --danger:#C8543E; --good:#2E7D5B; --warn:#8A5A1E;
+  --head-h:58px; --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+[hidden]{display:none !important;}
+html,body{height:100%;margin:0;}
+body{font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif; background:var(--bg); color:var(--ink);
+     -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; min-height:100%;}
+html[lang="ar"] body{font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;}
+button,input,select,textarea{font-family:inherit; border-radius:0;}
+.hdr{min-height:var(--head-h); flex:0 0 auto; background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07); display:flex;
+     align-items:center; gap:8px; padding:8px 16px; position:sticky; top:0; z-index:30; flex-wrap:wrap;}
+.hdr-back{width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+          background:var(--tint); color:var(--ink); text-decoration:none; transition:background-color .15s ease;}
+.hdr-back:hover{background:var(--tint2);}
+[dir="rtl"] .hdr-back svg{transform:scaleX(-1);}
+.hdr-title{display:flex; flex-direction:column; line-height:1.25; padding:0 10px; min-width:0;}
+.hdr-title small{font-size:11px; color:var(--muted); font-weight:500;
+  font-family:ui-monospace,Menlo,Consolas,monospace;}
+.hdr-title b{font-size:14.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:46vw;}
+.spacer{flex:1;}
+.btn{height:34px; border:none; background:var(--tint); padding:0 12px; font-size:13px; font-weight:500;
+     color:var(--ink); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
+     transition:background-color .15s ease, transform .15s ease; text-decoration:none;}
+.btn:hover{background:var(--tint2);}
+.btn:active{transform:scale(.98);}
+.btn[disabled]{opacity:.45; pointer-events:none;}
+.btn.primary{background:var(--navy); color:#fff; font-weight:600;}
+.btn.primary:hover{background:var(--navy2);}
+.btn.danger{color:var(--danger);}
+.btn.danger:hover{background:#FBEDEA;}
+.btn.sm{height:28px; font-size:12px; padding:0 10px;}
+.fld{height:34px; background:var(--tint); border:none; padding:0 9px; font-size:13px; color:var(--ink); width:100%;}
+.fld:focus{outline:2px solid #C9D6E8;}
+textarea.fld{height:70px; padding:8px 9px; resize:vertical;}
+
+.wrap{flex:1 1 auto; padding:18px 16px 44px; max-width:1240px; width:100%; margin:0 auto;}
+.card{background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 6px 16px rgba(23,32,51,.055); margin-bottom:16px;}
+.card > h2{margin:0; padding:15px 20px 3px; font-size:14px; font-weight:700; display:flex; align-items:center; gap:10px;}
+.note{font-size:12px; color:var(--muted); line-height:1.75; padding:3px 20px 14px; max-width:78ch;}
+
+/* ---- تبويبات ---- */
+.tabs{display:flex; gap:1px; background:var(--line); border:1px solid var(--line); margin-bottom:16px;
+      overflow:auto;}
+.tabs button{height:38px; border:none; background:#fff; padding:0 18px; font-size:13px; color:var(--muted);
+             cursor:pointer; font-weight:500; white-space:nowrap; display:inline-flex; align-items:center; gap:7px;}
+.tabs button:hover{background:#FAFBFC;}
+.tabs button.on{background:var(--navy); color:#fff; font-weight:600;}
+.tabs .n{font-size:11px; background:var(--tint2); color:var(--muted); padding:1px 6px; min-width:18px; text-align:center;}
+.tabs button.on .n{background:rgba(255,255,255,.2); color:#fff;}
+
+/* ---- الترويسة ---- */
+.head{display:flex; align-items:flex-start; gap:18px; padding:18px 20px; flex-wrap:wrap;}
+.head .who{min-width:0; flex:1 1 280px;}
+.head h1{margin:0; font-size:21px; font-weight:600; line-height:1.35;}
+.head .sub{font-size:12.5px; color:var(--muted); margin-top:5px;}
+.st{font-size:11px; padding:3px 9px; white-space:nowrap; background:var(--tint2); color:var(--muted); font-weight:500;}
+.st.active{background:#E7F1EC; color:var(--good);}
+.st.on_hold{background:#FDF3E7; color:var(--warn);}
+.st.done{background:#E7EEF8; color:var(--navy);}
+.st.cancelled{background:#FBEDEA; color:var(--danger);}
+.kpi{display:grid; grid-template-columns:repeat(auto-fit, minmax(128px, 1fr)); gap:1px;
+     background:var(--line); border-top:1px solid var(--line);}
+.kpi .k{background:#fff; padding:12px 16px;}
+.kpi .k b{display:block; font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.3;}
+.kpi .k span{font-size:11px; color:var(--muted);}
+.kpi .k.hot b{color:var(--danger);}
+.kpi .k.good b{color:var(--good);}
+
+/* ---- نموذج البيانات ---- */
+.grid2{display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:12px 14px; padding:4px 20px 16px;}
+.grid2 label{display:flex; flex-direction:column; gap:5px; font-size:11.5px; color:var(--muted);}
+.grid2 label.wide{grid-column:1 / -1;}
+.mgrs{display:flex; flex-wrap:wrap; gap:6px; margin-top:5px;}
+.mgr{display:inline-flex; align-items:center; gap:6px; background:var(--tint2); font-size:12px; padding:4px 9px;}
+.mgr button{border:none; background:none; color:var(--muted); cursor:pointer; font-size:10px;}
+.mgr button:hover{color:var(--danger);}
+.alias{display:inline-flex; align-items:center; gap:6px; background:#F7F8FA; font-size:12px; padding:4px 9px;
+  color:var(--muted); margin:0 5px 5px 0;}
+.alias button{border:none; background:none; color:var(--muted); cursor:pointer; font-size:10px;}
+.alias button:hover{color:var(--danger);}
+.card-body{padding:2px 20px 18px;}
+.foot{display:flex; gap:8px; padding:13px 20px; background:#FAFBFC; border-top:1px solid var(--line); flex-wrap:wrap;}
+.keynote{margin:0 20px 14px; padding:10px 13px; background:#FDF3E7; color:var(--warn); font-size:12px; line-height:1.75;}
+
+/* ---- المتعلقات والسجلات ---- */
+.items{display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px; padding:2px 20px 18px;}
+.att{display:flex; align-items:center; gap:11px; padding:11px 13px; background:var(--tint); min-width:0;}
+.att .ic{width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-size:15px;
+  background:#fff; color:var(--muted); flex:0 0 30px;}
+.att .tx{flex:1; min-width:0;}
+.att .tx b{display:block; font-size:12.5px; font-weight:600; line-height:1.4;}
+.att .tx span{font-size:11px; color:var(--muted);}
+.att.ok{background:#EFF5F2;}
+.att.ok .ic{color:var(--good);}
+.att .btn{flex:0 0 auto;}
+.empty{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px;}
+
+.toast{position:fixed; bottom:22px; inset-inline-end:22px; background:var(--ink); color:#fff; padding:12px 18px;
+  font-size:13px; box-shadow:0 18px 40px rgba(23,32,51,.22); z-index:99; opacity:0; transform:translateY(12px);
+  transition:opacity .25s ease, transform .3s var(--ease); pointer-events:none;}
+.toast.show{opacity:1; transform:none;}
+.toast.err{background:var(--danger);}
+.load-bar{position:fixed; top:var(--head-h); left:0; right:0; height:3px; z-index:70; overflow:hidden; pointer-events:none;
+  opacity:0; transition:opacity .25s ease;}
+.load-bar.on{opacity:1;}
+.load-bar i{position:absolute; top:0; bottom:0; width:35%; background:var(--gold); animation:ls 1.1s var(--ease) infinite;}
+.load-bar::before{content:''; position:absolute; inset:0; background:rgba(200,161,101,.22);}
+@keyframes ls{from{left:-35%}to{left:100%}}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <a class="hdr-back" href="/admin-projects" data-i18n-title="back">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
+  <div class="hdr-title"><small id="hCode"></small><b id="hName" data-i18n="loading">Loading…</b></div>
+  <div class="spacer"></div>
+  <a class="btn" id="btnDash" data-i18n="openDash">Dashboard</a>
+  <button class="btn" id="btnLang">العربية</button>
+</header>
+
+<div class="load-bar" id="loadBar"><i></i></div>
+
+<div class="wrap">
+  <div id="missing" class="card" hidden><div class="empty" data-i18n="gone"></div></div>
+
+  <div id="body" hidden>
+    <div class="card">
+      <div class="head">
+        <div class="who">
+          <h1 id="pTitle"></h1>
+          <div class="sub" id="pSub"></div>
+        </div>
+        <span class="st" id="pStatus"></span>
+      </div>
+      <div class="kpi" id="kpiBar"></div>
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+
+    <!-- البيانات -->
+    <section data-pane="info" hidden>
+      <div class="card">
+        <h2><span data-i18n="infoT">Project details</span></h2>
+        <div class="note" data-i18n="infoNote"></div>
+        <div class="grid2">
+          <label class="wide"><span data-i18n="nameAr">Name (Arabic)</span><input class="fld" id="f_name"></label>
+          <label class="wide"><span data-i18n="nameEn">Name (English)</span><input class="fld" id="f_name_en"></label>
+          <label><span data-i18n="status">Status</span><select class="fld" id="f_status"></select></label>
+          <label><span data-i18n="ptype">Type</span><input class="fld" id="f_ptype"></label>
+          <label><span data-i18n="city">City</span><input class="fld" id="f_city"></label>
+          <label><span data-i18n="owner">Owner</span><input class="fld" id="f_owner"></label>
+          <label><span data-i18n="developer">Developer</span><input class="fld" id="f_developer"></label>
+          <label><span data-i18n="contractor">Contractor</span><input class="fld" id="f_contractor"></label>
+          <label><span data-i18n="consultant">Consultant</span><input class="fld" id="f_consultant"></label>
+          <label><span data-i18n="value">Contract value</span><input class="fld" id="f_contract_value" type="number" step="any"></label>
+          <label><span data-i18n="start">Start</span><input class="fld" id="f_start_date" type="date"></label>
+          <label><span data-i18n="end">Finish</span><input class="fld" id="f_end_date" type="date"></label>
+          <label class="wide"><span data-i18n="managers">Managers</span>
+            <select class="fld" id="f_addmgr"></select>
+            <div class="mgrs" id="mgrs"></div></label>
+          <label class="wide"><span data-i18n="notes">Notes</span><textarea class="fld" id="f_notes"></textarea></label>
+        </div>
+        <div class="foot">
+          <button class="btn primary" id="btnSave" data-i18n="save">Save</button>
+          <button class="btn" id="btnArchive" data-i18n="archive">Archive</button>
+          <div class="spacer"></div>
+          <button class="btn" id="btnMerge" data-i18n="merge">Merge…</button>
+          <button class="btn danger" id="btnDel" data-i18n="del">Delete</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- المتعلقات -->
+    <section data-pane="attached" hidden>
+      <div class="card">
+        <h2><span data-i18n="attachT">What is attached</span></h2>
+        <div class="note" data-i18n="attachNote"></div>
+        <div class="keynote" id="keyNote" hidden></div>
+        <div class="items" id="attachBox"></div>
+      </div>
+    </section>
+
+    <!-- السجلات -->
+    <section data-pane="logs" hidden>
+      <div class="card">
+        <h2><span data-i18n="logsT">Project logs</span></h2>
+        <div class="note" data-i18n="logsNote"></div>
+        <div class="items" id="logsBox"></div>
+      </div>
+    </section>
+
+    <!-- الأسماء -->
+    <section data-pane="names" hidden>
+      <div class="card">
+        <h2><span data-i18n="aliasT">Previous names</span></h2>
+        <div class="note" data-i18n="aliasNote"></div>
+        <div class="card-body" id="aliasBox"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PROJECT_ID = {{ project_id }};
+const UI_KEY = 'pmis_ui_lang';
+let UIL = (() => { try{ return localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){ return 'en'; } })();
+const en = () => UIL !== 'ar';
+const U  = (e, a) => en() ? e : a;
+const I18N = {
+  back:['Back to projects','رجوع إلى المشاريع'], loading:['Loading…','جارٍ التحميل…'],
+  gone:['This project is no longer in the registry.','هذا المشروع لم يعد موجودًا في السجل.'],
+  openDash:['Dashboard','الداشبورد'],
+  tabInfo:['Details','البيانات'], tabAttached:['Attached','المتعلقات'],
+  tabLogs:['Logs','السجلات'], tabNames:['Names','الأسماء'],
+  infoT:['Project details','بيانات المشروع'],
+  infoNote:['The code is generated by the system and never changes, so everything attached to the project hangs off it rather than off the name.',
+            'الكود يولّده النظام ولا يتغيّر أبدًا، فكل ما يتعلّق بالمشروع مرتبط به لا بالاسم.'],
+  nameAr:['Name (Arabic)','الاسم بالعربية'], nameEn:['Name (English)','الاسم بالإنجليزية'],
+  status:['Status','الحالة'], ptype:['Type','النوع'], owner:['Owner','المالك'], developer:['Developer','المطوّر'],
+  contractor:['Contractor','المقاول'], consultant:['Consultant','الاستشاري'], city:['City','المدينة'],
+  value:['Contract value','قيمة العقد'], start:['Start','البداية'], end:['Finish','النهاية'],
+  managers:['Managers','مديرو المشروع'], notes:['Notes','ملاحظات'],
+  save:['Save','حفظ'], archive:['Archive','أرشفة'], unarchive:['Unarchive','إلغاء الأرشفة'],
+  merge:['Merge…','دمج…'], del:['Delete','حذف'],
+  attachT:['What is attached','ما هو متعلّق بالمشروع'],
+  attachNote:['Everything below hangs off this project. What is missing can be added from here.',
+              'كل ما يلي متعلّق بهذا المشروع. وما هو ناقص يمكن إضافته من هنا.'],
+  logsT:['Project logs','سجلات المشروع'],
+  logsNote:['A ready-made sheet with standard columns, linked to this project. Its figures are written to the facts layer automatically, so what you record here shows up on the dashboard.',
+            'جدول جاهز بأعمدة قياسية مرتبط بهذا المشروع. تُكتب أرقامه في طبقة الحقائق تلقائيًا، فما تسجّله هنا يظهر في الداشبورد.'],
+  aliasT:['Previous names','الأسماء السابقة'],
+  aliasNote:['Old data is linked by name. Keeping previous names here means renaming a project never splits its history.',
+             'البيانات القديمة مرتبطة بالاسم. الاحتفاظ بالأسماء السابقة هنا يعني أن تغيير اسم المشروع لا يقسّم تاريخه.'],
+  keyNote:['The data of this project is stored under the name "%s", which is the name the other pages open with. Changing the display name above does not move the data.',
+           'بيانات هذا المشروع مخزَّنة باسم «%s»، وهو الاسم الذي تفتح به الصفحات الأخرى. تغيير الاسم المعروض أعلاه لا ينقل البيانات.'],
+  updates:['Dashboard & updates','الداشبورد والتحديثات'], cashflow:['Cash flow baseline','خط الأساس المالي'],
+  sheets:['Custom sheets','الجداول المخصصة'], facts:['Facts','الحقائق'],
+  schedule:['Schedule','البرنامج الزمني'], boq:['Bill of quantities','جداول الكميات'],
+  soon:['Coming later','قريبًا'], none:['Not added yet','لم يُضف بعد'],
+  empty0:['Created, no entries yet','أُنشئ، ولا توجد بنود بعد'],
+  open:['Open','فتح'], add:['Add','إضافة'],
+  kActual:['Actual progress','الإنجاز الفعلي'], kPlanned:['Planned','المخطط'],
+  kDev:['Deviation','الانحراف'], kIssues:['Open issues','مشاكل مفتوحة'],
+  kRisks:['High risks','مخاطر عالية'], kLate:['Late materials','توريدات متأخرة'],
+  kSub:['Late replies','ردود متأخرة'], kUnpaid:['Unpaid invoices','فواتير غير مسددة'],
+  lastUpd:['last %s','آخرها %s'],
+  saved:['Saved','تم الحفظ'], logAdded:['Log created','تم إنشاء السجل'],
+  askAlias:['Add a previous name that appears in old data:','أضف اسمًا سابقًا يظهر في البيانات القديمة:'],
+  askMerge:['Merge this project into which one? Enter its code:','دمج هذا المشروع في أي مشروع؟ اكتب كوده:'],
+  mergeDone:['Merged','تم الدمج'], notFound:['No project with that code','لا يوجد مشروع بهذا الكود'],
+  confirmMerge:['Move all names of "%s" into "%s"? The first project disappears from the registry and its history joins the second.',
+                'نقل كل أسماء «%s» إلى «%s»؟ المشروع الأول يختفي من السجل وينضم تاريخه إلى الثاني.'],
+  confirmDel:['Delete this project from the registry?','حذف هذا المشروع من السجل؟'],
+  addMgr:['+ add a manager','+ أضف مديرًا'],
+  noMgr:['No manager assigned','لا يوجد مدير مسنَد']
+};
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = t => String(t == null ? '' : t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const T = k => (I18N[k] || ['', ''])[en() ? 0 : 1];
+/* صيغ العدد في الفصحى: مفرد / مثنّى / جمع قلّة (٣-١٠) / تمييز منصوب (١١ فأكثر) */
+const NOUNS = {
+  rows:    {en:['row', 'rows'],       ar:['صف واحد', 'صفان', 'صفوف', 'صفًا']},
+  updates: {en:['update', 'updates'], ar:['تحديث واحد', 'تحديثان', 'تحديثات', 'تحديثًا']},
+  sheets:  {en:['sheet', 'sheets'],   ar:['جدول واحد', 'جدولان', 'جداول', 'جدولًا']},
+  facts:   {en:['fact', 'facts'],     ar:['حقيقة واحدة', 'حقيقتان', 'حقائق', 'حقيقةً']}
+};
+function nOf(n, kind){
+  n = +n || 0;
+  const f = NOUNS[kind] || NOUNS.rows;
+  if(en()) return n + ' ' + f.en[n === 1 ? 0 : 1];
+  if(n === 1) return f.ar[0];
+  if(n === 2) return f.ar[1];
+  return n + ' ' + f.ar[n <= 10 ? 2 : 3];
+}
+/* الأرقام تُعزل باتجاه LTR حتى لا تنقلب علامة % إلى يسار الرقم داخل جملة عربية */
+const LTR = s => '\u2066' + s + '\u2069';
+const pct = v => (v === null || v === undefined) ? '—'
+  : LTR((Math.round(v * 10) / 10).toLocaleString('en-US', {maximumFractionDigits:1}) + '%');
+const money = v => (v === null || v === undefined) ? '—'
+  : LTR(Math.round(v).toLocaleString('en-US')) + ' ' + U('SAR', 'ر.س');
+function toast(msg, isErr){
+  const t = $('#toast'); t.textContent = msg; t.classList.toggle('err', !!isErr); t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2800);
+}
+let BUSY = 0;
+const busy = on => { BUSY = Math.max(0, BUSY + (on ? 1 : -1)); $('#loadBar').classList.toggle('on', BUSY > 0); };
+async function api(url, opts){
+  busy(true);
+  try{
+    const r = await fetch(url, opts);
+    const j = await r.json().catch(() => ({success:false, error:'HTTP ' + r.status}));
+    if(!j.success && j.error) toast(j.error, true);
+    return j;
+  }catch(e){ toast(String(e.message || e), true); return {success:false}; }
+  finally{ busy(false); }
+}
+
+const S = {p:null, all:[], users:[], statuses:{}, templates:[], tab:'info'};
+const pName = p => (en() ? (p.name_en || p.name) : (p.name || p.name_en)) || p.code;
+const stLabel = k => { const s = S.statuses[k]; return s ? (en() ? s.label_en : s.label) : k; };
+const K = k => { const v = (S.p.kpi || {})[k]; return v === undefined ? null : v; };
+
+const TABS = [['info', 'tabInfo'], ['attached', 'tabAttached'], ['logs', 'tabLogs'], ['names', 'tabNames']];
+const tabCount = k => {
+  const p = S.p;
+  if(k === 'logs')  return Object.keys(p.logs || {}).length;
+  if(k === 'names') return (p.aliases || []).length;
+  if(k === 'attached') return [p.updates, p.cashflow, p.sheets, p.facts].filter(Boolean).length;
+  return null;
+};
+
+function setF(k, v){ const el = $('#f_' + k); if(el) el.value = v == null ? '' : v; }
+function getF(k){ const el = $('#f_' + k); return el ? el.value : ''; }
+
+function applyLang(){
+  const i = en() ? 0 : 1;
+  document.documentElement.lang = en() ? 'en' : 'ar';
+  document.documentElement.dir  = en() ? 'ltr' : 'rtl';
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = (I18N[el.dataset.i18n] || ['', ''])[i]);
+  document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = (I18N[el.dataset.i18nTitle] || ['', ''])[i]);
+  $('#btnLang').textContent = en() ? 'Arabic' : 'English';
+  document.title = en() ? 'Project | Saudi Architects' : 'المشروع | المعماريون السعوديون';
+  const sel = $('#f_status'), keep = sel.value;
+  sel.innerHTML = Object.keys(S.statuses).map(k => `<option value="${k}">${esc(stLabel(k))}</option>`).join('');
+  sel.value = keep || (S.p ? S.p.status : 'active');
+  const mg = $('#f_addmgr');
+  mg.innerHTML = `<option value="">${T('addMgr')}</option>` +
+    S.users.map(u => `<option value="${esc(u.username)}">${esc(u.name)} · ${esc(u.username)}</option>`).join('');
+}
+
+function drawTabs(){
+  $('#tabs').innerHTML = TABS.map(([k, t]) => {
+    const n = tabCount(k);
+    return `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${T(t)}${
+      n ? `<span class="n">${n}</span>` : ''}</button>`;
+  }).join('');
+  $$('#tabs button').forEach(b => b.addEventListener('click', () => { S.tab = b.dataset.tab; showTab(); }));
+}
+function showTab(){
+  $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
+  $$('[data-pane]').forEach(s => s.hidden = s.dataset.pane !== S.tab);
+  try{ history.replaceState(null, '', '#' + S.tab); }catch(e){}
+}
+
+function drawHead(){
+  const p = S.p;
+  $('#hCode').textContent = p.code;
+  $('#hName').textContent = pName(p);
+  $('#pTitle').textContent = pName(p);
+  $('#pSub').textContent = [p.ptype, p.city, p.contractor,
+    p.updates ? nOf(p.updates, 'updates') + (p.last_update ? ' · ' + T('lastUpd').replace('%s', p.last_update) : '') : ''
+  ].filter(Boolean).join('  ·  ');
+  const st = $('#pStatus');
+  st.className = 'st ' + (p.active ? p.status : 'cancelled');
+  st.textContent = p.active ? stLabel(p.status) : T('archive');
+  $('#btnDash').href = '/builder?project=' + encodeURIComponent(p.data_key || p.name);
+
+  const tiles = [
+    {k:'kActual',  v:pct(K('actual_pct'))},
+    {k:'kPlanned', v:pct(K('planned_pct'))},
+    {k:'kDev',     v:pct(K('progress_dev')), cls:K('progress_dev') === null ? '' : K('progress_dev') < 0 ? 'hot' : 'good'},
+    {k:'kIssues',  v:K('issue_open'),  cls:K('issue_open') ? 'hot' : ''},
+    {k:'kRisks',   v:K('risk_high'),   cls:K('risk_high') ? 'hot' : ''},
+    {k:'kLate',    v:K('mat_late'),    cls:K('mat_late') ? 'hot' : ''},
+    {k:'kSub',     v:K('sub_overdue'), cls:K('sub_overdue') ? 'hot' : ''},
+    {k:'kUnpaid',  v:K('inv_unpaid_value') === null ? '—' : money(K('inv_unpaid_value'))}
+  ];
+  $('#kpiBar').innerHTML = tiles.map(t =>
+    `<div class="k ${t.cls || ''}"><b>${esc(t.v === null || t.v === undefined ? '—' : String(t.v))}</b>
+      <span>${esc(T(t.k))}</span></div>`).join('');
+}
+
+function drawInfo(){
+  const p = S.p;
+  ['name', 'name_en', 'status', 'ptype', 'owner', 'developer', 'contractor', 'consultant',
+   'city', 'contract_value', 'start_date', 'end_date', 'notes'].forEach(k => setF(k, p[k]));
+  $('#btnArchive').textContent = p.active ? T('archive') : T('unarchive');
+  drawManagers();
+}
+function drawManagers(){
+  const p = S.p;
+  $('#mgrs').innerHTML = p.managers.map(m =>
+    `<span class="mgr">${esc(m.username)}<button data-rm="${esc(m.username)}">✕</button></span>`).join('')
+    || `<span class="mgr" style="opacity:.7">${esc(T('noMgr'))}</span>`;
+  $$('#mgrs [data-rm]').forEach(b => b.addEventListener('click', () => {
+    p.managers = p.managers.filter(m => m.username !== b.dataset.rm);
+    drawManagers();
+  }));
+}
+
+function drawAttach(){
+  const p = S.p;
+  const kn = $('#keyNote');
+  kn.hidden = !p.key_differs;
+  if(p.key_differs) kn.textContent = T('keyNote').replace('%s', p.data_key);
+  const q = '?project=' + encodeURIComponent(p.data_key || p.name);   // مفتاح البيانات لا اسم العرض
+  const items = [
+    {ic:'📊', k:'updates', on:!!p.updates,
+     sub:p.updates ? nOf(p.updates, 'updates') + (p.last_update ? ' · ' + T('lastUpd').replace('%s', p.last_update) : '') : T('none'),
+     href:'/builder' + q},
+    {ic:'💰', k:'cashflow', on:p.cashflow, sub:p.cashflow ? '' : T('none'), href:'/admin-cashflow' + q},
+    {ic:'🗂️', k:'sheets', on:!!p.sheets, sub:p.sheets ? nOf(p.sheets, 'sheets') : T('none'), href:'/admin-sheets'},
+    {ic:'🧮', k:'facts', on:!!p.facts, sub:p.facts ? nOf(p.facts, 'facts') : T('none'), href:'/admin-facts' + q},
+    {ic:'📐', k:'boq', on:false, sub:T('soon'), href:''},
+    {ic:'📅', k:'schedule', on:false, sub:T('soon'), href:''}
+  ];
+  $('#attachBox').innerHTML = items.map(it => `<div class="att ${it.on ? 'ok' : ''}">
+      <span class="ic">${it.ic}</span>
+      <span class="tx"><b>${T(it.k)}</b><span>${esc(it.sub)}</span></span>
+      ${it.href ? `<a class="btn sm" href="${it.href}">${it.on ? T('open') : T('add')}</a>` : ''}
+    </div>`).join('');
+}
+
+/* سجلات القوالب: زر واحد ينشئ الجدول بأعمدته القياسية ويربطه بالمشروع */
+function drawLogs(){
+  const p = S.p;
+  $('#logsBox').innerHTML = (S.templates || []).map(t => {
+    const lg = (p.logs || {})[t.key];
+    const sub = !lg ? T('none') : (lg.rows ? nOf(lg.rows, 'rows') : T('empty0'));
+    return `<div class="att ${lg ? 'ok' : ''}">
+      <span class="ic">${t.icon}</span>
+      <span class="tx"><b>${esc(en() ? t.name_en : t.name)}</b><span>${esc(sub)}</span></span>
+      <button class="btn sm" data-tpl="${esc(t.key)}" data-sid="${lg ? lg.id : ''}">${lg ? T('open') : T('add')}</button>
+    </div>`;
+  }).join('');
+  $$('#logsBox [data-tpl]').forEach(b => b.addEventListener('click', async () => {
+    if(b.dataset.sid){ location.href = '/admin-sheets?sheet=' + encodeURIComponent(b.dataset.sid); return; }
+    b.disabled = true;
+    const j = await api(`/api/projects/${p.id}/sheets`, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({template:b.dataset.tpl})});
+    b.disabled = false;
+    if(!j.success) return;
+    toast(T('logAdded'));
+    location.href = '/admin-sheets?sheet=' + encodeURIComponent(j.id);
+  }));
+}
+
+function drawAliases(){
+  const p = S.p;
+  $('#aliasBox').innerHTML = p.aliases.map(a =>
+      `<span class="alias">${esc(a)}${a === p.name ? '' : `<button data-rma="${esc(a)}">✕</button>`}</span>`).join('')
+    + `<button class="btn sm" id="btnAddAlias">+</button>`;
+  $$('#aliasBox [data-rma]').forEach(b => b.addEventListener('click', async () => {
+    const j = await api(`/api/projects/${p.id}/aliases`, {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({remove:b.dataset.rma})});
+    if(j.success) await load();
+  }));
+  $('#btnAddAlias').addEventListener('click', async () => {
+    const v = prompt(T('askAlias'), '');
+    if(!v) return;
+    const j = await api(`/api/projects/${p.id}/aliases`, {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({add:v})});
+    if(j.success) await load();
+  });
+}
+
+function drawAll(){
+  applyLang(); drawHead(); drawTabs(); showTab();
+  drawInfo(); drawAttach(); drawLogs(); drawAliases();
+}
+
+async function save(){
+  const p = S.p; if(!p) return;
+  const body = {id:p.id, managers:p.managers.map(m => m.username)};
+  ['name', 'name_en', 'status', 'ptype', 'owner', 'developer', 'contractor', 'consultant',
+   'city', 'contract_value', 'start_date', 'end_date', 'notes'].forEach(k => body[k] = getF(k));
+  body.active = p.active;
+  const j = await api('/api/projects', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  if(j.success){ toast(T('saved')); await load(); }
+}
+
+async function load(){
+  const j = await api('/api/projects');
+  if(!j.success) return;
+  S.all = j.projects || [];
+  S.users = j.users || [];
+  S.statuses = j.statuses || {};
+  S.templates = j.templates || [];
+  S.p = S.all.find(p => p.id === PROJECT_ID) || null;
+  $('#body').hidden = !S.p;
+  $('#missing').hidden = !!S.p;
+  if(!S.p){ applyLang(); $('#hName').textContent = ''; return; }
+  drawAll();
+}
+
+$('#btnSave').addEventListener('click', save);
+$('#f_addmgr').addEventListener('change', e => {
+  const u = e.target.value; e.target.value = '';
+  if(!u || !S.p) return;
+  if(!S.p.managers.some(m => m.username === u)) S.p.managers.push({username:u, primary:!S.p.managers.length});
+  drawManagers();
+});
+$('#btnArchive').addEventListener('click', async () => { if(!S.p) return; S.p.active = !S.p.active; await save(); });
+$('#btnDel').addEventListener('click', async () => {
+  if(!S.p || !confirm(T('confirmDel'))) return;
+  const j = await api(`/api/projects/${S.p.id}`, {method:'DELETE'});
+  if(j.success) location.href = '/admin-projects';
+});
+$('#btnMerge').addEventListener('click', async () => {
+  if(!S.p) return;
+  const code = prompt(T('askMerge'), '');
+  if(!code) return;
+  const target = S.all.find(p => p.code.toLowerCase() === code.trim().toLowerCase());
+  if(!target){ toast(T('notFound'), true); return; }
+  if(!confirm(T('confirmMerge').replace('%s', pName(S.p)).replace('%s', pName(target)))) return;
+  const j = await api(`/api/projects/${S.p.id}/merge`, {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({into:target.id})});
+  if(j.success) location.href = '/admin-projects/' + target.id;
+});
+$('#btnLang').addEventListener('click', () => {
+  UIL = en() ? 'ar' : 'en';
+  try{ localStorage.setItem(UI_KEY, UIL); }catch(e){}
+  if(S.p) drawAll(); else applyLang();
+});
+
+const wanted = (location.hash || '').replace('#', '');
+if(TABS.some(([k]) => k === wanted)) S.tab = wanted;
+applyLang();
+load();
+</script>
+<script>
+(function(){
+  if(window.__pmisAuthGuard) return;
+  window.__pmisAuthGuard = true;
+  var LOGIN = '/admin', gone = false;
+  var MSG = {ar:'انتهت الجلسة — يتم تحويلك إلى صفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
+  function expired(){
+    if(gone) return; gone = true;
+    var isEn = (document.documentElement.lang === 'en');
+    try{ if(typeof toast === 'function') toast(isEn ? MSG.en : MSG.ar, true); }catch(e){}
+    setTimeout(function(){ location.href = LOGIN; }, 1800);
+  }
+  var nativeFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    return nativeFetch(input, init).then(function(r){
+      if(r && (r.status === 401 || r.status === 403)) expired();
+      return r;
+    });
+  };
+})();
+</script>
+</body>
+</html>

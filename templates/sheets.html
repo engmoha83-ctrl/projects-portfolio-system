@@ -75,6 +75,9 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
   font-size:12.5px; padding:5px 8px; border:none; font-family:inherit; max-width:200px;}
 .chip2 button{border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:11px; padding:0 1px;}
 .chip2 button:hover{color:var(--danger);}
+.chip2 button.lbl{color:inherit; font-size:inherit; font-family:inherit; padding:0;}
+.chip2 button.lbl:hover{color:var(--navy); text-decoration:underline dotted;}
+.chip2 button.lbl[disabled]{cursor:default; text-decoration:none;}
 .chip2.ins{cursor:pointer; background:#E7EEF8; color:var(--navy); font-weight:500;}
 .chip2.ins:hover{background:#D9E5F5;}
 .addopt{display:flex; gap:6px; flex:1; min-width:200px;}
@@ -461,7 +464,8 @@ const FN = {
   min:(...a) => Math.min(...a.map(num)), max:(...a) => Math.max(...a.map(num)),
   abs:x => Math.abs(num(x)), round:(x, n) => +num(x).toFixed(Math.max(0, Math.min(6, num(n)))),
   avg:(...a) => a.length ? a.reduce((s, x) => s + num(x), 0) / a.length : 0,
-  if:(c, a, b) => c ? a : (b === undefined ? 0 : b)
+  // new String('') صحيح منطقيًا في جافاسكربت، فنقيسه بمحتواه لا بنوعه
+  if:(c, a, b) => ((c instanceof String ? String(c) !== '' : !!c) ? a : (b === undefined ? 0 : b))
 };
 function evalFormula(expr, vals){
   let i = 0; const s = String(expr || '');
@@ -471,7 +475,10 @@ function evalFormula(expr, vals){
     ws(); if(i >= s.length) throw 0;
     const ch = s[i];
     if(ch === '('){ i++; const v = cmp(); if(!eat(')')) throw 0; return v; }
-    if(ch === '['){ const e = s.indexOf(']', i); if(e < 0) throw 0; const k = s.slice(i + 1, e).trim(); i = e + 1; return vals[k] != null ? vals[k] : 0; }
+    // الخلية الفارغة نص فارغ لا صفر، وإلا صار «الفارغ يساوي صفرًا» في المقارنات
+    if(ch === '['){ const e = s.indexOf(']', i); if(e < 0) throw 0; const k = s.slice(i + 1, e).trim(); i = e + 1;
+      return (vals[k] === null || vals[k] === undefined || vals[k] === '') ? '' : vals[k]; }
+    if(ch === '"'){ const e = s.indexOf('"', i + 1); if(e < 0) throw 0; const t = s.slice(i + 1, e); i = e + 1; return new String(t); }
     if(/[0-9.]/.test(ch)){ let j = i; while(j < s.length && /[0-9.]/.test(s[j])) j++; const n = parseFloat(s.slice(i, j)); i = j; return n; }
     if(/[a-zA-Z_]/.test(ch)){
       let j = i; while(j < s.length && /[a-zA-Z0-9_]/.test(s[j])) j++;
@@ -488,10 +495,18 @@ function evalFormula(expr, vals){
   function pw(){ const v = un(); if(eat('^')) return Math.pow(num(v), num(pw())); return v; }
   function mul(){ let v = pw(); for(;;){ if(eat('*')) v = num(v) * num(pw()); else if(eat('/')){ const d = num(pw()); v = d ? num(v) / d : 0; } else if(eat('%')){ const d = num(pw()); v = d ? num(v) % d : 0; } else return v; } }
   function add(){ let v = mul(); for(;;){ if(eat('+')) v = num(v) + num(mul()); else if(eat('-')) v = num(v) - num(mul()); else return v; } }
+  /* هل نعامل القيمة كنص؟ النص الفارغ نص، والرقم المكتوب نصًا رقم — نفس قاعدة السيرفر */
+  const isText = v => (v instanceof String) ||
+    (typeof v === 'string' && (v.trim() === '' || isNaN(parseFloat(v.replace(/,/g, '').trim()))
+                               || !/^-?[\d,.\s]+$/.test(v)));
+  const txt = v => v === null || v === undefined || v === false ? ''
+    : v === true ? 'true' : String(v).trim().toLowerCase();
   function cmp(){
     const l = add();
     for(const op of ['>=', '<=', '<>', '!=', '=', '>', '<']){
-      if(eat(op)){ const r = add(), a = num(l), b = num(r);
+      if(eat(op)){ const r = add();
+        const useTxt = isText(l) || isText(r);
+        const a = useTxt ? txt(l) : num(l), b = useTxt ? txt(r) : num(r);
         return op === '>=' ? a >= b : op === '<=' ? a <= b : (op === '<>' || op === '!=') ? a !== b : op === '=' ? a === b : op === '>' ? a > b : a < b; }
     }
     return l;
@@ -499,6 +514,7 @@ function evalFormula(expr, vals){
   try{
     const out = cmp(); ws();
     if(i < s.length) return null;
+    if(out instanceof String) return String(out) || null;
     return typeof out === 'boolean' ? (out ? 1 : 0) : (typeof out === 'number' ? +out.toFixed(6) : out);
   }catch(e){ return null; }
 }
@@ -527,10 +543,20 @@ function recalcRow(r){
   }
   r.data = vals;
 }
+/* خيارات القائمة: القيمة المخزَّنة واحدة دائمًا (الإنجليزية)، و opt_ar فيه مقابلها
+   العربي للعرض فقط. يعني تغيير لغة الواجهة يغيّر ما يُقرأ لا ما هو مكتوب في الخلية،
+   فالفلاتر والمعادلات وقواعد طبقة الحقائق تظل تعمل على قيمة واحدة. */
+function optLabel(c, v){
+  if(v === null || v === undefined || v === '') return '';
+  if(en()) return String(v);
+  return ((c && c.opt_ar) ? c.opt_ar[v] : '') || String(v);
+}
 function shownValue(r, c){
   const v = r.data[c.key];
   if(v === null || v === undefined || v === '') return '';
-  if(c.type === 'formula') return fmtNum(v, c.decimals, c.unit);
+  // المعادلة قد ترجّع نصًا (مثل «الأولوية») فلا تُنسَّق كرقم، وله مقابل عربي
+  if(c.type === 'formula') return (typeof v === 'number' || /^-?[\d,.]+$/.test(String(v)))
+    ? fmtNum(v, c.decimals, c.unit) : optLabel(c, v);
   const fld = FIELDS.find(f => f.key === c.source);
   if(fld && ['number','percent','currency','days'].includes(fld.type))
     return num(v).toLocaleString('en-US', {maximumFractionDigits:2}) + (fld.type === 'percent' ? '%' : '');
@@ -1059,7 +1085,8 @@ function cellHtml(r, c, ri, ci){
   const pos = ` data-r="${ri}" data-c="${ci}"`;
   if(isCalc(c)){
     const shown = shownValue(r, c);
-    const cls = (c.type === 'formula' || (FIELDS.find(f => f.key === c.source) || {}).type !== 'text') ? ' num' : '';
+    const isNum = shown !== '' && /^-?[\d,.\s]+%?$/.test(String(shown).replace(/[^\d,.\s%-]/g, ''));
+    const cls = (isNum && (c.type === 'formula' || (FIELDS.find(f => f.key === c.source) || {}).type !== 'text')) ? ' num' : '';
     return `<td class="cell-calc${cls}${on}"${pos}${sty} data-no-tr title="${esc(shown)}">${esc(shown)}</td>`;
   }
   if(c.type === 'project')
@@ -1067,7 +1094,7 @@ function cellHtml(r, c, ri, ci){
       `<option value="${esc(p)}" ${v === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></td>`;
   if(c.type === 'select')
     return `<td class="${on}"${pos}${sty}><select data-cell="${c.key}" data-no-tr${isty}><option value=""></option>${(c.options || []).map(o =>
-      `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
+      `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(optLabel(c, o))}</option>`).join('')}</select></td>`;
   if(c.type === 'bool')
     return `<td class="chk${on}"${pos}${sty}><input type="checkbox" data-cell="${c.key}" ${v ? 'checked' : ''}></td>`;
   if(c.type === 'date')
@@ -1354,7 +1381,8 @@ function drawColExtra(c){
     const opts = c.options || [];
     box.innerHTML = `<div class="pop-row"><span class="pop-lbl">${L('options')}</span>
         <div class="chips" id="xChips">${opts.length ? opts.map((o, i) =>
-          `<span class="chip2" data-no-tr>${esc(o)}<button data-rm="${i}" title="${L('del')}">✕</button></span>`).join('')
+          `<span class="chip2" data-no-tr><button class="lbl" data-ar="${esc(o)}"${en() ? ' disabled' : ` title="تعديل الصياغة العربية"`
+            }>${esc(optLabel(c, o))}</button><button data-rm="${i}" title="${L('del')}">✕</button></span>`).join('')
           : `<span class="hintline">${U('No choices yet', 'لا توجد اختيارات بعد')}</span>`}</div></div>
       <div class="pop-row"><span class="pop-lbl"></span>
         <div class="addopt"><input class="fld" id="xNewOpt" style="flex:1; min-width:150px"
@@ -1409,7 +1437,20 @@ function drawColExtra(c){
     if(e.key === 'Enter'){ e.preventDefault(); e.stopPropagation(); addOpt(); }
   });
   $$('#xChips [data-rm]').forEach(btn => btn.addEventListener('click', () => {
+    const gone = (c.options || [])[+btn.dataset.rm];
     c.options = (c.options || []).filter((o, i) => i !== +btn.dataset.rm);
+    if(c.opt_ar && gone !== undefined) delete c.opt_ar[gone];
+    saveColumns(); redraw();
+  }));
+  // الصياغة العربية لخيار واحد — تُعرض فقط ولا تُخزَّن في الخلايا
+  $$('#xChips [data-ar]').forEach(btn => btn.addEventListener('click', () => {
+    if(en()) return;
+    const val = btn.dataset.ar;
+    const cur = (c.opt_ar || {})[val] || '';
+    const v = prompt('الصياغة العربية لخيار «' + val + '»:', cur);
+    if(v === null) return;
+    c.opt_ar = c.opt_ar || {};
+    if(v.trim()) c.opt_ar[val] = v.trim(); else delete c.opt_ar[val];
     saveColumns(); redraw();
   }));
   $$('#xKeys [data-ins]').forEach(btn => btn.addEventListener('click', () => {
@@ -1812,6 +1853,7 @@ function printValue(r, c){
   if(v === null || v === undefined || v === '') return '';
   if(c.type === 'bool') return v ? U('Yes', 'نعم') : U('No', 'لا');
   if(c.type === 'number') return fmtNum(v, c.decimals, c.unit);
+  if(c.type === 'select') return optLabel(c, v);
   return String(v);
 }
 /** بيبني نسخة نضيفة للطباعة: من غير خانات إدخال ولا أزرار، ورأس الجدول بيتكرر كل صفحة */
