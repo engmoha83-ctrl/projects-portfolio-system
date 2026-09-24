@@ -1,5 +1,6 @@
 import os
 import json
+import io
 import time
 import re
 import secrets
@@ -8,7 +9,7 @@ from urllib.parse import quote
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 from fastapi import FastAPI, Request, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import psycopg2
@@ -1254,6 +1255,50 @@ async def sheets_latest(request: Request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+def _sheet_view_rows(sheet, raw, q="", sort="", direction="asc", flt=None):
+    """يحوّل صفوف قاعدة البيانات لصفوف معروضة: حساب lookup والمعادلات ثم بحث وفلترة وفرز."""
+    latest = _latest_by_project()
+    cols = sheet["columns"]
+    rows = []
+    for r in raw:
+        data = r[2] if isinstance(r[2], dict) else json.loads(r[2] or "{}")
+        rows.append({"id": r[0], "seq": r[1], "data": _compute_row(cols, data, latest),
+                     "updated_at": str(r[3])[:16]})
+    needle = (q or "").strip().lower()
+    if needle:
+        rows = [x for x in rows
+                if any(needle in str(v).lower()
+                       for k, v in x["data"].items() if v is not None and not k.startswith("__"))]
+    for key, want in (flt or {}).items():
+        if want in ("", None):
+            continue
+        rows = [x for x in rows if str(x["data"].get(key, "")).lower().find(str(want).lower()) >= 0]
+    if sort:
+        col = next((c for c in cols if c["key"] == sort), None)
+        numeric = col and col.get("type") in ("number", "formula", "lookup", "bool")
+
+        def keyf(x):
+            v = x["data"].get(sort)
+            if numeric:
+                return (v is None, _fnum(v))
+            return (v is None, str(v if v is not None else "").lower())
+        rows.sort(key=keyf, reverse=(direction == "desc"))
+    return rows
+
+
+def _load_sheet_rows(sheet_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    sheet = _load_sheet(cursor, sheet_id)
+    if not sheet:
+        conn.close()
+        return None, None
+    cursor.execute("SELECT id, seq, data, updated_at FROM sheet_rows WHERE sheet_id = %s ORDER BY seq, id", (sheet_id,))
+    raw = cursor.fetchall()
+    conn.close()
+    return sheet, raw
+
+
 @app.get("/api/sheets/{sheet_id}/rows")
 async def sheets_rows(sheet_id: int, request: Request, q: str = "", sort: str = "", dir: str = "asc",
                       limit: int = 200, offset: int = 0, filters: str = ""):
@@ -1261,50 +1306,176 @@ async def sheets_rows(sheet_id: int, request: Request, q: str = "", sort: str = 
     if not _sheet_admin(request):
         return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        sheet = _load_sheet(cursor, sheet_id)
+        sheet, raw = _load_sheet_rows(sheet_id)
         if not sheet:
-            conn.close()
             return JSONResponse({"success": False, "error": "الجدول غير موجود"}, status_code=404)
-        cursor.execute("SELECT id, seq, data, updated_at FROM sheet_rows WHERE sheet_id = %s ORDER BY seq, id", (sheet_id,))
-        raw = cursor.fetchall()
-        conn.close()
-        latest = _latest_by_project()
-        cols = sheet["columns"]
-        rows = []
-        for r in raw:
-            data = r[2] if isinstance(r[2], dict) else json.loads(r[2] or "{}")
-            rows.append({"id": r[0], "seq": r[1], "data": _compute_row(cols, data, latest),
-                         "updated_at": str(r[3])[:16]})
         try:
             flt = json.loads(filters) if filters else {}
         except Exception:
             flt = {}
-        needle = (q or "").strip().lower()
-        if needle:
-            rows = [x for x in rows
-                    if any(needle in str(v).lower()
-                           for k, v in x["data"].items() if v is not None and not k.startswith("__"))]
-        for key, want in (flt or {}).items():
-            if want in ("", None):
-                continue
-            rows = [x for x in rows if str(x["data"].get(key, "")).lower().find(str(want).lower()) >= 0]
-        if sort:
-            col = next((c for c in cols if c["key"] == sort), None)
-            numeric = col and col.get("type") in ("number", "formula", "lookup", "bool")
-
-            def keyf(x):
-                v = x["data"].get(sort)
-                if numeric:
-                    return (v is None, _fnum(v))
-                return (v is None, str(v if v is not None else "").lower())
-            rows.sort(key=keyf, reverse=(dir == "desc"))
+        rows = _sheet_view_rows(sheet, raw, q, sort, dir, flt)
         total = len(rows)
         limit = max(1, min(1000, int(limit or 200)))
         offset = max(0, int(offset or 0))
         return {"success": True, "sheet": sheet, "total": total,
                 "rows": rows[offset:offset + limit]}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+def _xl_color(v):
+    """#RRGGBB -> FFRRGGBB (صيغة openpyxl)."""
+    v = str(v or "")
+    return "FF" + v[1:].upper() if re.match(r"^#[0-9a-fA-F]{6}$", v) else None
+
+
+def _sheet_export_name(sheet, lang):
+    name = (sheet.get("name_en") or sheet.get("name")) if lang == "en" else (sheet.get("name") or sheet.get("name_en"))
+    return re.sub(r'[\\/:*?"<>|\r\n]+', " ", str(name or "sheet")).strip() or "sheet"
+
+
+def _dispo(filename, ext):
+    """اسم ملف يشتغل مع العربي على كل المتصفحات."""
+    ascii_name = re.sub(r"[^A-Za-z0-9._ -]+", "", filename).strip() or "sheet"
+    return (f'attachment; filename="{ascii_name}.{ext}"; '
+            f"filename*=UTF-8''{quote(filename + '.' + ext)}")
+
+
+@app.get("/api/sheets/{sheet_id}/export")
+async def sheets_export(sheet_id: int, request: Request, fmt: str = "xlsx", q: str = "", sort: str = "",
+                        dir: str = "asc", filters: str = "", lang: str = "ar", scope: str = "view"):
+    """تصدير الجدول كملف إكسيل أو CSV — بنفس ما هو ظاهر (بحث/فلترة/فرز) أو الجدول كله."""
+    if not _sheet_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        sheet, raw = _load_sheet_rows(sheet_id)
+        if not sheet:
+            return JSONResponse({"success": False, "error": "الجدول غير موجود"}, status_code=404)
+        if scope == "all":
+            q, sort, filters = "", "", ""
+        try:
+            flt = json.loads(filters) if filters else {}
+        except Exception:
+            flt = {}
+        rows = _sheet_view_rows(sheet, raw, q, sort, dir, flt)
+        cols = sheet["columns"]
+        en = (lang == "en")
+        label = lambda c: (c.get("label_en") or c.get("label") or c["key"]) if en else (c.get("label") or c.get("label_en") or c["key"])
+        fname = _sheet_export_name(sheet, lang)
+
+        def shown(c, v):
+            """القيمة زي ما بتتعرض في الشاشة (للـ CSV والطباعة)."""
+            if v is None or v == "":
+                return ""
+            if c.get("type") == "bool":
+                return ("Yes" if en else "نعم") if v else ("No" if en else "لا")
+            return v
+
+        if fmt == "csv":
+            import csv as _csv
+            buf = io.StringIO()
+            w = _csv.writer(buf)
+            w.writerow([label(c) for c in cols])
+            for r in rows:
+                w.writerow([shown(c, r["data"].get(c["key"])) for c in cols])
+            data = "\ufeff" + buf.getvalue()                 # BOM عشان إكسيل يقرأ العربي
+            return Response(content=data.encode("utf-8"), media_type="text/csv; charset=utf-8",
+                            headers={"Content-Disposition": _dispo(fname, "csv")})
+
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        NAVY = "FF1F3A5F"
+        wb = Workbook()
+        ws = wb.active
+        ws.title = (fname[:28] or "Sheet")
+        ws.sheet_view.rightToLeft = not en
+
+        thin = Side(style="thin", color="FFD9DEE8")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        ws.cell(row=1, column=1, value=fname).font = Font(name="Arial", size=14, bold=True, color=NAVY)
+        sub = (datetime.now().strftime("%Y-%m-%d %H:%M"))
+        if q or flt:
+            sub += ("  ·  filtered view" if en else "  ·  حسب الفلترة الظاهرة")
+        ws.cell(row=2, column=1, value=sub).font = Font(name="Arial", size=9, color="FF5B6577")
+        if len(cols) > 1:
+            ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(cols))
+            ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(cols))
+
+        HEAD_ROW = 4
+        for i, c in enumerate(cols, start=1):
+            cell = ws.cell(row=HEAD_ROW, column=i, value=label(c))
+            cell.font = Font(name="Arial", size=10, bold=True, color="FFFFFFFF")
+            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = border
+            ws.column_dimensions[get_column_letter(i)].width = max(9, min(58, int(_fnum(c.get("width")) or 150) / 7.2))
+        ws.row_dimensions[HEAD_ROW].height = 24
+
+        for ri, r in enumerate(rows):
+            row_no = HEAD_ROW + 1 + ri
+            cell_fmt = (r["data"].get("__fmt") or {}) if isinstance(r["data"].get("__fmt"), dict) else {}
+            for ci, c in enumerate(cols, start=1):
+                key, typ = c["key"], c.get("type")
+                v = r["data"].get(key)
+                cell = ws.cell(row=row_no, column=ci)
+                if typ == "bool":
+                    cell.value = bool(v)
+                elif typ == "date" and v:
+                    try:
+                        cell.value = datetime.strptime(str(v)[:10], "%Y-%m-%d").date()
+                        cell.number_format = "yyyy-mm-dd"
+                    except Exception:
+                        cell.value = v
+                elif typ in ("number", "formula") or (typ == "lookup" and isinstance(v, (int, float))):
+                    cell.value = None if v in (None, "") else _fnum(v)
+                    dec = int(_fnum(c.get("decimals")) or 0)
+                    unit = str(c.get("unit") or "").replace('"', "")
+                    cell.number_format = ("#,##0" + ("." + "0" * dec if dec else "")) + (f'" {unit}"' if unit else "")
+                else:
+                    cell.value = v
+                f = dict(c.get("fmt") or {})
+                f.update(cell_fmt.get(key) or {})
+                cell.font = Font(name="Arial", size=int(_fnum(f.get("size")) or 10),
+                                 bold=bool(f.get("bold")), italic=bool(f.get("italic")),
+                                 underline="single" if f.get("under") else None,
+                                 color=_xl_color(f.get("fg")) or "FF172033")
+                bg = _xl_color(f.get("bg"))
+                if bg:
+                    cell.fill = PatternFill(start_color=bg, end_color=bg, fill_type="solid")
+                align = f.get("align")
+                cell.alignment = Alignment(horizontal=align if align in ("left", "center", "right") else None,
+                                           vertical="center")
+                cell.border = border
+
+        last = HEAD_ROW + len(rows)
+        if any(c.get("agg") for c in cols) and rows:
+            trow = last + 1
+            fn = {"sum": "SUM", "avg": "AVERAGE", "count": "COUNTA", "min": "MIN", "max": "MAX"}
+            for ci, c in enumerate(cols, start=1):
+                cell = ws.cell(row=trow, column=ci)
+                if c.get("agg") in fn:
+                    L = get_column_letter(ci)
+                    cell.value = f"={fn[c['agg']]}({L}{HEAD_ROW + 1}:{L}{last})"   # معادلة حية
+                    dec = int(_fnum(c.get("decimals")) or 0)
+                    cell.number_format = "#,##0" + ("." + "0" * dec if dec else "")
+                elif ci == 1:
+                    cell.value = "Total" if en else "الإجمالي"
+                cell.font = Font(name="Arial", size=10, bold=True, color=NAVY)
+                cell.fill = PatternFill(start_color="FFEDF1F7", end_color="FFEDF1F7", fill_type="solid")
+                cell.border = border
+
+        if rows:
+            ws.auto_filter.ref = f"A{HEAD_ROW}:{get_column_letter(len(cols))}{last}"
+        ws.freeze_panes = f"A{HEAD_ROW + 1}"
+
+        out = io.BytesIO()
+        wb.save(out)
+        return Response(content=out.getvalue(),
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": _dispo(fname, "xlsx")})
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
