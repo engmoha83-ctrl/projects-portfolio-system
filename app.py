@@ -1648,7 +1648,8 @@ def facts_write(rows, replace_source=None, project=None):
                                (replace_source, project))
             else:
                 cursor.execute("DELETE FROM project_facts WHERE source = %s", (replace_source,))
-        n = 0
+        from psycopg2.extras import execute_values
+        batch, seen = [], set()
         for f in rows:
             per = _fact_period(f.get("period"))
             proj = (f.get("project") or f.get("project_name") or "").strip()
@@ -1657,18 +1658,25 @@ def facts_write(rows, replace_source=None, project=None):
                 continue
             val = f.get("value")
             val = None if val in ("", None) else _fnum(val)
-            cursor.execute("""INSERT INTO project_facts
-                                (project_name, metric, period, value, text_value, source, source_ref, is_baseline)
-                              VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                              ON CONFLICT (project_name, metric, period, source, COALESCE(source_ref, ''), is_baseline)
-                              DO UPDATE SET value = EXCLUDED.value, text_value = EXCLUDED.text_value,
-                                            updated_at = NOW()""",
-                           (proj, metric, per, val,
-                            (str(f.get("text")) if f.get("text") not in (None, "") else None),
-                            f.get("source") or "manual", f.get("ref"), bool(f.get("baseline"))))
-            n += 1
+            ref = f.get("ref")
+            src = f.get("source") or "manual"
+            base = bool(f.get("baseline"))
+            k = (proj, metric, per, src, ref or "", base)
+            if k in seen:                       # نفس المفتاح مرتين في نفس الدفعة
+                continue
+            seen.add(k)
+            batch.append((proj, metric, per, val,
+                          (str(f.get("text")) if f.get("text") not in (None, "") else None),
+                          src, ref, base))
+        for i in range(0, len(batch), 500):     # دفعات عشان ما نرهقش الاتصال
+            execute_values(cursor, """INSERT INTO project_facts
+                    (project_name, metric, period, value, text_value, source, source_ref, is_baseline)
+                    VALUES %s
+                    ON CONFLICT (project_name, metric, period, source, COALESCE(source_ref, ''), is_baseline)
+                    DO UPDATE SET value = EXCLUDED.value, text_value = EXCLUDED.text_value,
+                                  updated_at = NOW()""", batch[i:i + 500])
         conn.commit()
-        return n
+        return len(batch)
     finally:
         conn.close()
 
@@ -1727,66 +1735,101 @@ def collect_updates(project=None):
     return out
 
 
+def _cashflow_facts(proj, meta, rows):
+    """يحوّل صفوف التدفق النقدي لمشروع واحد إلى حقائق."""
+    out = []
+    base = float(meta.get("plan_base") or meta.get("contract_value") or 0)
+    rev = float(meta.get("revised_value") or meta.get("contract_value") or 0)
+    cum_plan, prev_act_amount = 0.0, 0.0
+    for r in rows:
+        per = _fact_period(r.get("ym"))
+        if not per:
+            continue
+        ym = r.get("ym")
+        pa = r.get("plan_amount")
+        if pa not in (None, ""):
+            cum_plan += float(pa)
+            out.append({"project": proj, "metric": "planned_cost", "period": per,
+                        "value": float(pa), "source": "cashflow", "ref": ym})
+        plan_pct = (cum_plan / base * 100) if base else None
+        if plan_pct is not None and pa not in (None, ""):
+            out.append({"project": proj, "metric": "planned_pct", "period": per,
+                        "value": round(plan_pct, 2), "source": "cashflow", "ref": ym})
+        ap = r.get("act_pct")
+        if ap not in (None, ""):
+            when = _fact_period(r.get("act_date"), per)
+            out.append({"project": proj, "metric": "actual_pct", "period": when,
+                        "value": round(float(ap), 2), "source": "cashflow", "ref": ym})
+            act_amount = float(ap) / 100 * rev
+            out.append({"project": proj, "metric": "actual_cost", "period": per,
+                        "value": round(act_amount - prev_act_amount, 2), "source": "cashflow", "ref": ym})
+            prev_act_amount = act_amount
+            if plan_pct:
+                out.append({"project": proj, "metric": "progress_dev", "period": when,
+                            "value": round(float(ap) - plan_pct, 2), "source": "cashflow", "ref": ym})
+                out.append({"project": proj, "metric": "spi", "period": when,
+                            "value": round(float(ap) / plan_pct, 3), "source": "cashflow", "ref": ym})
+    if base and rows:
+        first = _fact_period(rows[0].get("ym"))
+        if first:
+            out.append({"project": proj, "metric": "contract_value", "period": first,
+                        "value": float(meta.get("contract_value") or 0), "source": "cashflow", "ref": "meta"})
+            out.append({"project": proj, "metric": "revised_value", "period": first,
+                        "value": rev, "source": "cashflow", "ref": "meta"})
+    return out
+
+
 def collect_cashflow(project=None):
-    """حقائق من التدفق النقدي: النسب المخططة والفعلية والمبالغ الشهرية و SPI."""
+    """حقائق التدفق النقدي لكل المشاريع باستعلامين فقط — الاتصال بقاعدة البيانات
+       هو أغلى شيء هنا، فلا نفتح اتصالاً لكل مشروع."""
     conn = get_db_connection()
     cursor = conn.cursor()
+    q = """SELECT project_name, contract_value, revised_value, start_month, end_month, plan_base
+           FROM cashflow_meta"""
     if project:
-        cursor.execute("SELECT DISTINCT project_name FROM cashflow_meta WHERE project_name = %s", (project,))
+        cursor.execute(q + " WHERE project_name = %s", (project,))
     else:
-        cursor.execute("SELECT DISTINCT project_name FROM cashflow_meta")
-    projects = [r[0] for r in cursor.fetchall()]
+        cursor.execute(q)
+    metas = {}
+    for r in cursor.fetchall():
+        cv = float(r[1] or 0)
+        rv = float(r[2] or 0) or cv
+        pb = None if r[5] is None else float(r[5])
+        metas[r[0]] = {"contract_value": cv, "revised_value": rv,
+                       "start_month": r[3], "end_month": r[4], "plan_base": pb or cv}
+    if not metas:
+        conn.close()
+        return []
+    cursor.execute("""SELECT project_name, ym, COALESCE(wk, 0), plan_amount, plan_pct, act_pct,
+                             act_amount, note, act_date
+                      FROM cashflow_rows WHERE project_name = ANY(%s)
+                      ORDER BY project_name, ym, COALESCE(wk, 0)""", (list(metas.keys()),))
+    months_by, weeks_by = {}, {}
+    for r in cursor.fetchall():
+        rec = {"ym": r[1], "wk": int(r[2] or 0),
+               "plan_amount": None if r[3] is None else float(r[3]),
+               "plan_pct":    None if r[4] is None else float(r[4]),
+               "act_pct":     None if r[5] is None else float(r[5]),
+               "act_amount":  None if r[6] is None else float(r[6]),
+               "note": r[7], "act_date": _clean_date(r[8])}
+        if rec["wk"] == 0:
+            months_by.setdefault(r[0], {})[r[1]] = rec
+        elif 1 <= rec["wk"] <= WEEKS_PER_MONTH:
+            weeks_by.setdefault(r[0], {}).setdefault(r[1], {})[rec["wk"]] = rec
     conn.close()
 
     out = []
-    for proj in projects:
-        try:
-            p = _cashflow_payload(proj)
-        except Exception:
-            continue
-        meta, rows = p["meta"], p["rows"]
-        base = float(meta.get("plan_base") or meta.get("contract_value") or 0)
-        rev = float(meta.get("revised_value") or meta.get("contract_value") or 0)
-        cum_plan, prev_act_amount = 0.0, 0.0
-        for r in rows:
-            per = _fact_period(r.get("ym"))
-            if not per:
-                continue
-
-            def add(metric, value=None, text=None, when=per):
-                if value in ("", None) and text in ("", None):
-                    return
-                out.append({"project": proj, "metric": metric, "period": when, "value": value,
-                            "text": text, "source": "cashflow", "ref": r.get("ym")})
-
-            pa = r.get("plan_amount")
-            if pa not in (None, ""):
-                cum_plan += float(pa)
-                add("planned_cost", float(pa))
-            plan_pct = (cum_plan / base * 100) if base else None
-            if plan_pct is not None and pa not in (None, ""):
-                add("planned_pct", round(plan_pct, 2))
-            ap = r.get("act_pct")
-            if ap not in (None, ""):
-                when = _fact_period(r.get("act_date"), per)
-                out.append({"project": proj, "metric": "actual_pct", "period": when,
-                            "value": round(float(ap), 2), "source": "cashflow", "ref": r.get("ym")})
-                act_amount = float(ap) / 100 * rev
-                out.append({"project": proj, "metric": "actual_cost", "period": per,
-                            "value": round(act_amount - prev_act_amount, 2), "source": "cashflow", "ref": r.get("ym")})
-                prev_act_amount = act_amount
-                if plan_pct:
-                    out.append({"project": proj, "metric": "progress_dev", "period": when,
-                                "value": round(float(ap) - plan_pct, 2), "source": "cashflow", "ref": r.get("ym")})
-                    out.append({"project": proj, "metric": "spi", "period": when,
-                                "value": round(float(ap) / plan_pct, 3), "source": "cashflow", "ref": r.get("ym")})
-        if base:
-            first = _fact_period((rows[0] or {}).get("ym")) if rows else None
-            if first:
-                out.append({"project": proj, "metric": "contract_value", "period": first,
-                            "value": float(meta.get("contract_value") or 0), "source": "cashflow", "ref": "meta"})
-                out.append({"project": proj, "metric": "revised_value", "period": first,
-                            "value": rev, "source": "cashflow", "ref": "meta"})
+    for proj, meta in metas.items():
+        rows, weeks = months_by.get(proj, {}), weeks_by.get(proj, {})
+        months = _ym_range(meta["start_month"], meta["end_month"]) if (meta["start_month"] and meta["end_month"]) else []
+        for ym in sorted(set(list(rows.keys()) + list(weeks.keys()))):
+            if ym not in months:
+                months.append(ym)
+        months.sort()
+        data = [_merge_weeks(rows.get(ym, {"ym": ym, "wk": 0, "plan_amount": None, "plan_pct": None,
+                                           "act_pct": None, "act_amount": None, "note": None, "act_date": None}),
+                             weeks.get(ym)) for ym in months]
+        out.extend(_cashflow_facts(proj, meta, data))
     return out
 
 
@@ -1808,59 +1851,85 @@ def facts_rebuild(source="all", project=None):
 
 # ---------- القراءة: أولوية المصادر + التجميع ----------
 
-def facts_read(metric, projects=None, date_from=None, date_to=None, meta=None):
-    """يرجّع حقائق مؤشر واحد بعد تطبيق أولوية المصادر: لكل (مشروع، فترة) القيمة من
-       أول مصدر متاح حسب ترتيب المؤشر — وده تطبيق قاعدة «مصدر واحد معتمد لكل رقم»."""
-    meta = meta or _metrics_map().get(metric)
-    if not meta:
-        return []
-    order = meta.get("sources") or []
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    sql = ["SELECT project_name, period, value, text_value, source FROM project_facts",
-           "WHERE metric = %s AND is_baseline = FALSE"]
-    args = [metric]
+def _pick_source(rows, order):
+    """قاعدة «مصدر واحد معتمد»: يختار لكل مشروع أعلى مصدر متاح في ترتيب المؤشر،
+       ويرجّع صفوف ذلك المصدر وحده حتى لا تكون السلسلة خليط مصدرين."""
+    rank = lambda src: order.index(src) if src in order else len(order) + 1
+    chosen = {}
+    for proj, per, val, txt, src in rows:
+        r = rank(src)
+        if proj not in chosen or r < chosen[proj]:
+            chosen[proj] = r
+    out = [{"project": p, "period": str(per), "value": v, "text": t, "source": s}
+           for p, per, v, t, s in rows if rank(s) == chosen.get(p)]
+    out.sort(key=lambda x: (x["project"], x["period"]))
+    return out
+
+
+def _facts_fetch(cursor, metrics, projects=None, date_from=None, date_to=None, source=None):
+    """استعلام واحد لكل المؤشرات المطلوبة."""
+    sql = ["SELECT metric, project_name, period, value, text_value, source FROM project_facts",
+           "WHERE metric = ANY(%s) AND is_baseline = FALSE"]
+    args = [list(metrics)]
     if projects:
         sql.append("AND project_name = ANY(%s)")
         args.append(list(projects))
+    if source:
+        sql.append("AND source = %s")
+        args.append(source)
     if date_from:
         sql.append("AND period >= %s")
         args.append(_fact_period(date_from))
     if date_to:
         sql.append("AND period <= %s")
         args.append(_fact_period(date_to))
-    sql.append("ORDER BY project_name, period")
+    sql.append("ORDER BY metric, project_name, period")
     cursor.execute(" ".join(sql), args)
-    raw = cursor.fetchall()
+    grouped = {}
+    for metric, proj, per, val, txt, src in cursor.fetchall():
+        grouped.setdefault(metric, []).append((proj, per, val, txt, src))
+    return grouped
+
+
+def facts_read(metric, projects=None, date_from=None, date_to=None, meta=None, source=None):
+    """حقائق مؤشر واحد بعد تطبيق أولوية المصادر (أو من مصدر بعينه لو طُلب)."""
+    meta = meta or _metrics_map().get(metric)
+    if not meta:
+        return []
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    grouped = _facts_fetch(cursor, [metric], projects, date_from, date_to, source)
+    conn.close()
+    rows = grouped.get(metric, [])
+    if source:
+        out = [{"project": p, "period": str(per), "value": v, "text": t, "source": s}
+               for p, per, v, t, s in rows]
+        out.sort(key=lambda x: (x["project"], x["period"]))
+        return out
+    return _pick_source(rows, meta.get("sources") or [])
+
+
+def facts_latest(metrics, projects=None, as_of=None, source=None):
+    """آخر قيمة لكل مؤشر لكل مشروع حتى تاريخ معيّن (الافتراضي: اليوم — حتى لا تُحسب
+       الخطة المستقبلية كأنها الوضع الحالي). اتصال واحد واستعلام واحد للجميع."""
+    as_of = as_of or _today_ksa()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    mm = _metrics_map(cursor)
+    keys = [k for k in metrics if k in mm]
+    if not keys:
+        conn.close()
+        return {}
+    grouped = _facts_fetch(cursor, keys, projects, None, as_of, source)
     conn.close()
 
-    # المصدر بيتقرر لكل مشروع كله، مش لكل نقطة — عشان السلسلة ما تبقاش خليط مصدرين
-    rank = lambda src: order.index(src) if src in order else len(order) + 1
-    chosen = {}
-    for proj, per, val, txt, src in raw:
-        r = rank(src)
-        if proj not in chosen or r < chosen[proj]:
-            chosen[proj] = r
-    out = []
-    for proj, per, val, txt, src in raw:
-        if rank(src) != chosen.get(proj):
-            continue
-        out.append({"project": proj, "period": str(per), "value": val, "text": txt, "source": src})
-    out.sort(key=lambda x: (x["project"], x["period"]))
-    return out
-
-
-def facts_latest(metrics, projects=None, as_of=None):
-    """آخر قيمة لكل مؤشر لكل مشروع حتى تاريخ معيّن (الافتراضي: النهارده — عشان الخطة
-       اللي لسه جاية في المستقبل ما تتحسبش كإنها الوضع الحالي)."""
-    as_of = as_of or _today_ksa()
-    mm = _metrics_map()
     out = {}
-    for key in metrics:
-        meta = mm.get(key)
-        if not meta:
-            continue
-        rows = facts_read(key, projects, None, as_of, meta)
+    for key in keys:
+        meta = mm[key]
+        raw = grouped.get(key, [])
+        rows = ([{"project": p, "period": str(per), "value": v, "text": t, "source": s}
+                 for p, per, v, t, s in raw] if source
+                else _pick_source(raw, meta.get("sources") or []))
         for r in rows:
             cur = out.setdefault(r["project"], {})
             old = cur.get(key)
@@ -1950,7 +2019,8 @@ async def api_facts_write(request: Request):
 
 
 @app.get("/api/facts/series")
-async def api_facts_series(request: Request, metric: str, projects: str = "", date_from: str = "", date_to: str = ""):
+async def api_facts_series(request: Request, metric: str, projects: str = "", date_from: str = "",
+                           date_to: str = "", source: str = ""):
     """سلسلة زمنية لمؤشر واحد لمشروع أو أكتر — ده اللي الداشبورد هيقرا منه."""
     if not request.cookies.get("super_admin_auth"):
         return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
@@ -1960,7 +2030,7 @@ async def api_facts_series(request: Request, metric: str, projects: str = "", da
         if not meta:
             return JSONResponse({"success": False, "error": "مؤشر غير معروف"}, status_code=404)
         plist = [p for p in projects.split("|") if p] or None
-        rows = facts_read(metric, plist, date_from or None, date_to or None, meta)
+        rows = facts_read(metric, plist, date_from or None, date_to or None, meta, source or None)
         series = {}
         for r in rows:
             series.setdefault(r["project"], []).append(
@@ -1972,13 +2042,14 @@ async def api_facts_series(request: Request, metric: str, projects: str = "", da
 
 
 @app.get("/api/facts/latest")
-async def api_facts_latest(request: Request, metrics: str = "", projects: str = "", as_of: str = ""):
+async def api_facts_latest(request: Request, metrics: str = "", projects: str = "", as_of: str = "",
+                           source: str = ""):
     if not request.cookies.get("super_admin_auth"):
         return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
     try:
         keys = [k for k in metrics.split(",") if k] or list(_metrics_map().keys())
         plist = [p for p in projects.split("|") if p] or None
-        return {"success": True, "latest": facts_latest(keys, plist, as_of or None)}
+        return {"success": True, "latest": facts_latest(keys, plist, as_of or None, source or None)}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
@@ -1995,12 +2066,16 @@ async def api_facts_rebuild(request: Request, background_tasks: BackgroundTasks)
         _seed_metrics(cursor)
         conn.commit()
         conn.close()
+        t0 = time.time()
         done = facts_rebuild(b.get("source") or "all", (b.get("project") or "").strip() or None)
+        secs = round(time.time() - t0, 1)
         background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"),
                                   "إعادة بناء طبقة الحقائق", json.dumps(done, ensure_ascii=False))
-        return {"success": True, "written": done}
+        return {"success": True, "written": done, "seconds": secs}
     except Exception as e:
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+        import traceback
+        return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}",
+                             "trace": traceback.format_exc()[-600:]}, status_code=500)
 
 
 @app.get("/api/facts/health")
