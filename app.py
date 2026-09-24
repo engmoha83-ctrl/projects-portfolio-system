@@ -914,6 +914,37 @@ def _latest_by_project():
 
 
 # ---------- مُقيِّم المعادلات (بدون eval) ----------
+class _Text(str):
+    """نص مكتوب في المعادلة بين علامتي اقتباس — نميّزه لنعرف أنه نص لا رقم."""
+
+
+def _is_text(v):
+    """هل نتعامل مع هذه القيمة كنص؟ النص الفارغ نص، والرقم المكتوب نصًا رقم."""
+    if isinstance(v, _Text):
+        return True
+    if isinstance(v, str):
+        s = v.strip()
+        if s == "":
+            return True
+        try:
+            float(s.replace(",", ""))
+            return False
+        except ValueError:
+            return True
+    return False
+
+
+def _txt(v):
+    """صيغة المقارنة النصية: بلا فراغات طرفية ولا فرق بين الحروف الكبيرة والصغيرة."""
+    if v is None or v is False:
+        return ""
+    if v is True:
+        return "true"
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v).strip().lower()
+
+
 _FORMULA_FUNCS = {
     "sum": lambda *a: sum(_fnum(x) for x in a),
     "min": lambda *a: min([_fnum(x) for x in a] or [0]),
@@ -967,7 +998,10 @@ class _FormulaParser:
         for op in (">=", "<=", "<>", "!=", "=", ">", "<"):
             if self._eat(op):
                 right = self._add()
-                a, b = _fnum(left), _fnum(right)
+                if _is_text(left) or _is_text(right):     # مقارنة نصية لو أحد الطرفين نص
+                    a, b = _txt(left), _txt(right)
+                else:
+                    a, b = _fnum(left), _fnum(right)
                 return {">=": a >= b, "<=": a <= b, "<>": a != b, "!=": a != b,
                         "=": a == b, ">": a > b, "<": a < b}[op]
         return left
@@ -1026,7 +1060,16 @@ class _FormulaParser:
                 raise ValueError("bad formula")
             key = self.s[self.i + 1:end].strip()
             self.i = end + 1
-            return self.v.get(key, 0)
+            val = self.v.get(key)
+            # الخلية الفارغة نص فارغ لا صفر، وإلا صار «الفارغ يساوي صفرًا» في المقارنات
+            return _Text("") if val is None or val == "" else val
+        if ch in '"“”':                          # نص بين علامتي اقتباس
+            close = self.s.find('"', self.i + 1)
+            if close < 0:
+                raise ValueError("bad formula")
+            val = self.s[self.i + 1:close]
+            self.i = close + 1
+            return _Text(val)
         if ch.isdigit() or ch == ".":
             j = self.i
             while j < len(self.s) and (self.s[j].isdigit() or self.s[j] == "."):
@@ -1063,6 +1106,8 @@ def _eval_formula(expr, values):
         out = _FormulaParser(expr, values).parse()
         if isinstance(out, bool):
             return 1 if out else 0
+        if isinstance(out, _Text):
+            return str(out) or None
         return round(float(out), 6) if isinstance(out, (int, float)) else out
     except Exception:
         return None
@@ -1143,6 +1188,14 @@ def _clean_columns(raw):
                "width": max(70, min(900, int(_fnum(c.get("width")) or 150)))}
         if typ == "select":
             col["options"] = [str(o)[:60] for o in (c.get("options") or [])][:60]
+            # القيمة المخزَّنة واحدة (الإنجليزية)، و opt_ar يحمل مقابلها العربي للعرض فقط،
+            # حتى لا تتغيّر البيانات ولا القواعد بتغيّر لغة الواجهة
+            ar = c.get("opt_ar")
+            if isinstance(ar, dict):
+                pairs = {str(k)[:60]: str(v)[:60] for k, v in list(ar.items())[:60]
+                         if str(k) in col["options"] and str(v or "").strip()}
+                if pairs:
+                    col["opt_ar"] = pairs
         if typ == "number":
             col["decimals"] = max(0, min(4, int(_fnum(c.get("decimals")))))
             col["unit"] = str(c.get("unit") or "")[:12]
@@ -1150,6 +1203,12 @@ def _clean_columns(raw):
             col["formula"] = str(c.get("formula") or "")[:400]
             col["decimals"] = max(0, min(4, int(_fnum(c.get("decimals")))))
             col["unit"] = str(c.get("unit") or "")[:12]
+            # معادلة ترجّع نصًا (الأولوية، الحالة) لها أيضًا مقابل عربي للعرض
+            ar = c.get("opt_ar")
+            if isinstance(ar, dict):
+                pairs = {str(k)[:60]: str(v)[:60] for k, v in list(ar.items())[:60] if str(v or "").strip()}
+                if pairs:
+                    col["opt_ar"] = pairs
         if typ == "lookup":
             col["source"] = str(c.get("source") or "")[:60]
         fmt = _clean_fmt(c.get("fmt"))
@@ -1415,6 +1474,8 @@ async def sheets_export(sheet_id: int, request: Request, fmt: str = "xlsx", q: s
                 return ""
             if c.get("type") == "bool":
                 return ("Yes" if en else "نعم") if v else ("No" if en else "لا")
+            if c.get("type") in ("select", "formula") and not en:
+                return (c.get("opt_ar") or {}).get(v, v)
             return v
 
         if fmt == "csv":
@@ -1475,11 +1536,15 @@ async def sheets_export(sheet_id: int, request: Request, fmt: str = "xlsx", q: s
                         cell.number_format = "yyyy-mm-dd"
                     except Exception:
                         cell.value = v
+                elif typ == "formula" and _is_text(v):     # معادلة ترجّع نصًا (الأولوية مثلًا)
+                    cell.value = v or None
                 elif typ in ("number", "formula") or (typ == "lookup" and isinstance(v, (int, float))):
                     cell.value = None if v in (None, "") else _fnum(v)
                     dec = int(_fnum(c.get("decimals")) or 0)
                     unit = str(c.get("unit") or "").replace('"', "")
                     cell.number_format = ("#,##0" + ("." + "0" * dec if dec else "")) + (f'" {unit}"' if unit else "")
+                elif typ == "select":
+                    cell.value = shown(c, v) or None
                 else:
                     cell.value = v
                 f = dict(c.get("fmt") or {})
@@ -1666,6 +1731,11 @@ def projects_sync(cursor):
     return {"projects_added": added, "managers_linked": linked}
 
 
+# المؤشرات التي تظهر على بطاقة المشروع في صفحة العرض العام
+PROJECT_KPIS = ["actual_pct", "planned_pct", "progress_dev", "issue_open", "risk_high",
+                "mat_late", "sub_overdue", "inv_unpaid_value"]
+
+
 def _projects_payload(cursor):
     """كل المشاريع ومعها ما هو متعلّق بها فعلًا.
 
@@ -1728,7 +1798,8 @@ def _projects_payload(cursor):
             FROM sheets s LEFT JOIN sheet_rows r ON r.sheet_id = s.id
             WHERE s.settings ->> 'template' IS NOT NULL
               AND s.settings ->> 'project_id' IS NOT NULL
-            GROUP BY 1, 2, 3"""):
+              AND s.settings ->> 'ver' = '%d'
+            GROUP BY 1, 2, 3""" % TEMPLATE_VER):
         p = by_id.get(int(pid)) if str(pid or "").isdigit() else None
         if p and tkey in SHEET_TEMPLATES:
             p["logs"][tkey] = {"id": sid, "rows": int(cnt or 0)}
@@ -1744,6 +1815,16 @@ def _projects_payload(cursor):
         if st["last"] > p["last_update"]:
             p["last_update"] = st["last"]
 
+    # أرقام العنوان لبطاقة المشروع في صفحة العرض العام — من طبقة الحقائق مباشرة
+    kpi_of = {}
+    for name, metric, val in _try_sql(cursor, """
+            SELECT DISTINCT ON (project_name, metric) project_name, metric, value
+            FROM project_facts
+            WHERE metric = ANY(%s) AND value IS NOT NULL
+            ORDER BY project_name, metric, period DESC, updated_at DESC""",
+            (PROJECT_KPIS,)):
+        kpi_of.setdefault((name or "").strip(), {})[metric] = float(val)
+
     for p in projects:
         scored = sorted(p["aliases"],
                         key=lambda a: (stats.get(a, {}).get("updates", 0),
@@ -1755,6 +1836,11 @@ def _projects_payload(cursor):
         has_data = any(stats.get(best, {}).get(k) for k in ("updates", "cashflow", "facts", "sheets"))
         p["data_key"] = best if has_data else p["name"]
         p["key_differs"] = bool(has_data and p["data_key"] != p["name"])
+        kpi = {}
+        for alias in p["aliases"]:                        # الأرقام قد تكون تحت اسم سابق
+            for k, v in (kpi_of.get(alias) or {}).items():
+                kpi.setdefault(k, v)
+        p["kpi"] = kpi
     return projects
 
 
@@ -1767,6 +1853,19 @@ async def projects_page(request: Request):
         return RedirectResponse(url="/admin-dashboard", status_code=303)
     return templates.TemplateResponse(request, "projects.html",
                                       {"admin_user": admin_user, "active_page": "projects"})
+
+
+@app.get("/admin-projects/{project_id}", response_class=HTMLResponse)
+async def project_page(project_id: int, request: Request):
+    """صفحة المشروع الواحد: بياناته وما يتعلّق به وسجلاته."""
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return RedirectResponse(url="/admin", status_code=303)
+    if admin_user != "admin_mohamed":
+        return RedirectResponse(url="/admin-dashboard", status_code=303)
+    return templates.TemplateResponse(request, "project.html",
+                                      {"admin_user": admin_user, "active_page": "projects",
+                                       "project_id": project_id})
 
 
 @app.get("/api/projects")
@@ -1938,107 +2037,362 @@ async def api_project_delete(project_id: int, request: Request):
 # في طبقة الحقائق تلقائيًا — فيظهر أثره في الداشبورد دون أي تعديل في كوده.
 
 def _c(key, typ, ar, en, width=150, **kw):
+    # حارس ضد خطأ مطبعي شائع: نسيان النوع فينزاح كل شيء ويضيع الاسم العربي بصمت
+    assert typ in SHEET_TYPES, f"عمود {key}: نوع غير معروف {typ!r}"
+    assert isinstance(width, int), f"عمود {key}: العرض يجب أن يكون رقمًا، لا {width!r}"
     col = {"key": key, "type": typ, "label": ar, "label_en": en, "width": width}
     col.update(kw)
     return col
 
 
+# قوائم الخيارات مأخوذة حرفيًا من ملف الشركة (Sentra Tower.xlsx) حتى لا يضطر
+# أحد إلى تعلّم مصطلحات جديدة. القيمة المخزَّنة إنجليزية دائمًا، و opt_ar للعرض.
+def _sel(key, ar, en, width, opts, width_ar=None):
+    """عمود اختيارات ثنائي اللغة: opts = [(القيمة الإنجليزية، المقابل العربي), ...]"""
+    return {"key": key, "type": "select", "label": ar, "label_en": en, "width": width,
+            "options": [o[0] for o in opts],
+            "opt_ar": {o[0]: o[1] for o in opts}}
+
+
+# مقاييس التقييم كما في الملف: الأثر بدرجة من 100، والاحتمالية نسبة، والدرجة حاصل ضربهما
+IMPACT_SCORE = [("Critical", "حرج", 100), ("Major", "كبير", 80), ("Moderate", "متوسط", 50),
+                ("Minor", "طفيف", 30), ("Insignificant", "لا يُذكر", 10)]
+PROB_SCORE = [("Very High", "مرتفعة جدًا", 1), ("High", "مرتفعة", 0.8), ("Medium", "متوسطة", 0.5),
+              ("Low", "منخفضة", 0.3), ("Very Low", "منخفضة جدًا", 0.1)]
+# حدود الأولوية: 80 فأعلى مرتفعة جدًا، 50 مرتفعة، 30 متوسطة، وما دونها منخفضة
+PRIORITY_FORMULA = ('IF([score] >= 80, "Very High", IF([score] >= 50, "High", '
+                    'IF([score] >= 30, "Medium", IF([score] > 0, "Low", ""))))')
+PRIORITY_AR = {"Very High": "مرتفعة جدًا", "High": "مرتفعة", "Medium": "متوسطة", "Low": "منخفضة"}
+OPEN_CLOSED_FORMULA = 'IF([closed] <> "", "Closed", IF([opened] <> "", "Open", ""))'
+OPEN_CLOSED_AR = {"Open": "مفتوحة", "Closed": "مغلقة"}
+_IMPACT_MAP = " + ".join(f'IF([impact] = "{e}", {v}, 0)' for e, _a, v in IMPACT_SCORE)
+_PROB_MAP = " + ".join(f'IF([prob] = "{e}", {v}, 0)' for e, _a, v in PROB_SCORE)
+
+PARTY = [("Client", "المالك"), ("Consultant", "الاستشاري"), ("Contractor", "المقاول"),
+         ("Government", "جهة حكومية"), ("Other", "أخرى")]
+DISCIPLINE = [("Structural", "إنشائي"), ("Architectural", "معماري"), ("Mechanical", "ميكانيكي"),
+              ("Electrical", "كهربائي"), ("Quality", "الجودة"), ("HSE", "السلامة"),
+              ("General", "عام"), ("Other", "أخرى")]
+TRADE = [("General", "عام"), ("Engineering", "هندسي"), ("Procurement", "المشتريات"),
+         ("Construction", "التنفيذ"), ("Testing", "الاختبارات"),
+         ("Handing Over", "التسليم"), ("Other", "أخرى")]
+
 SHEET_TEMPLATES = {
-    "procurement": {
-        "name": "سجل التوريدات", "name_en": "Procurement log", "icon": "📦",
+    # ---------- أوامر التغيير ----------
+    "variations": {
+        "name": "أوامر التغيير", "name_en": "Variation orders", "icon": "📝", "seq": 10,
         "columns": [
-            _c("project", "project", "المشروع", "Project", 200),
-            _c("po", "text", "رقم الأمر", "PO no.", 120),
-            _c("item", "text", "المادة", "Material", 220),
-            _c("supplier", "text", "المورد", "Supplier", 170),
-            _c("qty", "number", "الكمية", "Qty", 100),
-            _c("order_date", "date", "تاريخ الطلب", "Ordered", 130),
-            _c("eta", "date", "الوصول المتوقع", "Expected", 140),
-            _c("arrived", "date", "الوصول الفعلي", "Arrived", 140),
-            _c("status", "select", "الحالة", "Status", 140,
-               options=["قيد الطلب", "قيد التصنيع", "قيد الشحن", "وصل", "ملغي"]),
-            _c("notes", "text", "ملاحظات", "Notes", 200),
+            _c("project", "project", "المشروع", "Project", 190),
+            _c("vo_no", "text", "رقم الأمر", "VO no.", 110),
+            _c("description", "text", "الوصف", "Description", 260),
+            _sel("trade", "البند", "Trade", 140, TRADE[:4] + [TRADE[-1]]),
+            _sel("claimed_by", "مُقدَّم من", "Claimed by", 140, PARTY[:3] + [PARTY[-1]]),
+            _c("value", "number", "قيمة الأمر", "VO value", 140, decimals=2, unit="SAR"),
+            _c("eot_expected", "number", "التمديد المتوقع", "EOT expected (days)", 150, decimals=0),
+            _c("eot_approved", "number", "التمديد المعتمد", "EOT approved (days)", 150, decimals=0),
+            _sel("status", "حالة الأمر", "VO status", 130,
+                 [("Expected", "متوقع"), ("In progress", "قيد الإعداد"), ("Submitted", "مُقدَّم")]),
+            _c("submitted", "date", "تاريخ التقديم", "Submittal date", 130),
+            _sel("decision", "قرار المالك", "Client decision", 140,
+                 [("Under Review", "قيد المراجعة"), ("Approved", "معتمد"),
+                  ("Rejected", "مرفوض"), ("On hold", "معلَّق")]),
+            _c("decision_date", "date", "تاريخ القرار", "Decision date", 130),
         ],
         "metrics": [
-            {"key": "proc_open", "label": "أوامر توريد مفتوحة", "label_en": "Open purchase orders",
-             "direction": "down_good", "where": [["status", "not_in", ["وصل", "ملغي"]]]},
-            {"key": "proc_late", "label": "توريدات متأخرة", "label_en": "Late deliveries",
+            {"key": "vo_pending", "label": "أوامر تغيير تنتظر القرار", "label_en": "Variations awaiting a decision",
              "direction": "down_good",
-             "where": [["status", "not_in", ["وصل", "ملغي"]], ["eta", "before_today", None]]},
+             "where": [["status", "=", "Submitted"], ["decision", "in", ["", "Under Review"]]]},
+            {"key": "vo_approved_value", "label": "قيمة أوامر التغيير المعتمدة",
+             "label_en": "Approved variations value", "unit": "SAR", "kind": "money", "agg": "last",
+             "sum": "value", "direction": "neutral", "where": [["decision", "=", "Approved"]]},
+            {"key": "vo_eot_approved", "label": "التمديد المعتمد", "label_en": "Approved time extension",
+             "unit": "يوم", "unit_en": "days", "kind": "days", "sum": "eot_approved",
+             "direction": "neutral", "where": [["decision", "=", "Approved"]]},
         ],
     },
-    "shopdrawings": {
-        "name": "سجل المخططات التنفيذية", "name_en": "Shop drawing log", "icon": "📐",
-        "columns": [
-            _c("project", "project", "المشروع", "Project", 200),
-            _c("dwg", "text", "رقم المخطط", "Drawing no.", 140),
-            _c("title", "text", "الوصف", "Title", 230),
-            _c("disc", "select", "التخصص", "Discipline", 130,
-               options=["معماري", "إنشائي", "كهرباء", "ميكانيكا", "صحي", "تنسيق موقع"]),
-            _c("rev", "number", "رقم الإصدار", "Rev", 90),
-            _c("submitted", "date", "تاريخ التقديم", "Submitted", 130),
-            _c("due", "date", "الرد المتوقع", "Response due", 140),
-            _c("approved", "date", "تاريخ الاعتماد", "Approved", 130),
-            _c("status", "select", "الحالة", "Status", 150,
-               options=["قيد الإعداد", "قيد المراجعة", "معتمد", "معتمد مع ملاحظات", "مرفوض"]),
-            _c("notes", "text", "ملاحظات", "Notes", 200),
-        ],
-        "metrics": [
-            {"key": "sd_pending", "label": "مخططات قيد المراجعة", "label_en": "Drawings under review",
-             "direction": "down_good", "where": [["status", "in", ["قيد المراجعة"]]]},
-            {"key": "sd_overdue", "label": "مخططات تجاوزت موعد الرد", "label_en": "Drawings past response date",
-             "direction": "down_good",
-             "where": [["status", "in", ["قيد المراجعة"]], ["due", "before_today", None]]},
-            {"key": "sd_approved", "label": "مخططات معتمدة", "label_en": "Approved drawings",
-             "direction": "up_good", "where": [["status", "in", ["معتمد", "معتمد مع ملاحظات"]]]},
-        ],
-    },
-    "risks": {
-        "name": "سجل المخاطر", "name_en": "Risk register", "icon": "⚠️",
-        "columns": [
-            _c("project", "project", "المشروع", "Project", 200),
-            _c("risk", "text", "وصف الخطر", "Risk", 260),
-            _c("cat", "select", "الفئة", "Category", 140,
-               options=["فني", "مالي", "تعاقدي", "جدول زمني", "سلامة", "جهات خارجية"]),
-            _c("prob", "number", "الاحتمالية (1-5)", "Probability", 130),
-            _c("impact", "number", "الأثر (1-5)", "Impact", 120),
-            _c("score", "formula", "الدرجة", "Score", 100, formula="[prob] * [impact]", decimals=0),
-            _c("response", "text", "الاستجابة", "Response", 230),
-            _c("owner", "text", "المسؤول", "Owner", 150),
-            _c("status", "select", "الحالة", "Status", 130, options=["مفتوح", "تحت المتابعة", "مغلق"]),
-            _c("closed", "date", "تاريخ الإغلاق", "Closed", 130),
-        ],
-        "metrics": [
-            {"key": "risk_open", "label": "مخاطر مفتوحة", "label_en": "Open risks",
-             "direction": "down_good", "where": [["status", "not_in", ["مغلق"]]]},
-            {"key": "risk_high", "label": "مخاطر عالية (الدرجة ≥ 12)", "label_en": "High risks (score ≥ 12)",
-             "direction": "down_good", "where": [["status", "not_in", ["مغلق"]], ["score", ">=", 12]]},
-        ],
-    },
+    # ---------- المشاكل ----------
     "issues": {
-        "name": "سجل المشاكل", "name_en": "Issue log", "icon": "🛠️",
+        "name": "سجل المشاكل", "name_en": "Issue log", "icon": "🛠️", "seq": 20,
         "columns": [
-            _c("project", "project", "المشروع", "Project", 200),
-            _c("issue", "text", "وصف المشكلة", "Issue", 260),
-            _c("source", "select", "المصدر", "Source", 140,
-               options=["الموقع", "التصميم", "المقاول", "المالك", "جهة خارجية"]),
-            _c("priority", "select", "الأولوية", "Priority", 120, options=["عالية", "متوسطة", "منخفضة"]),
-            _c("opened", "date", "تاريخ الفتح", "Opened", 130),
-            _c("due", "date", "الموعد المستهدف", "Target", 140),
-            _c("owner", "text", "المسؤول", "Owner", 150),
-            _c("action", "text", "الإجراء", "Action", 240),
-            _c("status", "select", "الحالة", "Status", 130, options=["مفتوحة", "قيد المعالجة", "مغلقة"]),
-            _c("closed", "date", "تاريخ الإغلاق", "Closed", 130),
+            _c("project", "project", "المشروع", "Project", 190),
+            _c("description", "text", "وصف المشكلة", "Issue description", 270),
+            _c("zone", "text", "المنطقة أو الدور", "Zone / floor", 140),
+            _sel("category", "التصنيف", "Category", 140,
+                 [("Scope", "النطاق"), ("Schedule", "الجدول الزمني"), ("Cost", "التكلفة"),
+                  ("Quality", "الجودة"), ("Stakeholder", "أصحاب المصلحة"), ("Regulatory", "الاشتراطات"),
+                  ("Reputation", "السمعة"), ("Safety", "السلامة"), ("Environmental", "البيئة")]),
+            _sel("impact", "الأثر", "Impact", 130, [(e, a) for e, a, _v in IMPACT_SCORE]),
+            _sel("prob", "الإلحاح", "Urgency", 130, [(e, a) for e, a, _v in PROB_SCORE]),
+            _c("score", "formula", "الدرجة", "Score", 100,
+               formula=f"({_IMPACT_MAP}) * ({_PROB_MAP})", decimals=0),
+            _c("priority", "formula", "الأولوية", "Priority", 120,
+               formula=PRIORITY_FORMULA, opt_ar=PRIORITY_AR),
+            _sel("owner", "الجهة المسؤولة", "Issue owner", 150, PARTY),
+            _c("opened", "date", "تاريخ الفتح", "Date open", 130),
+            _c("closed", "date", "تاريخ الإغلاق", "Date closed", 130),
+            _c("status", "formula", "الحالة", "Status", 110,
+               formula=OPEN_CLOSED_FORMULA, opt_ar=OPEN_CLOSED_AR),
         ],
         "metrics": [
             {"key": "issue_open", "label": "مشاكل مفتوحة", "label_en": "Open issues",
-             "direction": "down_good", "where": [["status", "not_in", ["مغلقة"]]]},
-            {"key": "issue_overdue", "label": "مشاكل تجاوزت موعدها", "label_en": "Overdue issues",
+             "direction": "down_good", "where": [["status", "=", "Open"]]},
+            {"key": "issue_high", "label": "مشاكل عالية الأولوية", "label_en": "High priority issues",
              "direction": "down_good",
-             "where": [["status", "not_in", ["مغلقة"]], ["due", "before_today", None]]},
+             "where": [["status", "=", "Open"], ["priority", "in", ["High", "Very High"]]]},
+        ],
+    },
+    # ---------- المخاطر ----------
+    "risks": {
+        "name": "سجل المخاطر", "name_en": "Risk register", "icon": "⚠️", "seq": 30,
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 190),
+            _c("description", "text", "وصف الخطر", "Risk description", 260),
+            _c("effect", "text", "الأثر على الأهداف", "Effect on objectives", 250),
+            _c("cause", "text", "السبب أو المصدر", "Cause / source", 180),
+            _sel("category", "فئة الأثر", "Impact category", 150,
+                 [("Cost", "التكلفة"), ("Time", "الوقت"), ("Quality", "الجودة"), ("Scope", "النطاق"),
+                  ("Cost/Time", "التكلفة والوقت"), ("Cost/Quality", "التكلفة والجودة"),
+                  ("Cost/Scope", "التكلفة والنطاق"), ("Cost/Time/Scope", "التكلفة والوقت والنطاق"),
+                  ("Cost/Time/Quality", "التكلفة والوقت والجودة")]),
+            _sel("impact", "درجة الأثر", "Impact rating", 130, [(e, a) for e, a, _v in IMPACT_SCORE[:4]]),
+            _sel("prob", "الاحتمالية", "Probability", 130, [(e, a) for e, a, _v in PROB_SCORE[:4]]),
+            _c("score", "formula", "درجة الخطر", "Risk score", 110,
+               formula=f"({_IMPACT_MAP}) * ({_PROB_MAP})", decimals=0),
+            _c("priority", "formula", "الأولوية", "Risk priority", 120,
+               formula=PRIORITY_FORMULA, opt_ar=PRIORITY_AR),
+            _sel("status", "الحالة", "Status", 130,
+                 [("Not Started", "لم تبدأ"), ("In-Progress", "قيد المعالجة"),
+                  ("Behind", "متأخرة"), ("Closed", "مغلقة")]),
+            _sel("owner", "مالك الخطر", "Risk owner", 140, PARTY[:3] + [PARTY[-1]]),
+            _c("action_by", "text", "الإجراء على", "Action by", 140),
+            _sel("strategy", "الاستراتيجية", "Strategy", 130,
+                 [("Avoid", "تجنّب"), ("Transfer", "نقل"), ("Mitigate", "تخفيف"), ("Accept", "قبول")]),
+            _c("response", "text", "الاستجابة", "Risk response", 280),
+        ],
+        "metrics": [
+            {"key": "risk_open", "label": "مخاطر مفتوحة", "label_en": "Open risks",
+             "direction": "down_good", "where": [["status", "not_in", ["Closed"]], ["status", "not_empty", None]]},
+            {"key": "risk_high", "label": "مخاطر عالية الأولوية", "label_en": "High priority risks",
+             "direction": "down_good",
+             "where": [["status", "not_in", ["Closed"]], ["priority", "in", ["High", "Very High"]]]},
+            {"key": "risk_behind", "label": "مخاطر متأخرة المعالجة", "label_en": "Risks behind on response",
+             "direction": "down_good", "where": [["status", "=", "Behind"]]},
+        ],
+    },
+    # ---------- المستندات المقدَّمة ----------
+    "submittals": {
+        "name": "سجل المستندات المقدَّمة", "name_en": "Submittals log", "icon": "📐", "seq": 40,
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 190),
+            _sel("trade", "البند", "Trade", 140, TRADE),
+            _sel("discipline", "التخصص", "Discipline", 140, DISCIPLINE),
+            _sel("doc_type", "نوع المستند", "Document type", 170,
+                 [("Shop Drawings", "مخططات تنفيذية"), ("As-Builts", "مخططات ما نُفِّذ"),
+                  ("Designs", "تصاميم"), ("Calculation Sheets", "جداول حسابية"),
+                  ("Vendor Lists", "قوائم موردين"), ("Prequalifications", "تأهيل مسبق"),
+                  ("Material Samples", "عينات مواد"), ("Data Sheets", "بيانات فنية"),
+                  ("Reports", "تقارير"), ("Technical Documents", "مستندات فنية"),
+                  ("MIRs", "طلبات فحص مواد"), ("WIRs", "طلبات فحص أعمال"),
+                  ("Maintenance & Operation Manuals", "أدلة التشغيل والصيانة"),
+                  ("Letters", "خطابات"), ("Other", "أخرى")]),
+            _c("doc_name", "text", "اسم المستند", "Document name", 240),
+            _c("doc_no", "text", "رقم المستند", "Document no.", 140),
+            _c("rev", "number", "رقم الإصدار", "Revision no.", 110, decimals=0),
+            _sel("status", "حالة التقديم", "Submittal status", 140,
+                 [("In Progress", "قيد الإعداد"), ("Submitted", "مُقدَّم"),
+                  ("On Hold", "معلَّق"), ("Cancelled", "ملغي")]),
+            _c("submitted", "date", "تاريخ التقديم", "Submittal date", 130),
+            _c("due", "date", "موعد الرد", "Response due", 130),
+            _sel("party", "جهة القرار", "Decision party", 140,
+                 [("Consultant", "الاستشاري"), ("PMC", "إدارة المشروع"), ("Client", "المالك"),
+                  ("Authorities", "الجهات الرسمية"), ("Others", "أخرى")]),
+            _sel("decision", "القرار", "Party's decision", 160,
+                 [("Under Review", "قيد المراجعة"), ("Approved", "معتمد"),
+                  ("Approved with Notes", "معتمد مع ملاحظات"),
+                  ("Revise & Resubmit", "يُعدَّل ويُعاد تقديمه"),
+                  ("Rejected", "مرفوض"), ("On Hold", "معلَّق")]),
+            _sel("code", "رمز القرار", "Decision code", 110,
+                 [("A", "أ"), ("B", "ب"), ("C", "ج"), ("D", "د")]),
+            _c("decision_date", "date", "تاريخ القرار", "Decision date", 130),
+        ],
+        "metrics": [
+            {"key": "sub_review", "label": "مستندات قيد المراجعة", "label_en": "Submittals under review",
+             "direction": "down_good",
+             "where": [["status", "=", "Submitted"], ["decision", "in", ["", "Under Review"]]]},
+            {"key": "sub_overdue", "label": "مستندات تجاوزت موعد الرد", "label_en": "Submittals past response date",
+             "direction": "down_good",
+             "where": [["status", "=", "Submitted"], ["decision", "in", ["", "Under Review"]],
+                       ["due", "before_today", None]]},
+            {"key": "sub_rejected", "label": "مستندات مرفوضة أو تُعاد", "label_en": "Rejected or returned submittals",
+             "direction": "down_good", "where": [["decision", "in", ["Rejected", "Revise & Resubmit"]]]},
+            {"key": "sub_approved", "label": "مستندات معتمدة", "label_en": "Approved submittals",
+             "direction": "up_good", "where": [["decision", "in", ["Approved", "Approved with Notes"]]]},
+        ],
+    },
+    # ---------- توريد المواد ----------
+    "materials": {
+        "name": "سجل توريد المواد", "name_en": "Materials delivery", "icon": "📦", "seq": 50,
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 190),
+            _sel("discipline", "التخصص", "Discipline", 140, DISCIPLINE),
+            _c("material", "text", "وصف المادة", "Material description", 250),
+            _c("required_for", "text", "لأجل", "Required for", 170),
+            _c("boq_qty", "number", "كمية جدول الكميات", "BOQ qty", 140, decimals=2),
+            _c("unit", "text", "الوحدة", "Unit", 90),
+            _c("planned_qty", "number", "الكمية المخططة", "Planned qty", 130, decimals=2),
+            _c("delivered_qty", "number", "الكمية المورَّدة", "Delivered qty", 130, decimals=2),
+            _c("rate", "number", "سعر الوحدة", "Rate", 120, decimals=2, unit="SAR"),
+            _c("actual_cost", "formula", "التكلفة الفعلية", "Actual cost", 140,
+               formula="[delivered_qty] * [rate]", decimals=2, unit="SAR"),
+            _c("planned_cost", "formula", "التكلفة المخططة", "Planned cost", 140,
+               formula="[planned_qty] * [rate]", decimals=2, unit="SAR"),
+            _sel("item_type", "نوع البند", "Item type", 130,
+                 [("Long Lead", "طويل التوريد"), ("Short Lead", "قصير التوريد")]),
+            _c("mr_no", "text", "رقم طلب المواد", "MR no.", 120),
+            _sel("po_status", "حالة أمر الشراء", "PO status", 140,
+                 [("In Progress", "قيد الإعداد"), ("Issued", "صادر"),
+                  ("On Hold", "معلَّق"), ("Cancelled", "ملغي")]),
+            _c("po_no", "text", "رقم أمر الشراء", "PO no.", 120),
+            _c("required_before", "date", "مطلوب قبل", "Required before", 140),
+            _c("po_expected", "date", "إصدار الأمر المتوقع", "Expected PO date", 150),
+            _c("po_actual", "date", "إصدار الأمر الفعلي", "Actual PO date", 150),
+            _c("eta", "date", "الوصول المتوقع", "Expected delivery", 140),
+            _sel("status", "حالة التوريد", "Delivery status", 150,
+                 [("In Progress", "قيد التنفيذ"), ("Shipped", "تم الشحن"),
+                  ("Custom Clearance", "التخليص الجمركي"), ("Delivered", "تم التوريد"),
+                  ("Stuck", "متعثّر"), ("On Hold", "معلَّق")]),
+            _c("delivery_pct", "formula", "نسبة التوريد", "Delivery %", 120,
+               formula='IF([planned_qty] > 0, [delivered_qty] / [planned_qty] * 100, 0)',
+               decimals=1, unit="%"),
+        ],
+        "metrics": [
+            {"key": "mat_open", "label": "بنود توريد مفتوحة", "label_en": "Open material items",
+             "direction": "down_good", "where": [["status", "not_in", ["Delivered", ""]]]},
+            {"key": "mat_late", "label": "توريدات متأخرة", "label_en": "Late deliveries",
+             "direction": "down_good",
+             "where": [["status", "not_in", ["Delivered", ""]], ["eta", "before_today", None]]},
+            {"key": "mat_stuck", "label": "توريدات متعثّرة", "label_en": "Stuck deliveries",
+             "direction": "down_good", "where": [["status", "in", ["Stuck", "On Hold"]]]},
+            {"key": "mat_cost", "label": "تكلفة المواد المورَّدة", "label_en": "Delivered materials cost",
+             "unit": "SAR", "kind": "money", "sum": "actual_cost", "direction": "neutral",
+             "where": [["status", "=", "Delivered"]]},
+        ],
+    },
+    # ---------- تعليمات الموقع وعدم المطابقة ----------
+    "ncr": {
+        "name": "تعليمات الموقع وعدم المطابقة", "name_en": "Site instructions & NCRs",
+        "icon": "📋", "seq": 60,
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 190),
+            _sel("kind", "النوع", "Instruction type", 110,
+                 [("NCR", "عدم مطابقة"), ("SI", "تعليمات موقع")]),
+            _c("description", "text", "الوصف", "Item description", 280),
+            _c("location", "text", "الموقع", "Location", 160),
+            _sel("owner", "الإجراء على", "Action required by", 150, PARTY),
+            _c("opened", "date", "تاريخ الفتح", "Date open", 130),
+            _c("closed", "date", "تاريخ الإغلاق", "Date closed", 130),
+            _c("status", "formula", "الحالة", "Status", 110,
+               formula=OPEN_CLOSED_FORMULA, opt_ar=OPEN_CLOSED_AR),
+        ],
+        "metrics": [
+            {"key": "ncr_open", "label": "حالات عدم مطابقة مفتوحة", "label_en": "Open NCRs",
+             "direction": "down_good", "where": [["status", "=", "Open"], ["kind", "=", "NCR"]]},
+            {"key": "si_open", "label": "تعليمات موقع مفتوحة", "label_en": "Open site instructions",
+             "direction": "down_good", "where": [["status", "=", "Open"], ["kind", "=", "SI"]]},
+        ],
+    },
+    # ---------- السلامة ----------
+    "hse": {
+        "name": "سجل السلامة", "name_en": "Safety log", "icon": "🦺", "seq": 70,
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 190),
+            _c("week", "number", "رقم الأسبوع", "Week no.", 110, decimals=0),
+            _c("day", "date", "التاريخ", "Date", 130),
+            _c("direct", "number", "العمالة المباشرة", "Direct manpower", 140, decimals=0),
+            _c("indirect", "number", "العمالة غير المباشرة", "Indirect manpower", 150, decimals=0),
+            _c("eq_hired", "number", "معدات مستأجرة", "Hired equipment", 140, decimals=0),
+            _c("eq_owned", "number", "معدات مملوكة", "Owned equipment", 140, decimals=0),
+            _c("near_miss", "number", "حوادث وشيكة", "Near misses", 130, decimals=0),
+            _c("toolbox", "number", "اجتماعات السلامة", "Toolbox talks", 140, decimals=0),
+            _c("training", "number", "دورات تدريبية", "Trainings", 130, decimals=0),
+            _c("first_aid", "number", "حالات إسعاف أولي", "First aid cases", 140, decimals=0),
+        ],
+        "metrics": [
+            {"key": "hse_near_miss", "label": "حوادث وشيكة", "label_en": "Near misses",
+             "direction": "down_good", "sum": "near_miss", "where": []},
+            {"key": "hse_first_aid", "label": "حالات إسعاف أولي", "label_en": "First aid cases",
+             "direction": "down_good", "sum": "first_aid", "where": []},
+            {"key": "hse_manpower", "label": "إجمالي العمالة (آخر أسبوع)", "label_en": "Manpower (latest week)",
+             "direction": "neutral", "latest_by": "day", "sum_cols": ["direct", "indirect"], "where": []},
+        ],
+    },
+    # ---------- الفواتير ----------
+    "invoices": {
+        "name": "سجل الفواتير", "name_en": "Invoice log", "icon": "🧾", "seq": 80,
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 190),
+            _c("inv_no", "text", "رقم الفاتورة", "Invoice no.", 130),
+            _c("amount", "number", "القيمة", "Amount", 150, decimals=2, unit="SAR"),
+            _c("inv_pct", "number", "نسبة الفاتورة", "Invoice %", 120, decimals=2, unit="%"),
+            _c("actual_pct", "number", "الإنجاز الفعلي", "Actual progress %", 140, decimals=2, unit="%"),
+            _sel("status", "حالة التقديم", "Submittal status", 140,
+                 [("In Progress", "قيد الإعداد"), ("Submitted", "مُقدَّمة"), ("On Hold", "معلَّقة")]),
+            _c("submitted", "date", "تاريخ التقديم", "Submittal date", 130),
+            _sel("payment", "حالة السداد", "Payment status", 140,
+                 [("In Progress", "قيد الصرف"), ("Paid", "مدفوعة"), ("Rejected", "مرفوضة")]),
+            _c("paid_on", "date", "تاريخ السداد", "Payment date", 130),
+        ],
+        "metrics": [
+            {"key": "inv_unpaid", "label": "فواتير لم تُسدَّد", "label_en": "Unpaid invoices",
+             "direction": "down_good",
+             "where": [["status", "=", "Submitted"], ["payment", "not_in", ["Paid"]]]},
+            {"key": "inv_unpaid_value", "label": "قيمة الفواتير غير المسددة",
+             "label_en": "Unpaid invoices value", "unit": "SAR", "kind": "money", "sum": "amount",
+             "direction": "down_good",
+             "where": [["status", "=", "Submitted"], ["payment", "not_in", ["Paid"]]]},
+            {"key": "inv_paid_value", "label": "قيمة الفواتير المسددة", "label_en": "Paid invoices value",
+             "unit": "SAR", "kind": "money", "sum": "amount", "direction": "up_good",
+             "where": [["payment", "=", "Paid"]]},
+        ],
+    },
+    # ---------- المراسلات ----------
+    "letters": {
+        "name": "سجل المراسلات", "name_en": "Correspondence log", "icon": "✉️", "seq": 90,
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 190),
+            _c("day", "date", "التاريخ", "Date", 130),
+            _c("ref", "text", "الرقم المرجعي", "Ref. no.", 140),
+            _sel("kind", "النوع", "Type", 110,
+                 [("Incoming", "وارد"), ("Outgoing", "صادر")]),
+            _sel("party", "من / إلى", "From / to", 140,
+                 [("Client", "المالك"), ("Developer", "المطوّر"), ("Consultant", "الاستشاري"),
+                  ("PMC", "إدارة المشروع"), ("Authority", "جهة رسمية"),
+                  ("Bank", "البنك"), ("Other", "أخرى")]),
+            _c("subject", "text", "الموضوع", "Subject", 280),
+            _sel("status", "الحالة", "Status", 130,
+                 [("Received", "مستلَم"), ("Sent", "مُرسَل"), ("Under Review", "قيد المراجعة")]),
+            _sel("owner", "الإجراء على", "Action required by", 150,
+                 [("Management", "الإدارة"), ("Project Control", "ضبط المشاريع"),
+                  ("Finance", "المالية"), ("HR", "الموارد البشرية"), ("Quality", "الجودة"),
+                  ("HSE", "السلامة"), ("Authority", "جهة رسمية"), ("Client", "المالك"),
+                  ("Consultant", "الاستشاري"), ("PMC", "إدارة المشروع"), ("Other", "أخرى")]),
+            _sel("importance", "الأهمية", "Importance", 120,
+                 [("Urgent", "عاجل"), ("High", "مرتفعة"), ("Moderate", "متوسطة"), ("Low", "منخفضة")]),
+        ],
+        "metrics": [
+            {"key": "letter_review", "label": "مراسلات قيد المراجعة", "label_en": "Correspondence under review",
+             "direction": "down_good", "where": [["status", "=", "Under Review"]]},
+            {"key": "letter_urgent", "label": "مراسلات عاجلة قيد المراجعة",
+             "label_en": "Urgent correspondence under review", "direction": "down_good",
+             "where": [["status", "=", "Under Review"], ["importance", "in", ["Urgent", "High"]]]},
         ],
     },
 }
+
+
+# رقم إصدار القوالب. الجداول المنشأة بإصدار أقدم تظل تُفتح وتُحرَّر كجداول عادية،
+# لكنها لا تُقرأ في طبقة الحقائق لأن أعمدتها لم تعد تطابق القواعد.
+TEMPLATE_VER = 2
 
 
 def _templates_meta():
@@ -2046,7 +2400,7 @@ def _templates_meta():
     return [{"key": k, "name": t["name"], "name_en": t["name_en"], "icon": t["icon"],
              "metrics": [{"key": m["key"], "label": m["label"], "label_en": m["label_en"]}
                          for m in t["metrics"]]}
-            for k, t in SHEET_TEMPLATES.items()]
+            for k, t in sorted(SHEET_TEMPLATES.items(), key=lambda kv: kv[1].get("seq", 999))]
 
 
 def _rule_hit(row, rule):
@@ -2089,7 +2443,7 @@ def collect_sheets(project=None, conn=None):
         cols = json.loads(cols) if isinstance(cols, str) else (cols or [])
         settings = json.loads(settings) if isinstance(settings, str) else (settings or {})
         tpl = SHEET_TEMPLATES.get(settings.get("template"))
-        if tpl:
+        if tpl and int(_fnum(settings.get("ver"))) == TEMPLATE_VER:
             sheets.append((sid, cols, settings, tpl))
     if not sheets:
         if own:
@@ -2103,23 +2457,30 @@ def collect_sheets(project=None, conn=None):
         rows = [(json.loads(r[0]) if isinstance(r[0], str) else (r[0] or {})) for r in cursor.fetchall()]
         rows = [_compute_row(cols, r, latest) for r in rows]
         pkey = next((c["key"] for c in cols if c.get("type") == "project"), None)
-        counts = {}
         bound = (settings.get("project") or "").strip()
+        by_project = {}
         # السجل المربوط بمشروع يكتب أصفاره أيضًا: «لا يوجد متأخر» حقيقة لا فراغ
         if bound and not (project and bound != project):
-            counts[bound] = {}
+            by_project[bound] = []
         for r in rows:
             proj = (str(r.get(pkey) or "").strip() if pkey else "") or bound
             if not proj or (project and proj != project):
                 continue
-            counts.setdefault(proj, {})
+            by_project.setdefault(proj, []).append(r)
+        for proj, prows in by_project.items():
             for m in tpl["metrics"]:
-                if all(_rule_hit(r, rule) for rule in m["where"]):
-                    counts[proj][m["key"]] = counts[proj].get(m["key"], 0) + 1
-        for proj, per_metric in counts.items():
-            for m in tpl["metrics"]:                       # الصفر حقيقة أيضًا
+                hits = [r for r in prows if all(_rule_hit(r, rule) for rule in m.get("where") or [])]
+                if m.get("latest_by"):                     # لقطة آخر صف بتاريخه لا مجموع الصفوف
+                    dated = [r for r in hits if _clean_date(r.get(m["latest_by"]))]
+                    hits = [max(dated, key=lambda r: _clean_date(r[m["latest_by"]]))] if dated else []
+                if m.get("sum"):
+                    val = sum(_fnum(r.get(m["sum"])) for r in hits)
+                elif m.get("sum_cols"):
+                    val = sum(_fnum(r.get(k)) for r in hits for k in m["sum_cols"])
+                else:
+                    val = len(hits)
                 out.append({"project": proj, "metric": m["key"], "period": today,
-                            "value": per_metric.get(m["key"], 0), "source": "sheet", "ref": str(sid)})
+                            "value": round(val, 2), "source": "sheet", "ref": str(sid)})
     if own:
         conn.close()
     return out
@@ -2127,13 +2488,14 @@ def collect_sheets(project=None, conn=None):
 
 def _seed_template_metrics(cursor):
     """يسجّل مؤشرات القوالب في سجل المؤشرات مرة واحدة."""
-    seq = 200
-    for tpl in SHEET_TEMPLATES.values():
+    for tpl in sorted(SHEET_TEMPLATES.values(), key=lambda t: t.get("seq", 999)):
+        seq = 200 + tpl.get("seq", 0) * 10
         for m in tpl["metrics"]:
-            seq += 10
+            seq += 1
             cursor.execute("""INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, seq)
-                              VALUES (%s,%s,%s,'','count','last',%s,%s,%s) ON CONFLICT (key) DO NOTHING""",
-                           (m["key"], m["label"], m["label_en"], m.get("direction", "neutral"),
+                              VALUES (%s,%s,%s,%s,%s,'last',%s,%s,%s) ON CONFLICT (key) DO NOTHING""",
+                           (m["key"], m["label"], m["label_en"], m.get("unit", ""),
+                            m.get("kind", "count"), m.get("direction", "neutral"),
                             json.dumps(["sheet"]), seq))
 
 
@@ -2159,14 +2521,15 @@ async def api_project_sheet(project_id: int, request: Request, background_tasks:
         projects = _projects_payload(cursor)
         data_key = next((p["data_key"] for p in projects if p["id"] == project_id), proj["name"])
         cursor.execute("""SELECT id FROM sheets
-                          WHERE settings ->> 'template' = %s AND settings ->> 'project_id' = %s""",
-                       (key, str(project_id)))
+                          WHERE settings ->> 'template' = %s AND settings ->> 'project_id' = %s
+                            AND settings ->> 'ver' = %s""",
+                       (key, str(project_id), str(TEMPLATE_VER)))
         found = cursor.fetchone()
         if found:
             conn.close()
             return {"success": True, "id": found[0], "existed": True}
-        settings = {"template": key, "project_id": str(project_id), "project": data_key,
-                    "freeze": True}
+        settings = {"template": key, "ver": TEMPLATE_VER, "project_id": str(project_id),
+                    "project": data_key, "freeze": True}
         cursor.execute("""INSERT INTO sheets (name, name_en, columns, settings, created_by)
                           VALUES (%s,%s,%s,%s,%s) RETURNING id""",
                        (f"{tpl['name']} — {proj['name']}",
