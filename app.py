@@ -1679,7 +1679,7 @@ def _projects_payload(cursor):
     by_id = {p["id"]: p for p in projects}
     for p in projects:
         p.update({"aliases": [], "managers": [], "updates": 0, "last_update": "",
-                  "cashflow": False, "facts": 0, "sheets": 0, "data_key": p["name"]})
+                  "cashflow": False, "facts": 0, "sheets": 0, "logs": {}, "data_key": p["name"]})
 
     cursor.execute("SELECT project_id, alias FROM project_aliases")
     alias_of, aliases = {}, []
@@ -1720,6 +1720,18 @@ def _projects_payload(cursor):
         st = stats.get((name or "").strip())
         if st:
             st["sheets"] = int(cnt or 0)
+
+    # سجلات القوالب: لكل مشروع، أي سجل أُنشئ وكم صفًا فيه
+    for tkey, pid, sid, cnt in _try_sql(cursor, """
+            SELECT s.settings ->> 'template', s.settings ->> 'project_id', s.id,
+                   COUNT(r.id) FILTER (WHERE r.data <> '{}'::jsonb)
+            FROM sheets s LEFT JOIN sheet_rows r ON r.sheet_id = s.id
+            WHERE s.settings ->> 'template' IS NOT NULL
+              AND s.settings ->> 'project_id' IS NOT NULL
+            GROUP BY 1, 2, 3"""):
+        p = by_id.get(int(pid)) if str(pid or "").isdigit() else None
+        if p and tkey in SHEET_TEMPLATES:
+            p["logs"][tkey] = {"id": sid, "rows": int(cnt or 0)}
 
     for alias, st in stats.items():
         p = by_id.get(alias_of.get(alias))
@@ -1772,7 +1784,7 @@ async def api_projects(request: Request, sync: int = 0):
                  for r in _try_sql(cursor, "SELECT username, manager_name FROM users ORDER BY username")]
         conn.close()
         return {"success": True, "projects": payload, "users": users,
-                "statuses": PROJECT_STATUS, "synced": synced}
+                "statuses": PROJECT_STATUS, "templates": _templates_meta(), "synced": synced}
     except Exception as e:
         import traceback
         return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}",
@@ -1921,6 +1933,260 @@ async def api_project_delete(project_id: int, request: Request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+# ==================== قوالب السجلات (Log Templates) ====================
+# سجل جاهز بأعمدة قياسية يُنشأ بضغطة من صفحة المشروع، ومربوط به، ويكتب حقائقه
+# في طبقة الحقائق تلقائيًا — فيظهر أثره في الداشبورد دون أي تعديل في كوده.
+
+def _c(key, typ, ar, en, width=150, **kw):
+    col = {"key": key, "type": typ, "label": ar, "label_en": en, "width": width}
+    col.update(kw)
+    return col
+
+
+SHEET_TEMPLATES = {
+    "procurement": {
+        "name": "سجل التوريدات", "name_en": "Procurement log", "icon": "📦",
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 200),
+            _c("po", "text", "رقم الأمر", "PO no.", 120),
+            _c("item", "text", "المادة", "Material", 220),
+            _c("supplier", "text", "المورد", "Supplier", 170),
+            _c("qty", "number", "الكمية", "Qty", 100),
+            _c("order_date", "date", "تاريخ الطلب", "Ordered", 130),
+            _c("eta", "date", "الوصول المتوقع", "Expected", 140),
+            _c("arrived", "date", "الوصول الفعلي", "Arrived", 140),
+            _c("status", "select", "الحالة", "Status", 140,
+               options=["قيد الطلب", "قيد التصنيع", "قيد الشحن", "وصل", "ملغي"]),
+            _c("notes", "text", "ملاحظات", "Notes", 200),
+        ],
+        "metrics": [
+            {"key": "proc_open", "label": "أوامر توريد مفتوحة", "label_en": "Open purchase orders",
+             "direction": "down_good", "where": [["status", "not_in", ["وصل", "ملغي"]]]},
+            {"key": "proc_late", "label": "توريدات متأخرة", "label_en": "Late deliveries",
+             "direction": "down_good",
+             "where": [["status", "not_in", ["وصل", "ملغي"]], ["eta", "before_today", None]]},
+        ],
+    },
+    "shopdrawings": {
+        "name": "سجل المخططات التنفيذية", "name_en": "Shop drawing log", "icon": "📐",
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 200),
+            _c("dwg", "text", "رقم المخطط", "Drawing no.", 140),
+            _c("title", "text", "الوصف", "Title", 230),
+            _c("disc", "select", "التخصص", "Discipline", 130,
+               options=["معماري", "إنشائي", "كهرباء", "ميكانيكا", "صحي", "تنسيق موقع"]),
+            _c("rev", "number", "رقم الإصدار", "Rev", 90),
+            _c("submitted", "date", "تاريخ التقديم", "Submitted", 130),
+            _c("due", "date", "الرد المتوقع", "Response due", 140),
+            _c("approved", "date", "تاريخ الاعتماد", "Approved", 130),
+            _c("status", "select", "الحالة", "Status", 150,
+               options=["قيد الإعداد", "قيد المراجعة", "معتمد", "معتمد مع ملاحظات", "مرفوض"]),
+            _c("notes", "text", "ملاحظات", "Notes", 200),
+        ],
+        "metrics": [
+            {"key": "sd_pending", "label": "مخططات قيد المراجعة", "label_en": "Drawings under review",
+             "direction": "down_good", "where": [["status", "in", ["قيد المراجعة"]]]},
+            {"key": "sd_overdue", "label": "مخططات تجاوزت موعد الرد", "label_en": "Drawings past response date",
+             "direction": "down_good",
+             "where": [["status", "in", ["قيد المراجعة"]], ["due", "before_today", None]]},
+            {"key": "sd_approved", "label": "مخططات معتمدة", "label_en": "Approved drawings",
+             "direction": "up_good", "where": [["status", "in", ["معتمد", "معتمد مع ملاحظات"]]]},
+        ],
+    },
+    "risks": {
+        "name": "سجل المخاطر", "name_en": "Risk register", "icon": "⚠️",
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 200),
+            _c("risk", "text", "وصف الخطر", "Risk", 260),
+            _c("cat", "select", "الفئة", "Category", 140,
+               options=["فني", "مالي", "تعاقدي", "جدول زمني", "سلامة", "جهات خارجية"]),
+            _c("prob", "number", "الاحتمالية (1-5)", "Probability", 130),
+            _c("impact", "number", "الأثر (1-5)", "Impact", 120),
+            _c("score", "formula", "الدرجة", "Score", 100, formula="[prob] * [impact]", decimals=0),
+            _c("response", "text", "الاستجابة", "Response", 230),
+            _c("owner", "text", "المسؤول", "Owner", 150),
+            _c("status", "select", "الحالة", "Status", 130, options=["مفتوح", "تحت المتابعة", "مغلق"]),
+            _c("closed", "date", "تاريخ الإغلاق", "Closed", 130),
+        ],
+        "metrics": [
+            {"key": "risk_open", "label": "مخاطر مفتوحة", "label_en": "Open risks",
+             "direction": "down_good", "where": [["status", "not_in", ["مغلق"]]]},
+            {"key": "risk_high", "label": "مخاطر عالية (الدرجة ≥ 12)", "label_en": "High risks (score ≥ 12)",
+             "direction": "down_good", "where": [["status", "not_in", ["مغلق"]], ["score", ">=", 12]]},
+        ],
+    },
+    "issues": {
+        "name": "سجل المشاكل", "name_en": "Issue log", "icon": "🛠️",
+        "columns": [
+            _c("project", "project", "المشروع", "Project", 200),
+            _c("issue", "text", "وصف المشكلة", "Issue", 260),
+            _c("source", "select", "المصدر", "Source", 140,
+               options=["الموقع", "التصميم", "المقاول", "المالك", "جهة خارجية"]),
+            _c("priority", "select", "الأولوية", "Priority", 120, options=["عالية", "متوسطة", "منخفضة"]),
+            _c("opened", "date", "تاريخ الفتح", "Opened", 130),
+            _c("due", "date", "الموعد المستهدف", "Target", 140),
+            _c("owner", "text", "المسؤول", "Owner", 150),
+            _c("action", "text", "الإجراء", "Action", 240),
+            _c("status", "select", "الحالة", "Status", 130, options=["مفتوحة", "قيد المعالجة", "مغلقة"]),
+            _c("closed", "date", "تاريخ الإغلاق", "Closed", 130),
+        ],
+        "metrics": [
+            {"key": "issue_open", "label": "مشاكل مفتوحة", "label_en": "Open issues",
+             "direction": "down_good", "where": [["status", "not_in", ["مغلقة"]]]},
+            {"key": "issue_overdue", "label": "مشاكل تجاوزت موعدها", "label_en": "Overdue issues",
+             "direction": "down_good",
+             "where": [["status", "not_in", ["مغلقة"]], ["due", "before_today", None]]},
+        ],
+    },
+}
+
+
+def _templates_meta():
+    """وصف مختصر للقوالب تستخدمه الواجهة."""
+    return [{"key": k, "name": t["name"], "name_en": t["name_en"], "icon": t["icon"],
+             "metrics": [{"key": m["key"], "label": m["label"], "label_en": m["label_en"]}
+                         for m in t["metrics"]]}
+            for k, t in SHEET_TEMPLATES.items()]
+
+
+def _rule_hit(row, rule):
+    """تقييم شرط واحد على صف جدول."""
+    col, op, val = rule
+    v = row.get(col)
+    txt = "" if v is None else str(v).strip()
+    if op == "in":
+        return txt in val
+    if op == "not_in":
+        return txt not in val
+    if op == "=":
+        return txt == str(val)
+    if op == "!=":
+        return txt != str(val)
+    if op == ">=":
+        return _fnum(v) >= _fnum(val)
+    if op == "<=":
+        return _fnum(v) <= _fnum(val)
+    if op == "empty":
+        return txt == ""
+    if op == "not_empty":
+        return txt != ""
+    if op == "before_today":
+        d = _clean_date(v)
+        return bool(d) and d < _today_ksa()
+    return False
+
+
+def collect_sheets(project=None, conn=None):
+    """حقائق من سجلات المشاريع (الجداول المنشأة من قالب) — لقطة بتاريخ اليوم."""
+    own = conn is None
+    if own:
+        conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""SELECT id, columns, settings FROM sheets
+                      WHERE settings ->> 'template' IS NOT NULL""")
+    sheets = []
+    for sid, cols, settings in cursor.fetchall():
+        cols = json.loads(cols) if isinstance(cols, str) else (cols or [])
+        settings = json.loads(settings) if isinstance(settings, str) else (settings or {})
+        tpl = SHEET_TEMPLATES.get(settings.get("template"))
+        if tpl:
+            sheets.append((sid, cols, settings, tpl))
+    if not sheets:
+        if own:
+            conn.close()
+        return []
+    latest = _latest_by_project()
+    today = _today_ksa()
+    out = []
+    for sid, cols, settings, tpl in sheets:
+        cursor.execute("SELECT data FROM sheet_rows WHERE sheet_id = %s", (sid,))
+        rows = [(json.loads(r[0]) if isinstance(r[0], str) else (r[0] or {})) for r in cursor.fetchall()]
+        rows = [_compute_row(cols, r, latest) for r in rows]
+        pkey = next((c["key"] for c in cols if c.get("type") == "project"), None)
+        counts = {}
+        bound = (settings.get("project") or "").strip()
+        # السجل المربوط بمشروع يكتب أصفاره أيضًا: «لا يوجد متأخر» حقيقة لا فراغ
+        if bound and not (project and bound != project):
+            counts[bound] = {}
+        for r in rows:
+            proj = (str(r.get(pkey) or "").strip() if pkey else "") or bound
+            if not proj or (project and proj != project):
+                continue
+            counts.setdefault(proj, {})
+            for m in tpl["metrics"]:
+                if all(_rule_hit(r, rule) for rule in m["where"]):
+                    counts[proj][m["key"]] = counts[proj].get(m["key"], 0) + 1
+        for proj, per_metric in counts.items():
+            for m in tpl["metrics"]:                       # الصفر حقيقة أيضًا
+                out.append({"project": proj, "metric": m["key"], "period": today,
+                            "value": per_metric.get(m["key"], 0), "source": "sheet", "ref": str(sid)})
+    if own:
+        conn.close()
+    return out
+
+
+def _seed_template_metrics(cursor):
+    """يسجّل مؤشرات القوالب في سجل المؤشرات مرة واحدة."""
+    seq = 200
+    for tpl in SHEET_TEMPLATES.values():
+        for m in tpl["metrics"]:
+            seq += 10
+            cursor.execute("""INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, seq)
+                              VALUES (%s,%s,%s,'','count','last',%s,%s,%s) ON CONFLICT (key) DO NOTHING""",
+                           (m["key"], m["label"], m["label_en"], m.get("direction", "neutral"),
+                            json.dumps(["sheet"]), seq))
+
+
+@app.post("/api/projects/{project_id}/sheets")
+async def api_project_sheet(project_id: int, request: Request, background_tasks: BackgroundTasks):
+    """ينشئ سجلًا جاهزًا من قالب ويربطه بالمشروع."""
+    if request.cookies.get("super_admin_auth") != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        key = b.get("template")
+        tpl = SHEET_TEMPLATES.get(key)
+        if not tpl:
+            return JSONResponse({"success": False, "error": "قالب غير معروف"}, status_code=400)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT {PROJECT_COLS} FROM projects WHERE id = %s", (project_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return JSONResponse({"success": False, "error": "المشروع غير موجود"}, status_code=404)
+        proj = _project_row(row)
+        projects = _projects_payload(cursor)
+        data_key = next((p["data_key"] for p in projects if p["id"] == project_id), proj["name"])
+        cursor.execute("""SELECT id FROM sheets
+                          WHERE settings ->> 'template' = %s AND settings ->> 'project_id' = %s""",
+                       (key, str(project_id)))
+        found = cursor.fetchone()
+        if found:
+            conn.close()
+            return {"success": True, "id": found[0], "existed": True}
+        settings = {"template": key, "project_id": str(project_id), "project": data_key,
+                    "freeze": True}
+        cursor.execute("""INSERT INTO sheets (name, name_en, columns, settings, created_by)
+                          VALUES (%s,%s,%s,%s,%s) RETURNING id""",
+                       (f"{tpl['name']} — {proj['name']}",
+                        f"{tpl['name_en']} — {proj['name_en'] or proj['name']}",
+                        json.dumps(_clean_columns(tpl["columns"]), ensure_ascii=False),
+                        json.dumps(settings, ensure_ascii=False),
+                        request.cookies.get("super_admin_auth")))
+        sid = cursor.fetchone()[0]
+        _seed_template_metrics(cursor)
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"),
+                                  "إنشاء سجل من قالب", f"{tpl['name']} — {proj['name']}")
+        return {"success": True, "id": sid}
+    except Exception as e:
+        import traceback
+        return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}",
+                             "trace": traceback.format_exc()[-500:]}, status_code=500)
+
+
 # ==================== طبقة الحقائق (Facts Layer) ====================
 # المبدأ: أي مديول (تحديثات المديرين، التدفق النقدي، الجداول المخصصة، وبعدين البرنامج
 # الزمني والسجلات) بيكتب أرقامه هنا كـ «حقائق». والداشبورد والتقارير بيقروا من هنا بس،
@@ -1951,14 +2217,18 @@ SEED_METRICS = [
 FACT_SOURCES = {
     "updates":  {"label": "تحديثات مديري المشاريع", "label_en": "Manager updates"},
     "cashflow": {"label": "التدفق النقدي",          "label_en": "Cash flow"},
-    "sheet":    {"label": "جدول مخصص",              "label_en": "Custom sheet"},
+    "sheet":    {"label": "سجلات المشاريع",          "label_en": "Project logs"},
     "wbs":      {"label": "هيكل الأعمال",           "label_en": "WBS"},
     "manual":   {"label": "إدخال يدوي",             "label_en": "Manual entry"},
 }
 
 
 def _seed_metrics(cursor):
-    """يضيف المؤشرات القياسية مرة واحدة — وما بيلمسش أي تعديل عملته إنت عليها."""
+    """يضيف المؤشرات القياسية مرة واحدة — دون المساس بأي تعديل أجريته عليها."""
+    try:
+        _seed_template_metrics(cursor)
+    except Exception:
+        pass
     for m in SEED_METRICS:
         cursor.execute("""INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, seq)
                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (key) DO NOTHING""",
@@ -2205,7 +2475,7 @@ def collect_cashflow(project=None, conn=None):
     return out
 
 
-COLLECTORS = {"updates": collect_updates, "cashflow": collect_cashflow}
+COLLECTORS = {"updates": collect_updates, "cashflow": collect_cashflow, "sheet": collect_sheets}
 
 
 def facts_rebuild(source="all", project=None):
