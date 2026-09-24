@@ -2744,6 +2744,25 @@ def _rule_hit(row, rule):
     return False
 
 
+def _row_has_data(columns, data, project_key=None):
+    """هل في الصف معلومة فعلية؟
+
+    نتجاهل عمود المشروع (يُملأ تلقائيًا في الصف الجديد) وأعمدة المعادلات والقيم
+    المجلوبة (تُحسب ولا تُكتب) — فيبقى السؤال: هل كتب أحد شيئًا في هذا الصف؟
+    """
+    for c in columns or []:
+        key = c.get("key")
+        if not key or key == project_key or c.get("type") in ("formula", "lookup", "project"):
+            continue
+        v = data.get(key)
+        if v is None or v is False:
+            continue
+        if isinstance(v, str) and not v.strip():
+            continue
+        return True
+    return False
+
+
 def collect_sheets(project=None, conn=None):
     """حقائق من سجلات المشاريع (الجداول المنشأة من قالب) — لقطة بتاريخ اليوم."""
     own = conn is None
@@ -2775,15 +2794,20 @@ def collect_sheets(project=None, conn=None):
     out = []
     for sid, cols, settings, tpl in sheets:
         cursor.execute("SELECT data FROM sheet_rows WHERE sheet_id = %s", (sid,))
-        rows = [(json.loads(r[0]) if isinstance(r[0], str) else (r[0] or {})) for r in cursor.fetchall()]
-        rows = [_compute_row(cols, r, latest) for r in rows]
+        raw = [(json.loads(r[0]) if isinstance(r[0], str) else (r[0] or {})) for r in cursor.fetchall()]
         pkey = next((c["key"] for c in cols if c.get("type") == "project"), None)
         bound = (settings.get("project") or "").strip()
         by_project = {}
         # السجل المربوط بمشروع يكتب أصفاره أيضًا: «لا يوجد متأخر» حقيقة لا فراغ
         if bound and not (project and bound != project):
             by_project[bound] = []
-        for r in rows:
+        for data in raw:
+            # الصف الفارغ ليس بندًا. الصفوف الجديدة تُحفظ فارغة (وربما باسم المشروع
+            # وحده)، فلو عُدَّت لظهرت «٣ مخاطر مفتوحة» في سجل لم يُكتب فيه حرف.
+            # الحكم على المكتوب فعلًا لا على المحسوب، فالمعادلات تعطي صفرًا لفراغ.
+            if not _row_has_data(cols, data, pkey):
+                continue
+            r = _compute_row(cols, data, latest)
             proj = (str(r.get(pkey) or "").strip() if pkey else "") or bound
             if not proj or (project and proj != project):
                 continue
@@ -2818,17 +2842,52 @@ def _fix_units(cursor):
 
 
 def _seed_template_metrics(cursor):
-    """يسجّل مؤشرات القوالب في سجل المؤشرات مرة واحدة."""
+    """يسجّل مؤشرات القوالب. الاسم والوحدة يُحدَّثان مع القالب — وإلا بقي على
+       الشاشة اسم قديم لمؤشر تغيّر تعريفه. ترتيب المصادر يبقى للمستخدم."""
     _fix_units(cursor)
     for tpl in sorted(SHEET_TEMPLATES.values(), key=lambda t: t.get("seq", 999)):
         seq = 200 + tpl.get("seq", 0) * 10
         for m in tpl["metrics"]:
             seq += 1
             cursor.execute("""INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, seq)
-                              VALUES (%s,%s,%s,%s,%s,'last',%s,%s,%s) ON CONFLICT (key) DO NOTHING""",
+                              VALUES (%s,%s,%s,%s,%s,'last',%s,%s,%s)
+                              ON CONFLICT (key) DO UPDATE SET label = EXCLUDED.label,
+                                label_en = EXCLUDED.label_en, unit = EXCLUDED.unit,
+                                kind = EXCLUDED.kind, seq = EXCLUDED.seq""",
                            (m["key"], m["label"], m["label_en"], m.get("unit_en") or m.get("unit", ""),
                             m.get("kind", "count"), m.get("direction", "neutral"),
                             json.dumps(["sheet"]), seq))
+
+
+def _live_sheet_metrics(cursor):
+    """مفاتيح المؤشرات التي ما زال يُنتجها قالب حالي أو قاعدة كتبها المستخدم."""
+    keys = {m["key"] for t in SHEET_TEMPLATES.values() for m in t["metrics"]}
+    for (facts,) in _try_sql(cursor, """SELECT settings -> 'facts' FROM sheets
+                                        WHERE settings -> 'facts' IS NOT NULL""") or []:
+        rules = json.loads(facts) if isinstance(facts, str) else (facts or [])
+        keys |= {r.get("key") for r in rules if isinstance(r, dict) and r.get("key")}
+    return keys
+
+
+def _retire_dead_metrics(cursor):
+    """يشطب مؤشرات لم يعد أي مصدر ينتجها.
+
+    مؤشرات القوالب القديمة كانت تبقى في السجل إلى الأبد، فيظل عمودها معروضًا في
+    صفحة الحقائق بأرقام لا مصدر لها. نحذف المؤشر وحقائقه معًا، ولا نمسّ إلا ما
+    مصدره الوحيد «السجلات» حتى لا نلمس مؤشرًا عرّفه المستخدم لمصدر آخر.
+    """
+    live = _live_sheet_metrics(cursor)
+    rows = _try_sql(cursor, """SELECT key, sources FROM fact_metrics
+                               WHERE sources::text LIKE '%%sheet%%'""") or []
+    gone = 0
+    for key, sources in rows:
+        srcs = json.loads(sources) if isinstance(sources, str) else (sources or [])
+        if key in live or list(srcs) != ["sheet"]:
+            continue
+        _try_sql(cursor, "DELETE FROM project_facts WHERE metric = %s AND source = 'sheet'", (key,))
+        _try_sql(cursor, "DELETE FROM fact_metrics WHERE key = %s", (key,))
+        gone += 1
+    return gone
 
 
 @app.post("/api/projects/{project_id}/sheets")
@@ -3183,8 +3242,11 @@ def facts_rebuild(source="all", project=None):
         t0 = time.time()
         cur = conn.cursor()
         _seed_metrics(cur)
+        retired = _retire_dead_metrics(cur)     # مؤشرات لم يعد ينتجها أي مصدر
         conn.commit()
         timing["seed"] = round(time.time() - t0, 2)
+        if retired:
+            timing["retired"] = retired
         for name in names:
             fn = COLLECTORS.get(name)
             if not fn:
