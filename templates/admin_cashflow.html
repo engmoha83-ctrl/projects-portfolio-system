@@ -1400,9 +1400,9 @@ $('#projSel').addEventListener('change', e => loadProject(e.target.value));
         if(!want) return;
         const sel = $('#projSel');
         if(!Array.from(sel.options).some(o => o.value === want)){
-            sel.insertAdjacentHTML('beforeend', '<option></option>');
-            sel.lastElementChild.value = want;
-            sel.lastElementChild.textContent = want;
+            // اسم غير موجود في بيانات هذه الصفحة: لا نفتح جدولًا فارغًا قد يُحفظ بالخطأ
+            setState('لا توجد بيانات لمشروع باسم «' + want + '» في هذه الصفحة — افتحه من القائمة بالاسم المخزَّن', 'err');
+            return;
         }
         sel.value = want;
         loadProject(want);
