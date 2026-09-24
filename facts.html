@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Facts layer | Saudi Architects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EBEF; --tint:#F1F3F7; --tint2:#E6EAF0; --line:#E3E6EC; --ink:#172033; --muted:#5B6577;
+  --navy:#1F3A5F; --navy2:#274A78; --gold:#C8A165; --danger:#C8543E; --good:#2E7D5B; --head-h:58px;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;}
+[hidden]{display:none !important;}
+html,body{height:100%;margin:0;}
+body{font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif; background:var(--bg); color:var(--ink);
+     -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; min-height:100%;}
+html[lang="ar"] body{font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;}
+button,input,select{font-family:inherit; border-radius:0;}
+.hdr{min-height:var(--head-h); flex:0 0 auto; background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07); display:flex;
+     align-items:center; gap:8px; padding:8px 16px; position:sticky; top:0; z-index:30; flex-wrap:wrap;}
+.hdr-back{width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+          background:var(--tint); color:var(--ink); text-decoration:none; transition:background-color .15s ease;}
+.hdr-back:hover{background:var(--tint2);}
+[dir="rtl"] .hdr-back svg{transform:scaleX(-1);}
+.hdr-title{display:flex; flex-direction:column; line-height:1.2; padding:0 10px;}
+.hdr-title small{font-size:11px; color:var(--muted); font-weight:500;}
+.hdr-title b{font-size:14px; font-weight:600;}
+.spacer{flex:1;}
+.btn{height:34px; border:none; background:var(--tint); padding:0 12px; font-size:13px; font-weight:500;
+     color:var(--ink); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
+     transition:background-color .15s ease, transform .15s ease;}
+.btn:hover{background:var(--tint2);}
+.btn:active{transform:scale(.98);}
+.btn[disabled]{opacity:.45; pointer-events:none;}
+.btn.primary{background:var(--navy); color:#fff; font-weight:600;}
+.btn.primary:hover{background:var(--navy2);}
+.btn.icon{width:32px; padding:0; justify-content:center;}
+.fld{height:32px; background:var(--tint); border:none; padding:0 8px; font-size:12.5px; color:var(--ink);}
+.fld:focus{outline:2px solid #C9D6E8;}
+.wrap{flex:1 1 auto; padding:16px; display:flex; flex-direction:column; gap:16px; max-width:1500px; width:100%; margin:0 auto;}
+.card{background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 8px 20px rgba(23,32,51,.06);}
+.card > h2{margin:0; padding:14px 18px 10px; font-size:14px; font-weight:700; display:flex; align-items:center; gap:10px;}
+.card > h2 span{font-size:11.5px; font-weight:500; color:var(--muted);}
+.card-body{padding:0 18px 16px;}
+.note{font-size:12px; color:var(--muted); line-height:1.7; padding:0 18px 14px;}
+.status{margin:0 18px 16px; padding:10px 14px; background:var(--tint); font-size:12.5px; line-height:1.7;
+  white-space:pre-wrap; word-break:break-word;}
+.status.ok{background:#EAF3EE; color:#1F5C43;}
+.status.err{background:#FBEDEA; color:var(--danger);}
+.empty-cta{margin:0 18px 18px; padding:16px; background:#EAF0F8; display:flex; align-items:center;
+  justify-content:space-between; gap:18px; flex-wrap:wrap;}
+.empty-cta b{display:block; font-size:13.5px; margin-bottom:3px;}
+.empty-cta span{font-size:12px; color:var(--muted); max-width:620px; display:block; line-height:1.7;}
+.empty-cta .btn{height:38px; padding:0 18px;}
+.kpis{display:flex; flex-wrap:wrap; gap:10px; padding:0 18px 16px;}
+.kpi{background:var(--tint); padding:10px 14px; min-width:120px;}
+.kpi b{display:block; font-size:19px; font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums;}
+.kpi span{font-size:11.5px; color:var(--muted);}
+table{width:100%; border-collapse:collapse; font-size:12.5px;}
+th,td{border-bottom:1px solid var(--line); padding:7px 8px; text-align:start; vertical-align:middle;}
+th{background:#F7F8FA; font-size:11.5px; font-weight:600; color:var(--muted); white-space:nowrap; position:sticky; top:0; z-index:2; box-shadow:inset 0 -1px 0 var(--line);}
+tbody tr:hover td{background:#FAFBFC;}
+td.num{text-align:end; font-variant-numeric:tabular-nums;}
+.scroll{max-height:62vh; overflow:auto;}
+.card-body.scroll{padding-top:0;}
+.tag{display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 7px; background:var(--tint2); color:var(--muted);}
+.tag.on{background:#E7EEF8; color:var(--navy); font-weight:600;}
+.tag.warn{background:#FBEDEA; color:var(--danger);}
+.srcs{display:flex; align-items:center; gap:4px; flex-wrap:wrap;}
+.srcs .s{display:inline-flex; align-items:center; gap:3px; font-size:11px; padding:2px 6px; background:#E7EEF8; color:var(--navy);}
+.srcs .s b{font-weight:700; font-size:10px; opacity:.6;}
+.srcs .s button{border:none; background:none; cursor:pointer; color:var(--muted); font-size:10px; padding:0 1px;}
+.srcs .s button:hover{color:var(--danger);}
+.matrix td.v{font-variant-numeric:tabular-nums; white-space:nowrap;}
+.matrix td.v small{display:block; font-size:10px; color:var(--muted);}
+.matrix .none{color:#B9C0CC;}
+.toast{position:fixed; bottom:22px; inset-inline-end:22px; background:var(--ink); color:#fff; padding:12px 18px;
+  font-size:13px; box-shadow:0 18px 40px rgba(23,32,51,.22); z-index:99; opacity:0; transform:translateY(12px);
+  transition:opacity .25s ease, transform .3s var(--ease); pointer-events:none;}
+.toast.show{opacity:1; transform:none;}
+.toast.err{background:var(--danger);}
+.load-bar{position:fixed; top:var(--head-h); left:0; right:0; height:3px; z-index:70; overflow:hidden; pointer-events:none;
+  opacity:0; transition:opacity .25s ease;}
+.load-bar.on{opacity:1;}
+.load-bar i{position:absolute; top:0; bottom:0; width:35%; background:var(--gold); animation:ls 1.1s var(--ease) infinite;}
+.load-bar::before{content:''; position:absolute; inset:0; background:rgba(200,161,101,.22);}
+@keyframes ls{from{left:-35%}to{left:100%}}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <a class="hdr-back" href="/admin-hub" data-i18n-title="back">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
+  <div class="hdr-title"><small data-i18n="sub">Data foundation</small><b data-i18n="title">Facts layer</b></div>
+  <div class="spacer"></div>
+  <label class="inline" style="font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:6px;">
+    <span data-i18n="viewSrc">View</span><select class="fld" id="srcSel"></select></label>
+  <button class="btn" id="btnRebuild" data-i18n="rebuild" data-i18n-title="rebuildHint">Rebuild</button>
+  <button class="btn" id="btnLang">العربية</button>
+</header>
+
+<div class="load-bar" id="loadBar"><i></i></div>
+
+<div class="wrap">
+  <div class="card">
+    <h2 data-i18n="healthT">Health</h2>
+    <div class="kpis" id="kpis"></div>
+    <div class="note" data-i18n="healthNote"></div>
+    <div class="status" id="status" hidden></div>
+    <div class="empty-cta" id="emptyCta" hidden>
+      <div>
+        <b data-i18n="emptyT">No facts collected yet</b>
+        <span data-i18n="emptyD">Press the button to read the numbers out of the manager updates and the cash flow into this layer. It is safe to repeat any time.</span>
+      </div>
+      <button class="btn primary" id="btnCollect" data-i18n="collect">Collect the facts now</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="matrixT">Current values by project</h2>
+    <div class="note" data-i18n="matrixNote"></div>
+    <div class="status" id="matrixSrcNote" hidden></div>
+    <div class="card-body scroll" id="matrixBox"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="metricsT">Metric registry<span data-i18n="metricsHint"></span></h2>
+    <div class="note" data-i18n="metricsNote"></div>
+    <div class="card-body scroll" id="metricsBox"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="statsT">What each source collected</h2>
+    <div class="note" data-i18n="statsNote"></div>
+    <div class="card-body scroll" id="statsBox"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const UI_KEY = 'pmis_ui_lang';
+let UIL = (() => { try{ return localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){ return 'en'; } })();
+const en = () => UIL !== 'ar';
+const U  = (e, a) => en() ? e : a;
+const I18N = {
+  title:['Facts layer','طبقة الحقائق'], sub:['Data foundation','أساس البيانات'], back:['Back','رجوع'],
+  rebuild:['Rebuild','إعادة البناء'], healthT:['Health','الحالة'],
+  healthNote:['Every module writes its numbers here, and the dashboard reads only from here. Rebuild recollects the facts from the modules — it is safe to run any time.',
+              'كل وحدة في النظام تكتب أرقامها هنا، والداشبورد يقرأ من هنا فقط. «إعادة البناء» تجمع الحقائق من الوحدات من جديد، ويمكن تكرارها في أي وقت بأمان.'],
+  matrixT:['Current values by project','القيم الحالية لكل مشروع'],
+  metricsT:['Metric registry','سجل المؤشرات'],
+  metricsHint:['the source order decides which number wins','ترتيب المصادر هو الذي يحدد الرقم المعتمد'],
+  statsT:['What each source collected','ما جمعه كل مصدر'],
+  matrixNote:['The value in force today for every metric in every project. Under each number you see where it came from and its date.',
+              'القيمة المعتمدة اليوم لكل مؤشر في كل مشروع، ومكتوب تحت كل رقم مصدره وتاريخه.'],
+  metricsNote:['This is the list of numbers the system understands. Each row defines one metric: its name, unit, how it rolls up over periods, and — most importantly — the order of the sources it is read from. The value in force always comes from source 1; if a project has nothing there, the next source is used. Changing the order here changes what the dashboard shows, with no code change.',
+               'هذه هي قائمة الأرقام التي يفهمها النظام. كل صف يعرّف مؤشرًا واحدًا: اسمه ووحدته وطريقة تجميعه عبر الفترات، والأهم ترتيب المصادر التي يُقرأ منها. الرقم المعتمد يأتي دائمًا من المصدر رقم ١، فإن لم تكن لدى المشروع بيانات فيه انتقل النظام إلى الذي يليه. تغيير الترتيب هنا يغيّر ما يظهر في الداشبورد فورًا دون تعديل أي كود.'],
+  statsNote:['What each source actually produced: how many values, for how many projects, the period they cover, and when they were last collected. Use it to make sure nothing is missing and no source has stopped updating.',
+             'ما أنتجه كل مصدر فعليًا: كم قيمة، ولكم مشروع، وما المدى الزمني الذي تغطيه، ومتى جُمعت آخر مرة. يُستخدم للتأكد من اكتمال التجميع ولاكتشاف أي مؤشر ناقص أو مصدر توقف عن التحديث.'],
+  facts:['Facts','حقيقة'], projects:['Projects','مشروع'], metrics:['Metrics','مؤشر'], sources:['Sources','المصادر'],
+  key:['Key','المفتاح'], label:['Name','الاسم'], unit:['Unit','الوحدة'], kind:['Kind','النوع'],
+  agg:['Roll-up','التجميع'], dir:['Better when','الأفضل'], active:['Active','مفعّل'], add:['Add source','إضافة مصدر'],
+  save:['Save','حفظ'], saved:['Saved','تم الحفظ'], noData:['No facts yet — press Rebuild','لا توجد حقائق بعد — اضغط «إعادة البناء»'],
+  allSrc:['Approved value','القيمة المعتمدة'],
+  viewSrc:['View','عرض'],
+  rebuildHint:['Recollects every source','يعيد تجميع كل المصادر'],
+  onlySrc:['Showing values from this source alone, not the approved value.',
+           'هذه القيم من هذا المصدر وحده، وليست القيمة المعتمدة.'],
+  tookS:['in %s s','في %s ث'],
+  readS:['reading %s s','قراءة %s ث'], writeS:['writing %s s','كتابة %s ث'], metricCol:['Metric','المؤشر'], source:['Source','المصدر'],
+  from:['From','من'], to:['To','إلى'], updated:['Updated','آخر تحديث'], count:['Count','العدد'],
+  rebuilt:['Facts rebuilt','تمت إعادة بناء الحقائق'],
+  emptyT:['No facts collected yet','لا توجد حقائق مجمّعة بعد'],
+  emptyD:['Press the button to read the numbers out of the manager updates and the cash flow into this layer. It is safe to repeat any time.',
+          'اضغط الزر ليقرأ الأرقام من تحديثات المديرين ومن التدفق النقدي ويكتبها في هذه الطبقة، ويمكن تكرار ذلك في أي وقت بأمان.'],
+  collect:['Collect the facts now','اجمع الحقائق الآن'],
+  working:['Collecting…','جارٍ التجميع…'],
+  failed:['It did not work','تعذّر التنفيذ'],
+  nothing:['Nothing was collected — there are no manager updates or cash flow rows to read yet.',
+           'لم يُجمَّع أي شيء — لا توجد تحديثات من المديرين ولا صفوف تدفق نقدي لقراءتها.'],
+  last:['Latest','آخر قيمة'], sum:['Sum','مجموع'], avg:['Average','متوسط'], min:['Min','الأصغر'], max:['Max','الأكبر'],
+  up_good:['Higher','الأعلى'], down_good:['Lower','الأقل'], neutral:['—','—'],
+  number:['Number','رقم'], percent:['Percent','نسبة'], currency:['Money','مبلغ'], countk:['Count','عدد'],
+  date:['Date','تاريخ'], text:['Text','نص']
+};
+const KINDS = [['number','number'],['percent','percent'],['currency','currency'],['count','countk'],['date','date'],['text','text']];
+const AGGS  = ['last','sum','avg','min','max'];
+const DIRS  = ['up_good','down_good','neutral'];
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = t => String(t == null ? '' : t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const T = (k) => (I18N[k] || ['',''])[en() ? 0 : 1];
+function toast(msg, isErr){
+  const t = $('#toast'); t.textContent = msg; t.classList.toggle('err', !!isErr); t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+let BUSY = 0;
+const busy = on => { BUSY = Math.max(0, BUSY + (on ? 1 : -1)); $('#loadBar').classList.toggle('on', BUSY > 0); };
+async function api(url, opts){
+  busy(true);
+  try{
+    const r = await fetch(url, opts);
+    const j = await r.json().catch(() => ({success:false, error:'bad response'}));
+    if(!j.success && j.error) toast(j.error, true);
+    return j;
+  }catch(e){ toast(String(e.message || e), true); return {success:false}; }
+  finally{ busy(false); }
+}
+
+const S = {metrics:[], sources:{}, latest:{}, health:null, src:''};
+const mLabel = m => (en() ? (m.label_en || m.label) : (m.label || m.label_en)) || m.key;
+const sLabel = k => { const s = S.sources[k];
+  if(!s) return k;
+  return (en() ? (s.label_en || s.label) : (s.label || s.label_en)) || k; };
+
+function applyLang(){
+  const i = en() ? 0 : 1;
+  document.documentElement.lang = en() ? 'en' : 'ar';
+  document.documentElement.dir  = en() ? 'ltr' : 'rtl';
+  document.title = en() ? 'Facts layer | Saudi Architects' : 'طبقة الحقائق | المعماريون السعوديون';
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = (I18N[el.dataset.i18n] || ['', ''])[i]);
+  document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = (I18N[el.dataset.i18nTitle] || ['', ''])[i]);
+  $('#btnLang').textContent = en() ? 'Arabic' : 'English';
+  const sel = $('#srcSel'), keep = sel.value;
+  sel.innerHTML = `<option value="">${T('allSrc')}</option>` +
+    Object.keys(S.sources).map(k => `<option value="${k}">${esc(sLabel(k))}</option>`).join('');
+  sel.value = keep;
+}
+
+function fmtVal(m, v){
+  if(v === null || v === undefined) return '';
+  if(m.kind === 'date' || m.kind === 'text') return String(v);
+  const dec = (m.kind === 'percent' || Math.abs(v) < 100) ? 2 : 0;
+  return Number(v).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:dec})
+       + (m.unit ? ' ' + m.unit : '');
+}
+
+function drawHealth(){
+  const h = S.health || {total:{facts:0, projects:0, metrics:0}};
+  $('#emptyCta').hidden = !!(h.total && h.total.facts);
+  $('#kpis').innerHTML = [['facts', h.total.facts], ['projects', h.total.projects], ['metrics', h.total.metrics]]
+    .map(([k, v]) => `<div class="kpi"><b>${Number(v || 0).toLocaleString('en-US')}</b><span>${T(k)}</span></div>`).join('');
+}
+
+function drawStats(){
+  const rows = ((S.health || {}).stats || []).filter(s => !S.src || s.source === S.src);
+  $('#statsBox').innerHTML = !rows.length ? `<div class="note">${T('noData')}</div>` : `<table><thead><tr>
+      <th>${T('source')}</th><th>${T('metricCol')}</th><th>${T('count')}</th><th>${T('projects')}</th>
+      <th>${T('from')}</th><th>${T('to')}</th><th>${T('updated')}</th></tr></thead><tbody>${
+    rows.map(s => { const m = S.metrics.find(x => x.key === s.metric);
+      return `<tr><td><span class="tag on">${esc(sLabel(s.source))}</span></td>
+        <td>${esc(m ? mLabel(m) : s.metric)} <span class="tag">${esc(s.metric)}</span></td>
+        <td class="num">${s.facts}</td><td class="num">${s.projects}</td>
+        <td>${esc(s.from)}</td><td>${esc(s.to)}</td><td>${esc(s.updated_at)}</td></tr>`; }).join('')}</tbody></table>`;
+}
+
+function drawMatrix(){
+  const note = $('#matrixSrcNote');
+  if(note){ note.hidden = !S.src; note.textContent = S.src ? (T('onlySrc') + '  —  ' + sLabel(S.src)) : ''; }
+  const projects = Object.keys(S.latest).sort();
+  const metrics = S.metrics.filter(m => m.active);
+  if(!projects.length){ $('#matrixBox').innerHTML = `<div class="note">${T('noData')}</div>`; return; }
+  $('#matrixBox').innerHTML = `<table class="matrix"><thead><tr><th>${T('projects')}</th>${
+      metrics.map(m => `<th title="${esc(m.key)}">${esc(mLabel(m))}</th>`).join('')}</tr></thead><tbody>${
+    projects.map(p => `<tr><td><b>${esc(p)}</b></td>${metrics.map(m => {
+      const f = (S.latest[p] || {})[m.key];
+      if(!f) return `<td class="v none">—</td>`;
+      const v = f.text != null && f.text !== '' ? f.text : f.value;
+      return `<td class="v" title="${esc(m.key)} · ${esc(f.period || '')}">${esc(fmtVal(m, v))}
+        <small>${esc(sLabel(f.source))} · ${esc(String(f.period || '').slice(0, 10))}</small></td>`;
+    }).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+function drawMetrics(){
+  const srcKeys = Object.keys(S.sources);
+  $('#metricsBox').innerHTML = `<table><thead><tr>
+      <th>${T('key')}</th><th>${T('label')}</th><th>${T('unit')}</th><th>${T('kind')}</th>
+      <th>${T('agg')}</th><th>${T('dir')}</th><th style="min-width:230px">${T('sources')}</th>
+      <th>${T('active')}</th><th></th></tr></thead><tbody>${
+    S.metrics.map((m, i) => `<tr data-i="${i}">
+      <td><span class="tag">${esc(m.key)}</span></td>
+      <td><input class="fld" data-f="label" style="width:150px" value="${esc(en() ? (m.label_en || '') : (m.label || ''))}"></td>
+      <td><input class="fld" data-f="unit" style="width:60px" value="${esc(m.unit || '')}"></td>
+      <td><select class="fld" data-f="kind">${KINDS.map(([v, k]) =>
+        `<option value="${v}" ${m.kind === v ? 'selected' : ''}>${T(k)}</option>`).join('')}</select></td>
+      <td><select class="fld" data-f="agg">${AGGS.map(v =>
+        `<option value="${v}" ${m.agg === v ? 'selected' : ''}>${T(v)}</option>`).join('')}</select></td>
+      <td><select class="fld" data-f="direction">${DIRS.map(v =>
+        `<option value="${v}" ${m.direction === v ? 'selected' : ''}>${T(v)}</option>`).join('')}</select></td>
+      <td><div class="srcs">${(m.sources || []).map((s, si) =>
+          `<span class="s"><b>${si + 1}</b>${esc(sLabel(s))}
+            <button data-up="${si}" title="↑">▲</button><button data-rm="${si}" title="✕">✕</button></span>`).join('')}
+        <select class="fld" data-add style="width:110px"><option value="">+ ${T('add')}</option>${
+          srcKeys.filter(k => !(m.sources || []).includes(k)).map(k =>
+            `<option value="${k}">${esc(sLabel(k))}</option>`).join('')}</select></div></td>
+      <td><input type="checkbox" data-f="active" ${m.active ? 'checked' : ''}></td>
+      <td><button class="btn" data-save>${T('save')}</button></td></tr>`).join('')}</tbody></table>`;
+
+  $$('#metricsBox tbody tr').forEach(tr => {
+    const m = S.metrics[+tr.dataset.i];
+    tr.querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => {
+      const i = +b.dataset.up; if(i <= 0) return;
+      const s = m.sources; [s[i - 1], s[i]] = [s[i], s[i - 1]]; drawMetrics(); saveMetric(m);
+    }));
+    tr.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      m.sources.splice(+b.dataset.rm, 1); drawMetrics(); saveMetric(m);
+    }));
+    const add = tr.querySelector('[data-add]');
+    if(add) add.addEventListener('change', () => {
+      if(!add.value) return;
+      m.sources = (m.sources || []).concat(add.value); drawMetrics(); saveMetric(m);
+    });
+    tr.querySelector('[data-save]').addEventListener('click', () => {
+      tr.querySelectorAll('[data-f]').forEach(el => {
+        const f = el.dataset.f;
+        if(f === 'active') m.active = el.checked;
+        else if(f === 'label'){ if(en()) m.label_en = el.value; else m.label = el.value;
+                                if(!m.label) m.label = m.label_en; if(!m.label_en) m.label_en = m.label; }
+        else m[f] = el.value;
+      });
+      saveMetric(m, true);
+    });
+  });
+}
+
+async function saveMetric(m, say){
+  const j = await api('/api/facts/metrics', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(m)});
+  if(j.success){ if(say) toast(T('saved')); await loadAll(); }
+}
+
+async function loadLatest(){
+  const keys = S.metrics.filter(m => m.active).map(m => m.key).join(',');
+  const lt = await api('/api/facts/latest?metrics=' + encodeURIComponent(keys)
+                       + (S.src ? '&source=' + encodeURIComponent(S.src) : ''));
+  if(lt.success) S.latest = lt.latest || {};
+}
+async function loadAll(){
+  const [mm, hh] = await Promise.all([api('/api/facts/metrics'), api('/api/facts/health')]);
+  if(mm.success){ S.metrics = mm.metrics || []; S.sources = mm.sources || {}; }
+  if(hh.success) S.health = hh;
+  await loadLatest();
+  applyLang(); drawHealth(); drawStats(); drawMatrix(); drawMetrics();
+}
+
+function setStatus(text, cls){
+  const el = $('#status');
+  el.hidden = !text;
+  el.textContent = text || '';
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+async function rebuild(){
+  const btns = [$('#btnRebuild'), $('#btnCollect')].filter(Boolean);
+  const old = btns.map(b => b.textContent);
+  btns.forEach(b => { b.disabled = true; b.textContent = T('working'); });
+  setStatus(T('working'));
+  let j;
+  try{
+    const r = await fetch('/api/facts/rebuild', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({source:'all'})});          // دائمًا كل المصادر
+    j = await r.json().catch(() => ({success:false, error:'HTTP ' + r.status}));
+  }catch(e){ j = {success:false, error:String(e.message || e)}; }
+  btns.forEach((b, i) => { b.disabled = false; b.textContent = old[i]; });
+  if(!j || !j.success){
+    setStatus(T('failed') + ': ' + ((j && (j.error || j.trace)) || 'unknown'), 'err');
+    return;
+  }
+  const total = Object.values(j.written || {}).reduce((a, b) => a + (b || 0), 0);
+  let took = j.seconds != null ? '   ·   ' + T('tookS').replace('%s', j.seconds) : '';
+  if(j.timing){                                   // تفصيل الزمن: قراءة مقابل كتابة
+    let rd = 0, wr = 0;
+    Object.values(j.timing).forEach(v => { if(v && typeof v === 'object'){ rd += v.read || 0; wr += v.write || 0; } });
+    if(rd || wr) took += '  (' + T('readS').replace('%s', rd.toFixed(1))
+                       + '  ·  ' + T('writeS').replace('%s', wr.toFixed(1)) + ')';
+  }
+  setStatus(total ? (T('rebuilt') + ' — ' +
+      Object.entries(j.written || {}).map(([k, v]) => `${sLabel(k)}: ${v}`).join('   ·   ') + took)
+    : T('nothing'), total ? 'ok' : 'err');
+  await loadAll();
+}
+$('#btnRebuild').addEventListener('click', rebuild);
+$('#btnCollect').addEventListener('click', rebuild);
+$('#srcSel').addEventListener('change', async e => { S.src = e.target.value; await loadLatest(); drawStats(); drawMatrix(); });
+$('#btnLang').addEventListener('click', () => {
+  UIL = en() ? 'ar' : 'en';
+  try{ localStorage.setItem(UI_KEY, UIL); }catch(e){}
+  applyLang(); drawHealth(); drawStats(); drawMatrix(); drawMetrics();
+});
+
+applyLang();
+loadAll();
+</script>
+<script>
+(function(){
+  if(window.__pmisAuthGuard) return;
+  window.__pmisAuthGuard = true;
+  var LOGIN = '/admin', gone = false;
+  var MSG = {ar:'انتهت الجلسة — يتم تحويلك إلى صفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
+  function expired(){
+    if(gone) return; gone = true;
+    var isEn = (document.documentElement.lang === 'en');
+    try{ if(typeof toast === 'function') toast(isEn ? MSG.en : MSG.ar, true); }catch(e){}
+    setTimeout(function(){ location.href = LOGIN; }, 1800);
+  }
+  var nativeFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    var u = String((input && input.url) || input || '');
+    return nativeFetch(input, init).then(function(r){
+      try{
+        var sameSite = !/^https?:\/\//.test(u) || u.indexOf(location.origin) === 0;
+        if((r.status === 401 || r.status === 403) && sameSite) expired();
+      }catch(e){}
+      return r;
+    });
+  };
+})();
+</script>
+</body>
+</html>
