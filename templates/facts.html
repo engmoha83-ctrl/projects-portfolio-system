@@ -20,8 +20,8 @@ body{font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif; background:v
      -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; min-height:100%;}
 html[lang="ar"] body{font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;}
 button,input,select{font-family:inherit; border-radius:0;}
-.hdr{height:var(--head-h); flex:0 0 auto; background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07); display:flex;
-     align-items:center; gap:8px; padding:0 16px; position:sticky; top:0; z-index:30;}
+.hdr{min-height:var(--head-h); flex:0 0 auto; background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07); display:flex;
+     align-items:center; gap:8px; padding:8px 16px; position:sticky; top:0; z-index:30; flex-wrap:wrap;}
 .hdr-back{width:36px; height:36px; display:flex; align-items:center; justify-content:center;
           background:var(--tint); color:var(--ink); text-decoration:none; transition:background-color .15s ease;}
 .hdr-back:hover{background:var(--tint2);}
@@ -47,6 +47,15 @@ button,input,select{font-family:inherit; border-radius:0;}
 .card > h2 span{font-size:11.5px; font-weight:500; color:var(--muted);}
 .card-body{padding:0 18px 16px;}
 .note{font-size:12px; color:var(--muted); line-height:1.7; padding:0 18px 14px;}
+.status{margin:0 18px 16px; padding:10px 14px; background:var(--tint); font-size:12.5px; line-height:1.7;
+  white-space:pre-wrap; word-break:break-word;}
+.status.ok{background:#EAF3EE; color:#1F5C43;}
+.status.err{background:#FBEDEA; color:var(--danger);}
+.empty-cta{margin:0 18px 18px; padding:16px; background:#EAF0F8; display:flex; align-items:center;
+  justify-content:space-between; gap:18px; flex-wrap:wrap;}
+.empty-cta b{display:block; font-size:13.5px; margin-bottom:3px;}
+.empty-cta span{font-size:12px; color:var(--muted); max-width:620px; display:block; line-height:1.7;}
+.empty-cta .btn{height:38px; padding:0 18px;}
 .kpis{display:flex; flex-wrap:wrap; gap:10px; padding:0 18px 16px;}
 .kpi{background:var(--tint); padding:10px 14px; min-width:120px;}
 .kpi b{display:block; font-size:19px; font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums;}
@@ -101,20 +110,31 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
     <h2 data-i18n="healthT">Health</h2>
     <div class="kpis" id="kpis"></div>
     <div class="note" data-i18n="healthNote"></div>
+    <div class="status" id="status" hidden></div>
+    <div class="empty-cta" id="emptyCta" hidden>
+      <div>
+        <b data-i18n="emptyT">No facts collected yet</b>
+        <span data-i18n="emptyD">Press the button to read the numbers out of the manager updates and the cash flow into this layer. It is safe to repeat any time.</span>
+      </div>
+      <button class="btn primary" id="btnCollect" data-i18n="collect">Collect the facts now</button>
+    </div>
   </div>
 
   <div class="card">
     <h2 data-i18n="matrixT">Current values by project</h2>
+    <div class="note" data-i18n="matrixNote"></div>
     <div class="card-body scroll" id="matrixBox"></div>
   </div>
 
   <div class="card">
     <h2 data-i18n="metricsT">Metric registry<span data-i18n="metricsHint"></span></h2>
+    <div class="note" data-i18n="metricsNote"></div>
     <div class="card-body scroll" id="metricsBox"></div>
   </div>
 
   <div class="card">
-    <h2 data-i18n="statsT">Facts by source</h2>
+    <h2 data-i18n="statsT">What each source collected</h2>
+    <div class="note" data-i18n="statsNote"></div>
     <div class="card-body scroll" id="statsBox"></div>
   </div>
 </div>
@@ -130,18 +150,32 @@ const I18N = {
   title:['Facts layer','طبقة الحقائق'], sub:['Data foundation','أساس البيانات'], back:['Back','رجوع'],
   rebuild:['Rebuild','إعادة البناء'], healthT:['Health','الحالة'],
   healthNote:['Every module writes its numbers here, and the dashboard reads only from here. Rebuild recollects the facts from the modules — it is safe to run any time.',
-              'كل مديول بيكتب أرقامه هنا، والداشبورد بيقرا من هنا بس. «إعادة البناء» بتجمع الحقائق من المديولات من أول وجديد — آمنة في أي وقت.'],
+              'كل وحدة في النظام تكتب أرقامها هنا، والداشبورد يقرأ من هنا فقط. «إعادة البناء» تجمع الحقائق من الوحدات من جديد، ويمكن تكرارها في أي وقت بأمان.'],
   matrixT:['Current values by project','القيم الحالية لكل مشروع'],
   metricsT:['Metric registry','سجل المؤشرات'],
-  metricsHint:['the source order decides which number wins','ترتيب المصادر هو اللي بيحدد الرقم المعتمد'],
-  statsT:['Facts by source','الحقائق حسب المصدر'],
+  metricsHint:['the source order decides which number wins','ترتيب المصادر هو الذي يحدد الرقم المعتمد'],
+  statsT:['What each source collected','ما جمعه كل مصدر'],
+  matrixNote:['The value in force today for every metric in every project. Under each number you see where it came from and its date.',
+              'القيمة المعتمدة اليوم لكل مؤشر في كل مشروع، ومكتوب تحت كل رقم مصدره وتاريخه.'],
+  metricsNote:['This is the list of numbers the system understands. Each row defines one metric: its name, unit, how it rolls up over periods, and — most importantly — the order of the sources it is read from. The value in force always comes from source 1; if a project has nothing there, the next source is used. Changing the order here changes what the dashboard shows, with no code change.',
+               'هذه هي قائمة الأرقام التي يفهمها النظام. كل صف يعرّف مؤشرًا واحدًا: اسمه ووحدته وطريقة تجميعه عبر الفترات، والأهم ترتيب المصادر التي يُقرأ منها. الرقم المعتمد يأتي دائمًا من المصدر رقم ١، فإن لم تكن لدى المشروع بيانات فيه انتقل النظام إلى الذي يليه. تغيير الترتيب هنا يغيّر ما يظهر في الداشبورد فورًا دون تعديل أي كود.'],
+  statsNote:['What each source actually produced: how many values, for how many projects, the period they cover, and when they were last collected. Use it to make sure nothing is missing and no source has stopped updating.',
+             'ما أنتجه كل مصدر فعليًا: كم قيمة، ولكم مشروع، وما المدى الزمني الذي تغطيه، ومتى جُمعت آخر مرة. يُستخدم للتأكد من اكتمال التجميع ولاكتشاف أي مؤشر ناقص أو مصدر توقف عن التحديث.'],
   facts:['Facts','حقيقة'], projects:['Projects','مشروع'], metrics:['Metrics','مؤشر'], sources:['Sources','المصادر'],
   key:['Key','المفتاح'], label:['Name','الاسم'], unit:['Unit','الوحدة'], kind:['Kind','النوع'],
   agg:['Roll-up','التجميع'], dir:['Better when','الأفضل'], active:['Active','مفعّل'], add:['Add source','إضافة مصدر'],
-  save:['Save','حفظ'], saved:['Saved','تم الحفظ'], noData:['No facts yet — press Rebuild','مفيش حقائق لسه — اضغط إعادة البناء'],
+  save:['Save','حفظ'], saved:['Saved','تم الحفظ'], noData:['No facts yet — press Rebuild','لا توجد حقائق بعد — اضغط «إعادة البناء»'],
   allSrc:['All sources','كل المصادر'], metricCol:['Metric','المؤشر'], source:['Source','المصدر'],
   from:['From','من'], to:['To','إلى'], updated:['Updated','آخر تحديث'], count:['Count','العدد'],
   rebuilt:['Facts rebuilt','تمت إعادة بناء الحقائق'],
+  emptyT:['No facts collected yet','لا توجد حقائق مجمّعة بعد'],
+  emptyD:['Press the button to read the numbers out of the manager updates and the cash flow into this layer. It is safe to repeat any time.',
+          'اضغط الزر ليقرأ الأرقام من تحديثات المديرين ومن التدفق النقدي ويكتبها في هذه الطبقة، ويمكن تكرار ذلك في أي وقت بأمان.'],
+  collect:['Collect the facts now','اجمع الحقائق الآن'],
+  working:['Collecting…','جارٍ التجميع…'],
+  failed:['It did not work','تعذّر التنفيذ'],
+  nothing:['Nothing was collected — there are no manager updates or cash flow rows to read yet.',
+           'لم يُجمَّع أي شيء — لا توجد تحديثات من المديرين ولا صفوف تدفق نقدي لقراءتها.'],
   last:['Latest','آخر قيمة'], sum:['Sum','مجموع'], avg:['Average','متوسط'], min:['Min','الأصغر'], max:['Max','الأكبر'],
   up_good:['Higher','الأعلى'], down_good:['Lower','الأقل'], neutral:['—','—'],
   number:['Number','رقم'], percent:['Percent','نسبة'], currency:['Money','مبلغ'], countk:['Count','عدد'],
@@ -202,6 +236,7 @@ function fmtVal(m, v){
 
 function drawHealth(){
   const h = S.health || {total:{facts:0, projects:0, metrics:0}};
+  $('#emptyCta').hidden = !!(h.total && h.total.facts);
   $('#kpis').innerHTML = [['facts', h.total.facts], ['projects', h.total.projects], ['metrics', h.total.metrics]]
     .map(([k, v]) => `<div class="kpi"><b>${Number(v || 0).toLocaleString('en-US')}</b><span>${T(k)}</span></div>`).join('');
 }
@@ -301,14 +336,36 @@ async function loadAll(){
   applyLang(); drawHealth(); drawStats(); drawMatrix(); drawMetrics();
 }
 
-$('#btnRebuild').addEventListener('click', async () => {
-  const j = await api('/api/facts/rebuild', {method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({source:S.src || 'all'})});
-  if(j.success){
-    toast(T('rebuilt') + ' — ' + Object.entries(j.written || {}).map(([k, v]) => `${sLabel(k)}: ${v}`).join('  ·  '));
-    await loadAll();
+function setStatus(text, cls){
+  const el = $('#status');
+  el.hidden = !text;
+  el.textContent = text || '';
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+async function rebuild(){
+  const btns = [$('#btnRebuild'), $('#btnCollect')].filter(Boolean);
+  const old = btns.map(b => b.textContent);
+  btns.forEach(b => { b.disabled = true; b.textContent = T('working'); });
+  setStatus(T('working'));
+  let j;
+  try{
+    const r = await fetch('/api/facts/rebuild', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({source:S.src || 'all'})});
+    j = await r.json().catch(() => ({success:false, error:'HTTP ' + r.status}));
+  }catch(e){ j = {success:false, error:String(e.message || e)}; }
+  btns.forEach((b, i) => { b.disabled = false; b.textContent = old[i]; });
+  if(!j || !j.success){
+    setStatus(T('failed') + ': ' + ((j && (j.error || j.trace)) || 'unknown'), 'err');
+    return;
   }
-});
+  const total = Object.values(j.written || {}).reduce((a, b) => a + (b || 0), 0);
+  setStatus(total ? (T('rebuilt') + ' — ' +
+      Object.entries(j.written || {}).map(([k, v]) => `${sLabel(k)}: ${v}`).join('   ·   '))
+    : T('nothing'), total ? 'ok' : 'err');
+  await loadAll();
+}
+$('#btnRebuild').addEventListener('click', rebuild);
+$('#btnCollect').addEventListener('click', rebuild);
 $('#srcSel').addEventListener('change', e => { S.src = e.target.value; drawStats(); });
 $('#btnLang').addEventListener('click', () => {
   UIL = en() ? 'ar' : 'en';
@@ -324,7 +381,7 @@ loadAll();
   if(window.__pmisAuthGuard) return;
   window.__pmisAuthGuard = true;
   var LOGIN = '/admin', gone = false;
-  var MSG = {ar:'انتهت الجلسة — يتم تحويلك لصفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
+  var MSG = {ar:'انتهت الجلسة — يتم تحويلك إلى صفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
   function expired(){
     if(gone) return; gone = true;
     var isEn = (document.documentElement.lang === 'en');
