@@ -1342,6 +1342,50 @@ def _project_choices(cursor):
     return out
 
 
+def _strip_project_col(columns):
+    """يحذف عمود «المشروع» من تعريف الأعمدة.
+
+    الجدول المربوط بمشروع يعرف مشروعه من إعداداته، فتكرار الاسم في كل صف زيادة
+    بلا فائدة. نوع العمود نفسه يبقى متاحًا للجداول العامة التي تمتدّ عبر المشاريع.
+    """
+    return [c for c in (columns or []) if c.get("type") != "project"]
+
+
+def _tidy_bound_sheets(cursor):
+    """ينظّف الجداول المربوطة بمشروع من عمود المشروع إن كان لا يحمل معلومة.
+
+    الحذف هنا يمسّ تعريف الأعمدة فقط؛ القيم تبقى في صفوف الجدول كما هي، فإعادة
+    العمود تُرجعها. ولا نلمس عمودًا فيه قيمة تخالف مشروع الجدول — فذاك جدول
+    يستخدمه صاحبه لأكثر من مشروع فعلًا. ويجري هذا مرة واحدة لكل جدول (tidied)،
+    فإن أعاد المستخدم العمود بنفسه بعدها بقي كما أراد.
+    """
+    rows = _try_sql(cursor, """
+        SELECT s.id, s.columns, s.settings ->> 'project'
+        FROM sheets s
+        WHERE s.settings ->> 'project_id' IS NOT NULL
+          AND s.settings -> 'tidied' IS NULL
+          AND s.columns @> '[{"type": "project"}]'::jsonb""")
+    fixed = 0
+    for sid, cols, bound in rows or []:
+        cols = json.loads(cols) if isinstance(cols, str) else (cols or [])
+        pkey = next((c["key"] for c in cols if c.get("type") == "project"), None)
+        if not pkey:
+            continue
+        others = _try_sql(cursor, """SELECT 1 FROM sheet_rows
+                                     WHERE sheet_id = %s AND data ->> %s IS NOT NULL
+                                       AND data ->> %s <> '' AND data ->> %s <> %s
+                                     LIMIT 1""", (sid, pkey, pkey, pkey, bound or ""))
+        if others:
+            continue
+        _try_sql(cursor, """UPDATE sheets
+                            SET columns = %s,
+                                settings = settings || '{"tidied": true}'::jsonb
+                            WHERE id = %s""",
+                 (json.dumps(_strip_project_col(cols), ensure_ascii=False), sid))
+        fixed += 1
+    return fixed
+
+
 def _drop_stale_logs(cursor):
     """سجلات أُنشئت بإصدار قالب أقدم وبقيت فارغة: تُحذف من تلقاء نفسها.
 
@@ -1410,11 +1454,15 @@ async def sheets_create(request: Request, background_tasks: BackgroundTasks):
     try:
         body = await request.json()
         name = (body.get("name") or "").strip() or "New sheet"
-        columns = _clean_columns(body.get("columns") or [
-            {"key": "project", "type": "project", "label": "المشروع", "label_en": "Project", "width": 220},
+        bound = bool(body.get("project_id"))
+        columns = _clean_columns(body.get("columns") or (
+            [] if bound else [{"key": "project", "type": "project",
+                               "label": "المشروع", "label_en": "Project", "width": 220}]) + [
             {"key": "item", "type": "text", "label": "البند", "label_en": "Item", "width": 220},
             {"key": "value", "type": "number", "label": "القيمة", "label_en": "Value", "width": 130},
         ])
+        if bound:
+            columns = _strip_project_col(columns)
         conn = get_db_connection()
         cursor = conn.cursor()
         settings = _clean_settings(body.get("settings"))
@@ -2096,6 +2144,7 @@ async def api_projects(request: Request, sync: int = 0):
         cursor = conn.cursor()
         synced = projects_sync(cursor) if sync else None
         dropped = _drop_stale_logs(cursor)             # سجلات إصدار قديم فارغة
+        dropped += _tidy_bound_sheets(cursor)          # عمود مشروع لا يحمل معلومة
         if sync or dropped:
             conn.commit()
         payload = _projects_payload(cursor)
@@ -2817,7 +2866,7 @@ async def api_project_sheet(project_id: int, request: Request, background_tasks:
                           VALUES (%s,%s,%s,%s,%s) RETURNING id""",
                        (f"{tpl['name']} — {proj['name']}",
                         f"{tpl['name_en']} — {proj['name_en'] or proj['name']}",
-                        json.dumps(_clean_columns(tpl["columns"]), ensure_ascii=False),
+                        json.dumps(_strip_project_col(_clean_columns(tpl["columns"])), ensure_ascii=False),
                         json.dumps(settings, ensure_ascii=False),
                         request.cookies.get("super_admin_auth")))
         sid = cursor.fetchone()[0]
