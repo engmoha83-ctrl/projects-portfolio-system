@@ -44,11 +44,16 @@ button,input,select{font-family:inherit; border-radius:0;}
 .wrap{flex:1 1 auto; padding:16px; display:flex; flex-direction:column; gap:16px; max-width:1500px; width:100%; margin:0 auto;}
 .card{background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 8px 20px rgba(23,32,51,.06);}
 .card > h2{margin:0; padding:14px 18px 10px; font-size:14px; font-weight:700; display:flex; align-items:center; gap:10px;}
-.card > h2 span{font-size:11.5px; font-weight:500; color:var(--muted);}
+.card > h2 span{font-size:14px; font-weight:700;}
+.card > h2 span[data-i18n="metricsHint"]{font-size:11.5px; font-weight:500; color:var(--muted);}
+.hchip{font-style:normal; font-size:11.5px; font-weight:600; padding:3px 9px; background:var(--tint);
+  color:var(--muted); white-space:nowrap;}
+.hchip.warn{background:#FDF3E7; color:#8A5A1E;}
 .card-body{padding:0 18px 16px;}
 .note{font-size:12px; color:var(--muted); line-height:1.7; padding:0 18px 14px;}
 .status{margin:0 18px 16px; padding:10px 14px; background:var(--tint); font-size:12.5px; line-height:1.7;
-  white-space:pre-wrap; word-break:break-word;}
+  white-space:pre-wrap; word-break:break-word; min-height:44px;}
+.status:empty{visibility:hidden;}
 .status.ok{background:#EAF3EE; color:#1F5C43;}
 .status.err{background:#FBEDEA; color:var(--danger);}
 .empty-cta{margin:0 18px 18px; padding:16px; background:#EAF0F8; display:flex; align-items:center;
@@ -111,7 +116,7 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
     <h2 data-i18n="healthT">Health</h2>
     <div class="kpis" id="kpis"></div>
     <div class="note" data-i18n="healthNote"></div>
-    <div class="status" id="status" hidden></div>
+    <div class="status" id="status"></div>
     <div class="empty-cta" id="emptyCta" hidden>
       <div>
         <b data-i18n="emptyT">No facts collected yet</b>
@@ -122,9 +127,8 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
   </div>
 
   <div class="card">
-    <h2 data-i18n="matrixT">Current values by project</h2>
+    <h2><span data-i18n="matrixT">Current values by project</span><i class="hchip" id="matrixSrcNote"></i></h2>
     <div class="note" data-i18n="matrixNote"></div>
-    <div class="status" id="matrixSrcNote" hidden></div>
     <div class="card-body scroll" id="matrixBox"></div>
   </div>
 
@@ -167,12 +171,14 @@ const I18N = {
   key:['Key','المفتاح'], label:['Name','الاسم'], unit:['Unit','الوحدة'], kind:['Kind','النوع'],
   agg:['Roll-up','التجميع'], dir:['Better when','الأفضل'], active:['Active','مفعّل'], add:['Add source','إضافة مصدر'],
   save:['Save','حفظ'], saved:['Saved','تم الحفظ'], noData:['No facts yet — press Rebuild','لا توجد حقائق بعد — اضغط «إعادة البناء»'],
-  allSrc:['Approved value','القيمة المعتمدة'],
+  allSrc:['All available sources','كل المصادر المتاحة'],
   viewSrc:['View','عرض'],
   rebuildHint:['Recollects every source','يعيد تجميع كل المصادر'],
-  onlySrc:['Showing values from this source alone, not the approved value.',
-           'هذه القيم من هذا المصدر وحده، وليست القيمة المعتمدة.'],
-  tookS:['in %s s','في %s ث'], metricCol:['Metric','المؤشر'], source:['Source','المصدر'],
+  onlySrc:['this source alone','هذا المصدر وحده'],
+  allSrcChip:['by source priority','حسب أولوية المصادر'],
+  lastRun:['Last collected','آخر تجميع'], never:['never','لم يتم بعد'],
+  tookS:['in %s s','في %s ث'],
+  readS:['reading %s s','قراءة %s ث'], writeS:['writing %s s','كتابة %s ث'], metricCol:['Metric','المؤشر'], source:['Source','المصدر'],
   from:['From','من'], to:['To','إلى'], updated:['Updated','آخر تحديث'], count:['Count','العدد'],
   rebuilt:['Facts rebuilt','تمت إعادة بناء الحقائق'],
   emptyT:['No facts collected yet','لا توجد حقائق مجمّعة بعد'],
@@ -241,11 +247,15 @@ function fmtVal(m, v){
        + (m.unit ? ' ' + m.unit : '');
 }
 
+const lastRunAt = () => ((S.health || {}).stats || []).reduce((a, s) => (s.updated_at > a ? s.updated_at : a), '');
 function drawHealth(){
   const h = S.health || {total:{facts:0, projects:0, metrics:0}};
   $('#emptyCta').hidden = !!(h.total && h.total.facts);
+  const when = lastRunAt();
   $('#kpis').innerHTML = [['facts', h.total.facts], ['projects', h.total.projects], ['metrics', h.total.metrics]]
-    .map(([k, v]) => `<div class="kpi"><b>${Number(v || 0).toLocaleString('en-US')}</b><span>${T(k)}</span></div>`).join('');
+      .map(([k, v]) => `<div class="kpi"><b>${Number(v || 0).toLocaleString('en-US')}</b><span>${T(k)}</span></div>`).join('')
+    + `<div class="kpi"><b style="font-size:14px">${esc(when || T('never'))}</b><span>${T('lastRun')}</span></div>`;
+  if(!$('#status').dataset.live) setStatus('');
 }
 
 function drawStats(){
@@ -262,7 +272,10 @@ function drawStats(){
 
 function drawMatrix(){
   const note = $('#matrixSrcNote');
-  if(note){ note.hidden = !S.src; note.textContent = S.src ? (T('onlySrc') + '  —  ' + sLabel(S.src)) : ''; }
+  if(note){
+    note.textContent = S.src ? (sLabel(S.src) + ' — ' + T('onlySrc')) : T('allSrcChip');
+    note.classList.toggle('warn', !!S.src);
+  }
   const projects = Object.keys(S.latest).sort();
   const metrics = S.metrics.filter(m => m.active);
   if(!projects.length){ $('#matrixBox').innerHTML = `<div class="note">${T('noData')}</div>`; return; }
@@ -351,9 +364,9 @@ async function loadAll(){
 
 function setStatus(text, cls){
   const el = $('#status');
-  el.hidden = !text;
   el.textContent = text || '';
   el.className = 'status' + (cls ? ' ' + cls : '');
+  if(cls) el.dataset.live = '1';          // نتيجة إعادة البناء تبقى ظاهرة ولا يستبدلها سطر آخر تجميع
 }
 async function rebuild(){
   const btns = [$('#btnRebuild'), $('#btnCollect')].filter(Boolean);
@@ -372,7 +385,13 @@ async function rebuild(){
     return;
   }
   const total = Object.values(j.written || {}).reduce((a, b) => a + (b || 0), 0);
-  const took = j.seconds != null ? '   ·   ' + T('tookS').replace('%s', j.seconds) : '';
+  let took = j.seconds != null ? '   ·   ' + T('tookS').replace('%s', j.seconds) : '';
+  if(j.timing){                                   // تفصيل الزمن: قراءة مقابل كتابة
+    let rd = 0, wr = 0;
+    Object.values(j.timing).forEach(v => { if(v && typeof v === 'object'){ rd += v.read || 0; wr += v.write || 0; } });
+    if(rd || wr) took += '  (' + T('readS').replace('%s', rd.toFixed(1))
+                       + '  ·  ' + T('writeS').replace('%s', wr.toFixed(1)) + ')';
+  }
   setStatus(total ? (T('rebuilt') + ' — ' +
       Object.entries(j.written || {}).map(([k, v]) => `${sLabel(k)}: ${v}`).join('   ·   ') + took)
     : T('nothing'), total ? 'ok' : 'err');
