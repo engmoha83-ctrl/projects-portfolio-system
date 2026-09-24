@@ -91,12 +91,19 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 .ptile.off{opacity:.62;}
 .ptile .bar{width:4px; flex:0 0 4px;}
 .ptile .tin{padding:11px 13px 12px; flex:1; min-width:0;}
+.ptile .trow{display:flex; align-items:center; justify-content:space-between; gap:6px;}
 .ptile .code{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:10.5px; color:var(--muted);}
-.ptile h3{margin:3px 0 8px; font-size:13.5px; font-weight:600; line-height:1.4; min-height:2.8em;
+.ptile h3{margin:4px 0 8px; font-size:13.5px; font-weight:600; line-height:1.4; min-height:2.8em;
           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
-.ptile .tfoot{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+.ptile .tfoot{display:flex; align-items:baseline; gap:7px; margin-bottom:6px;}
 .ptile .tfoot b{font-size:16px; font-weight:600; font-variant-numeric:tabular-nums;}
-.ptile .att{font-size:11px; font-weight:600; color:#fff; background:var(--danger); padding:1px 7px;}
+.ptile .hp{font-size:10.5px; font-weight:500; flex:1; min-width:0; overflow:hidden;
+           text-overflow:ellipsis; white-space:nowrap;}
+.ptile .att{font-size:11px; font-weight:600; color:#fff; background:var(--danger); padding:1px 7px;
+            flex:0 0 auto; align-self:center;}
+.ptile .track{position:relative; height:5px; background:var(--tint2); overflow:visible;}
+.ptile .track i{position:absolute; inset-block:0; inset-inline-start:0; display:block;}
+.ptile .track u{position:absolute; inset-block:-2px; width:2px; background:var(--ink); opacity:.45;}
 
 /* ---- شبكة البطاقات ---- */
 .pcard{background:#fff; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 6px 16px rgba(23,32,51,.055);
@@ -278,6 +285,11 @@ const I18N = {
   mIssues:['Issues','مشاكل'], mRisks:['High risks','مخاطر عالية'],
   mLate:['Late materials','توريدات متأخرة'], mSub:['Late replies','ردود متأخرة'],
   attached:['Cash flow · Logs · Facts','التدفق النقدي · السجلات · الحقائق'],
+  hAhead:['On plan','في المخطط'], hSlight:['Slightly behind','متأخّر قليلًا'],
+  hBehind:['Behind','متأخّر'], hUnknown:['No progress yet','لا إنجاز مسجَّل'],
+  hArchived:['Archived','مؤرشف'],
+  attTip:['Open issues, high risks, late materials and late replies — added up',
+          'المشاكل المفتوحة والمخاطر العالية والتوريدات والردود المتأخرة مجموعةً'],
   updates:['%s updates','%s تحديثًا'], noUpdates:['No updates yet','لا توجد تحديثات'],
   lastUpd:['last %s','آخرها %s'],
   archived:['Archived','مؤرشف'],
@@ -424,6 +436,21 @@ function drawSummary(){
     `<div class="s ${t.alert ? 'alert' : ''}"><b>${esc(String(t.n))}</b><span>${esc(t.l)}</span></div>`).join('');
 }
 
+/* حالة المشروع شيء، وصحّته شيء آخر: مشروع «جارٍ التنفيذ» قد يكون متأخرًا بشدة.
+   فاللون هنا يقيس الانحراف عن المخطط لا التصنيف — وإلا صار كل شيء أخضر بلا معنى. */
+const HEALTH = [
+  {k:'hAhead',  c:'#2E7D5B', min:  0},      // في المخطط أو متقدّم
+  {k:'hSlight', c:'#C8A165', min:-10},      // متأخّر قليلًا
+  {k:'hBehind', c:'#C8543E', min:-1e9}      // متأخّر بوضوح
+];
+function health(p){
+  if(!p.active) return {k:'hArchived', c:'#AFB6C2', text:T('hArchived')};
+  const dv = K(p, 'progress_dev');
+  if(dv === null) return {k:'hUnknown', c:'#AFB6C2', text:T('hUnknown')};
+  const h = HEALTH.find(x => dv >= x.min);
+  return {k:h.k, c:h.c, text:dv >= 0 ? T('hAhead') : T('behind').replace('%s', pct(-dv))};
+}
+
 /* شارة الحالة تأخذ لونها من التصنيف نفسه، فأي تصنيف يضيفه المستخدم يظهر بلونه فورًا */
 function stChip(p){
   if(!p.active) return `<span class="st" style="--c:#5B6577">${esc(T('archived'))}</span>`;
@@ -486,7 +513,8 @@ function card(p){
 /* عرض القائمة: صف لكل مشروع، مناسب حين تكثر المشاريع ويهمّ المقارنة السريعة */
 function listView(rows){
   const head = ['colProject', 'colStatus', 'colProg', 'colDev', 'colAtt', 'colMgr', 'colUpd']
-    .map((k, i) => `<th class="${i >= 2 && i <= 4 ? 'num' : ''}">${esc(T(k))}</th>`).join('');
+    .map((k, i) => `<th class="${i >= 2 && i <= 4 ? 'num' : ''}"${
+      k === 'colAtt' ? ` title="${esc(T('attTip'))}"` : ''}>${esc(T(k))}</th>`).join('');
   const body = rows.map(p => {
     const a = K(p, 'actual_pct'), pl = K(p, 'planned_pct'), dv = K(p, 'progress_dev'), at = attention(p);
     return `<tr onclick="location.href='/admin-projects/${p.id}'" class="${p.active ? '' : 'off'}">
@@ -506,17 +534,25 @@ function listView(rows){
 }
 /* عرض المربّعات: أصغر ما يمكن مع بقاء الاسم والإنجاز وما يحتاج انتباهًا ظاهرًا */
 function tile(p){
-  const a = K(p, 'actual_pct'), at = attention(p);
-  return `<a class="ptile ${p.active ? '' : 'off'}" href="/admin-projects/${p.id}">
-    <span class="bar" style="background:${esc(stColor(p.status))}"></span>
+  const a = K(p, 'actual_pct'), dv = K(p, 'progress_dev'), at = attention(p), h = health(p);
+  return `<a class="ptile ${p.active ? '' : 'off'}" href="/admin-projects/${p.id}"
+      title="${esc(pName(p) + ' — ' + stLabel(p.status) + ' · ' + T(h.k))}">
+    <span class="bar" style="background:${h.c}"></span>
     <div class="tin">
-      <div class="code">${esc(p.code)}</div>
+      <div class="trow">
+        <span class="code">${esc(p.code)}</span>
+        <span class="st" style="--c:${esc(p.active ? stColor(p.status) : '#5B6577')}">${
+          esc(p.active ? stLabel(p.status) : T('archived'))}</span>
+      </div>
       <h3>${esc(pName(p))}</h3>
       <div class="tfoot">
         <b>${esc(a === null ? '—' : pct(a))}</b>
-        ${at ? `<span class="att">${at}</span>` : ''}
+        <span class="hp" style="color:${h.c}">${esc(h.text)}</span>
+        ${at ? `<span class="att" title="${esc(T('attTip'))}">${at}</span>` : ''}
       </div>
-      <div class="track"><i style="width:${Math.max(0, Math.min(100, a || 0))}%"></i></div>
+      <div class="track"><i style="width:${Math.max(0, Math.min(100, a || 0))}%; background:${h.c}"></i>${
+        K(p, 'planned_pct') === null ? ''
+        : `<u style="inset-inline-start:${Math.max(0, Math.min(100, K(p, 'planned_pct')))}%"></u>`}</div>
     </div></a>`;
 }
 
