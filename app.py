@@ -1637,9 +1637,12 @@ def _fact_period(v, default=None):
         return default
 
 
-def facts_write(rows, replace_source=None, project=None):
-    """يكتب الحقائق (upsert). replace_source = يمسح حقائق المصدر ده الأول (إعادة بناء نظيفة)."""
-    conn = get_db_connection()
+def facts_write(rows, replace_source=None, project=None, conn=None):
+    """يكتب الحقائق (upsert). replace_source = يمسح حقائق المصدر ده الأول (إعادة بناء نظيفة).
+       conn = اتصال جاهز نعيد استخدامه بدل فتح اتصال جديد (الاتصال أغلى شيء)."""
+    own = conn is None
+    if own:
+        conn = get_db_connection()
     cursor = conn.cursor()
     try:
         if replace_source:
@@ -1668,24 +1671,27 @@ def facts_write(rows, replace_source=None, project=None):
             batch.append((proj, metric, per, val,
                           (str(f.get("text")) if f.get("text") not in (None, "") else None),
                           src, ref, base))
-        for i in range(0, len(batch), 500):     # دفعات عشان ما نرهقش الاتصال
+        for i in range(0, len(batch), 1000):    # دفعات كبيرة = رحلات أقل لقاعدة البيانات
             execute_values(cursor, """INSERT INTO project_facts
                     (project_name, metric, period, value, text_value, source, source_ref, is_baseline)
                     VALUES %s
                     ON CONFLICT (project_name, metric, period, source, COALESCE(source_ref, ''), is_baseline)
                     DO UPDATE SET value = EXCLUDED.value, text_value = EXCLUDED.text_value,
-                                  updated_at = NOW()""", batch[i:i + 500])
+                                  updated_at = NOW()""", batch[i:i + 1000])
         conn.commit()
         return len(batch)
     finally:
-        conn.close()
+        if own:
+            conn.close()
 
 
 # ---------- جامعو الحقائق من المديولات الموجودة ----------
 
-def collect_updates(project=None):
+def collect_updates(project=None, conn=None):
     """حقائق من تحديثات مديري المشاريع — نقطة لكل تاريخ بيانات، فبتطلع سلسلة زمنية."""
-    conn = get_db_connection()
+    own = conn is None
+    if own:
+        conn = get_db_connection()
     cursor = conn.cursor()
     if project:
         cursor.execute("SELECT * FROM project_updates WHERE project_name = %s ORDER BY current_data_date", (project,))
@@ -1693,7 +1699,8 @@ def collect_updates(project=None):
         cursor.execute("SELECT * FROM project_updates ORDER BY project_name, current_data_date")
     cols = [d[0] for d in cursor.description]
     rows = [dict(zip(cols, r)) for r in cursor.fetchall()]
-    conn.close()
+    if own:
+        conn.close()
 
     out = []
     for rec in rows:
@@ -1779,10 +1786,12 @@ def _cashflow_facts(proj, meta, rows):
     return out
 
 
-def collect_cashflow(project=None):
+def collect_cashflow(project=None, conn=None):
     """حقائق التدفق النقدي لكل المشاريع باستعلامين فقط — الاتصال بقاعدة البيانات
        هو أغلى شيء هنا، فلا نفتح اتصالاً لكل مشروع."""
-    conn = get_db_connection()
+    own = conn is None
+    if own:
+        conn = get_db_connection()
     cursor = conn.cursor()
     q = """SELECT project_name, contract_value, revised_value, start_month, end_month, plan_base
            FROM cashflow_meta"""
@@ -1798,7 +1807,8 @@ def collect_cashflow(project=None):
         metas[r[0]] = {"contract_value": cv, "revised_value": rv,
                        "start_month": r[3], "end_month": r[4], "plan_base": pb or cv}
     if not metas:
-        conn.close()
+        if own:
+            conn.close()
         return []
     cursor.execute("""SELECT project_name, ym, COALESCE(wk, 0), plan_amount, plan_pct, act_pct,
                              act_amount, note, act_date
@@ -1816,7 +1826,8 @@ def collect_cashflow(project=None):
             months_by.setdefault(r[0], {})[r[1]] = rec
         elif 1 <= rec["wk"] <= WEEKS_PER_MONTH:
             weeks_by.setdefault(r[0], {}).setdefault(r[1], {})[rec["wk"]] = rec
-    conn.close()
+    if own:
+        conn.close()
 
     out = []
     for proj, meta in metas.items():
@@ -1837,16 +1848,29 @@ COLLECTORS = {"updates": collect_updates, "cashflow": collect_cashflow}
 
 
 def facts_rebuild(source="all", project=None):
-    """يعيد بناء الحقائق من المديولات — آمن تكراره، بيمسح حقائق المصدر ويكتبها من الأول."""
-    done = {}
+    """يعيد بناء الحقائق من المديولات على اتصال واحد — آمن تكراره، يمسح حقائق
+       المصدر ثم يكتبها من جديد. يرجّع العدد وزمن كل خطوة."""
+    done, timing = {}, {}
     names = list(COLLECTORS.keys()) if source in ("all", "", None) else [source]
-    for name in names:
-        fn = COLLECTORS.get(name)
-        if not fn:
-            continue
-        rows = fn(project)
-        done[name] = facts_write(rows, replace_source=name, project=project)
-    return done
+    conn = get_db_connection()
+    try:
+        t0 = time.time()
+        cur = conn.cursor()
+        _seed_metrics(cur)
+        conn.commit()
+        timing["seed"] = round(time.time() - t0, 2)
+        for name in names:
+            fn = COLLECTORS.get(name)
+            if not fn:
+                continue
+            t1 = time.time()
+            rows = fn(project, conn)
+            t2 = time.time()
+            done[name] = facts_write(rows, replace_source=name, project=project, conn=conn)
+            timing[name] = {"read": round(t2 - t1, 2), "write": round(time.time() - t2, 2)}
+    finally:
+        conn.close()
+    return done, timing
 
 
 # ---------- القراءة: أولوية المصادر + التجميع ----------
@@ -2061,17 +2085,12 @@ async def api_facts_rebuild(request: Request, background_tasks: BackgroundTasks)
         return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
     try:
         b = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        _seed_metrics(cursor)
-        conn.commit()
-        conn.close()
         t0 = time.time()
-        done = facts_rebuild(b.get("source") or "all", (b.get("project") or "").strip() or None)
+        done, timing = facts_rebuild(b.get("source") or "all", (b.get("project") or "").strip() or None)
         secs = round(time.time() - t0, 1)
         background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"),
                                   "إعادة بناء طبقة الحقائق", json.dumps(done, ensure_ascii=False))
-        return {"success": True, "written": done, "seconds": secs}
+        return {"success": True, "written": done, "seconds": secs, "timing": timing}
     except Exception as e:
         import traceback
         return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}",
