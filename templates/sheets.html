@@ -165,6 +165,17 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
 .filters td{background:#FCFCFD; height:30px;}
 .filters input{width:100%; height:29px; border:none; background:transparent; padding:0 10px; font-size:12px;}
 .empty{padding:44px 10px; text-align:center; color:var(--muted); font-size:13.5px;}
+/* هيكل مبدئي أثناء تحميل الجدول */
+.skel{background:#fff; max-width:980px; box-shadow:0 1px 2px rgba(23,32,51,.05), 0 8px 20px rgba(23,32,51,.06);}
+.sk-row{display:flex; height:34px; align-items:center; border-bottom:1px solid var(--line);}
+.sk-row.sk-head{background:#F7F8FA; height:36px;}
+.sk-row i{flex:1; height:11px; margin:0 12px; border-radius:2px;
+  background:linear-gradient(90deg,#EEF1F5 25%,#E1E6EE 37%,#EEF1F5 63%); background-size:400% 100%;
+  animation:sk 1.4s var(--ease) infinite;}
+.sk-row.sk-head i{background:linear-gradient(90deg,#E4E9F0 25%,#D8DFE9 37%,#E4E9F0 63%); background-size:400% 100%;}
+.sk-row i:nth-child(1){flex:1.6;} .sk-row i:nth-child(3){flex:.7;}
+@keyframes sk{from{background-position:100% 50%} to{background-position:0 50%}}
+@media (prefers-reduced-motion: reduce){ .sk-row i{animation-duration:3s;} }
 .addrow{display:flex; align-items:center; gap:7px; height:34px; padding:0 12px; font-size:13px; color:var(--muted);
         background:#fff; cursor:pointer; box-shadow:0 1px 2px rgba(23,32,51,.05); transition:background-color .15s ease;}
 .addrow:hover{background:var(--tint); color:var(--navy);}
@@ -297,7 +308,11 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
 </div>
 
 <div class="wrap" id="wrap" style="position:relative;">
-  <div id="fillHandle" hidden data-i18n-title="dragFill"></div><div class="empty" id="empty" data-i18n="noSheet">No sheet yet — create one to start.</div></div>
+  <div id="fillHandle" hidden data-i18n-title="dragFill"></div>
+  <div class="skel"><div class="sk-row sk-head"><i></i><i></i><i></i><i></i></div>
+    <div class="sk-row"><i></i><i></i><i></i><i></i></div><div class="sk-row"><i></i><i></i><i></i><i></i></div>
+    <div class="sk-row"><i></i><i></i><i></i><i></i></div><div class="sk-row"><i></i><i></i><i></i><i></i></div>
+    <div class="sk-row"><i></i><i></i><i></i><i></i></div><div class="sk-row"><i></i><i></i><i></i><i></i></div></div></div>
 
 <div class="statusbar" id="statusBar"></div>
 
@@ -447,7 +462,7 @@ function evalFormula(expr, vals){
 /* ================= الحالة ================= */
 const S = {
   sheets:[], sheet:null, rows:[], total:0, page:0, per:200,
-  sort:'', dir:'asc', q:'', filters:{}, showFilters:false,
+  sort:'', dir:'asc', q:'', filters:{}, showFilters:false, loaded:false,
   dirty:new Map(), dels:new Set(), lookup:{}, cols:new Set(), rowsSel:new Set()
 };
 const fmtNum = (v, dec, unit) => (v === null || v === undefined || v === '') ? ''
@@ -928,11 +943,19 @@ function restoreFocus(){
   if(el){ el.focus(); try{ el.setSelectionRange(FOCUS.pos ?? el.value.length, FOCUS.pos ?? el.value.length); }catch(e){} }
   FOCUS = null;
 }
+const SKELETON = `<div class="skel">${['sk-head', '', '', '', '', '', ''].map(k =>
+  `<div class="sk-row ${k}"><i></i><i></i><i></i><i></i></div>`).join('')}</div>`;
 function renderGrid(){
   const wrap = $('#wrap');
   const fh = $('#fillHandle');                       // العنصر ده بيتشال مع إعادة الرسم — بنرجّعه
-  if(!S.sheet){ wrap.innerHTML = `<div class="empty">${I18N.noSheet[en() ? 0 : 1]}</div>`;
-    if(fh){ fh.hidden = true; wrap.appendChild(fh); } return; }
+  if(!S.sheet){
+    wrap.innerHTML = !S.loaded ? SKELETON            // لسه بيحمّل: هيكل مبدئي مش رسالة
+      : `<div class="empty">${S.sheets.length
+          ? U('Choose a sheet from the list above', 'اختر جدول من القائمة اللي فوق')
+          : I18N.noSheet[en() ? 0 : 1]}</div>`;
+    if(fh){ fh.hidden = true; wrap.appendChild(fh); }
+    return;
+  }
   const cols = S.sheet.columns;
   const W_NUM = 74, W_ADD = 44;
   const total = W_NUM + W_ADD + cols.reduce((t, c) => t + (+c.width || 150), 0);
@@ -1599,7 +1622,8 @@ async function loadLatest(){
 }
 async function loadSheets(keepId){
   const j = await api('/api/sheets');
-  if(!j.success) return;
+  if(!j.success){ S.loaded = true; renderGrid(); return; }
+  S.loaded = true;
   S.sheets = j.sheets || [];
   const sel = $('#sheetSel');
   sel.innerHTML = S.sheets.map(s => `<option value="${s.id}">${esc(en() ? (s.name_en || s.name) : s.name)}</option>`).join('');
