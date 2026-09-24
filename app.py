@@ -1942,7 +1942,8 @@ def _projects_payload(cursor):
     by_id = {p["id"]: p for p in projects}
     for p in projects:
         p.update({"aliases": [], "managers": [], "updates": 0, "last_update": "",
-                  "cashflow": False, "facts": 0, "sheets": 0, "logs": {}, "data_key": p["name"]})
+                  "cashflow": False, "facts": 0, "sheets": 0, "logs": {}, "custom": [],
+                  "data_key": p["name"]})
 
     cursor.execute("SELECT project_id, alias FROM project_aliases")
     alias_of, aliases = {}, []
@@ -1996,6 +1997,21 @@ def _projects_payload(cursor):
         p = by_id.get(int(pid)) if str(pid or "").isdigit() else None
         if p and tkey in SHEET_TEMPLATES:
             p["logs"][tkey] = {"id": sid, "rows": int(cnt or 0)}
+
+    # الجداول التي أنشأها المستخدم داخل المشروع (ليست من قالب) — لها تبويبها الخاص
+    for pid, sid, nm, nm_en, cnt, nfacts in _try_sql(cursor, """
+            SELECT s.settings ->> 'project_id', s.id, s.name, s.name_en,
+                   COUNT(r.id) FILTER (WHERE r.data <> '{}'::jsonb),
+                   COALESCE(jsonb_array_length(s.settings -> 'facts'), 0)
+            FROM sheets s LEFT JOIN sheet_rows r ON r.sheet_id = s.id
+            WHERE s.settings ->> 'project_id' IS NOT NULL
+              AND s.settings ->> 'template' IS NULL
+            GROUP BY 1, 2, 3, 4, 6
+            ORDER BY s.id"""):
+        p = by_id.get(int(pid)) if str(pid or "").isdigit() else None
+        if p:
+            p["custom"].append({"id": sid, "name": nm, "name_en": nm_en,
+                                "rows": int(cnt or 0), "facts": int(nfacts or 0)})
 
     for alias, st in stats.items():
         p = by_id.get(alias_of.get(alias))
