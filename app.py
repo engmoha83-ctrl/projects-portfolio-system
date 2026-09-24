@@ -87,6 +87,29 @@ def get_db_connection():
                            ON project_facts (project_name, metric, period, source,
                                              COALESCE(source_ref, ''), is_baseline)""")
             cur.execute("CREATE INDEX IF NOT EXISTS project_facts_lookup ON project_facts (metric, project_name, period)")
+            # ===== سجل المشاريع: معرّف ثابت لكل مشروع، والاسم مجرد صفة للعرض =====
+            cur.execute("""CREATE TABLE IF NOT EXISTS projects (
+                               id SERIAL PRIMARY KEY,
+                               code TEXT UNIQUE NOT NULL,
+                               name TEXT NOT NULL, name_en TEXT,
+                               status TEXT DEFAULT 'active',
+                               ptype TEXT, owner TEXT, developer TEXT, contractor TEXT,
+                               consultant TEXT, city TEXT,
+                               contract_value NUMERIC, start_date DATE, end_date DATE,
+                               notes TEXT, active BOOLEAN DEFAULT TRUE,
+                               created_by TEXT, created_at TIMESTAMP DEFAULT NOW(),
+                               updated_at TIMESTAMP DEFAULT NOW())""")
+            # كل اسم استُخدم للمشروع يُسجَّل هنا، فتغيير الاسم لا يقطع التاريخ القديم
+            cur.execute("""CREATE TABLE IF NOT EXISTS project_aliases (
+                               alias TEXT PRIMARY KEY,
+                               project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE)""")
+            # المدير الواحد قد يمسك أكثر من مشروع
+            cur.execute("""CREATE TABLE IF NOT EXISTS project_managers (
+                               project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                               username TEXT NOT NULL,
+                               is_primary BOOLEAN DEFAULT FALSE,
+                               PRIMARY KEY (project_id, username))""")
+            cur.execute("CREATE INDEX IF NOT EXISTS project_managers_user ON project_managers (username)")
             conn.commit()
             _SCHEMA_READY = True
         except Exception:
@@ -1556,6 +1579,316 @@ async def sheets_rows_save(sheet_id: int, request: Request):
         conn.commit()
         conn.close()
         return {"success": True, "ids": new_ids}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+# ==================== سجل المشاريع (Project Registry) ====================
+# المشروع كيان مستقل له معرّف ثابت، والاسم مجرد صفة للعرض. كل ما يُضاف للمشروع
+# لاحقًا (خط أساس، جداول كميات، برنامج زمني، سجلات) يتعلّق بهذا المعرّف.
+
+PROJECT_STATUS = {
+    "planning":  {"label": "قيد التخطيط",  "label_en": "Planning"},
+    "active":    {"label": "جارٍ التنفيذ",  "label_en": "In progress"},
+    "on_hold":   {"label": "متوقف",        "label_en": "On hold"},
+    "done":      {"label": "مكتمل",        "label_en": "Completed"},
+    "cancelled": {"label": "ملغي",         "label_en": "Cancelled"},
+}
+
+
+def _try_sql(cursor, sql, args=None):
+    """استعلام اختياري (قد يكون الجدول غير موجود) دون أن يُفسد المعاملة الجارية."""
+    try:
+        cursor.execute("SAVEPOINT s_opt")
+        cursor.execute(sql, args or ())
+        rows = cursor.fetchall()
+        cursor.execute("RELEASE SAVEPOINT s_opt")
+        return rows
+    except Exception:
+        try:
+            cursor.execute("ROLLBACK TO SAVEPOINT s_opt")
+        except Exception:
+            pass
+        return []
+
+
+def _next_project_code(cursor):
+    """كود تسلسلي يولّده النظام: PRJ-0001 وهكذا."""
+    cursor.execute("SELECT code FROM projects WHERE code ~ '^PRJ-[0-9]+$' ORDER BY code DESC LIMIT 1")
+    row = cursor.fetchone()
+    nxt = (int(row[0].split("-")[1]) + 1) if row else 1
+    return f"PRJ-{nxt:04d}"
+
+
+def _project_row(r):
+    return {"id": r[0], "code": r[1], "name": r[2], "name_en": r[3], "status": r[4] or "active",
+            "ptype": r[5] or "", "owner": r[6] or "", "developer": r[7] or "", "contractor": r[8] or "",
+            "consultant": r[9] or "", "city": r[10] or "",
+            "contract_value": None if r[11] is None else float(r[11]),
+            "start_date": str(r[12]) if r[12] else "", "end_date": str(r[13]) if r[13] else "",
+            "notes": r[14] or "", "active": bool(r[15])}
+
+
+PROJECT_COLS = """id, code, name, name_en, status, ptype, owner, developer, contractor,
+                  consultant, city, contract_value, start_date, end_date, notes, active"""
+
+
+def projects_sync(cursor):
+    """يسجّل أي اسم مشروع موجود في البيانات القديمة ولم يُسجَّل بعد — آمن التكرار."""
+    names = set()
+    for q in ("SELECT DISTINCT project_name FROM project_updates WHERE project_name IS NOT NULL",
+              "SELECT DISTINCT project_name FROM cashflow_meta WHERE project_name IS NOT NULL",
+              "SELECT DISTINCT project_name FROM users WHERE project_name IS NOT NULL"):
+        names.update((r[0] or "").strip() for r in _try_sql(cursor, q) if (r[0] or "").strip())
+    cursor.execute("SELECT alias FROM project_aliases")
+    known = {r[0] for r in cursor.fetchall()}
+    added = 0
+    for nm in sorted(names - known):
+        cursor.execute("""INSERT INTO projects (code, name, created_by) VALUES (%s, %s, %s) RETURNING id""",
+                       (_next_project_code(cursor), nm[:200], "sync"))
+        pid = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO project_aliases (alias, project_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                       (nm, pid))
+        added += 1
+    # ربط المديرين من جدول المستخدمين
+    linked = 0
+    for username, pname in _try_sql(cursor, "SELECT username, project_name FROM users WHERE project_name IS NOT NULL"):
+        pname = (pname or "").strip()
+        if not (username and pname):
+            continue
+        cursor.execute("SELECT project_id FROM project_aliases WHERE alias = %s", (pname,))
+        row = cursor.fetchone()
+        if not row:
+            continue
+        cursor.execute("""INSERT INTO project_managers (project_id, username, is_primary)
+                          VALUES (%s, %s, TRUE) ON CONFLICT DO NOTHING""", (row[0], username))
+        linked += cursor.rowcount or 0
+    return {"projects_added": added, "managers_linked": linked}
+
+
+def _projects_payload(cursor):
+    """كل المشاريع ومعها ما هو متعلّق بها فعلًا — هذا ما يجعل الصفحة «بيت المشروع»."""
+    cursor.execute(f"SELECT {PROJECT_COLS} FROM projects ORDER BY code")
+    projects = [_project_row(r) for r in cursor.fetchall()]
+    by_id = {p["id"]: p for p in projects}
+    for p in projects:
+        p.update({"aliases": [], "managers": [], "updates": 0, "last_update": "",
+                  "cashflow": False, "facts": 0, "sheets": 0})
+
+    cursor.execute("SELECT project_id, alias FROM project_aliases")
+    alias_of = {}
+    for pid, alias in cursor.fetchall():
+        alias_of[alias] = pid
+        if pid in by_id:
+            by_id[pid]["aliases"].append(alias)
+
+    cursor.execute("SELECT project_id, username, is_primary FROM project_managers ORDER BY username")
+    for pid, user, prim in cursor.fetchall():
+        if pid in by_id:
+            by_id[pid]["managers"].append({"username": user, "primary": bool(prim)})
+
+    def bump(field, rows, agg="count"):
+        for name, val in rows:
+            pid = alias_of.get((name or "").strip())
+            if pid in by_id:
+                if agg == "count":
+                    by_id[pid][field] += int(val or 0)
+                elif agg == "max":
+                    cur = by_id[pid][field]
+                    if str(val or "") > str(cur):
+                        by_id[pid][field] = str(val or "")[:10]
+                else:
+                    by_id[pid][field] = bool(val)
+
+    for name, cnt, last in _try_sql(cursor, """SELECT project_name, COUNT(*), MAX(current_data_date)
+                                                FROM project_updates GROUP BY project_name"""):
+        pid = alias_of.get((name or "").strip())
+        if pid in by_id:
+            by_id[pid]["updates"] = int(cnt or 0)
+            by_id[pid]["last_update"] = str(last or "")[:10]
+    bump("cashflow", [(r[0], True) for r in _try_sql(cursor, "SELECT project_name FROM cashflow_meta")], agg="flag")
+    bump("facts", _try_sql(cursor, "SELECT project_name, COUNT(*) FROM project_facts GROUP BY project_name"))
+    bump("sheets", _try_sql(cursor, """SELECT r.data ->> c.key AS pname, COUNT(DISTINCT r.sheet_id)
+                          FROM sheet_rows r
+                          JOIN sheets s ON s.id = r.sheet_id
+                          JOIN LATERAL jsonb_array_elements(s.columns) col ON TRUE
+                          JOIN LATERAL (SELECT col ->> 'key' AS key, col ->> 'type' AS type) c ON TRUE
+                          WHERE c.type = 'project' AND r.data ->> c.key IS NOT NULL
+                          GROUP BY 1"""))
+    return projects
+
+
+@app.get("/admin-projects", response_class=HTMLResponse)
+async def projects_page(request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return RedirectResponse(url="/admin", status_code=303)
+    if admin_user != "admin_mohamed":
+        return RedirectResponse(url="/admin-dashboard", status_code=303)
+    return templates.TemplateResponse(request, "projects.html",
+                                      {"admin_user": admin_user, "active_page": "projects"})
+
+
+@app.get("/api/projects")
+async def api_projects(request: Request, sync: int = 0):
+    if not request.cookies.get("super_admin_auth"):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        synced = projects_sync(cursor) if sync else None
+        if sync:
+            conn.commit()
+        payload = _projects_payload(cursor)
+        users = [{"username": r[0], "name": r[1] or r[0]}
+                 for r in _try_sql(cursor, "SELECT username, manager_name FROM users ORDER BY username")]
+        conn.close()
+        return {"success": True, "projects": payload, "users": users,
+                "statuses": PROJECT_STATUS, "synced": synced}
+    except Exception as e:
+        import traceback
+        return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}",
+                             "trace": traceback.format_exc()[-600:]}, status_code=500)
+
+
+@app.post("/api/projects")
+async def api_projects_save(request: Request, background_tasks: BackgroundTasks):
+    """إضافة مشروع أو تعديله. الكود يولّده النظام عند الإضافة."""
+    if request.cookies.get("super_admin_auth") != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        name = (b.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"success": False, "error": "اسم المشروع مطلوب"}, status_code=400)
+        pid = b.get("id")
+        fields = {"name": name[:200], "name_en": (b.get("name_en") or "").strip()[:200] or None,
+                  "status": b.get("status") if b.get("status") in PROJECT_STATUS else "active",
+                  "ptype": (b.get("ptype") or "").strip()[:80] or None,
+                  "owner": (b.get("owner") or "").strip()[:120] or None,
+                  "developer": (b.get("developer") or "").strip()[:120] or None,
+                  "contractor": (b.get("contractor") or "").strip()[:120] or None,
+                  "consultant": (b.get("consultant") or "").strip()[:120] or None,
+                  "city": (b.get("city") or "").strip()[:80] or None,
+                  "contract_value": _fnum(b.get("contract_value")) or None,
+                  "start_date": _clean_date(b.get("start_date")) or None,
+                  "end_date": _clean_date(b.get("end_date")) or None,
+                  "notes": (b.get("notes") or "").strip()[:600] or None,
+                  "active": bool(b.get("active", True))}
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # الاسم مفتاح للبيانات القديمة: لا يُسمح بأن يحمله مشروعان، وإلا انتقل تاريخ أحدهما للآخر بصمت
+        cursor.execute("""SELECT a.project_id, p.code, p.name FROM project_aliases a
+                          JOIN projects p ON p.id = a.project_id WHERE a.alias = %s""", (name,))
+        clash = cursor.fetchone()
+        if clash and (not pid or int(pid) != clash[0]):
+            conn.close()
+            return JSONResponse({"success": False,
+                                 "error": f"الاسم «{name}» مستخدم بالفعل في المشروع {clash[1]} — "
+                                          f"غيّر الاسم، أو ادمج المشروعين من زر «دمج»"}, status_code=400)
+        if pid:
+            sets = ", ".join(f"{k} = %s" for k in fields)
+            cursor.execute(f"UPDATE projects SET {sets}, updated_at = NOW() WHERE id = %s",
+                           list(fields.values()) + [int(pid)])
+        else:
+            cols = ", ".join(["code", "created_by"] + list(fields))
+            ph = ", ".join(["%s"] * (len(fields) + 2))
+            cursor.execute(f"INSERT INTO projects ({cols}) VALUES ({ph}) RETURNING id",
+                           [_next_project_code(cursor), request.cookies.get("super_admin_auth")]
+                           + list(fields.values()))
+            pid = cursor.fetchone()[0]
+        # الاسم الحالي دائمًا مسجَّل كاسم بديل حتى ترتبط به البيانات
+        cursor.execute("""INSERT INTO project_aliases (alias, project_id) VALUES (%s, %s)
+                          ON CONFLICT (alias) DO NOTHING""", (name, pid))
+        if isinstance(b.get("managers"), list):
+            cursor.execute("DELETE FROM project_managers WHERE project_id = %s", (pid,))
+            for i, u in enumerate([str(x)[:80] for x in b["managers"] if x][:20]):
+                cursor.execute("""INSERT INTO project_managers (project_id, username, is_primary)
+                                  VALUES (%s, %s, %s) ON CONFLICT DO NOTHING""", (pid, u, i == 0))
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"),
+                                  "حفظ مشروع في السجل", name)
+        return {"success": True, "id": pid}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
+@app.post("/api/projects/{project_id}/aliases")
+async def api_project_aliases(project_id: int, request: Request):
+    """إضافة أو إزالة اسم بديل — وهذا ما يجعل تغيير الاسم لا يقطع التاريخ."""
+    if request.cookies.get("super_admin_auth") != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if b.get("remove"):
+            cursor.execute("DELETE FROM project_aliases WHERE alias = %s AND project_id = %s",
+                           (str(b["remove"])[:200], project_id))
+        if b.get("add"):
+            alias = str(b["add"]).strip()[:200]
+            cursor.execute("""SELECT p.code FROM project_aliases a JOIN projects p ON p.id = a.project_id
+                              WHERE a.alias = %s AND a.project_id <> %s""", (alias, project_id))
+            other = cursor.fetchone()
+            if other:
+                conn.close()
+                return JSONResponse({"success": False,
+                                     "error": f"الاسم «{alias}» مرتبط بالمشروع {other[0]} بالفعل"}, status_code=400)
+            cursor.execute("""INSERT INTO project_aliases (alias, project_id) VALUES (%s, %s)
+                              ON CONFLICT (alias) DO NOTHING""", (alias, project_id))
+        conn.commit()
+        conn.close()
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/projects/{project_id}/merge")
+async def api_project_merge(project_id: int, request: Request, background_tasks: BackgroundTasks):
+    """دمج مشروع في آخر: كل أسمائه تنتقل للمشروع الهدف فيتجمع تاريخه كله."""
+    if request.cookies.get("super_admin_auth") != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        into = int(b.get("into") or 0)
+        if not into or into == project_id:
+            return JSONResponse({"success": False, "error": "اختر مشروعًا مختلفًا للدمج فيه"}, status_code=400)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE project_aliases SET project_id = %s WHERE project_id = %s", (into, project_id))
+        cursor.execute("""INSERT INTO project_managers (project_id, username, is_primary)
+                          SELECT %s, username, FALSE FROM project_managers WHERE project_id = %s
+                          ON CONFLICT DO NOTHING""", (into, project_id))
+        cursor.execute("DELETE FROM projects WHERE id = %s", (project_id,))
+        conn.commit()
+        conn.close()
+        background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"),
+                                  "دمج مشروعين في السجل", f"{project_id} -> {into}")
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/projects/{project_id}")
+async def api_project_delete(project_id: int, request: Request):
+    """حذف من السجل فقط — بيانات المشروع القديمة لا تُمس."""
+    if request.cookies.get("super_admin_auth") != "admin_mohamed":
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM project_aliases a JOIN project_updates u ON u.project_name = a.alias "
+                       "WHERE a.project_id = %s", (project_id,))
+        if (cursor.fetchone() or [0])[0]:
+            conn.close()
+            return JSONResponse({"success": False,
+                                 "error": "للمشروع تحديثات مسجَّلة — أرشفه بدل حذفه، أو ادمجه في مشروع آخر"},
+                                status_code=400)
+        cursor.execute("DELETE FROM projects WHERE id = %s", (project_id,))
+        conn.commit()
+        conn.close()
+        return {"success": True}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
