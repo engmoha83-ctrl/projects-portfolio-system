@@ -379,14 +379,14 @@ const I18N = {
   sheets:['Sheets','الجداول'], back:['Back','رجوع'], newSheet:['New sheet','جدول جديد'],
   manage:['Manage…','إدارة…'], manageT:['Sheets','الجداول'], save:['Save','حفظ'],
   addRow:['+ Row','+ صف'], addCol:['+ Column','+ عمود'], search:['Search…','بحث…'], filters:['Filters','فلاتر'],
-  noSheet:['No sheet yet — create one to start.','لا توجد جداول — أنشئ جدول للبدء.'],
+  noSheet:['No sheet yet — create one to start.','لا توجد جداول — أنشئ جدولًا للبدء.'],
   close:['Close','إغلاق'], open:['Open','فتح'], rename:['Rename','إعادة تسمية'], del:['Delete','حذف'],
   delete:['Delete','حذف'], duplicate:['Duplicate','تكرار'], clearSel:['Clear selection','إلغاء التحديد'],
   name:['Name','الاسم'], type:['Type','النوع'], width:['Width','العرض'], decimals:['Decimals','خانات عشرية'],
   clearFilters:['Clear filters','مسح الفلاتر'], copy:['Copy','نسخ'],
-  fillDown:['Fill down (Ctrl+D) — copies the cell downwards','تكرار لتحت (Ctrl+D) — بينزل بقيمة الخلية لتحت'],
+  fillDown:['Fill down (Ctrl+D) — copies the cell downwards','تكرار لأسفل (Ctrl+D) — ينسخ قيمة الخلية إلى أسفل'],
   fillRight:['Fill right (Ctrl+Shift+R) — copies the cell across',
-             'تكرار للجنب (Ctrl+Shift+R) — بيكرر قيمة الخلية للجنب'], clearCells:['Clear','مسح'],
+             'تكرار للجانب (Ctrl+Shift+R) — ينسخ قيمة الخلية إلى الجانب'], clearCells:['Clear','مسح'],
   unit:['Unit','الوحدة'], options:['Choices','الاختيارات'], formula:['Formula','المعادلة'], source:['Source','المصدر'],
   total:['Total','الإجمالي'], undo:['Undo (Ctrl+Z)','تراجع (Ctrl+Z)'], redo:['Redo (Ctrl+Y)','إعادة (Ctrl+Y)'],
   freeze:['Freeze first column','تثبيت أول عمود'], bold:['Bold (Ctrl+B)','عريض (Ctrl+B)'],
@@ -402,17 +402,17 @@ const I18N = {
   moveRowUp:['Move row up','تحريك الصف لأعلى'], moveRowDown:['Move row down','تحريك الصف لأسفل'],
   exportBtn:['Export ▾','تصدير ▾'], expXlsx:['Excel (.xlsx)','إكسيل (.xlsx)'],
   expXlsxAll:['Excel — all rows','إكسيل — كل الصفوف'], expCsv:['CSV','CSV'],
-  expView:['what you see now','زي ما هو ظاهر دلوقتي'], expAll:['ignores search and filters','من غير البحث والفلترة'],
-  expPrint:['Print / PDF','طباعة / PDF'], expPrintHint:['opens the print window','بتفتح نافذة الطباعة'],
+  expView:['what you see now','كما هو ظاهر الآن'], expAll:['ignores search and filters','دون البحث والفلترة'],
+  expPrint:['Print / PDF','طباعة / PDF'], expPrintHint:['opens the print window','تفتح نافذة الطباعة'],
   dupCol:['Duplicate column','تكرار العمود'], copySuffix:['(copy)','نسخة'],
   sortAsc:['Sort A → Z (smallest first)','فرز تصاعدي'], sortDesc:['Sort Z → A (largest first)','فرز تنازلي'],
   colSettings:['Column settings','إعدادات العمود'], delCol:['Delete column','حذف العمود'],
   delRow:['Delete rows','حذف الصفوف'],
   sortedRows:['Rows follow the sort — press the highlighted sort button again to clear it first',
-              'الصفوف مرتبة بالفرز — اضغط زرار الفرز المميّز تاني لإلغائه الأول']
+              'الصفوف مرتّبة حسب الفرز — اضغط زر الفرز المميّز مرة أخرى لإلغائه أولًا']
 };
 const TYPES = [['text','Text','نص'], ['number','Number','رقم'], ['date','Date','تاريخ'],
-               ['select','Choice list','قائمة اختيارات'], ['bool','Yes / No','صح / غلط'],
+               ['select','Choice list','قائمة اختيارات'], ['bool','Yes / No','نعم / لا'],
                ['project','Project','المشروع'], ['lookup','From project data','من بيانات المشروع'],
                ['formula','Formula','معادلة']];
 const AGGS  = [['','None','بدون'], ['sum','Sum','المجموع'], ['avg','Average','المتوسط'],
@@ -910,7 +910,7 @@ function applyFill(src, target, plain){
   renderGrid();
   if(n){ commitUndo(before); toast(U(`Filled ${n} cells`, `تم نسخ القيمة في ${n} خلية`)); scheduleSave(); }
   else toast(U('Nothing changed — the cells already hold the same value, or they are calculated',
-               'مفيش حاجة اتغيرت — الخلايا فيها نفس القيمة أصلاً أو بتتحسب بمعادلة'));
+               'لم يتغير شيء — الخلايا تحتوي القيمة نفسها أو تُحسب بمعادلة'));
 }
 /** يكتب قيمة في خلية حسب نوع عمودها؛ يرجّع true لو اتغيّرت */
 function writeCell(ri, ci, raw){
@@ -963,7 +963,7 @@ function pasteValues(text){
   grid.forEach((line, dr) => {
     const ri = R.r1 + dr;
     while(ri >= S.rows.length){                   // صفوف جديدة لو اللصق أطول من الجدول
-      const nr = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
+      const nr = newRow();
       recalcRow(nr); S.rows.push(nr); S.total++;
     }
     line.forEach((val, dc) => { if(writeCell(ri, R.c1 + dc, val)) n++; });
@@ -995,7 +995,7 @@ function renderGrid(){
   if(!S.sheet){
     wrap.innerHTML = !S.loaded ? SKELETON            // لسه بيحمّل: هيكل مبدئي مش رسالة
       : `<div class="empty">${S.sheets.length
-          ? U('Choose a sheet from the list above', 'اختر جدول من القائمة اللي فوق')
+          ? U('Choose a sheet from the list above', 'اختر جدولًا من القائمة أعلاه')
           : I18N.noSheet[en() ? 0 : 1]}</div>`;
     if(fh){ fh.hidden = true; wrap.appendChild(fh); }
     return;
@@ -1358,10 +1358,10 @@ function drawColExtra(c){
           : `<span class="hintline">${U('No choices yet', 'لا توجد اختيارات بعد')}</span>`}</div></div>
       <div class="pop-row"><span class="pop-lbl"></span>
         <div class="addopt"><input class="fld" id="xNewOpt" style="flex:1; min-width:150px"
-            placeholder="${U('Type a choice, then Enter', 'اكتب اختيار ثم اضغط Enter')}" data-no-tr>
+            placeholder="${U('Type a choice, then Enter', 'اكتب خيارًا ثم اضغط Enter')}" data-no-tr>
           <button class="btn primary" id="xAddOpt">${U('Add', 'إضافة')}</button></div></div>
       <div class="hintline">${U('These are the choices people pick from inside the cell.',
-                                'دي الاختيارات اللي بتظهر في قائمة الخلية.')}</div>`;
+                                'هذه هي الخيارات التي تظهر في قائمة الخلية.')}</div>`;
   }else if(c.type === 'formula'){
     const keys = S.sheet.columns.filter(x => x.key !== c.key && x.type !== 'formula');
     box.innerHTML = `<div class="pop-row"><span class="pop-lbl">${L('formula')}</span>
@@ -1374,13 +1374,13 @@ function drawColExtra(c){
       <div class="chips" id="xKeys">${keys.map(x =>
         `<button class="chip2 ins" data-ins="[${x.key}]" data-no-tr>${esc(colLabel(x))}</button>`).join('')}</div>
       <div class="hintline">${U('Click a column to insert it. You can use + − × ÷ and SUM, AVG, MIN, MAX, ROUND, IF.',
-                                'اضغط على أي عمود لإدراجه. تقدر تستخدم + − × ÷ ودوال SUM و AVG و MIN و MAX و ROUND و IF.')}</div>`;
+                                'اضغط على أي عمود لإدراجه. يمكنك استخدام + − × ÷ ودوال SUM و AVG و MIN و MAX و ROUND و IF.')}</div>`;
   }else if(c.type === 'lookup'){
     box.innerHTML = `<div class="pop-row"><span class="pop-lbl">${L('source')}</span>
         <select class="fld" id="xSource" style="flex:1; min-width:220px">${FIELDS.map(f =>
           `<option value="${f.key}" ${c.source === f.key ? 'selected' : ''}>${esc(fieldLabel(f))}</option>`).join('')}</select></div>
       <div class="hintline">${U('The value is read from the latest update of the project chosen in that row.',
-                                'القيمة بتتقري من آخر تحديث للمشروع المختار في نفس الصف.')}</div>`;
+                                'تُقرأ القيمة من آخر تحديث للمشروع المختار في الصف نفسه.')}</div>`;
   }else if(c.type === 'number'){
     box.innerHTML = `<div class="pop-row"><span class="pop-lbl">${L('decimals')}</span>
         <input class="fld" id="xDec" type="number" min="0" max="4" style="width:70px" value="${c.decimals || 0}">
@@ -1563,7 +1563,7 @@ function shiftCols(dir){
 $('#colDel').addEventListener('click', async () => {
   const cols = selCols(); if(!cols.length) return;
   if(!confirm(U(`Delete ${cols.length} column(s)? The data in them is removed too.`,
-                `حذف ${cols.length} عمود؟ البيانات اللي فيهم هتتشال كمان.`))) return;
+                `حذف ${cols.length} عمود؟ سيتم حذف البيانات التي بداخلها أيضًا.`))) return;
   pushUndo();
   S.sheet.columns = S.sheet.columns.filter(c => !S.cols.has(c.key));
   S.cols.clear();
@@ -1573,10 +1573,21 @@ $('#ctxClear').addEventListener('click', clearSelection);
 function clearSelection(){ S.cols.clear(); S.rowsSel.clear(); SEL = null; renderGrid(); syncBars(); }
 
 /* ================= الصفوف ================= */
+/* الجداول المنشأة من قالب مربوطة بمشروع واحد (settings.project)، فأي صف جديد
+   فيها يبدأ وعمود المشروع مملوء — وإلا خرج الصف من حسابات طبقة الحقائق */
+function newRow(){
+  const r = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
+  const proj = S.sheet && S.sheet.settings && S.sheet.settings.project;
+  if(proj){
+    const col = (S.sheet.columns || []).find(c => c.type === 'project');
+    if(col) r.data[col.key] = proj;
+  }
+  return r;
+}
 function addRow(){
   if(!S.sheet) return;
   pushUndo();
-  const r = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
+  const r = newRow();
   recalcRow(r); S.rows.push(r); S.total++;
   renderGrid(); updatePager(); $('#btnSave').disabled = false;
   const tr = $(`#wrap tr[data-id="${r.id}"]`);
@@ -1605,7 +1616,7 @@ async function insertRow(dir){
   const idx = selRowIdx();
   const at = idx.length ? (dir < 0 ? Math.min.apply(null, idx) : Math.max.apply(null, idx) + 1) : S.rows.length;
   pushUndo();
-  const r = {id:'n' + Date.now() + Math.random().toString(36).slice(2, 5), data:{}};
+  const r = newRow();
   recalcRow(r);
   S.rows.splice(at, 0, r); S.total++;
   S.rowsSel.clear();
@@ -1671,7 +1682,8 @@ async function loadSheets(keepId){
   S.sheets = j.sheets || [];
   const sel = $('#sheetSel');
   sel.innerHTML = S.sheets.map(s => `<option value="${s.id}">${esc(en() ? (s.name_en || s.name) : s.name)}</option>`).join('');
-  const want = keepId || (S.sheet && S.sheet.id) || (S.sheets[0] && S.sheets[0].id);
+  const known = id => S.sheets.some(s => String(s.id) === String(id)) ? id : null;
+  const want = known(keepId) || known(S.sheet && S.sheet.id) || (S.sheets[0] && S.sheets[0].id);
   if(want){ sel.value = want; await openSheet(want); }
   else { S.sheet = null; renderGrid(); $('#sheetName').textContent = '—'; syncBars(); }
 }
@@ -1768,7 +1780,7 @@ function openMgr(){
   }));
   $('#mgrBody').querySelectorAll('[data-ren]').forEach(b => b.addEventListener('click', async () => {
     const s = S.sheets.find(x => String(x.id) === b.dataset.ren);
-    const name = prompt(U('Sheet name (Arabic):', 'اسم الجدول (بالعربي):'), s.name);
+    const name = prompt(U('Sheet name (Arabic):', 'اسم الجدول (بالعربية):'), s.name);
     if(name === null) return;
     const nameEn = prompt(U('Sheet name (English):', 'اسم الجدول (بالإنجليزي):'), s.name_en || '');
     await api(`/api/sheets/${s.id}`, {method:'POST', headers:{'Content-Type':'application/json'},
@@ -1833,7 +1845,7 @@ window.addEventListener('beforeprint', buildPrint);
 function closeExportMenu(){ const m = $('#exportMenu'); if(m) m.hidden = true; }
 $('#btnExport').addEventListener('click', e => {
   e.stopPropagation();
-  if(!S.sheet){ toast(U('Open a sheet first', 'افتح جدول الأول')); return; }
+  if(!S.sheet){ toast(U('Open a sheet first', 'افتح جدولًا أولًا')); return; }
   $('#exportMenu').hidden = !$('#exportMenu').hidden;
 });
 document.addEventListener('mousedown', e => {
@@ -1851,7 +1863,7 @@ $$('#exportMenu [data-exp]').forEach(b => b.addEventListener('click', async () =
   a.href = `/api/sheets/${S.sheet.id}/export?` + p.toString();
   a.rel = 'noopener';
   document.body.appendChild(a); a.click(); a.remove();
-  toast(U('Preparing the file…', 'جاري تجهيز الملف…'));
+  toast(U('Preparing the file…', 'جارٍ تجهيز الملف…'));
 }));
 $('#btnManage').addEventListener('click', openMgr);
 $('#btnSave').addEventListener('click', () => saveChanges());
@@ -1897,8 +1909,8 @@ $('#cellFillDown').addEventListener('click', () => {
   const R = rng(); if(!R || !S.sheet) return;
   if(R.r1 === R.r2){
     const src = {r1:R.r1, r2:R.r1, c1:R.c1, c2:R.c2};
-    if(rangeEmpty(src)){ toast(U('This cell is empty — nothing to copy down', 'الخلية فاضية — مفيش قيمة نكررها')); return; }
-    if(R.r1 >= S.rows.length - 1){ toast(U('There are no rows below it', 'مفيش صفوف تحتها')); return; }
+    if(rangeEmpty(src)){ toast(U('This cell is empty — nothing to copy down', 'الخلية فارغة — لا توجد قيمة لتكرارها')); return; }
+    if(R.r1 >= S.rows.length - 1){ toast(U('There are no rows below it', 'لا توجد صفوف أسفلها')); return; }
     applyFill(src, {r1:R.r1, r2:S.rows.length - 1, c1:R.c1, c2:R.c2}, true);
     return;
   }
@@ -1909,8 +1921,8 @@ $('#cellFillRight').addEventListener('click', () => {
   const last = S.sheet.columns.length - 1;
   if(R.c1 === R.c2){
     const src = {r1:R.r1, r2:R.r2, c1:R.c1, c2:R.c1};
-    if(rangeEmpty(src)){ toast(U('This cell is empty — nothing to copy across', 'الخلية فاضية — مفيش قيمة نكررها')); return; }
-    if(R.c1 >= last){ toast(U('There are no columns beside it', 'مفيش أعمدة جنبها')); return; }
+    if(rangeEmpty(src)){ toast(U('This cell is empty — nothing to copy across', 'الخلية فارغة — لا توجد قيمة لتكرارها')); return; }
+    if(R.c1 >= last){ toast(U('There are no columns beside it', 'لا توجد أعمدة بجانبها')); return; }
     applyFill(src, {r1:R.r1, r2:R.r2, c1:R.c1, c2:last}, true);
     return;
   }
@@ -1943,7 +1955,7 @@ $('#fmtNone').addEventListener('click', () => {
     if(R) for(let i = R.c1; i <= R.c2; i++) cs.add(S.sheet.columns[i]);
     if(Array.from(cs).some(c => c && c.fmt))
       toast(U('Some of this colouring comes from the column itself — tick the column to clear it',
-              'فيه ألوان جاية من تنسيق العمود نفسه — علّم على العمود عشان تمسحها'));
+              'بعض الألوان مصدرها تنسيق العمود نفسه — حدِّد العمود لمسحها'));
   }
 });
 /* ---- تجميد أول عمود ---- */
@@ -2051,7 +2063,8 @@ $('#btnLang').addEventListener('click', () => {
 window.addEventListener('beforeunload', e => { if(hasPending()){ e.preventDefault(); e.returnValue = ''; } });
 
 applyLang();
-loadSheets();
+/* ‎?sheet=<id> يفتح جدولًا بعينه — تستخدمه صفحة المشاريع لفتح سجل المشروع مباشرة */
+loadSheets(new URLSearchParams(location.search).get('sheet') || null);
 </script>
 <script>
 /* انتهاء الجلسة: أي رد 401/403 من السيرفر معناه إن الجلسة خلصت —
@@ -2060,7 +2073,7 @@ loadSheets();
   if(window.__pmisAuthGuard) return;
   window.__pmisAuthGuard = true;
   var LOGIN = '/admin', gone = false;
-  var MSG = {ar:'انتهت الجلسة — يتم تحويلك لصفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
+  var MSG = {ar:'انتهت الجلسة — يتم تحويلك إلى صفحة الدخول…', en:'Your session has expired — taking you to the sign-in page…'};
   function expired(){
     if(gone) return; gone = true;
     var isEn = (document.documentElement.lang === 'en');

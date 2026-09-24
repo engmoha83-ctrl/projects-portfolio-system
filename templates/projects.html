@@ -172,6 +172,10 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
         <div class="keynote" id="keyNote" hidden></div>
         <div class="attach" id="attachBox"></div>
 
+        <h2 style="padding-top:6px"><span data-i18n="logsT">Project logs</span></h2>
+        <div class="note" data-i18n="logsNote"></div>
+        <div class="attach" id="logsBox"></div>
+
         <h2 style="padding-top:6px"><span data-i18n="aliasT">Previous names</span></h2>
         <div class="note" data-i18n="aliasNote"></div>
         <div class="card-body" id="aliasBox"></div>
@@ -208,6 +212,10 @@ const I18N = {
   attachT:['What is attached','ما هو متعلّق بالمشروع'],
   attachNote:['Everything below hangs off this project. What is missing can be added from here.',
               'كل ما يلي متعلّق بهذا المشروع. وما هو ناقص يمكن إضافته من هنا.'],
+  logsT:['Project logs','سجلات المشروع'],
+  logsNote:['A ready-made sheet with standard columns, linked to this project. Its figures are written to the facts layer automatically.',
+            'جدول جاهز بأعمدة قياسية مرتبط بهذا المشروع. تُكتب أرقامه في طبقة الحقائق تلقائيًا.'],
+  logAdded:['Log created','تم إنشاء السجل'],
   aliasT:['Previous names','الأسماء السابقة'],
   aliasNote:['Old data is linked by name. Keeping previous names here means renaming a project never splits its history.',
              'البيانات القديمة مرتبطة بالاسم. الاحتفاظ بالأسماء السابقة هنا يعني أن تغيير اسم المشروع لا يقسّم تاريخه.'],
@@ -219,7 +227,8 @@ const I18N = {
   sheets:['Custom sheets','الجداول المخصصة'], facts:['Facts','الحقائق'],
   schedule:['Schedule','البرنامج الزمني'], boq:['Bill of quantities','جداول الكميات'],
   soon:['Coming later','قريبًا'], none:['Not added yet','لم يُضف بعد'],
-  open:['Open','فتح'], add:['Add','إضافة'], rows:['%s rows','%s صف'], one:['%s','%s'],
+  empty0:['Created, no entries yet','أُنشئ، ولا توجد بنود بعد'],
+  open:['Open','فتح'], add:['Add','إضافة'],
   lastUpd:['last %s','آخرها %s'],
   saved:['Saved','تم الحفظ'], created:['Project created','تم إنشاء المشروع'],
   askName:['Project name (Arabic):','اسم المشروع بالعربية:'],
@@ -239,6 +248,21 @@ const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = t => String(t == null ? '' : t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const T = k => (I18N[k] || ['', ''])[en() ? 0 : 1];
+/* صيغ العدد في الفصحى: مفرد / مثنّى / جمع قلّة (٣-١٠) / تمييز منصوب (١١ فأكثر) */
+const NOUNS = {
+  rows:    {en:['row', 'rows'],       ar:['صف واحد', 'صفان', 'صفوف', 'صفًا']},
+  updates: {en:['update', 'updates'], ar:['تحديث واحد', 'تحديثان', 'تحديثات', 'تحديثًا']},
+  sheets:  {en:['sheet', 'sheets'],   ar:['جدول واحد', 'جدولان', 'جداول', 'جدولًا']},
+  facts:   {en:['fact', 'facts'],     ar:['حقيقة واحدة', 'حقيقتان', 'حقائق', 'حقيقةً']}
+};
+function nOf(n, kind){
+  n = +n || 0;
+  const f = NOUNS[kind] || NOUNS.rows;
+  if(en()) return n + ' ' + f.en[n === 1 ? 0 : 1];
+  if(n === 1) return f.ar[0];
+  if(n === 2) return f.ar[1];
+  return n + ' ' + f.ar[n <= 10 ? 2 : 3];
+}
 function toast(msg, isErr){
   const t = $('#toast'); t.textContent = msg; t.classList.toggle('err', !!isErr); t.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2800);
@@ -256,7 +280,7 @@ async function api(url, opts){
   finally{ busy(false); }
 }
 
-const S = {projects:[], users:[], statuses:{}, sel:null, q:''};
+const S = {projects:[], users:[], statuses:{}, templates:[], sel:null, q:''};
 const pName = p => (en() ? (p.name_en || p.name) : (p.name || p.name_en)) || p.code;
 const stLabel = k => { const s = S.statuses[k]; return s ? (en() ? s.label_en : s.label) : k; };
 
@@ -318,6 +342,7 @@ function drawSide(){
   $('#btnArchive').textContent = p.active ? T('archive') : T('unarchive');
   drawManagers();
   drawAttach();
+  drawLogs();
   drawAliases();
 }
 
@@ -340,13 +365,13 @@ function drawAttach(){
   const q = '?project=' + encodeURIComponent(p.data_key || p.name);   // مفتاح البيانات لا اسم العرض
   const items = [
     {ic:'📊', k:'updates', on:!!p.updates,
-     sub:p.updates ? T('rows').replace('%s', p.updates) + (p.last_update ? ' · ' + T('lastUpd').replace('%s', p.last_update) : '') : T('none'),
+     sub:p.updates ? nOf(p.updates, 'updates') + (p.last_update ? ' · ' + T('lastUpd').replace('%s', p.last_update) : '') : T('none'),
      href:'/builder' + q},
     {ic:'💰', k:'cashflow', on:p.cashflow, sub:p.cashflow ? '' : T('none'),
      href:'/admin-cashflow' + q},
-    {ic:'🗂️', k:'sheets', on:!!p.sheets, sub:p.sheets ? T('rows').replace('%s', p.sheets) : T('none'),
+    {ic:'🗂️', k:'sheets', on:!!p.sheets, sub:p.sheets ? nOf(p.sheets, 'sheets') : T('none'),
      href:'/admin-sheets'},
-    {ic:'🧮', k:'facts', on:!!p.facts, sub:p.facts ? T('rows').replace('%s', p.facts) : T('none'),
+    {ic:'🧮', k:'facts', on:!!p.facts, sub:p.facts ? nOf(p.facts, 'facts') : T('none'),
      href:'/admin-facts' + q},
     {ic:'📐', k:'boq', on:false, sub:T('soon'), href:''},
     {ic:'📅', k:'schedule', on:false, sub:T('soon'), href:''}
@@ -356,6 +381,31 @@ function drawAttach(){
       <span class="tx"><b>${T(it.k)}</b><span>${esc(it.sub)}</span></span>
       ${it.href ? `<a class="btn sm" href="${it.href}">${it.on ? T('open') : T('add')}</a>` : ''}
     </div>`).join('');
+}
+
+/* سجلات القوالب: زر واحد ينشئ الجدول بأعمدته القياسية ويربطه بالمشروع */
+function drawLogs(){
+  const p = S.sel;
+  const box = $('#logsBox');
+  box.innerHTML = (S.templates || []).map(t => {
+    const lg = (p.logs || {})[t.key];
+    const sub = !lg ? T('none') : (lg.rows ? nOf(lg.rows, 'rows') : T('empty0'));
+    return `<div class="att ${lg ? 'ok' : ''}">
+      <span class="ic">${t.icon}</span>
+      <span class="tx"><b>${esc(en() ? t.name_en : t.name)}</b><span>${esc(sub)}</span></span>
+      <button class="btn sm" data-tpl="${esc(t.key)}" data-sid="${lg ? lg.id : ''}">${lg ? T('open') : T('add')}</button>
+    </div>`;
+  }).join('');
+  $$('#logsBox [data-tpl]').forEach(b => b.addEventListener('click', async () => {
+    if(b.dataset.sid){ location.href = '/admin-sheets?sheet=' + encodeURIComponent(b.dataset.sid); return; }
+    b.disabled = true;
+    const j = await api(`/api/projects/${p.id}/sheets`, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({template:b.dataset.tpl})});
+    b.disabled = false;
+    if(!j.success) return;
+    toast(T('logAdded'));
+    location.href = '/admin-sheets?sheet=' + encodeURIComponent(j.id);
+  }));
 }
 
 function drawAliases(){
@@ -394,6 +444,7 @@ async function load(keepId){
   S.projects = j.projects || [];
   S.users = j.users || [];
   S.statuses = j.statuses || {};
+  S.templates = j.templates || [];
   applyLang();
   const id = keepId || (S.sel && S.sel.id);
   S.sel = S.projects.find(p => p.id === id) || null;
