@@ -1244,6 +1244,122 @@ def _clean_columns(raw):
     return out
 
 
+# عمليات شرط قاعدة الحقائق — نفس التي تفهمها قوالب السجلات
+FACT_OPS = ("=", "!=", ">=", "<=", "in", "not_in", "empty", "not_empty", "before_today")
+
+
+def _clean_settings(raw, sheet_id=None):
+    """تنظيف إعدادات الجدول، وأهمها قواعد الحقائق التي يكتبها المستخدم بنفسه.
+
+    القاعدة الواحدة: «كم صفًا» أو «مجموع عمود»، مع شروط اختيارية — فأي جدول
+    يبنيه المستخدم يصل إلى طبقة الحقائق دون سطر كود جديد.
+    """
+    s = dict(raw or {}) if isinstance(raw, dict) else {}
+    rules = []
+    for r in (s.get("facts") or [])[:20]:
+        if not isinstance(r, dict):
+            continue
+        label = str(r.get("label") or "").strip()[:80]
+        if not label:
+            continue
+        # المفتاح يُشتقّ من رقم الجدول والاسم دائمًا، فلا يصطدم مؤشر جدول بمؤشر آخر
+        base = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")[:30] or f"m{len(rules) + 1}"
+        key = (f"s{sheet_id}_{base}" if sheet_id else
+               re.sub(r"[^a-z0-9_]", "", str(r.get("key") or base).strip().lower())[:40])
+        if any(x["key"] == key for x in rules):
+            key = f"{key}_{len(rules) + 1}"
+        agg = r.get("agg") if r.get("agg") in ("count", "sum") else "count"
+        rule = {"key": key, "label": label, "agg": agg,
+                "col": re.sub(r"[^a-zA-Z0-9_]", "", str(r.get("col") or ""))[:40],
+                "unit": str(r.get("unit") or "")[:12],
+                "direction": r.get("direction") if r.get("direction") in
+                             ("up_good", "down_good", "neutral") else "neutral",
+                "where": []}
+        if agg == "sum" and not rule["col"]:
+            continue
+        for w in (r.get("where") or [])[:6]:
+            if not isinstance(w, (list, tuple)) or len(w) < 2:
+                continue
+            col = re.sub(r"[^a-zA-Z0-9_]", "", str(w[0] or ""))[:40]
+            op = w[1] if w[1] in FACT_OPS else None
+            if not col or not op:
+                continue
+            val = w[2] if len(w) > 2 else None
+            if op in ("in", "not_in"):
+                val = [str(x)[:60] for x in (val or [])][:30] if isinstance(val, (list, tuple)) \
+                      else [x.strip() for x in str(val or "").split("|") if x.strip()][:30]
+            elif op in ("empty", "not_empty", "before_today"):
+                val = None
+            else:
+                val = str(val if val is not None else "")[:60]
+            rule["where"].append([col, op, val])
+        rules.append(rule)
+    if rules:
+        s["facts"] = rules
+    else:
+        s.pop("facts", None)
+    return s
+
+
+def _register_sheet_metrics(cursor, rules):
+    """يسجّل مؤشرات الجدول المخصص في سجل المؤشرات حتى تقرأها بقية الصفحات."""
+    seq = 900
+    for r in rules or []:
+        seq += 1
+        _try_sql(cursor, """INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, seq)
+                            VALUES (%s,%s,%s,%s,%s,'last',%s,%s,%s)
+                            ON CONFLICT (key) DO UPDATE SET label = EXCLUDED.label,
+                              label_en = EXCLUDED.label_en, unit = EXCLUDED.unit""",
+                 (r["key"], r["label"], r["label"], r.get("unit", ""),
+                  "money" if r.get("unit") else ("count" if r["agg"] == "count" else "number"),
+                  r.get("direction", "neutral"), json.dumps(["sheet"]), seq))
+
+
+def _project_choices(cursor):
+    """خيارات عمود «المشروع» في الجداول.
+
+    القيمة المخزَّنة تبقى مفتاح البيانات (الاسم الذي تحته التحديثات والتدفق النقدي)،
+    والمعروض هو اسم العرض — فتغيير طريقة العرض لا يمسّ صفًا واحدًا من البيانات.
+    """
+    seen, out = set(), []
+    try:
+        for p in _projects_payload(cursor):
+            key = p["data_key"] or p["name"]
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({"v": key, "l": p["name_en"] or p["name"], "code": p["code"],
+                        "active": bool(p["active"])})
+    except Exception:
+        pass
+    # أي اسم في البيانات القديمة لم يُسجَّل بعد في سجل المشاريع يظل متاحًا
+    for (name,) in _try_sql(cursor, """SELECT DISTINCT project_name FROM project_updates
+                                       WHERE project_name IS NOT NULL ORDER BY project_name"""):
+        name = (name or "").strip()
+        if name and name not in seen:
+            seen.add(name)
+            out.append({"v": name, "l": name, "code": "", "active": True})
+    return out
+
+
+def _drop_stale_logs(cursor):
+    """سجلات أُنشئت بإصدار قالب أقدم وبقيت فارغة: تُحذف من تلقاء نفسها.
+
+    بدونها يرى المستخدم «سجل المشاكل» مرتين في القائمة نفسها، واحدًا بأعمدة قديمة.
+    أي سجل قديم فيه بيانات فعلية لا يُمَس — يبقى جدولًا عاديًا يفتحه ويقرّر مصيره.
+    """
+    rows = _try_sql(cursor, """
+        SELECT s.id FROM sheets s
+        WHERE s.settings ->> 'template' IS NOT NULL
+          AND COALESCE(s.settings ->> 'ver', '0') <> %s
+          AND NOT EXISTS (SELECT 1 FROM sheet_rows r
+                          WHERE r.sheet_id = s.id AND r.data <> '{}'::jsonb)""",
+        (str(TEMPLATE_VER),))
+    for (sid,) in rows or []:
+        _try_sql(cursor, "DELETE FROM sheets WHERE id = %s", (sid,))
+    return len(rows or [])
+
+
 def _sheet_admin(request):
     return request.cookies.get("super_admin_auth") == "admin_mohamed"
 
@@ -1257,8 +1373,7 @@ async def sheets_page(request: Request):
         return RedirectResponse(url="/admin-dashboard", status_code=303)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT project_name FROM project_updates WHERE project_name IS NOT NULL ORDER BY project_name")
-    projects = [r[0] for r in cursor.fetchall()]
+    projects = _project_choices(cursor)
     conn.close()
     return templates.TemplateResponse(request, "sheets.html", {
         "admin_user": admin_user, "projects": projects, "active_page": "sheets",
@@ -1294,7 +1409,7 @@ async def sheets_create(request: Request, background_tasks: BackgroundTasks):
         return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
     try:
         body = await request.json()
-        name = (body.get("name") or "").strip() or "جدول جديد"
+        name = (body.get("name") or "").strip() or "New sheet"
         columns = _clean_columns(body.get("columns") or [
             {"key": "project", "type": "project", "label": "المشروع", "label_en": "Project", "width": 220},
             {"key": "item", "type": "text", "label": "البند", "label_en": "Item", "width": 220},
@@ -1302,13 +1417,32 @@ async def sheets_create(request: Request, background_tasks: BackgroundTasks):
         ])
         conn = get_db_connection()
         cursor = conn.cursor()
+        settings = _clean_settings(body.get("settings"))
+        # جدول يُنشأ داخل مشروع: يُربط به كما يُربط السجل، فتبدأ صفوفه وعمود
+        # المشروع مملوء وتصل أرقامه إلى طبقة الحقائق
+        pid = body.get("project_id")
+        if pid:
+            cursor.execute(f"SELECT {PROJECT_COLS} FROM projects WHERE id = %s", (int(pid),))
+            row = cursor.fetchone()
+            if row:
+                proj = _project_row(row)
+                key = next((p["data_key"] for p in _projects_payload(cursor)
+                            if p["id"] == int(pid)), proj["name"])
+                settings.update({"project_id": str(int(pid)), "project": key})
+                name = f"{name} — {proj['name_en'] or proj['name']}"
         cursor.execute("""INSERT INTO sheets (name, name_en, columns, settings, created_by)
                           VALUES (%s, %s, %s, %s, %s) RETURNING id""",
-                       (name, (body.get("name_en") or "").strip() or None,
+                       (name, (body.get("name_en") or "").strip() or name,
                         json.dumps(columns, ensure_ascii=False),
-                        json.dumps(body.get("settings") or {}, ensure_ascii=False),
+                        json.dumps(settings, ensure_ascii=False),
                         request.cookies.get("super_admin_auth")))
         sid = cursor.fetchone()[0]
+        # مفاتيح المؤشرات تحمل رقم الجدول، وهو لا يُعرف إلا بعد الإدراج
+        if settings.get("facts"):
+            settings = _clean_settings(settings, sid)
+            cursor.execute("UPDATE sheets SET settings = %s WHERE id = %s",
+                           (json.dumps(settings, ensure_ascii=False), sid))
+        _register_sheet_metrics(cursor, settings.get("facts"))
         conn.commit()
         conn.close()
         background_tasks.add_task(log_audit, request.cookies.get("super_admin_auth"), "إنشاء جدول مخصص", name)
@@ -1331,8 +1465,10 @@ async def sheets_update(sheet_id: int, request: Request):
             sets.append("name_en = %s"); vals.append((body.get("name_en") or "").strip() or None)
         if "columns" in body:
             sets.append("columns = %s"); vals.append(json.dumps(_clean_columns(body["columns"]), ensure_ascii=False))
+        new_settings = None
         if "settings" in body:
-            sets.append("settings = %s"); vals.append(json.dumps(body.get("settings") or {}, ensure_ascii=False))
+            new_settings = _clean_settings(body.get("settings"), sheet_id)
+            sets.append("settings = %s"); vals.append(json.dumps(new_settings, ensure_ascii=False))
         if not sets:
             return {"success": True}
         sets.append("updated_at = NOW()")
@@ -1340,6 +1476,8 @@ async def sheets_update(sheet_id: int, request: Request):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(f"UPDATE sheets SET {', '.join(sets)} WHERE id = %s", vals)
+        if new_settings is not None:
+            _register_sheet_metrics(cursor, new_settings.get("facts"))
         conn.commit()
         conn.close()
         return {"success": True}
@@ -1489,6 +1627,11 @@ async def sheets_export(sheet_id: int, request: Request, fmt: str = "xlsx", q: s
         rows = _sheet_view_rows(sheet, raw, q, sort, dir, flt)
         cols = sheet["columns"]
         en = (lang == "en")
+        conn = get_db_connection()
+        try:
+            plabel = {p["v"]: p["l"] for p in _project_choices(conn.cursor())}
+        finally:
+            conn.close()
         label = lambda c: (c.get("label_en") or c.get("label") or c["key"]) if en else (c.get("label") or c.get("label_en") or c["key"])
         fname = _sheet_export_name(sheet, lang)
 
@@ -1500,6 +1643,8 @@ async def sheets_export(sheet_id: int, request: Request, fmt: str = "xlsx", q: s
                 return ("Yes" if en else "نعم") if v else ("No" if en else "لا")
             if c.get("type") in ("select", "formula") and not en:
                 return (c.get("opt_ar") or {}).get(v, v)
+            if c.get("type") == "project":
+                return plabel.get(v, v)          # اسم العرض لا مفتاح البيانات
             return v
 
         if fmt == "csv":
@@ -1712,7 +1857,9 @@ def _try_sql(cursor, sql, args=None):
     try:
         cursor.execute("SAVEPOINT s_opt")
         cursor.execute(sql, args or ())
-        rows = cursor.fetchall()
+        # الكتابة (DELETE/INSERT/UPDATE) لا تُرجع صفوفًا، وطلب fetchall منها كان
+        # يرمي استثناءً يُرجع الأمر إلى نقطة الحفظ فيُلغى التعديل بصمت
+        rows = cursor.fetchall() if cursor.description else []
         cursor.execute("RELEASE SAVEPOINT s_opt")
         return rows
     except Exception:
@@ -1932,7 +2079,8 @@ async def api_projects(request: Request, sync: int = 0):
         conn = get_db_connection()
         cursor = conn.cursor()
         synced = projects_sync(cursor) if sync else None
-        if sync:
+        dropped = _drop_stale_logs(cursor)             # سجلات إصدار قديم فارغة
+        if sync or dropped:
             conn.commit()
         payload = _projects_payload(cursor)
         users = [{"username": r[0], "name": r[1] or r[0]}
@@ -2538,14 +2686,21 @@ def collect_sheets(project=None, conn=None):
         conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""SELECT id, columns, settings FROM sheets
-                      WHERE settings ->> 'template' IS NOT NULL""")
+                      WHERE settings ->> 'template' IS NOT NULL
+                         OR settings -> 'facts' IS NOT NULL""")
     sheets = []
     for sid, cols, settings in cursor.fetchall():
         cols = json.loads(cols) if isinstance(cols, str) else (cols or [])
         settings = json.loads(settings) if isinstance(settings, str) else (settings or {})
         tpl = SHEET_TEMPLATES.get(settings.get("template"))
         if tpl and int(_fnum(settings.get("ver"))) == TEMPLATE_VER:
-            sheets.append((sid, cols, settings, tpl))
+            metrics = tpl["metrics"]
+        else:
+            # جدول بناه المستخدم: قواعده هي مؤشراته
+            metrics = [dict(m, sum=(m["col"] if m.get("agg") == "sum" else None))
+                       for m in (settings.get("facts") or [])]
+        if metrics:
+            sheets.append((sid, cols, settings, {"metrics": metrics}))
     if not sheets:
         if own:
             conn.close()
@@ -2587,15 +2742,26 @@ def collect_sheets(project=None, conn=None):
     return out
 
 
+# وحدات سُجّلت بالعربية قبل تثبيت الواجهة على الإنجليزية
+UNIT_FIX = {"يوم": "day", "أيام": "day", "ر.س": "SAR", "%": "%"}
+
+
+def _fix_units(cursor):
+    for ar, en in UNIT_FIX.items():
+        if ar != en:
+            _try_sql(cursor, "UPDATE fact_metrics SET unit = %s WHERE unit = %s", (en, ar))
+
+
 def _seed_template_metrics(cursor):
     """يسجّل مؤشرات القوالب في سجل المؤشرات مرة واحدة."""
+    _fix_units(cursor)
     for tpl in sorted(SHEET_TEMPLATES.values(), key=lambda t: t.get("seq", 999)):
         seq = 200 + tpl.get("seq", 0) * 10
         for m in tpl["metrics"]:
             seq += 1
             cursor.execute("""INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, seq)
                               VALUES (%s,%s,%s,%s,%s,'last',%s,%s,%s) ON CONFLICT (key) DO NOTHING""",
-                           (m["key"], m["label"], m["label_en"], m.get("unit", ""),
+                           (m["key"], m["label"], m["label_en"], m.get("unit_en") or m.get("unit", ""),
                             m.get("kind", "count"), m.get("direction", "neutral"),
                             json.dumps(["sheet"]), seq))
 
@@ -3078,7 +3244,14 @@ async def facts_page(request: Request):
         return RedirectResponse(url="/admin", status_code=303)
     if admin_user != "admin_mohamed":
         return RedirectResponse(url="/admin-dashboard", status_code=303)
-    return templates.TemplateResponse(request, "facts.html", {"admin_user": admin_user, "active_page": "facts"})
+    conn = get_db_connection()
+    try:
+        choices = _project_choices(conn.cursor())
+    finally:
+        conn.close()
+    return templates.TemplateResponse(request, "facts.html",
+                                      {"admin_user": admin_user, "active_page": "facts",
+                                       "projects": choices})
 
 
 @app.get("/api/facts/metrics")
