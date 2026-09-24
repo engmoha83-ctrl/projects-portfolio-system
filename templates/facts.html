@@ -98,8 +98,9 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
   <div class="hdr-title"><small data-i18n="sub">Data foundation</small><b data-i18n="title">Facts layer</b></div>
   <div class="spacer"></div>
-  <select class="fld" id="srcSel"></select>
-  <button class="btn" id="btnRebuild" data-i18n="rebuild">Rebuild</button>
+  <label class="inline" style="font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:6px;">
+    <span data-i18n="viewSrc">View</span><select class="fld" id="srcSel"></select></label>
+  <button class="btn" id="btnRebuild" data-i18n="rebuild" data-i18n-title="rebuildHint">Rebuild</button>
   <button class="btn" id="btnLang">العربية</button>
 </header>
 
@@ -123,6 +124,7 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
   <div class="card">
     <h2 data-i18n="matrixT">Current values by project</h2>
     <div class="note" data-i18n="matrixNote"></div>
+    <div class="status" id="matrixSrcNote" hidden></div>
     <div class="card-body scroll" id="matrixBox"></div>
   </div>
 
@@ -165,7 +167,12 @@ const I18N = {
   key:['Key','المفتاح'], label:['Name','الاسم'], unit:['Unit','الوحدة'], kind:['Kind','النوع'],
   agg:['Roll-up','التجميع'], dir:['Better when','الأفضل'], active:['Active','مفعّل'], add:['Add source','إضافة مصدر'],
   save:['Save','حفظ'], saved:['Saved','تم الحفظ'], noData:['No facts yet — press Rebuild','لا توجد حقائق بعد — اضغط «إعادة البناء»'],
-  allSrc:['All sources','كل المصادر'], metricCol:['Metric','المؤشر'], source:['Source','المصدر'],
+  allSrc:['Approved value','القيمة المعتمدة'],
+  viewSrc:['View','عرض'],
+  rebuildHint:['Recollects every source','يعيد تجميع كل المصادر'],
+  onlySrc:['Showing values from this source alone, not the approved value.',
+           'هذه القيم من هذا المصدر وحده، وليست القيمة المعتمدة.'],
+  tookS:['in %s s','في %s ث'], metricCol:['Metric','المؤشر'], source:['Source','المصدر'],
   from:['From','من'], to:['To','إلى'], updated:['Updated','آخر تحديث'], count:['Count','العدد'],
   rebuilt:['Facts rebuilt','تمت إعادة بناء الحقائق'],
   emptyT:['No facts collected yet','لا توجد حقائق مجمّعة بعد'],
@@ -254,6 +261,8 @@ function drawStats(){
 }
 
 function drawMatrix(){
+  const note = $('#matrixSrcNote');
+  if(note){ note.hidden = !S.src; note.textContent = S.src ? (T('onlySrc') + '  —  ' + sLabel(S.src)) : ''; }
   const projects = Object.keys(S.latest).sort();
   const metrics = S.metrics.filter(m => m.active);
   if(!projects.length){ $('#matrixBox').innerHTML = `<div class="note">${T('noData')}</div>`; return; }
@@ -326,13 +335,17 @@ async function saveMetric(m, say){
   if(j.success){ if(say) toast(T('saved')); await loadAll(); }
 }
 
+async function loadLatest(){
+  const keys = S.metrics.filter(m => m.active).map(m => m.key).join(',');
+  const lt = await api('/api/facts/latest?metrics=' + encodeURIComponent(keys)
+                       + (S.src ? '&source=' + encodeURIComponent(S.src) : ''));
+  if(lt.success) S.latest = lt.latest || {};
+}
 async function loadAll(){
   const [mm, hh] = await Promise.all([api('/api/facts/metrics'), api('/api/facts/health')]);
   if(mm.success){ S.metrics = mm.metrics || []; S.sources = mm.sources || {}; }
   if(hh.success) S.health = hh;
-  const keys = S.metrics.filter(m => m.active).map(m => m.key).join(',');
-  const lt = await api('/api/facts/latest?metrics=' + encodeURIComponent(keys));
-  if(lt.success) S.latest = lt.latest || {};
+  await loadLatest();
   applyLang(); drawHealth(); drawStats(); drawMatrix(); drawMetrics();
 }
 
@@ -350,7 +363,7 @@ async function rebuild(){
   let j;
   try{
     const r = await fetch('/api/facts/rebuild', {method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({source:S.src || 'all'})});
+      body:JSON.stringify({source:'all'})});          // دائمًا كل المصادر
     j = await r.json().catch(() => ({success:false, error:'HTTP ' + r.status}));
   }catch(e){ j = {success:false, error:String(e.message || e)}; }
   btns.forEach((b, i) => { b.disabled = false; b.textContent = old[i]; });
@@ -359,14 +372,15 @@ async function rebuild(){
     return;
   }
   const total = Object.values(j.written || {}).reduce((a, b) => a + (b || 0), 0);
+  const took = j.seconds != null ? '   ·   ' + T('tookS').replace('%s', j.seconds) : '';
   setStatus(total ? (T('rebuilt') + ' — ' +
-      Object.entries(j.written || {}).map(([k, v]) => `${sLabel(k)}: ${v}`).join('   ·   '))
+      Object.entries(j.written || {}).map(([k, v]) => `${sLabel(k)}: ${v}`).join('   ·   ') + took)
     : T('nothing'), total ? 'ok' : 'err');
   await loadAll();
 }
 $('#btnRebuild').addEventListener('click', rebuild);
 $('#btnCollect').addEventListener('click', rebuild);
-$('#srcSel').addEventListener('change', e => { S.src = e.target.value; drawStats(); });
+$('#srcSel').addEventListener('change', async e => { S.src = e.target.value; await loadLatest(); drawStats(); drawMatrix(); });
 $('#btnLang').addEventListener('click', () => {
   UIL = en() ? 'ar' : 'en';
   try{ localStorage.setItem(UI_KEY, UIL); }catch(e){}
