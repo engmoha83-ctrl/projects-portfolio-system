@@ -1667,18 +1667,25 @@ def projects_sync(cursor):
 
 
 def _projects_payload(cursor):
-    """كل المشاريع ومعها ما هو متعلّق بها فعلًا — هذا ما يجعل الصفحة «بيت المشروع»."""
+    """كل المشاريع ومعها ما هو متعلّق بها فعلًا.
+
+    مهم: «اسم العرض» شيء و«الاسم المخزَّن في البيانات» شيء آخر. البيانات القديمة
+    (التحديثات والتدفق النقدي) مفتاحها نص الاسم، فتغيير اسم العرض يجب ألّا يغيّر
+    المفتاح وإلا فتحت الصفحات الأخرى على مشروع فارغ. لذلك نحسب data_key: الاسم
+    البديل الذي توجد عليه بيانات فعلًا.
+    """
     cursor.execute(f"SELECT {PROJECT_COLS} FROM projects ORDER BY code")
     projects = [_project_row(r) for r in cursor.fetchall()]
     by_id = {p["id"]: p for p in projects}
     for p in projects:
         p.update({"aliases": [], "managers": [], "updates": 0, "last_update": "",
-                  "cashflow": False, "facts": 0, "sheets": 0})
+                  "cashflow": False, "facts": 0, "sheets": 0, "data_key": p["name"]})
 
     cursor.execute("SELECT project_id, alias FROM project_aliases")
-    alias_of = {}
+    alias_of, aliases = {}, []
     for pid, alias in cursor.fetchall():
         alias_of[alias] = pid
+        aliases.append(alias)
         if pid in by_id:
             by_id[pid]["aliases"].append(alias)
 
@@ -1687,34 +1694,55 @@ def _projects_payload(cursor):
         if pid in by_id:
             by_id[pid]["managers"].append({"username": user, "primary": bool(prim)})
 
-    def bump(field, rows, agg="count"):
-        for name, val in rows:
-            pid = alias_of.get((name or "").strip())
-            if pid in by_id:
-                if agg == "count":
-                    by_id[pid][field] += int(val or 0)
-                elif agg == "max":
-                    cur = by_id[pid][field]
-                    if str(val or "") > str(cur):
-                        by_id[pid][field] = str(val or "")[:10]
-                else:
-                    by_id[pid][field] = bool(val)
-
+    # إحصاء لكل اسم على حدة، ثم نجمعه على المشروع ونختار منه مفتاح البيانات
+    stats = {a: {"updates": 0, "last": "", "cashflow": False, "facts": 0, "sheets": 0} for a in aliases}
     for name, cnt, last in _try_sql(cursor, """SELECT project_name, COUNT(*), MAX(current_data_date)
-                                                FROM project_updates GROUP BY project_name"""):
-        pid = alias_of.get((name or "").strip())
-        if pid in by_id:
-            by_id[pid]["updates"] = int(cnt or 0)
-            by_id[pid]["last_update"] = str(last or "")[:10]
-    bump("cashflow", [(r[0], True) for r in _try_sql(cursor, "SELECT project_name FROM cashflow_meta")], agg="flag")
-    bump("facts", _try_sql(cursor, "SELECT project_name, COUNT(*) FROM project_facts GROUP BY project_name"))
-    bump("sheets", _try_sql(cursor, """SELECT r.data ->> c.key AS pname, COUNT(DISTINCT r.sheet_id)
+                                               FROM project_updates GROUP BY project_name"""):
+        st = stats.get((name or "").strip())
+        if st:
+            st["updates"] = int(cnt or 0)
+            st["last"] = str(last or "")[:10]
+    for (name,) in _try_sql(cursor, "SELECT project_name FROM cashflow_meta"):
+        st = stats.get((name or "").strip())
+        if st:
+            st["cashflow"] = True
+    for name, cnt in _try_sql(cursor, "SELECT project_name, COUNT(*) FROM project_facts GROUP BY project_name"):
+        st = stats.get((name or "").strip())
+        if st:
+            st["facts"] = int(cnt or 0)
+    for name, cnt in _try_sql(cursor, """SELECT r.data ->> c.key AS pname, COUNT(DISTINCT r.sheet_id)
                           FROM sheet_rows r
                           JOIN sheets s ON s.id = r.sheet_id
                           JOIN LATERAL jsonb_array_elements(s.columns) col ON TRUE
                           JOIN LATERAL (SELECT col ->> 'key' AS key, col ->> 'type' AS type) c ON TRUE
                           WHERE c.type = 'project' AND r.data ->> c.key IS NOT NULL
-                          GROUP BY 1"""))
+                          GROUP BY 1"""):
+        st = stats.get((name or "").strip())
+        if st:
+            st["sheets"] = int(cnt or 0)
+
+    for alias, st in stats.items():
+        p = by_id.get(alias_of.get(alias))
+        if not p:
+            continue
+        p["updates"] += st["updates"]
+        p["facts"] += st["facts"]
+        p["sheets"] += st["sheets"]
+        p["cashflow"] = p["cashflow"] or st["cashflow"]
+        if st["last"] > p["last_update"]:
+            p["last_update"] = st["last"]
+
+    for p in projects:
+        scored = sorted(p["aliases"],
+                        key=lambda a: (stats.get(a, {}).get("updates", 0),
+                                       1 if stats.get(a, {}).get("cashflow") else 0,
+                                       stats.get(a, {}).get("facts", 0),
+                                       1 if a == p["name"] else 0),
+                        reverse=True)
+        best = scored[0] if scored else p["name"]
+        has_data = any(stats.get(best, {}).get(k) for k in ("updates", "cashflow", "facts", "sheets"))
+        p["data_key"] = best if has_data else p["name"]
+        p["key_differs"] = bool(has_data and p["data_key"] != p["name"])
     return projects
 
 
