@@ -193,7 +193,7 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
   <div class="spacer"></div>
   <button class="btn" id="btnSync" data-i18n-title="syncHint" data-i18n="sync">Import existing</button>
   <button class="btn primary" id="btnNew" data-i18n="newP">+ New project</button>
-  <button class="btn" id="btnLang">العربية</button>
+  <button class="btn" id="btnLang" hidden>Arabic</button>
 </header>
 
 <div class="load-bar" id="loadBar"><i></i></div>
@@ -233,7 +233,11 @@ button,input,select,textarea{font-family:inherit; border-radius:0;}
 
 <script>
 const UI_KEY = 'pmis_ui_lang';
-let UIL = (() => { try{ return localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){ return 'en'; } })();
+/* الواجهة إنجليزية فقط حتى يكتمل الموقع. النصوص العربية باقية في الكود
+   وزر التبديل مخفي لا محذوف، فإعادة تشغيل اللغة لاحقًا تعديل سطر واحد. */
+const UI_BILINGUAL = false;
+let UIL = 'en';
+if(UI_BILINGUAL){ try{ UIL = localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){} }
 const en = () => UIL !== 'ar';
 const U  = (e, a) => en() ? e : a;
 const I18N = {
@@ -278,7 +282,7 @@ const I18N = {
   lastUpd:['last %s','آخرها %s'],
   archived:['Archived','مؤرشف'],
   created:['Project created','تم إنشاء المشروع'],
-  askName:['Project name (Arabic):','اسم المشروع بالعربية:'],
+  askName:['Project name:','اسم المشروع:'],
   synced:['%s projects added, %s managers linked','أُضيف %s مشروع، ورُبط %s مدير'],
   nothingNew:['Everything is already registered','كل شيء مسجَّل بالفعل'],
   noProjects:['No projects yet — create one, or import what already exists in the data.',
@@ -601,7 +605,7 @@ $('#btnNew').addEventListener('click', async () => {
   const name = prompt(T('askName'), '');
   if(!name || !name.trim()) return;
   const j = await api('/api/projects', {method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:name.trim(), status:'planning'})});
+    body:JSON.stringify({name:name.trim(), name_en:name.trim(), status:'planning'})});
   if(j.success){ toast(T('created')); location.href = '/admin-projects/' + j.id; }
 });
 $('#btnSync').addEventListener('click', async () => {

@@ -107,7 +107,7 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
   <label class="inline" style="font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:6px;">
     <span data-i18n="viewSrc">View</span><select class="fld" id="srcSel"></select></label>
   <button class="btn" id="btnRebuild" data-i18n="rebuild" data-i18n-title="rebuildHint">Rebuild</button>
-  <button class="btn" id="btnLang">العربية</button>
+  <button class="btn" id="btnLang" hidden>Arabic</button>
 </header>
 
 <div class="load-bar" id="loadBar"><i></i></div>
@@ -150,7 +150,14 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
 
 <script>
 const UI_KEY = 'pmis_ui_lang';
-let UIL = (() => { try{ return localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){ return 'en'; } })();
+/* المشاريع مخزَّنة بمفتاح البيانات؛ هنا نعرض اسم العرض ونُبقي المفتاح في القيمة */
+const PLABEL = Object.fromEntries(({{ projects | tojson }}).map(p => [p.v, p.l || p.v]));
+const projLabel = v => PLABEL[v] || String(v == null ? '' : v);
+/* الواجهة إنجليزية فقط حتى يكتمل الموقع. النصوص العربية باقية في الكود
+   وزر التبديل مخفي لا محذوف، فإعادة تشغيل اللغة لاحقًا تعديل سطر واحد. */
+const UI_BILINGUAL = false;
+let UIL = 'en';
+if(UI_BILINGUAL){ try{ UIL = localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){} }
 const en = () => UIL !== 'ar';
 const U  = (e, a) => en() ? e : a;
 const I18N = {
@@ -284,7 +291,7 @@ function drawMatrix(){
   if(!projects.length){ $('#matrixBox').innerHTML = `<div class="note">${T('noData')}</div>`; return; }
   $('#matrixBox').innerHTML = `<table class="matrix"><thead><tr><th>${T('projects')}</th>${
       metrics.map(m => `<th title="${esc(m.key)}">${esc(mLabel(m))}</th>`).join('')}</tr></thead><tbody>${
-    projects.map(p => `<tr><td><b>${esc(p)}</b></td>${metrics.map(m => {
+    projects.map(p => `<tr><td><b>${esc(projLabel(p))}</b></td>${metrics.map(m => {
       const f = (S.latest[p] || {})[m.key];
       if(!f) return `<td class="v none">—</td>`;
       const v = f.text != null && f.text !== '' ? f.text : f.value;
@@ -366,7 +373,7 @@ function drawProjSel(){
   const names = Object.keys(S.all || {}).sort();
   if(S.proj && names.indexOf(S.proj) < 0) names.unshift(S.proj);
   sel.innerHTML = `<option value="">${T('allProj')}</option>` +
-    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    names.map(n => `<option value="${esc(n)}">${esc(projLabel(n))}</option>`).join('');
   sel.value = S.proj;
 }
 async function loadAll(){

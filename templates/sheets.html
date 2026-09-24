@@ -220,7 +220,26 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
 .modal-back.open .modal{transform:none;}
 .modal h3{margin:0; padding:16px 20px 6px; font-size:16px; font-weight:700;}
 .modal-body{padding:8px 20px 16px; overflow:auto;}
-.modal-foot{padding:12px 20px; background:#F7F8FA; display:flex; justify-content:flex-end; gap:8px;}
+.modal-foot{padding:12px 20px; background:#F7F8FA; display:flex; justify-content:flex-end; gap:8px; align-items:center;}
+.modal.wide{width:min(880px,96vw);}
+.modal-note{font-size:12px; color:var(--muted); line-height:1.75; padding:2px 20px 12px; max-width:76ch;}
+.fact-row{background:#F7F8FA; padding:11px 13px; margin-bottom:9px;}
+.fr-top{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;}
+.fr-top label{display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--muted); min-width:0;}
+.fr-top label:first-child{flex:1 1 200px;}
+.fr-top label:nth-child(2){flex:0 0 140px;}
+.fr-top label:nth-child(3){flex:0 0 160px;}
+.fr-top label:nth-child(4){flex:0 0 80px;}
+.fr-top .fld{height:31px;}
+.fr-when{display:flex; gap:7px; align-items:center; flex-wrap:wrap; margin-top:9px;
+  padding-top:9px; border-top:1px solid var(--line);}
+.fr-when .wl{font-size:11px; color:var(--muted);}
+.cond{display:inline-flex; gap:4px; align-items:center; background:#fff; padding:3px 4px 3px 7px;}
+.cond .fld{height:27px; font-size:12px; width:auto; min-width:92px; background:var(--tint);}
+.cond button{border:none; background:none; color:var(--muted); cursor:pointer; font-size:10px; padding:0 4px;}
+.cond button:hover{color:var(--danger);}
+.modal .empty{padding:26px 10px; text-align:center; color:var(--muted); font-size:13px;}
+.spacer{flex:1;}
 .sheet-item{display:flex; align-items:center; gap:10px; padding:10px 12px; background:#F7F8FA; margin-bottom:6px;}
 .sheet-item .nm{flex:1; min-width:0;}
 .sheet-item .nm b{font-size:13.5px; font-weight:600; display:block;}
@@ -248,6 +267,7 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
   <select class="fld" id="sheetSel" style="margin-inline-start:10px;" data-no-tr></select>
   <button class="btn" id="btnNew" data-i18n="newSheet">New sheet</button>
   <button class="btn" id="btnManage" data-i18n="manage">Manage…</button>
+  <button class="btn" id="btnFacts" data-i18n="factBtn" data-i18n-title="factTip">Reports…</button>
   <span style="position:relative">
     <button class="btn" id="btnExport" data-i18n="exportBtn">Export ▾</button>
     <div class="menu" id="exportMenu" hidden>
@@ -259,7 +279,7 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
   </span>
   <div class="spacer"></div>
   <span class="count" id="savedAt"></span>
-  <button class="btn" id="btnLang">العربية</button>
+  <button class="btn" id="btnLang" hidden>Arabic</button>
   <button class="btn primary" id="btnSave" disabled data-i18n="save">Save</button>
 </header>
 
@@ -365,22 +385,65 @@ table.grid{border-collapse:separate; border-spacing:0; background:#fff; table-la
   </div>
 </div>
 
+<div class="modal-back" id="factModal">
+  <div class="modal wide">
+    <h3 data-i18n="factT">What this sheet reports</h3>
+    <div class="modal-note" data-i18n="factNote"></div>
+    <div class="modal-body" id="factBody"></div>
+    <div class="modal-foot">
+      <button class="btn" id="factAdd" data-i18n="factAdd">+ Add a figure</button>
+      <div class="spacer"></div>
+      <button class="btn primary" id="factSave" data-i18n="save">Save</button>
+      <button class="btn" data-close data-i18n="close">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="printArea"></div>
 
 <div class="toast" id="toast"></div>
 
 <script>
+/* المشروع: القيمة المخزَّنة هي مفتاح البيانات، والمعروض اسم العرض —
+   فما يراه المستخدم إنجليزي، وما في الخلية يظل مطابقًا لبقية النظام */
 const PROJECTS = {{ projects | tojson }};
+const PKEYS = PROJECTS.map(p => p.v);
+const PLABEL = Object.fromEntries(PROJECTS.map(p => [p.v, p.l || p.v]));
+const projLabel = v => (v === null || v === undefined || v === '') ? '' : (PLABEL[v] || String(v));
 const FIELDS   = {{ field_meta | tojson }};
 
 /* ================= اللغة ================= */
 const UI_KEY = 'pmis_ui_lang';
-let UIL = (() => { try{ return localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){ return 'en'; } })();
+/* الواجهة إنجليزية فقط حتى يكتمل الموقع. النصوص العربية باقية في الكود
+   وزر التبديل مخفي لا محذوف، فإعادة تشغيل اللغة لاحقًا تعديل سطر واحد. */
+const UI_BILINGUAL = false;
+let UIL = 'en';
+if(UI_BILINGUAL){ try{ UIL = localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){} }
 const en = () => UIL !== 'ar';
 const U  = (e, a) => en() ? e : a;
 const I18N = {
   sheets:['Sheets','الجداول'], back:['Back','رجوع'], newSheet:['New sheet','جدول جديد'],
   manage:['Manage…','إدارة…'], manageT:['Sheets','الجداول'], save:['Save','حفظ'],
+  factBtn:['Reports…','التقارير…'],
+  factTip:['Choose which figures this sheet sends to the facts layer',
+           'اختر الأرقام التي يرسلها هذا الجدول إلى طبقة الحقائق'],
+  factT:['What this sheet reports','ما يرسله هذا الجدول'],
+  factNote:['Each figure below is written to the facts layer once a day, per project, so it reaches the dashboard without any new code. Count rows, or add up a column, and narrow it with conditions if you need to.',
+            'كل رقم أدناه يُكتب في طبقة الحقائق مرة يوميًا لكل مشروع، فيصل إلى الداشبورد دون كود جديد. عُدَّ الصفوف أو اجمع عمودًا، وضيّق النطاق بشروط عند الحاجة.'],
+  factAdd:['+ Add a figure','+ أضف رقمًا'],
+  factName:['Name','الاسم'], factWhat:['Measure','المقياس'], factCol:['Column','العمود'],
+  factUnit:['Unit','الوحدة'], factWhen:['Only rows where','الصفوف التي'],
+  factCount:['Count rows','عدد الصفوف'], factSum:['Add up','مجموع'],
+  factAddWhen:['+ condition','+ شرط'],
+  factNone:['Nothing yet. Add a figure and this sheet starts feeding the dashboard.',
+            'لا شيء بعد. أضف رقمًا ليبدأ هذا الجدول في تغذية الداشبورد.'],
+  factSaved:['Saved — it will appear after the next rebuild on the facts page',
+             'تم الحفظ — سيظهر بعد إعادة البناء التالية في صفحة الحقائق'],
+  factNeedName:['Every figure needs a name','كل رقم يحتاج اسمًا'],
+  factNeedCol:['Choose a column to add up','اختر عمودًا لجمعه'],
+  opIs:['is','يساوي'], opIsNot:['is not','لا يساوي'], opGe:['at least','لا يقل عن'],
+  opLe:['at most','لا يزيد عن'], opIn:['is one of','أحد هذه'], opNotIn:['is none of','ليس أحد هذه'],
+  opEmpty:['is empty','فارغ'], opNotEmpty:['is filled','غير فارغ'], opPast:['is before today','قبل اليوم'],
   addRow:['+ Row','+ صف'], addCol:['+ Column','+ عمود'], search:['Search…','بحث…'], filters:['Filters','فلاتر'],
   noSheet:['No sheet yet — create one to start.','لا توجد جداول — أنشئ جدولًا للبدء.'],
   close:['Close','إغلاق'], open:['Open','فتح'], rename:['Rename','إعادة تسمية'], del:['Delete','حذف'],
@@ -949,7 +1012,7 @@ function writeCell(ri, ci, raw){
     else { const n = parseFloat(String(raw).replace(/,/g, '')); v = isNaN(n) ? null : n; }
   }
   else if(col.type === 'bool') v = !!(raw === true || raw === 1 || /^(1|true|yes|نعم|صح)$/i.test(String(raw || '')));
-  else if(col.type === 'project') v = PROJECTS.includes(String(raw)) ? String(raw) : (raw ? String(raw) : '');
+  else if(col.type === 'project') v = PKEYS.includes(String(raw)) ? String(raw) : (raw ? String(raw) : '');
   else if(col.type === 'select') v = (col.options || []).includes(String(raw)) ? String(raw) : '';
   else v = (raw === null || raw === undefined) ? '' : String(raw);
   if(row.data[col.key] === v) return false;
@@ -1091,8 +1154,9 @@ function cellHtml(r, c, ri, ci){
     return `<td class="cell-calc${cls}${on}"${pos}${sty} data-no-tr title="${esc(shown)}">${esc(shown)}</td>`;
   }
   if(c.type === 'project')
-    return `<td class="${on}"${pos}${sty}><select data-cell="${c.key}" data-no-tr${isty}><option value=""></option>${PROJECTS.map(p =>
-      `<option value="${esc(p)}" ${v === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></td>`;
+    return `<td class="${on}"${pos}${sty}><select data-cell="${c.key}" data-no-tr${isty}><option value=""></option>${
+      (PKEYS.includes(v) || !v ? PROJECTS : PROJECTS.concat([{v:v, l:v}])).map(p =>
+      `<option value="${esc(p.v)}" ${v === p.v ? 'selected' : ''}>${esc(p.l || p.v)}</option>`).join('')}</select></td>`;
   if(c.type === 'select')
     return `<td class="${on}"${pos}${sty}><select data-cell="${c.key}" data-no-tr${isty}><option value=""></option>${(c.options || []).map(o =>
       `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(optLabel(c, o))}</option>`).join('')}</select></td>`;
@@ -1722,11 +1786,13 @@ async function loadLatest(){
 const sProj = s => ((s && s.settings) || {}).project_id || '';
 function applyScope(){
   const p = S.scope;
-  $('#sheetScope').textContent = p ? p.name : U('Sheets', 'الجداول');
+  $('#sheetScope').textContent = p ? projLabel(p.name) : U('Sheets', 'الجداول');
   $('#btnBack').setAttribute('href', p ? '/admin-projects/' + p.id + '#logs' : '/admin-hub');
   $('#btnBack').title = p ? U('Back to the project', 'رجوع إلى المشروع')
                           : (I18N.back || ['Back', 'رجوع'])[en() ? 0 : 1];
-  $('#btnNew').hidden = !!p;          // سجلات المشروع تُنشأ من صفحة المشروع لا من هنا
+  // جدول جديد متاح في الحالتين: داخل مشروع يُربط به، وخارجه يكون جدولًا عامًا
+  $('#btnNew').textContent = p ? U('New sheet in this project', 'جدول جديد في هذا المشروع')
+                               : U('New sheet', 'جدول جديد');
 }
 async function loadSheets(keepId){
   const j = await api('/api/sheets');
@@ -1864,10 +1930,127 @@ function openMgr(){
 $('#btnNew').addEventListener('click', async () => {
   const name = prompt(U('New sheet name:', 'اسم الجدول الجديد:'), U('New sheet', 'جدول جديد'));
   if(name === null) return;
+  const body = {name:name.trim() || U('New sheet', 'جدول جديد'), name_en:name.trim()};
+  if(S.scope) body.project_id = S.scope.id;      // يُربط بالمشروع المفتوح
   const j = await api('/api/sheets', {method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:name.trim() || U('New sheet', 'جدول جديد'), name_en:name.trim()})});
+    body:JSON.stringify(body)});
   if(j.success){ await loadSheets(j.id); toast(U('Sheet created', 'تم إنشاء الجدول')); }
 });
+/* ================= ما يرسله الجدول إلى طبقة الحقائق =================
+   قاعدة واحدة = رقم واحد: «عدد الصفوف» أو «مجموع عمود»، مع شروط اختيارية.
+   القوالب الجاهزة لها قواعدها في السيرفر؛ هذه للجداول التي يبنيها المستخدم. */
+const FACT_OPS = [['=', 'opIs'], ['!=', 'opIsNot'], ['>=', 'opGe'], ['<=', 'opLe'],
+                  ['in', 'opIn'], ['not_in', 'opNotIn'],
+                  ['empty', 'opEmpty'], ['not_empty', 'opNotEmpty'], ['before_today', 'opPast']];
+const NO_VALUE_OPS = ['empty', 'not_empty', 'before_today'];
+let FDRAFT = [];
+const slug = t => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
+
+function openFacts(){
+  if(!S.sheet) return;
+  if(S.sheet.settings && S.sheet.settings.template){
+    toast(U('This is a ready-made log — its figures are built in.',
+            'هذا سجل جاهز — أرقامه مُعرّفة مسبقًا.'));
+    return;
+  }
+  FDRAFT = JSON.parse(JSON.stringify((S.sheet.settings || {}).facts || []));
+  drawFacts();
+  $('#factModal').classList.add('open');
+}
+function numCols(){ return S.sheet.columns.filter(c => ['number', 'formula', 'lookup'].includes(c.type)); }
+function drawFacts(){
+  const L = k => I18N[k][en() ? 0 : 1];
+  const colOpts = (sel, list) => (list || S.sheet.columns).map(c =>
+    `<option value="${esc(c.key)}" ${sel === c.key ? 'selected' : ''}>${esc(colLabel(c))}</option>`).join('');
+  $('#factBody').innerHTML = !FDRAFT.length
+    ? `<div class="empty">${esc(L('factNone'))}</div>`
+    : FDRAFT.map((f, i) => `
+      <div class="fact-row" data-i="${i}">
+        <div class="fr-top">
+          <label><span>${esc(L('factName'))}</span>
+            <input class="fld" data-f="label" value="${esc(f.label || '')}" placeholder="${esc(L('factName'))}"></label>
+          <label><span>${esc(L('factWhat'))}</span>
+            <select class="fld" data-f="agg">
+              <option value="count" ${f.agg !== 'sum' ? 'selected' : ''}>${esc(L('factCount'))}</option>
+              <option value="sum" ${f.agg === 'sum' ? 'selected' : ''}>${esc(L('factSum'))}</option>
+            </select></label>
+          <label ${f.agg === 'sum' ? '' : 'hidden'}><span>${esc(L('factCol'))}</span>
+            <select class="fld" data-f="col">${colOpts(f.col, numCols())}</select></label>
+          <label ${f.agg === 'sum' ? '' : 'hidden'}><span>${esc(L('factUnit'))}</span>
+            <input class="fld" data-f="unit" value="${esc(f.unit || '')}" placeholder="SAR" data-no-tr></label>
+          <button class="btn sm danger" data-rmf="${i}">✕</button>
+        </div>
+        <div class="fr-when">
+          <span class="wl">${esc(L('factWhen'))}</span>
+          ${(f.where || []).map((w, wi) => `
+            <span class="cond" data-w="${wi}">
+              <select class="fld" data-w-f="0">${colOpts(w[0])}</select>
+              <select class="fld" data-w-f="1">${FACT_OPS.map(([op, lbl]) =>
+                `<option value="${op}" ${w[1] === op ? 'selected' : ''}>${esc(L(lbl))}</option>`).join('')}</select>
+              <input class="fld" data-w-f="2" value="${esc(Array.isArray(w[2]) ? w[2].join(' | ') : (w[2] == null ? '' : w[2]))}"
+                ${NO_VALUE_OPS.includes(w[1]) ? 'hidden' : ''} placeholder="${
+                  ['in', 'not_in'].includes(w[1]) ? 'A | B | C' : ''}">
+              <button data-rmw="${wi}">✕</button>
+            </span>`).join('')}
+          <button class="btn sm" data-addw="${i}">${esc(L('factAddWhen'))}</button>
+        </div>
+      </div>`).join('');
+
+  $$('#factBody [data-f]').forEach(el => el.addEventListener('change', () => {
+    const i = +el.closest('.fact-row').dataset.i;
+    FDRAFT[i][el.dataset.f] = el.value;
+    if(el.dataset.f === 'agg') drawFacts();
+  }));
+  $$('#factBody [data-f="label"]').forEach(el => el.addEventListener('input', () => {
+    FDRAFT[+el.closest('.fact-row').dataset.i].label = el.value;
+  }));
+  $$('#factBody [data-w-f]').forEach(el => el.addEventListener('change', () => {
+    const i = +el.closest('.fact-row').dataset.i, wi = +el.closest('.cond').dataset.w;
+    FDRAFT[i].where[wi][+el.dataset.wF] = el.value;
+    if(el.dataset.wF === '1') drawFacts();
+  }));
+  $$('#factBody [data-rmf]').forEach(b => b.addEventListener('click', () => {
+    FDRAFT.splice(+b.dataset.rmf, 1); drawFacts();
+  }));
+  $$('#factBody [data-addw]').forEach(b => b.addEventListener('click', () => {
+    const f = FDRAFT[+b.dataset.addw];
+    f.where = f.where || [];
+    f.where.push([(S.sheet.columns[0] || {}).key || '', '=', '']);
+    drawFacts();
+  }));
+  $$('#factBody [data-rmw]').forEach(b => b.addEventListener('click', () => {
+    FDRAFT[+b.closest('.fact-row').dataset.i].where.splice(+b.dataset.rmw, 1); drawFacts();
+  }));
+}
+$('#btnFacts').addEventListener('click', openFacts);
+$('#factAdd').addEventListener('click', () => {
+  FDRAFT.push({label:'', agg:'count', col:'', unit:'', where:[]});
+  drawFacts();
+  const f = $('#factBody .fact-row:last-child [data-f="label"]'); if(f) f.focus();
+});
+$('#factSave').addEventListener('click', async () => {
+  const out = [];
+  for(const f of FDRAFT){
+    const label = String(f.label || '').trim();
+    if(!label){ toast(I18N.factNeedName[en() ? 0 : 1], true); return; }
+    if(f.agg === 'sum' && !f.col){ toast(I18N.factNeedCol[en() ? 0 : 1], true); return; }
+    // المفتاح مشتقّ من رقم الجدول والاسم، فلا يصطدم بمؤشر جدول آخر
+    out.push({key:'s' + S.sheet.id + '_' + (slug(label) || 'm' + out.length),
+              label, agg:f.agg === 'sum' ? 'sum' : 'count', col:f.col || '', unit:f.unit || '',
+              where:(f.where || []).filter(w => w[0] && w[1])});
+  }
+  const settings = Object.assign({}, S.sheet.settings || {}, {facts:out});
+  const j = await api(`/api/sheets/${S.sheet.id}`, {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({settings})});
+  if(!j.success) return;
+  S.sheet.settings = settings;
+  const m = S.sheets.find(s => s.id === S.sheet.id); if(m) m.settings = settings;
+  $('#factModal').classList.remove('open');
+  toast(I18N.factSaved[en() ? 0 : 1]);
+});
+$$('#factModal [data-close]').forEach(b => b.addEventListener('click', () => $('#factModal').classList.remove('open')));
+$('#factModal').addEventListener('click', e => { if(e.target.id === 'factModal') $('#factModal').classList.remove('open'); });
+
 /* ================= التصدير والطباعة ================= */
 const sheetTitle = () => !S.sheet ? '' : (en() ? (S.sheet.name_en || S.sheet.name) : (S.sheet.name || S.sheet.name_en));
 function printValue(r, c){
@@ -1877,6 +2060,7 @@ function printValue(r, c){
   if(c.type === 'bool') return v ? U('Yes', 'نعم') : U('No', 'لا');
   if(c.type === 'number') return fmtNum(v, c.decimals, c.unit);
   if(c.type === 'select') return optLabel(c, v);
+  if(c.type === 'project') return projLabel(v);
   return String(v);
 }
 /** بيبني نسخة نضيفة للطباعة: من غير خانات إدخال ولا أزرار، ورأس الجدول بيتكرر كل صفحة */
