@@ -1393,6 +1393,21 @@ function savePlanDaily(days){
 
 /* ============ الأزرار ============ */
 $('#projSel').addEventListener('change', e => loadProject(e.target.value));
+/* فتح المشروع مباشرة عند القدوم من سجل المشاريع: /admin-cashflow?project=... */
+(function(){
+    try{
+        const want = new URLSearchParams(location.search).get('project');
+        if(!want) return;
+        const sel = $('#projSel');
+        if(!Array.from(sel.options).some(o => o.value === want)){
+            sel.insertAdjacentHTML('beforeend', '<option></option>');
+            sel.lastElementChild.value = want;
+            sel.lastElementChild.textContent = want;
+        }
+        sel.value = want;
+        loadProject(want);
+    }catch(e){}
+})();
 ['mCv','mRv','mDev','mPb'].forEach(id => $('#' + id).addEventListener('change', render));
 // تغيير قيمة العقد يحرّك أساس النسبة معه ما دام لم يُخصَّص بقيمة مختلفة
 $('#mCv').addEventListener('change', () => {

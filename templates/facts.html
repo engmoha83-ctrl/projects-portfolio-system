@@ -103,6 +103,7 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
   <div class="hdr-title"><small data-i18n="sub">Data foundation</small><b data-i18n="title">Facts layer</b></div>
   <div class="spacer"></div>
+  <select class="fld" id="projSel" style="max-width:220px"></select>
   <label class="inline" style="font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:6px;">
     <span data-i18n="viewSrc">View</span><select class="fld" id="srcSel"></select></label>
   <button class="btn" id="btnRebuild" data-i18n="rebuild" data-i18n-title="rebuildHint">Rebuild</button>
@@ -177,6 +178,7 @@ const I18N = {
   onlySrc:['this source alone','هذا المصدر وحده'],
   allSrcChip:['by source priority','حسب أولوية المصادر'],
   lastRun:['Last collected','آخر تجميع'], never:['never','لم يتم بعد'],
+  allProj:['All projects','كل المشاريع'],
   tookS:['in %s s','في %s ث'],
   readS:['reading %s s','قراءة %s ث'], writeS:['writing %s s','كتابة %s ث'], metricCol:['Metric','المؤشر'], source:['Source','المصدر'],
   from:['From','من'], to:['To','إلى'], updated:['Updated','آخر تحديث'], count:['Count','العدد'],
@@ -219,7 +221,8 @@ async function api(url, opts){
   finally{ busy(false); }
 }
 
-const S = {metrics:[], sources:{}, latest:{}, health:null, src:''};
+const S = {metrics:[], sources:{}, latest:{}, all:{}, health:null, src:'', proj:''};
+try{ S.proj = new URLSearchParams(location.search).get('project') || ''; }catch(e){}
 const mLabel = m => (en() ? (m.label_en || m.label) : (m.label || m.label_en)) || m.key;
 const sLabel = k => { const s = S.sources[k];
   if(!s) return k;
@@ -352,15 +355,32 @@ async function loadLatest(){
   const keys = S.metrics.filter(m => m.active).map(m => m.key).join(',');
   const lt = await api('/api/facts/latest?metrics=' + encodeURIComponent(keys)
                        + (S.src ? '&source=' + encodeURIComponent(S.src) : ''));
-  if(lt.success) S.latest = lt.latest || {};
+  if(lt.success){
+    S.all = lt.latest || {};
+    S.latest = S.proj ? (S.all[S.proj] ? {[S.proj]:S.all[S.proj]} : {}) : S.all;
+  }
+}
+/* فلتر المشروع — ويقبل /admin-facts?project=... عند القدوم من سجل المشاريع */
+function drawProjSel(){
+  const sel = $('#projSel'); if(!sel) return;
+  const names = Object.keys(S.all || {}).sort();
+  if(S.proj && names.indexOf(S.proj) < 0) names.unshift(S.proj);
+  sel.innerHTML = `<option value="">${T('allProj')}</option>` +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = S.proj;
 }
 async function loadAll(){
   const [mm, hh] = await Promise.all([api('/api/facts/metrics'), api('/api/facts/health')]);
   if(mm.success){ S.metrics = mm.metrics || []; S.sources = mm.sources || {}; }
   if(hh.success) S.health = hh;
   await loadLatest();
-  applyLang(); drawHealth(); drawStats(); drawMatrix(); drawMetrics();
+  applyLang(); drawProjSel(); drawHealth(); drawStats(); drawMatrix(); drawMetrics();
 }
+$('#projSel').addEventListener('change', e => {
+  S.proj = e.target.value;
+  S.latest = S.proj ? (S.all[S.proj] ? {[S.proj]:S.all[S.proj]} : {}) : S.all;
+  drawMatrix();
+});
 
 function setStatus(text, cls){
   const el = $('#status');

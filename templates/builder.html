@@ -6705,6 +6705,16 @@ buildTemplatesTab(); buildPageTab(); buildPropsTab(); applyPageStyle(); updateSc
 (async function boot(){
   const sess = loadSession();
   const sel = $('#projectSel');
+  /* القدوم من سجل المشاريع: /builder?project=... يفتح المشروع مباشرة */
+  let want = '';
+  try{ want = new URLSearchParams(location.search).get('project') || ''; }catch(e){}
+  if(want && Array.from(sel.options).some(o => o.value === want)){
+    sel.value = want;
+    await loadProject(want, {silent:true});
+    setAutoRefresh(S.page.autoRefresh || 0);
+    updateScopeUI(); updateFetchLabel(); zoomFit();
+    return;
+  }
   const known = Array.from(sel.options).some(o => o.value === (sess && sess.project));
   if(sess && sess.project && known){
     sel.value = sess.project;

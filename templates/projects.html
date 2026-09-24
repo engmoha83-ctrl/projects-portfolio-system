@@ -211,7 +211,7 @@ const I18N = {
              'البيانات القديمة مرتبطة بالاسم. الاحتفاظ بالأسماء السابقة هنا يعني أن تغيير اسم المشروع لا يقسّم تاريخه.'],
   colCode:['Code','الكود'], colName:['Project','المشروع'], colStatus:['Status','الحالة'],
   colMgr:['Managers','المديرون'], colHas:['Attached','المتعلّق'], colUpd:['Updates','التحديثات'],
-  updates:['Manager updates','تحديثات المديرين'], cashflow:['Cash flow baseline','خط الأساس المالي'],
+  updates:['Dashboard & updates','الداشبورد والتحديثات'], cashflow:['Cash flow baseline','خط الأساس المالي'],
   sheets:['Custom sheets','الجداول المخصصة'], facts:['Facts','الحقائق'],
   schedule:['Schedule','البرنامج الزمني'], boq:['Bill of quantities','جداول الكميات'],
   soon:['Coming later','قريبًا'], none:['Not added yet','لم يُضف بعد'],
@@ -330,16 +330,17 @@ function drawManagers(){
 
 function drawAttach(){
   const p = S.sel;
+  const q = '?project=' + encodeURIComponent(p.name);      // كل رابط يفتح على هذا المشروع
   const items = [
-    {ic:'📝', k:'updates', on:!!p.updates,
+    {ic:'📊', k:'updates', on:!!p.updates,
      sub:p.updates ? T('rows').replace('%s', p.updates) + (p.last_update ? ' · ' + T('lastUpd').replace('%s', p.last_update) : '') : T('none'),
-     href:'/admin-analytics'},
+     href:'/builder' + q},
     {ic:'💰', k:'cashflow', on:p.cashflow, sub:p.cashflow ? '' : T('none'),
-     href:'/admin-cashflow'},
+     href:'/admin-cashflow' + q},
     {ic:'🗂️', k:'sheets', on:!!p.sheets, sub:p.sheets ? T('rows').replace('%s', p.sheets) : T('none'),
      href:'/admin-sheets'},
     {ic:'🧮', k:'facts', on:!!p.facts, sub:p.facts ? T('rows').replace('%s', p.facts) : T('none'),
-     href:'/admin-facts'},
+     href:'/admin-facts' + q},
     {ic:'📐', k:'boq', on:false, sub:T('soon'), href:''},
     {ic:'📅', k:'schedule', on:false, sub:T('soon'), href:''}
   ];
