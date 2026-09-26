@@ -103,6 +103,28 @@ textarea.fld{height:70px; padding:8px 9px; resize:vertical;}
 .att .btn{flex:0 0 auto;}
 .empty{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px;}
 
+/* ---- أرقام المشروع ---- */
+.hchip{font-size:11px; font-weight:500; color:var(--muted); background:var(--tint2); padding:2px 8px;}
+.fig-bar{display:flex; align-items:center; gap:12px; padding:0 20px 12px; flex-wrap:wrap;}
+.fig-bar .chk{display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); cursor:pointer;}
+.fig-wrap{max-height:62vh; overflow:auto; border-top:1px solid var(--line);}
+table.figs{width:100%; border-collapse:collapse; font-size:12.5px;}
+.figs th,.figs td{border-bottom:1px solid var(--line); padding:7px 12px; text-align:start; vertical-align:middle;}
+.figs th{background:#F7F8FA; font-size:11px; font-weight:600; color:var(--muted); white-space:nowrap;
+  position:sticky; top:0; z-index:2; box-shadow:inset 0 -1px 0 var(--line);}
+.figs th.num,.figs td.num{text-align:end;}
+.figs td.v{font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap;}
+.figs .fm b{display:block; font-size:12.5px; font-weight:600;}
+.figs .fm span{font-size:10.5px; color:var(--muted);}
+.figs .fs{font-size:11.5px; color:var(--muted); white-space:nowrap;}
+.figs .fs b{color:var(--gold); font-weight:600;}
+.figs .fs span{display:block; font-size:10.5px;}
+.figs tr.fixed td.v{color:var(--gold);}
+.figs tr.fixed{background:#FDFBF6;}
+.figs .fld{height:28px; font-size:12px; background:var(--tint);}
+.figs .fld.num{text-align:end; font-variant-numeric:tabular-nums; max-width:130px;}
+.figs td.empty{padding:34px; text-align:center;}
+
 .toast{position:fixed; bottom:22px; inset-inline-end:22px; background:var(--ink); color:#fff; padding:12px 18px;
   font-size:13px; box-shadow:0 18px 40px rgba(23,32,51,.22); z-index:99; opacity:0; transform:translateY(12px);
   transition:opacity .25s ease, transform .3s var(--ease); pointer-events:none;}
@@ -194,6 +216,21 @@ textarea.fld{height:70px; padding:8px 9px; resize:vertical;}
       </div>
     </section>
 
+    <!-- الأرقام: كل مؤشرات المشروع في قائمة واحدة قابلة للتصحيح -->
+    <section data-pane="figures" hidden>
+      <div class="card">
+        <h2><span data-i18n="figT">Figures</span><span class="hchip" id="figCount"></span></h2>
+        <div class="note" data-i18n="figNote"></div>
+        <div class="fig-bar">
+          <label class="chk"><input type="checkbox" id="figOnly" checked><span data-i18n="figOnlyVal">Only metrics that have a value</span></label>
+          <div class="spacer"></div>
+          <span class="st" id="figDirty" hidden></span>
+          <button class="btn primary" id="figSave" data-i18n="save" disabled>Save</button>
+        </div>
+        <div class="fig-wrap"><table class="figs" id="figBox"></table></div>
+      </div>
+    </section>
+
     <!-- الجداول التي أنشأها المستخدم في هذا المشروع -->
     <section data-pane="sheets" hidden>
       <div class="card">
@@ -224,6 +261,21 @@ const I18N = {
   openDash:['Dashboard','الداشبورد'],
   tabInfo:['Details','البيانات'], tabAttached:['Attached','المتعلقات'],
   tabLogs:['Logs','السجلات'], tabSheets:['Sheets','الجداول'],
+  tabFigures:['Figures','الأرقام'],
+  figT:['Figures','أرقام المشروع'],
+  figNote:['Every metric for this project in one place, with the value in force and where it came from. Type over one only to correct it — a corrected figure outranks its module and holds until you release it, and you keep seeing what the module says so you know when the source itself has been fixed. Rows you do not touch stay live on their module.',
+           'كل مؤشرات هذا المشروع في مكان واحد، ومعها القيمة المعتمدة ومصدرها. لا تكتب فوق رقم إلا لتصحيحه — والرقم المصحَّح يعلو على مصدره ويبقى حتى ترفعه، ويظل ما يقوله المصدر ظاهرًا لتعرف متى صُحِّح هو نفسه. والصفوف التي لا تلمسها تبقى حيّة على مصادرها.'],
+  figOnlyVal:['Only metrics that have a value','المؤشرات التي لها قيمة فقط'],
+  figMetric:['Metric','المؤشر'], figNow:['In force','المعتمد'], figFrom:['From','المصدر'],
+  figYours:['Your correction','تصحيحك'], figNoteCol:['Why','السبب'],
+  figSaved:['Saved — press Rebuild on the facts page to see it everywhere',
+            'تم الحفظ — اضغط إعادة البناء في صفحة الحقائق ليظهر في كل مكان'],
+  figRelease:['Release','رفع التصحيح'],
+  figCorrected:['corrected','مصحَّح'],
+  figModuleSays:['module says %s','المصدر يقول %s'],
+  figSame:['same as the module','مطابق للمصدر'],
+  figNoneYet:['No figures recorded for this project yet.','لا توجد أرقام مسجَّلة لهذا المشروع بعد.'],
+  figChanged:['%s unsaved','%s غير محفوظ'],
   sheetsT:['Sheets','جداول المشروع'],
   newSheet:['+ New sheet','+ جدول جديد'],
   askSheet:['Sheet name:','اسم الجدول:'],
@@ -306,15 +358,17 @@ async function api(url, opts){
   finally{ busy(false); }
 }
 
-const S = {p:null, all:[], users:[], statuses:{}, templates:[], tab:'info'};
+const S = {p:null, all:[], users:[], statuses:{}, templates:[], figs:[], sources:{}, tab:'info'};
 const pName = p => (en() ? (p.name_en || p.name) : (p.name || p.name_en)) || p.code;
 const stLabel = k => { const s = S.statuses[k]; return s ? (en() ? s.label_en : s.label) : k; };
 const stColor = k => (S.statuses[k] || {}).color || '#5B6577';
 const K = k => { const v = (S.p.kpi || {})[k]; return v === undefined ? null : v; };
 
-const TABS = [['info', 'tabInfo'], ['attached', 'tabAttached'], ['logs', 'tabLogs'], ['sheets', 'tabSheets']];
+const TABS = [['info', 'tabInfo'], ['figures', 'tabFigures'], ['attached', 'tabAttached'],
+              ['logs', 'tabLogs'], ['sheets', 'tabSheets']];
 const tabCount = k => {
   const p = S.p;
+  if(k === 'figures') return (S.figs || []).filter(f => f.manual).length;
   if(k === 'logs')   return Object.keys(p.logs || {}).length;
   if(k === 'sheets') return (p.custom || []).length;
   if(k === 'attached') return [p.updates, p.cashflow, p.sheets, p.facts].filter(Boolean).length;
@@ -452,6 +506,86 @@ function drawLogs(){
 }
 
 
+/* ================= أرقام المشروع =================
+   صف لكل مؤشر: القيمة المعتمدة، ومصدرها، وخانة تصحيح. لا يُحفظ إلا ما غُيِّر
+   فعلًا — والصف الذي لم يُلمس يبقى حيًّا على مصدره ويتحدّث معه. */
+const FEDIT = new Map();                  // ما غُيّر ولم يُحفظ بعد
+const fmtVal = (v, unit) => (v === null || v === undefined || v === '') ? '—'
+  : (Math.round(v * 100) / 100).toLocaleString('en-US') + (unit ? ' ' + unit : '');
+function srcName(k){ return ((S.sources || {})[k] || {}).label_en || k; }
+
+function drawFigs(){
+  const only = $('#figOnly').checked;
+  const rows = (S.figs || []).filter(f => !only || f.auto || f.manual || FEDIT.has(f.metric));
+  $('#figCount').textContent = `${rows.length} / ${(S.figs || []).length}`;
+  if(!rows.length){ $('#figBox').innerHTML = `<tbody><tr><td class="empty">${esc(T('figNoneYet'))}</td></tr></tbody>`; return; }
+  $('#figBox').innerHTML = `<thead><tr>
+      <th>${esc(T('figMetric'))}</th><th class="num">${esc(T('figNow'))}</th>
+      <th>${esc(T('figFrom'))}</th><th class="num">${esc(T('figYours'))}</th>
+      <th>${esc(T('figNoteCol'))}</th><th></th></tr></thead><tbody>${
+    rows.map(f => {
+      const ed = FEDIT.get(f.metric);
+      const on = !!f.manual || (ed && ed.value !== '');
+      const shown = f.manual ? f.manual.value : (f.auto ? f.auto.value : null);
+      return `<tr data-m="${esc(f.metric)}" class="${on ? 'fixed' : ''}">
+        <td class="fm"><b>${esc(f.label)}</b>${f.unit ? `<span>${esc(f.unit)}</span>` : ''}</td>
+        <td class="num v">${esc(fmtVal(shown, f.unit))}</td>
+        <td class="fs">${f.manual
+          ? `<b>${esc(T('figCorrected'))}</b><span>${f.auto
+              ? esc(T('figModuleSays').replace('%s', fmtVal(f.auto.value, f.unit)))
+              : '—'}</span>`
+          : (f.auto ? `${esc(srcName(f.auto.source))}<span>${esc(f.auto.period)}</span>` : '—')}</td>
+        <td class="num"><input class="fld num" type="number" step="any" data-fv
+          value="${ed ? esc(ed.value) : (f.manual ? esc(f.manual.value) : '')}"
+          placeholder="${f.auto ? esc(fmtVal(f.auto.value, '')) : ''}"></td>
+        <td><input class="fld" data-fn value="${ed ? esc(ed.note || '') : esc((f.manual && f.manual.text) || '')}"></td>
+        <td>${f.manual ? `<button class="btn sm" data-rel="${esc(f.metric)}">${esc(T('figRelease'))}</button>` : ''}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
+  $$('#figBox [data-fv], #figBox [data-fn]').forEach(el => el.addEventListener('input', () => {
+    const tr = el.closest('tr'), m = tr.dataset.m;
+    const cur = FEDIT.get(m) || {value:'', note:''};
+    if(el.hasAttribute('data-fv')) cur.value = el.value; else cur.note = el.value;
+    FEDIT.set(m, cur);
+    syncFigBar();
+  }));
+  $$('#figBox [data-rel]').forEach(b => b.addEventListener('click', async () => {
+    await saveFigs([b.dataset.rel]);
+  }));
+  syncFigBar();
+}
+function syncFigBar(){
+  const n = FEDIT.size;
+  $('#figSave').disabled = !n;
+  $('#figDirty').hidden = !n;
+  if(n) $('#figDirty').textContent = T('figChanged').replace('%s', n);
+}
+async function saveFigs(release){
+  const body = {overrides:[], release:release || []};
+  FEDIT.forEach((v, metric) => {
+    if(String(v.value).trim() === '') body.release.push(metric);
+    else body.overrides.push({metric, value:v.value, note:v.note || ''});
+  });
+  if(!body.overrides.length && !body.release.length) return;
+  const j = await api(`/api/projects/${S.p.id}/figures`, {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if(!j.success) return;
+  FEDIT.clear();
+  toast(T('figSaved'));
+  await loadFigs();
+  drawFigs(); drawTabs();
+}
+async function loadFigs(){
+  if(!S.p) return;
+  const j = await api(`/api/projects/${S.p.id}/figures`);
+  if(!j.success) return;
+  S.figs = j.figures || [];
+  S.sources = j.sources || {};
+}
+$('#figOnly').addEventListener('change', drawFigs);
+$('#figSave').addEventListener('click', () => saveFigs());
+
 /* جداول المشروع التي بناها المستخدم — كل واحد يقول هل يرسل أرقامًا للحقائق أم لا */
 function drawSheets(){
   const p = S.p, list = p.custom || [];
@@ -479,7 +613,7 @@ $('#btnNewSheet').addEventListener('click', async () => {
 
 function drawAll(){
   applyLang(); drawHead(); drawTabs(); showTab();
-  drawInfo(); drawAttach(); drawLogs(); drawSheets();
+  drawInfo(); drawAttach(); drawLogs(); drawSheets(); drawFigs();
 }
 
 async function save(){
@@ -504,6 +638,7 @@ async function load(){
   S.statuses = j.statuses || {};
   S.templates = j.templates || [];
   S.p = S.all.find(p => p.id === PROJECT_ID) || null;
+  if(S.p) await loadFigs();
   $('#body').hidden = !S.p;
   $('#missing').hidden = !!S.p;
   if(!S.p){ applyLang(); $('#hName').textContent = ''; return; }

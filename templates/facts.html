@@ -147,16 +147,8 @@ td.num{text-align:end; font-variant-numeric:tabular-nums;}
   </div>
 
   <div class="card">
-    <h2 data-i18n="manT">Enter a number by hand</h2>
+    <h2 data-i18n="manT">Corrected by hand</h2>
     <div class="note" data-i18n="manNote"></div>
-    <div class="man-form">
-      <label><span data-i18n="manProject">Project</span><select class="fld" id="mProj"></select></label>
-      <label><span data-i18n="manMetric">Metric</span><select class="fld" id="mMetric"></select></label>
-      <label><span data-i18n="manDate">As of</span><input class="fld" id="mDate" type="date"></label>
-      <label><span data-i18n="manValue">Value</span><input class="fld" id="mValue" type="number" step="any"></label>
-      <label class="wide"><span data-i18n="manNoteFld">Note</span><input class="fld" id="mNote" data-i18n-ph="manNotePh"></label>
-      <button class="btn primary" id="mSave" data-i18n="manSave">Save</button>
-    </div>
     <div class="card-body scroll" id="manBox"></div>
   </div>
 
@@ -214,18 +206,18 @@ const I18N = {
   allSrcChip:['by source priority','حسب أولوية المصادر'],
   lastRun:['Last collected','آخر تجميع'], never:['never','لم يتم بعد'],
   allProj:['All projects','كل المشاريع'],
-  manT:['Enter a number by hand','إدخال رقم يدويًا'],
-  manNote:['For a figure no module produces yet, or one you want to correct. A number you type here outranks the modules from its date onward — until a module reports something newer, and then that takes over again. Rebuilding never overwrites what you typed.',
-           'لرقم لا ينتجه أي مديول بعد، أو رقم تريد تصحيحه. ما تكتبه هنا يعلو على المديولات من تاريخه فصاعدًا — حتى يأتي المديول برقم أحدث فيعود هو المعتمد. وإعادة البناء لا تمسّ ما كتبته.'],
+  manT:['Corrected by hand','المصحَّح يدويًا'],
+  manNote:['Every figure corrected by hand, across all projects. A correction outranks its module and holds until it is released, so this is the list to check when a number looks frozen. Corrections are made on the project page, under Figures.',
+           'كل رقم صُحِّح يدويًا في كل المشاريع. التصحيح يعلو على مصدره ويبقى حتى يُرفع، فهذه هي القائمة التي تُراجَع حين يبدو رقم متجمّدًا. والتصحيح نفسه يتم في صفحة المشروع، تبويب الأرقام.'],
   manProject:['Project','المشروع'], manMetric:['Metric','المؤشر'], manDate:['As of','بتاريخ'],
   manValue:['Value','القيمة'], manNoteFld:['Note','ملاحظة'],
   manNotePh:['why this number, or where it came from','سبب الرقم أو مصدره'],
   manSave:['Save','حفظ'],
   manSaved:['Saved','تم الحفظ'], manDeleted:['Deleted','تم الحذف'],
   manNeed:['Choose a project and a metric, and type a value','اختر مشروعًا ومؤشرًا واكتب قيمة'],
-  manNone:['Nothing entered by hand yet.','لا توجد إدخالات يدوية بعد.'],
+  manNone:['Nothing has been corrected by hand.','لم يُصحَّح أي رقم يدويًا.'],
   manListT:['Entered by hand','المُدخَل يدويًا'],
-  manDel:['Delete','حذف'],
+  manDel:['Release','رفع التصحيح'],
   manPick:['— choose —','— اختر —'],
   tookS:['in %s s','في %s ث'],
   readS:['reading %s s','قراءة %s ث'], writeS:['writing %s s','كتابة %s ث'], metricCol:['Metric','المؤشر'], source:['Source','المصدر'],
@@ -420,19 +412,6 @@ function drawProjSel(){
 /* ================= الإدخال اليدوي =================
    رقم يكتبه الإنسان بنفسه لمؤشر لا ينتجه مديول بعد، أو ليصحّح رقمًا.
    المصدر «manual» ليس ضمن المُجمِّعات، فإعادة البناء لا تمسّه. */
-function drawManForm(){
-  const projs = Object.keys(S.all || {}).sort();
-  (PROJECTS || []).forEach(p => { if(projs.indexOf(p.v) < 0) projs.push(p.v); });
-  const keep = $('#mProj').value, keepM = $('#mMetric').value;
-  $('#mProj').innerHTML = `<option value="">${T('manPick')}</option>` +
-    projs.map(n => `<option value="${esc(n)}">${esc(projLabel(n))}</option>`).join('');
-  $('#mProj').value = keep || S.proj || '';
-  $('#mMetric').innerHTML = `<option value="">${T('manPick')}</option>` +
-    (S.metrics || []).map(m => `<option value="${esc(m.key)}">${esc(mLabel(m))}${
-      m.unit ? ' (' + esc(m.unit) + ')' : ''}</option>`).join('');
-  $('#mMetric').value = keepM || '';
-  if(!$('#mDate').value) $('#mDate').value = new Date().toISOString().slice(0, 10);
-}
 function drawManList(){
   const rows = S.manual || [];
   $('#manBox').innerHTML = !rows.length
@@ -455,18 +434,6 @@ async function loadManual(){
   const j = await api('/api/facts/manual');
   S.manual = j.success ? (j.facts || []) : [];
 }
-$('#mSave').addEventListener('click', async () => {
-  const proj = $('#mProj').value, metric = $('#mMetric').value, val = $('#mValue').value;
-  if(!proj || !metric || val === ''){ toast(T('manNeed'), true); return; }
-  const j = await api('/api/facts', {method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({facts:[{project:proj, metric:metric,
-      period:$('#mDate').value || new Date().toISOString().slice(0, 10),
-      value:Number(val), source:'manual', ref:$('#mNote').value.trim() || null}]})});
-  if(!j.success) return;
-  $('#mValue').value = ''; $('#mNote').value = '';
-  toast(T('manSaved'));
-  await loadAll();
-});
 
 async function loadAll(){
   const [mm, hh] = await Promise.all([api('/api/facts/metrics'), api('/api/facts/health')]);
@@ -475,7 +442,7 @@ async function loadAll(){
   await loadLatest();
   await loadManual();
   applyLang(); drawProjSel(); drawHealth(); drawStats(); drawMatrix(); drawMetrics();
-  drawManForm(); drawManList();
+  drawManList();
 }
 $('#projSel').addEventListener('change', e => {
   S.proj = e.target.value;
