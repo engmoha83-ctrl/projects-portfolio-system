@@ -232,6 +232,9 @@ const I18N = {
             'لا توجد جداول بعد. الجدول الذي تبنيه هنا مرتبط بالمشروع، ويمكنه إرسال أرقامه إلى طبقة الحقائق.'],
   feeds:['%s reported to the facts layer','%s مُرسَلة إلى طبقة الحقائق'],
   noFeeds:['Not reporting yet','لا يرسل أرقامًا بعد'],
+  reportSet:['Set up reporting','اضبط ما يرسله'], reportEdit:['Reporting','ما يرسله'],
+  reportTip:['Choose which numbers this sheet sends to the facts layer, so they reach the dashboard',
+             'اختر الأرقام التي يرسلها هذا الجدول إلى طبقة الحقائق لتصل إلى الداشبورد'],
   infoT:['Project details','بيانات المشروع'],
   nameEn:['Project name','اسم المشروع'],
   status:['Status','الحالة'], ptype:['Type','النوع'], owner:['Owner','المالك'], developer:['Developer','المطوّر'],
@@ -458,6 +461,8 @@ function drawSheets(){
       <span class="tx"><b>${esc(en() ? (s.name_en || s.name) : (s.name || s.name_en))}</b>
         <span>${esc(nOf(s.rows, 'rows'))} · ${
           s.facts ? esc(T('feeds').replace('%s', nOf(s.facts, 'figures'))) : esc(T('noFeeds'))}</span></span>
+      <a class="btn sm" href="/admin-sheets?sheet=${s.id}&facts=1"
+         title="${esc(T('reportTip'))}">${s.facts ? T('reportEdit') : T('reportSet')}</a>
       <a class="btn sm" href="/admin-sheets?sheet=${s.id}">${T('open')}</a>
     </div>`).join('') : `<div class="empty">${esc(T('noSheets'))}</div>`;
 }

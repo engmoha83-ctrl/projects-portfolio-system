@@ -424,21 +424,21 @@ const U  = (e, a) => en() ? e : a;
 const I18N = {
   sheets:['Sheets','الجداول'], back:['Back','رجوع'], newSheet:['New sheet','جدول جديد'],
   manage:['Manage…','إدارة…'], manageT:['Sheets','الجداول'], save:['Save','حفظ'],
-  factBtn:['Reports…','التقارير…'],
+  factBtn:['Send to facts…','الإرسال للحقائق…'],
   factTip:['Choose which figures this sheet sends to the facts layer',
            'اختر الأرقام التي يرسلها هذا الجدول إلى طبقة الحقائق'],
-  factT:['What this sheet reports','ما يرسله هذا الجدول'],
-  factNote:['Each figure below is written to the facts layer once a day, per project, so it reaches the dashboard without any new code. Count rows, or add up a column, and narrow it with conditions if you need to.',
-            'كل رقم أدناه يُكتب في طبقة الحقائق مرة يوميًا لكل مشروع، فيصل إلى الداشبورد دون كود جديد. عُدَّ الصفوف أو اجمع عمودًا، وضيّق النطاق بشروط عند الحاجة.'],
+  factT:['What this sheet sends to the facts layer','ما يرسله هذا الجدول إلى طبقة الحقائق'],
+  factNote:['A sheet holds rows; the facts layer holds numbers. This is where you say which numbers to take from these rows — count them, or add up a column, narrowed by conditions if you need. Each one appears as its own metric on the facts page and is available to the dashboard. Nothing is sent until you save, and the figures refresh on every rebuild.',
+            'الجدول يحمل صفوفًا، وطبقة الحقائق تحمل أرقامًا. هنا تقول أي رقم يُؤخذ من هذه الصفوف — عدُّها أو مجموع عمود منها، مع شروط إن لزم. كل رقم يظهر مؤشرًا مستقلًا في صفحة الحقائق ومتاحًا للداشبورد. ولا يُرسل شيء قبل الحفظ، والأرقام تتحدّث مع كل إعادة بناء.'],
   factAdd:['+ Add a figure','+ أضف رقمًا'],
   factName:['Name','الاسم'], factWhat:['Measure','المقياس'], factCol:['Column','العمود'],
   factUnit:['Unit','الوحدة'], factWhen:['Only rows where','الصفوف التي'],
   factCount:['Count rows','عدد الصفوف'], factSum:['Add up','مجموع'],
   factAddWhen:['+ condition','+ شرط'],
-  factNone:['Nothing yet. Add a figure and this sheet starts feeding the dashboard.',
-            'لا شيء بعد. أضف رقمًا ليبدأ هذا الجدول في تغذية الداشبورد.'],
-  factSaved:['Saved — it will appear after the next rebuild on the facts page',
-             'تم الحفظ — سيظهر بعد إعادة البناء التالية في صفحة الحقائق'],
+  factNone:['Nothing yet — this sheet sends no numbers. Add one and it starts reaching the facts page.',
+            'لا شيء بعد — هذا الجدول لا يرسل أرقامًا. أضف رقمًا ليبدأ الوصول إلى صفحة الحقائق.'],
+  factSaved:['Saved — press Rebuild on the facts page to see the numbers',
+             'تم الحفظ — اضغط إعادة البناء في صفحة الحقائق لترى الأرقام'],
   factNeedName:['Every figure needs a name','كل رقم يحتاج اسمًا'],
   factNeedCol:['Choose a column to add up','اختر عمودًا لجمعه'],
   opIs:['is','يساوي'], opIsNot:['is not','لا يساوي'], opGe:['at least','لا يقل عن'],
@@ -1793,6 +1793,10 @@ function applyScope(){
   // جدول جديد متاح في الحالتين: داخل مشروع يُربط به، وخارجه يكون جدولًا عامًا
   $('#btnNew').textContent = p ? U('New sheet in this project', 'جدول جديد في هذا المشروع')
                                : U('New sheet', 'جدول جديد');
+  const st = (S.sheet && S.sheet.settings) || {};
+  const needs = !!p && !st.template && !(st.facts || []).length;
+  $('#btnFacts').classList.toggle('primary', needs);   // جدول مشروع لا يرسل شيئًا بعد
+  $('#btnFacts').hidden = !!st.template;               // السجل الجاهز أرقامه مُعرّفة
 }
 async function loadSheets(keepId){
   const j = await api('/api/sheets');
@@ -1821,7 +1825,7 @@ async function openSheet(id){
   const meta = S.sheets.find(s => String(s.id) === String(id));
   S.sheet = meta ? JSON.parse(JSON.stringify(meta)) : null;
   $('#sheetName').textContent = meta ? (en() ? (meta.name_en || meta.name) : meta.name) : '—';
-  await loadRows(); syncBars();
+  await loadRows(); syncBars(); applyScope();
 }
 async function loadRows(){
   if(!S.sheet){ renderGrid(); return; }
@@ -1954,8 +1958,19 @@ function openFacts(){
     return;
   }
   FDRAFT = JSON.parse(JSON.stringify((S.sheet.settings || {}).facts || []));
+  // أول مرة: نقترح أرقامًا من أعمدة الجدول نفسه، فيصير الأمر مراجعة لا تأليفًا
+  if(!FDRAFT.length) FDRAFT = suggestFacts();
   drawFacts();
   $('#factModal').classList.add('open');
+}
+/* اقتراحات مبدئية: عدد الصفوف، ومجموع كل عمود رقمي. يحذف منها ما لا يريد. */
+function suggestFacts(){
+  const name = en() ? (S.sheet.name_en || S.sheet.name) : (S.sheet.name || S.sheet.name_en);
+  const short = String(name || '').split('—')[0].trim() || U('Rows', 'الصفوف');
+  const out = [{label:U(short + ' — count', short + ' — العدد'), agg:'count', col:'', unit:'', where:[]}];
+  numCols().slice(0, 4).forEach(c => out.push(
+    {label:colLabel(c), agg:'sum', col:c.key, unit:c.unit || '', where:[]}));
+  return out;
 }
 function numCols(){ return S.sheet.columns.filter(c => ['number', 'formula', 'lookup'].includes(c.type)); }
 function drawFacts(){
@@ -2316,7 +2331,13 @@ window.addEventListener('beforeunload', e => { if(hasPending()){ e.preventDefaul
 
 applyLang();
 /* ‎?sheet=<id> يفتح جدولًا بعينه — تستخدمه صفحة المشاريع لفتح سجل المشروع مباشرة */
-loadSheets(new URLSearchParams(location.search).get('sheet') || null);
+(async () => {
+  const q = new URLSearchParams(location.search);
+  await loadSheets(q.get('sheet') || null);
+  // ‎?facts=1 يفتح محرّر «ما يرسله الجدول» مباشرة — هكذا يصل إليه المستخدم من
+  // صفحة المشروع حيث قرأ أن الجدول «لا يرسل أرقامًا بعد»
+  if(q.get('facts') && S.sheet && !(S.sheet.settings || {}).template) openFacts();
+})();
 </script>
 <script>
 /* انتهاء الجلسة: أي رد 401/403 من السيرفر معناه إن الجلسة خلصت —
