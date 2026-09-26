@@ -3267,28 +3267,28 @@ def _pick_source(rows, order):
     """قاعدة «مصدر واحد معتمد»: يختار لكل مشروع أعلى مصدر متاح في ترتيب المؤشر،
        ويرجّع صفوف ذلك المصدر وحده حتى لا تكون السلسلة خليط مصدرين.
 
-       والإدخال اليدوي استثناء مقصود: من يكتب رقمًا بنفسه يقصد أن يعلو على
-       المديولات — لكن حتى تاريخه فقط. فإن جاء المديول برقم أحدث عاد هو المعتمد،
-       ولا يظل إدخال قديم حاجبًا لبيانات جديدة إلى الأبد.
+       والتصحيح اليدوي يعلو على كل مصدر ويظل قائمًا حتى يرفعه صاحبه صراحةً.
+       السبب: من يصحّح رقمًا إنما يصحّحه لأن مصدره يخطئ، فلو تنازل التصحيح
+       لأول رقم أحدث لعاد الخطأ نفسه بعد أول تحديث — ولا أحد يراجع كل يوم.
+       ولأنه قفل لا سباق تواريخ، تُظهر الواجهة دائمًا ما يقوله المصدر إلى جواره،
+       حتى يُعرف متى صُحّح المصدر فيُرفع القفل.
     """
     rank = lambda src: order.index(src) if src in order else len(order) + 1
-    auto, manual = {}, {}
+    auto, manual = {}, set()
     for proj, per, val, txt, src in rows:
         if src == "manual":
-            if proj not in manual or per > manual[proj]:
-                manual[proj] = per
+            manual.add(proj)
             continue
         r = rank(src)
         cur = auto.get(proj)
         if not cur or r < cur[0] or (r == cur[0] and per > cur[1]):
             auto[proj] = (r, per)
     keep = {}
-    for proj in set(auto) | set(manual):
-        best = auto.get(proj)
-        if proj in manual and (not best or manual[proj] >= best[1]):
+    for proj in set(auto) | manual:
+        if proj in manual:
             keep[proj] = "manual"
-        elif best:
-            keep[proj] = best[0]
+        else:
+            keep[proj] = auto[proj][0]
     out = [{"project": p, "period": str(per), "value": v, "text": t, "source": s}
            for p, per, v, t, s in rows
            if (keep.get(p) == "manual" and s == "manual")
@@ -3460,6 +3460,103 @@ async def api_facts_write(request: Request):
         return {"success": True, "written": n}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/projects/{project_id}/figures")
+async def api_project_figures(project_id: int, request: Request):
+    """كل مؤشرات مشروع واحد في قائمة واحدة: ما هو معتمد اليوم، ومن أين جاء،
+       وما يقوله المصدر التلقائي — حتى تُراجَع الأرقام وتُصحَّح من مكان واحد."""
+    if not _fact_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        proj = next((p for p in _projects_payload(cursor) if p["id"] == project_id), None)
+        if not proj:
+            conn.close()
+            return JSONResponse({"success": False, "error": "المشروع غير موجود"}, status_code=404)
+        names = proj["aliases"] or [proj["name"]]
+        mm = _metrics_map(cursor)
+        today = _today_ksa()
+        cursor.execute("""SELECT metric, project_name, period, value, text_value, source
+                          FROM project_facts
+                          WHERE project_name = ANY(%s) AND period <= %s
+                          ORDER BY period""", (names, today))
+        by_metric = {}
+        for metric, name, per, val, txt, src in cursor.fetchall():
+            by_metric.setdefault(metric, []).append((name, per, val, txt, src))
+        conn.close()
+
+        out = []
+        for key, meta in mm.items():
+            rows = by_metric.get(key, [])
+            auto = [r for r in rows if r[4] != "manual"]
+            man = [r for r in rows if r[4] == "manual"]
+            picked = _pick_source(auto, meta.get("sources") or []) if auto else []
+            a = picked[-1] if picked else None
+            m = max(man, key=lambda r: r[1]) if man else None
+            out.append({
+                "metric": key, "label": meta.get("label_en") or meta.get("label") or key,
+                "unit": meta.get("unit") or "", "kind": meta.get("kind") or "number",
+                "seq": meta.get("seq") or 999,
+                "auto": None if not a else {"value": a["value"], "text": a["text"],
+                                            "source": a["source"], "period": a["period"]},
+                "manual": None if not m else {"value": m[2], "text": m[3],
+                                              "period": str(m[1])},
+            })
+        out.sort(key=lambda x: (x["seq"], x["label"]))
+        return {"success": True, "project": proj["data_key"], "name": proj["name_en"] or proj["name"],
+                "sources": FACT_SOURCES, "figures": out}
+    except Exception as e:
+        import traceback
+        return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}",
+                             "trace": traceback.format_exc()[-400:]}, status_code=500)
+
+
+@app.post("/api/projects/{project_id}/figures")
+async def api_project_figures_save(project_id: int, request: Request):
+    """يحفظ ما غيّره المستخدم فقط. الصف الذي لم يُلمس يبقى حيًّا على مصدره."""
+    if not _fact_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        b = await request.json()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        proj = next((p for p in _projects_payload(cursor) if p["id"] == project_id), None)
+        if not proj:
+            conn.close()
+            return JSONResponse({"success": False, "error": "المشروع غير موجود"}, status_code=404)
+        key = proj["data_key"]
+        names = proj["aliases"] or [proj["name"]]
+        mm = _metrics_map(cursor)
+        today = _today_ksa()
+
+        # رفع التصحيح: يُحذف من كل أسماء المشروع حتى لا يبقى قفل تحت اسم قديم
+        released = 0
+        for metric in (b.get("release") or [])[:200]:
+            if metric in mm:
+                cursor.execute("""DELETE FROM project_facts
+                                  WHERE metric = %s AND source = 'manual' AND project_name = ANY(%s)""",
+                               (metric, names))
+                released += cursor.rowcount or 0
+
+        rows = []
+        for it in (b.get("overrides") or [])[:200]:
+            metric = it.get("metric")
+            if metric not in mm or it.get("value") in ("", None):
+                continue
+            cursor.execute("""DELETE FROM project_facts
+                              WHERE metric = %s AND source = 'manual' AND project_name = ANY(%s)""",
+                           (metric, names))
+            rows.append({"project": key, "metric": metric, "period": today,
+                         "value": _fnum(it.get("value")), "source": "manual",
+                         "ref": str(it.get("note") or "")[:200] or None})
+        conn.commit()
+        n = facts_write(rows, conn=conn) if rows else 0
+        conn.close()
+        return {"success": True, "saved": n, "released": released}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
 @app.get("/api/facts/manual")
