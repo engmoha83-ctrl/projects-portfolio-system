@@ -102,6 +102,18 @@ textarea.fld{height:70px; padding:8px 9px; resize:vertical;}
 .att.ok .ic{color:var(--good);}
 .att .btn{flex:0 0 auto;}
 .empty{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px;}
+button.att{border:none; cursor:pointer; width:100%; font:inherit; color:inherit;
+  transition:background-color .15s ease;}
+button.att:hover{background:var(--tint2);}
+button.att[disabled]{opacity:.5; pointer-events:none;}
+.scrim{position:fixed; inset:0; background:rgba(23,32,51,.4); z-index:80; display:flex; align-items:center;
+  justify-content:center; padding:20px;}
+.modal{background:#fff; max-height:88vh; display:flex; flex-direction:column;
+  box-shadow:0 20px 50px rgba(23,32,51,.28);}
+.modal > header{height:52px; display:flex; align-items:center; gap:8px; padding:0 16px;
+  border-bottom:1px solid var(--line); flex:0 0 auto;}
+.modal > header b{font-size:14px; font-weight:700;}
+.modal > .body{flex:1 1 auto; overflow:auto; padding:16px;}
 
 /* ---- أرقام المشروع ---- */
 .hchip{font-size:11px; font-weight:500; color:var(--muted); background:var(--tint2); padding:2px 8px;}
@@ -231,6 +243,22 @@ table.figs{width:100%; border-collapse:collapse; font-size:12.5px;}
       </div>
     </section>
 
+    <!-- البرنامج الزمني: قائمة برامج المشروع، ومنها يبدأ برنامج جديد -->
+    <section data-pane="schedule" hidden>
+      <div class="card">
+        <h2><span data-i18n="schedT">Schedule</span></h2>
+        <div class="note" data-i18n="schedNote">Build a programme from scratch, start from a template for this
+          type of project, or import an XER file from Primavera. Dates, floats and the critical path are
+          computed here.</div>
+        <div class="items" id="schedBox"></div>
+        <div class="foot">
+          <button class="btn primary" id="btnNewSched" data-i18n="newSched">+ New schedule</button>
+          <button class="btn" id="btnImportSched" data-i18n="importSched">Import XER</button>
+          <input type="file" id="xerFile" accept=".xer" hidden>
+        </div>
+      </div>
+    </section>
+
     <!-- الجداول التي أنشأها المستخدم في هذا المشروع -->
     <section data-pane="sheets" hidden>
       <div class="card">
@@ -261,7 +289,14 @@ const I18N = {
   openDash:['Dashboard','الداشبورد'],
   tabInfo:['Details','البيانات'], tabAttached:['Attached','المتعلقات'],
   tabLogs:['Logs','السجلات'], tabSheets:['Sheets','الجداول'],
-  tabFigures:['Figures','الأرقام'],
+  tabFigures:['Figures','الأرقام'], tabSchedule:['Schedule','البرنامج الزمني'],
+  schedT:['Schedule','البرنامج الزمني'],
+  schedNote:['Build a programme from scratch, start from a template for this type of project, or import an XER file from Primavera. Dates, floats and the critical path are computed here.',
+             'ابنِ برنامجًا من الصفر، أو ابدأ من قالب حسب نوع المشروع، أو استورد ملف XER من بريمافيرا. التواريخ والفوائض والمسار الحرج تُحسب هنا.'],
+  newSched:['+ New schedule','+ برنامج جديد'], importSched:['Import XER','استيراد XER'],
+  noScheds:['No schedule yet.','لا يوجد برنامج زمني بعد.'],
+  schedFinish:['finish %s','النهاية %s'], schedNotRun:['not scheduled yet','لم يُحسب بعد'],
+  schedCrit:['%s critical','%s حرج'],
   figT:['Figures','أرقام المشروع'],
   figNote:['Every metric for this project in one place, with the value in force and where it came from. Type over one only to correct it — a corrected figure outranks its module and holds until you release it, and you keep seeing what the module says so you know when the source itself has been fixed. Rows you do not touch stay live on their module.',
            'كل مؤشرات هذا المشروع في مكان واحد، ومعها القيمة المعتمدة ومصدرها. لا تكتب فوق رقم إلا لتصحيحه — والرقم المصحَّح يعلو على مصدره ويبقى حتى ترفعه، ويظل ما يقوله المصدر ظاهرًا لتعرف متى صُحِّح هو نفسه. والصفوف التي لا تلمسها تبقى حيّة على مصادرها.'],
@@ -358,16 +393,18 @@ async function api(url, opts){
   finally{ busy(false); }
 }
 
-const S = {p:null, all:[], users:[], statuses:{}, templates:[], figs:[], sources:{}, tab:'info'};
+const S = {p:null, all:[], users:[], statuses:{}, templates:[], figs:[], sources:{},
+           scheds:[], schedTpl:[], tab:'info'};
 const pName = p => (en() ? (p.name_en || p.name) : (p.name || p.name_en)) || p.code;
 const stLabel = k => { const s = S.statuses[k]; return s ? (en() ? s.label_en : s.label) : k; };
 const stColor = k => (S.statuses[k] || {}).color || '#5B6577';
 const K = k => { const v = (S.p.kpi || {})[k]; return v === undefined ? null : v; };
 
-const TABS = [['info', 'tabInfo'], ['figures', 'tabFigures'], ['attached', 'tabAttached'],
-              ['logs', 'tabLogs'], ['sheets', 'tabSheets']];
+const TABS = [['info', 'tabInfo'], ['figures', 'tabFigures'], ['schedule', 'tabSchedule'],
+              ['attached', 'tabAttached'], ['logs', 'tabLogs'], ['sheets', 'tabSheets']];
 const tabCount = k => {
   const p = S.p;
+  if(k === 'schedule') return (S.scheds || []).length;
   if(k === 'figures') return (S.figs || []).filter(f => f.manual).length;
   if(k === 'logs')   return Object.keys(p.logs || {}).length;
   if(k === 'sheets') return (p.custom || []).length;
@@ -602,6 +639,82 @@ function drawSheets(){
       <a class="btn sm" href="/admin-sheets?sheet=${s.id}">${T('open')}</a>
     </div>`).join('') : `<div class="empty">${esc(T('noSheets'))}</div>`;
 }
+/* ── البرنامج الزمني ── */
+const SKIND = {current:'Current', baseline:'Baseline', revised:'Revised', recovery:'Recovery'};
+
+async function loadScheds(){
+  try{
+    const r = await fetch('/api/schedules?project_id=' + PROJECT_ID).then(x => x.json());
+    if(!r.success) return;
+    S.scheds = r.schedules || []; S.schedTpl = r.templates || [];
+    drawScheds(); drawTabs(); showTab();
+  }catch(e){}
+}
+
+function drawScheds(){
+  const fmtD = v => { const d = v && new Date(v); return d && !isNaN(d) ? d.toISOString().slice(0, 10) : '—'; };
+  $('#schedBox').innerHTML = S.scheds.length ? S.scheds.map(s => {
+    const st = s.stats || {};
+    const line = st.finish
+      ? T('schedFinish').replace('%s', fmtD(st.finish)) + ' · ' + T('schedCrit').replace('%s', st.critical || 0)
+      : T('schedNotRun');
+    return `<div class="att ${st.finish ? 'ok' : ''}">
+      <span class="ic">📅</span>
+      <span class="tx"><b>${esc(s.name)}</b>
+        <span>${esc(SKIND[s.kind] || s.kind)} · ${s.activities} activities · ${esc(line)}</span></span>
+      <a class="btn sm" href="/admin-schedule/${s.id}">${T('open')}</a>
+    </div>`; }).join('') : `<div class="empty">${esc(T('noScheds'))}</div>`;
+}
+
+/* النافذة تسأل سؤالًا واحدًا: من أين نبدأ؟ ولا معنى لسؤاله مرتين، فاختيار
+   القالب هو نفسه زرّ الإنشاء. */
+$('#btnNewSched').addEventListener('click', () => {
+  const opts = S.schedTpl.map(t => `<button class="att pick" data-t="${esc(t.key)}" style="text-align:start">
+      <span class="ic">🏗️</span>
+      <span class="tx"><b>${esc(t.name)}</b><span>${t.activities} activities · ${t.wbs} WBS sections</span></span>
+    </button>`).join('');
+  const box = document.createElement('div');
+  box.className = 'scrim';
+  box.innerHTML = `<div class="modal" style="width:min(560px,96vw)">
+      <header><b>New schedule</b><div class="spacer"></div><button class="btn sm" data-x>Close</button></header>
+      <div class="body">
+        <div class="items" style="padding:0;grid-template-columns:1fr">
+          <button class="att pick" data-t="" style="text-align:start">
+            <span class="ic">✳️</span><span class="tx"><b>Empty schedule</b>
+              <span>Start from a blank activity table</span></span></button>
+          ${opts}
+        </div>
+      </div></div>`;
+  document.body.appendChild(box);
+  box.addEventListener('click', async e => {
+    if(e.target.closest('[data-x]') || e.target === box){ box.remove(); return; }
+    const b = e.target.closest('.pick'); if(!b) return;
+    b.disabled = true;
+    const r = await fetch('/api/schedules', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({project_id:PROJECT_ID, template:b.dataset.t})}).then(x => x.json());
+    box.remove();
+    if(!r.success){ toast(r.error || 'Could not create'); return; }
+    location.href = '/admin-schedule/' + r.id;
+  });
+});
+
+$('#btnImportSched').addEventListener('click', () => $('#xerFile').click());
+$('#xerFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if(!f) return;
+  e.target.value = '';
+  toast('Reading ' + f.name + '…');
+  const fd = new FormData(); fd.append('file', f);
+  const r = await fetch('/api/schedules/import?project_id=' + PROJECT_ID, {method:'POST', body:fd})
+    .then(x => x.json()).catch(err => ({error:String(err)}));
+  if(!r.success){ toast(r.error || 'Could not read that file'); return; }
+  // المعايرة أوّل ما يُقال بعد الاستيراد: نسبة تطابقنا مع حساب بريمافيرا نفسه
+  const p6 = r.p6 || {};
+  if(p6.rate != null)
+    toast(`Imported · our dates match Primavera on ${p6.matched}/${p6.total} activities (${p6.rate}%)`);
+  else toast('Imported');
+  setTimeout(() => location.href = '/admin-schedule/' + r.id, 1400);
+});
+
 $('#btnNewSheet').addEventListener('click', async () => {
   if(!S.p) return;
   const name = prompt(T('askSheet'), '');
@@ -615,7 +728,8 @@ $('#btnNewSheet').addEventListener('click', async () => {
 
 function drawAll(){
   applyLang(); drawHead(); drawTabs(); showTab();
-  drawInfo(); drawAttach(); drawLogs(); drawSheets(); drawFigs();
+  drawInfo(); drawAttach(); drawLogs(); drawSheets(); drawFigs(); drawScheds();
+  loadScheds();
 }
 
 async function save(){
