@@ -2835,6 +2835,19 @@ def collect_sheets(project=None, conn=None):
 UNIT_FIX = {"يوم": "day", "أيام": "day", "ر.س": "SAR", "%": "%"}
 
 
+def _drop_manual_from_order(cursor):
+    """يزيل «manual» من ترتيب مصادر المؤشرات.
+
+    كان يظهر مصدرًا رقم ٣ مثلًا بينما هو يعلو على الجميع فعلًا — ترتيبٌ يقول
+    غير ما يحدث. التصحيح فوق الترتيب لا داخله.
+    """
+    _try_sql(cursor, """UPDATE fact_metrics
+                        SET sources = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb)
+                                       FROM jsonb_array_elements(sources) x
+                                       WHERE x <> '"manual"'::jsonb)
+                        WHERE sources @> '["manual"]'::jsonb""")
+
+
 def _fix_units(cursor):
     for ar, en in UNIT_FIX.items():
         if ar != en:
@@ -2845,6 +2858,7 @@ def _seed_template_metrics(cursor):
     """يسجّل مؤشرات القوالب. الاسم والوحدة يُحدَّثان مع القالب — وإلا بقي على
        الشاشة اسم قديم لمؤشر تغيّر تعريفه. ترتيب المصادر يبقى للمستخدم."""
     _fix_units(cursor)
+    _drop_manual_from_order(cursor)
     for tpl in sorted(SHEET_TEMPLATES.values(), key=lambda t: t.get("seq", 999)):
         seq = 200 + tpl.get("seq", 0) * 10
         for m in tpl["metrics"]:
@@ -3423,7 +3437,9 @@ async def api_fact_metrics_save(request: Request):
         key = re.sub(r"[^a-z0-9_]", "", str(b.get("key") or "").lower())
         if not key:
             return JSONResponse({"success": False, "error": "المفتاح مطلوب"}, status_code=400)
-        srcs = [s for s in (b.get("sources") or []) if s in FACT_SOURCES or str(s).startswith("sheet:")]
+        # «manual» ليس مصدرًا يُرتَّب — التصحيح يعلو على الترتيب كله، فلا يُحفظ ضمنه
+        srcs = [s for s in (b.get("sources") or [])
+                if s != "manual" and (s in FACT_SOURCES or str(s).startswith("sheet:"))]
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""INSERT INTO fact_metrics (key, label, label_en, unit, kind, agg, direction, sources, note, active, seq)
