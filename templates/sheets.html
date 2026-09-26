@@ -1787,9 +1787,13 @@ const sProj = s => ((s && s.settings) || {}).project_id || '';
 function applyScope(){
   const p = S.scope;
   $('#sheetScope').textContent = p ? projLabel(p.name) : U('Sheets', 'الجداول');
-  $('#btnBack').setAttribute('href', p ? '/admin-projects/' + p.id + '#logs' : '/admin-hub');
-  $('#btnBack').title = p ? U('Back to the project', 'رجوع إلى المشروع')
-                          : (I18N.back || ['Back', 'رجوع'])[en() ? 0 : 1];
+  // الرجوع: إلى مشروع الجدول المفتوح، وإلا إلى المشروع الذي جئنا منه (from)، وإلا اللوحة
+  const from = new URLSearchParams(location.search).get('from');
+  const home = p ? '/admin-projects/' + p.id + '#logs'
+             : (/^\d+$/.test(from || '') ? '/admin-projects/' + from + '#attached' : '/admin-hub');
+  $('#btnBack').setAttribute('href', home);
+  $('#btnBack').title = (p || from) ? U('Back to the project', 'رجوع إلى المشروع')
+                                    : (I18N.back || ['Back', 'رجوع'])[en() ? 0 : 1];
   // جدول جديد متاح في الحالتين: داخل مشروع يُربط به، وخارجه يكون جدولًا عامًا
   $('#btnNew').textContent = p ? U('New sheet in this project', 'جدول جديد في هذا المشروع')
                                : U('New sheet', 'جدول جديد');
@@ -2375,5 +2379,6 @@ applyLang();
   window.pmisSessionExpired = expired;
 })();
 </script>
+{% include "_back_to_project.html" %}
 </body>
 </html>

@@ -1,0 +1,37 @@
+<script>
+/* الرجوع إلى المشروع الذي جئنا منه.
+
+   الصفحات المشتركة (الداشبورد، التدفق النقدي، الحقائق، الجداول) يفتحها المستخدم
+   من مكانين: من لوحة الإدارة، أو من صفحة مشروع بعينه. وزر الرجوع كان ثابتًا على
+   اللوحة، فمن دخل من المشروع خرج إلى مكان آخر واضطر أن يشقّ طريقه إليه من جديد.
+   العنوان يحمل from=<رقم المشروع>، وهنا نوجّه الرجوع إليه — وإن لم يكن موجودًا
+   بقي السلوك كما هو. */
+(function(){
+  var pid = new URLSearchParams(location.search).get('from');
+  if(!pid || !/^\d+$/.test(pid)) return;
+  var url = '/admin-projects/' + pid + '#attached';
+  var isEn = (document.documentElement.lang !== 'ar');
+  var label = isEn ? 'Back to the project' : 'رجوع إلى المشروع';
+
+  function wire(){
+    var back = document.querySelector('.hdr-back');
+    if(back){                       // صفحة لها زر رجوع خاص بها
+      back.setAttribute('href', url);
+      back.setAttribute('title', label);
+      return true;
+    }
+    var brand = document.querySelector('.navbar-brand');
+    if(brand){                      // صفحة تستخدم الشريط المشترك
+      var a = document.createElement('a');
+      a.href = url; a.textContent = (isEn ? '← ' : '→ ') + label;
+      a.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-inline-start:12px;'
+        + 'padding:5px 11px;background:rgba(255,255,255,.14);color:#fff;text-decoration:none;'
+        + 'font-size:.82rem;font-weight:500;border-radius:6px;white-space:nowrap;';
+      brand.insertAdjacentElement('afterend', a);
+      return true;
+    }
+    return false;
+  }
+  if(!wire()) document.addEventListener('DOMContentLoaded', wire);
+})();
+</script>
