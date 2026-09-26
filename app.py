@@ -3265,15 +3265,34 @@ def facts_rebuild(source="all", project=None):
 
 def _pick_source(rows, order):
     """قاعدة «مصدر واحد معتمد»: يختار لكل مشروع أعلى مصدر متاح في ترتيب المؤشر،
-       ويرجّع صفوف ذلك المصدر وحده حتى لا تكون السلسلة خليط مصدرين."""
+       ويرجّع صفوف ذلك المصدر وحده حتى لا تكون السلسلة خليط مصدرين.
+
+       والإدخال اليدوي استثناء مقصود: من يكتب رقمًا بنفسه يقصد أن يعلو على
+       المديولات — لكن حتى تاريخه فقط. فإن جاء المديول برقم أحدث عاد هو المعتمد،
+       ولا يظل إدخال قديم حاجبًا لبيانات جديدة إلى الأبد.
+    """
     rank = lambda src: order.index(src) if src in order else len(order) + 1
-    chosen = {}
+    auto, manual = {}, {}
     for proj, per, val, txt, src in rows:
+        if src == "manual":
+            if proj not in manual or per > manual[proj]:
+                manual[proj] = per
+            continue
         r = rank(src)
-        if proj not in chosen or r < chosen[proj]:
-            chosen[proj] = r
+        cur = auto.get(proj)
+        if not cur or r < cur[0] or (r == cur[0] and per > cur[1]):
+            auto[proj] = (r, per)
+    keep = {}
+    for proj in set(auto) | set(manual):
+        best = auto.get(proj)
+        if proj in manual and (not best or manual[proj] >= best[1]):
+            keep[proj] = "manual"
+        elif best:
+            keep[proj] = best[0]
     out = [{"project": p, "period": str(per), "value": v, "text": t, "source": s}
-           for p, per, v, t, s in rows if rank(s) == chosen.get(p)]
+           for p, per, v, t, s in rows
+           if (keep.get(p) == "manual" and s == "manual")
+           or (keep.get(p) != "manual" and s != "manual" and rank(s) == keep.get(p))]
     out.sort(key=lambda x: (x["project"], x["period"]))
     return out
 
@@ -3439,6 +3458,51 @@ async def api_facts_write(request: Request):
             return JSONResponse({"success": False, "error": "facts لازم تكون قائمة"}, status_code=400)
         n = facts_write(rows[:5000], replace_source=b.get("replace_source"), project=b.get("project"))
         return {"success": True, "written": n}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/facts/manual")
+async def api_facts_manual(request: Request, project: str = "", limit: int = 200):
+    """الإدخالات اليدوية وحدها — هي الوحيدة التي لا تعيد إعادة البناء كتابتها."""
+    if not _fact_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        mm = _metrics_map(cursor)
+        sql = ["""SELECT id, project_name, metric, period, value, text_value, source_ref, updated_at
+                  FROM project_facts WHERE source = 'manual'"""]
+        args = []
+        if project.strip():
+            sql.append("AND project_name = %s")
+            args.append(project.strip())
+        sql.append("ORDER BY updated_at DESC, id DESC LIMIT %s")
+        args.append(max(1, min(1000, int(limit))))
+        cursor.execute(" ".join(sql), args)
+        out = [{"id": r[0], "project": r[1], "metric": r[2],
+                "label": (mm.get(r[2]) or {}).get("label_en") or r[2],
+                "unit": (mm.get(r[2]) or {}).get("unit") or "",
+                "period": str(r[3]), "value": r[4], "text": r[5],
+                "note": r[6], "at": str(r[7])[:16]} for r in cursor.fetchall()]
+        conn.close()
+        return {"success": True, "facts": out}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/facts/manual/{fact_id}")
+async def api_facts_manual_delete(fact_id: int, request: Request):
+    if not _fact_admin(request):
+        return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM project_facts WHERE id = %s AND source = 'manual'", (fact_id,))
+        gone = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return {"success": True, "deleted": gone}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
