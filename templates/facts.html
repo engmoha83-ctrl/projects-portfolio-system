@@ -191,7 +191,7 @@ const I18N = {
   statsT:['What each source collected','ما جمعه كل مصدر'],
   matrixNote:['The value in force today for every metric in every project. Under each number you see where it came from and its date.',
               'القيمة المعتمدة اليوم لكل مؤشر في كل مشروع، ومكتوب تحت كل رقم مصدره وتاريخه.'],
-  metricsNote:['This is the list of numbers the system understands. Each row defines one metric: its name, unit, how it rolls up over periods, and — most importantly — the order of the sources it is read from. The value in force always comes from source 1; if a project has nothing there, the next source is used. Changing the order here changes what the dashboard shows, with no code change.',
+  metricsNote:['This is the list of numbers the system understands. Each row defines one metric: its name, unit, how it rolls up over periods, and — most importantly — the order of the sources it is read from. The value in force always comes from source 1; if a project has nothing there, the next source is used. Changing the order here changes what the dashboard shows, with no code change. A figure corrected by hand is not in this order: a correction outranks every source and holds until it is released, on the project page under Figures.',
                'هذه هي قائمة الأرقام التي يفهمها النظام. كل صف يعرّف مؤشرًا واحدًا: اسمه ووحدته وطريقة تجميعه عبر الفترات، والأهم ترتيب المصادر التي يُقرأ منها. الرقم المعتمد يأتي دائمًا من المصدر رقم ١، فإن لم تكن لدى المشروع بيانات فيه انتقل النظام إلى الذي يليه. تغيير الترتيب هنا يغيّر ما يظهر في الداشبورد فورًا دون تعديل أي كود.'],
   statsNote:['What each source actually produced: how many values, for how many projects, the period they cover, and when they were last collected. Use it to make sure nothing is missing and no source has stopped updating.',
              'ما أنتجه كل مصدر فعليًا: كم قيمة، ولكم مشروع، وما المدى الزمني الذي تغطيه، ومتى جُمعت آخر مرة. يُستخدم للتأكد من اكتمال التجميع ولاكتشاف أي مؤشر ناقص أو مصدر توقف عن التحديث.'],
@@ -334,7 +334,8 @@ function drawMatrix(){
 }
 
 function drawMetrics(){
-  const srcKeys = Object.keys(S.sources);
+  // «manual» ليس مصدرًا يُرتَّب: التصحيح يعلو على الترتيب كله، فعرضه داخله يكذب
+  const srcKeys = Object.keys(S.sources).filter(k => k !== 'manual');
   $('#metricsBox').innerHTML = `<table><thead><tr>
       <th>${T('key')}</th><th>${T('label')}</th><th>${T('unit')}</th><th>${T('kind')}</th>
       <th>${T('agg')}</th><th>${T('dir')}</th><th style="min-width:230px">${T('sources')}</th>
@@ -437,7 +438,11 @@ async function loadManual(){
 
 async function loadAll(){
   const [mm, hh] = await Promise.all([api('/api/facts/metrics'), api('/api/facts/health')]);
-  if(mm.success){ S.metrics = mm.metrics || []; S.sources = mm.sources || {}; }
+  if(mm.success){
+    S.metrics = (mm.metrics || []).map(m =>
+      Object.assign(m, {sources:(m.sources || []).filter(x => x !== 'manual')}));
+    S.sources = mm.sources || {};
+  }
   if(hh.success) S.health = hh;
   await loadLatest();
   await loadManual();
