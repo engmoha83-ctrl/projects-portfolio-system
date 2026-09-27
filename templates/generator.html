@@ -101,6 +101,8 @@ tr:hover td{background:#FAFBFD;}
 .fld{height:28px; border:1px solid var(--line); background:#fff; padding:0 8px; font-size:12.5px; min-width:120px;}
 label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-inline-end:14px;}
 .lvl{font-size:10.5px; color:var(--muted); font-weight:600;}
+.lvlpick{flex-wrap:nowrap; gap:2px; overflow-x:auto;}
+.lvlpick label{margin:0 !important; gap:2px !important; font-size:10px !important; white-space:nowrap;}
 .diffgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:1px; background:var(--line);}
 .diffgrid > div{background:#fff; padding:12px 16px;}
 .diffgrid i{display:block; font-style:normal; font-size:10.5px; color:var(--muted); text-transform:uppercase;}
@@ -204,7 +206,9 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
   <section class="panel" id="p-rules">
     <div class="card">
       <h2><span data-i18n="hRules">Logic rules</span>
-        <span class="hint" data-i18n="hRulesHint">Strongest evidence first</span></h2>
+        <span class="hint" data-i18n="hRulesHint">Strongest evidence first</span>
+        <span class="spacer"></span>
+        <button class="btn sm" id="addRule" data-i18n="addRow">+ Row</button></h2>
       <p class="note" data-i18n="nRules">Derivation is automatic; endorsement is not. Agreement is the share of evidence backing the chosen relationship type, and a rule 45% of its evidence agrees on should not be read like one at 100%. A rule marked manual is never touched when new files are imported.</p>
       <div style="overflow:auto; max-height:58vh;">
         <table id="tRules"><thead><tr>
@@ -217,6 +221,7 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
           <th data-i18n="cAgree">Agreement</th>
           <th data-i18n="cSrc">Files</th>
           <th data-i18n="cOrigin">Origin</th>
+          <th style="width:70px"></th>
         </tr></thead><tbody></tbody></table>
       </div>
     </div>
@@ -258,6 +263,8 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const LEVELS = ['zone','building','floor','corridor','unit','room'];
+const SCOPES = ['same','next','prev','parent','children'];
+const RELS = ['FS','SS','FF','SF'];
 const LEVEL_LABEL = {
   zone:['Zone','منطقة'], building:['Building','مبنى'], floor:['Floor','دور'],
   corridor:['Corridor','ممرّ'], unit:['Unit','وحدة'], room:['Room','غرفة']};
@@ -311,7 +318,15 @@ const I18N = {
   genOk:['Generated. Open the schedule to calculate dates.','تمّ التوليد. افتح البرنامج لحساب التواريخ.'],
   orphan:['Some generated activities have no logic attached. They appear as open ends in the schedule.',
           'بعض الأنشطة المتولّدة بلا منطق يربطها، وتظهر أطرافًا مفتوحة في البرنامج.'],
-  manual:['manual','يدوية'], derived:['derived','مشتقّة']
+  manual:['manual','يدوية'], derived:['derived','مشتقّة'],
+  no_places:['No places defined yet — add rows on the Places tab and press Save.',
+             'لا أماكن معرَّفة بعد — أضف صفوفًا في تبويب الأماكن ثمّ اضغط «حفظ».'],
+  no_work_types:['The work-type catalogue is empty — add rows on the Work types tab.',
+                 'كتالوج أنواع الأعمال فارغ — أضف صفوفًا في تبويب أنواع الأعمال.'],
+  genNone:['Nothing was generated. Check that places and work types overlap on the Applicability tab.',
+           'لم يتولّد شيء. راجع تقاطع الأماكن وأنواع الأعمال في تبويب الانطباق.'],
+  noRules:['No logic rules yet, so activities generate with no relationships between them.',
+           'لا قواعد ربط بعد، فتتولّد الأنشطة بلا علاقات بينها.']
 };
 
 let S = {places:[], place_rels:[], work_types:[], scope:[], settings:{},
@@ -332,19 +347,26 @@ async function api(url, opts){
   let j;
   try{ j = await r.json(); }
   catch(e){ throw new Error('HTTP ' + r.status); }
-  if(!j.success) throw new Error(j.error || 'HTTP ' + r.status);
+  if(!j.success){
+    /* الرسالة تُترجَم من رمزها، فلا يظهر حرف عربي في الواجهة الإنجليزية */
+    throw new Error(j.code && I18N[j.code] ? T(j.code) : (j.error || 'HTTP ' + r.status));
+  }
   return j;
 }
 const lvlLabel = l => (LEVEL_LABEL[l] || [l, l])[en() ? 0 : 1];
+/* صفٌّ بلا اسم ولا كود يبقى قابلًا للتمييز، فلا تصير القائمة خانات فارغة */
+const placeLabel = p => p.name || p.code || (lvlLabel(p.level) + ' ' +
+  (S.places.filter(x => x.level === p.level).indexOf(p) + 1));
 
 /* ─────────────── الأماكن ─────────────── */
 function placeOptions(exceptId){
   return '<option value=""></option>' + S.places
     .filter(p => p.id !== exceptId)
-    .map(p => `<option value="${p.id}">${esc(p.name || p.code)}</option>`).join('');
+    .map(p => `<option value="${p.id}">${esc(placeLabel(p))}</option>`).join('');
 }
 function renderPlaces(){
   const tb = $('#tPlaces tbody');
+  S.places = collect();          // معروضةٌ بترتيبها الفعليّ لا بترتيب إدخالها
   tb.innerHTML = S.places.map(p => {
     const depth = placeDepth(p);
     return `<tr data-id="${p.id}">
@@ -407,7 +429,7 @@ function renderWT(){
     <td><input data-f="name_ar" value="${esc(w.name_ar || '')}" dir="rtl"></td>
     <td><input data-f="discipline" value="${esc(w.discipline || '')}" maxlength="6" style="text-transform:uppercase"></td>
     <td><input data-f="days" type="number" min="0" step="0.5" value="${w.days ?? 1}"></td>
-    <td><div class="tcell" style="flex-wrap:wrap; gap:3px">${LEVELS.map(l =>
+    <td><div class="tcell lvlpick">${LEVELS.map(l =>
         `<label class="inl" style="margin:0; gap:3px; font-size:10.5px">
            <input type="checkbox" data-lvl="${l}" style="width:auto;height:auto"
              ${(w.applies_to || []).includes(l) ? 'checked' : ''}>${esc(lvlLabel(l))}</label>`).join('')}</div></td>
@@ -463,7 +485,7 @@ function renderMatrix(){
     }).join('');
     const rep = (p.repeat || 1) > 1 ? ` <span class="chip">×${p.repeat}</span>` : '';
     return `<tr><td class="pl" style="padding-inline-start:${8 + placeDepth(p) * 14}px">
-              <span class="lvl">${esc(lvlLabel(p.level))}</span> ${esc(p.name || p.code)}${rep}</td>${cells}</tr>`;
+              <span class="lvl">${esc(lvlLabel(p.level))}</span> ${esc(placeLabel(p))}${rep}</td>${cells}</tr>`;
   }).join('');
   $('#mtx').innerHTML = `<table><thead>${head}</thead><tbody>${rows}</tbody></table>`;
 }
@@ -478,24 +500,64 @@ $('#mtx').addEventListener('click', e => {
 });
 
 /* ─────────────── القواعد ─────────────── */
-async function loadRules(){
-  if(S.rulesList) return;
+async function loadRules(force){
+  if(S.rulesList && !force) return renderRules();
   const j = await api('/api/gen/rules');
   S.rulesList = j.rules || [];
-  $('#tRules tbody').innerHTML = S.rulesList.slice(0, 400).map(r => {
+  renderRules();
+}
+function renderRules(){
+  const wtCodes = S.work_types.filter(w => w.code).map(w => w.code);
+  const opt = (list, v) => list.map(x =>
+    `<option value="${esc(x)}"${x === v ? ' selected' : ''}>${esc(x)}</option>`).join('');
+  $('#tRules tbody').innerHTML = (S.rulesList || []).slice(0, 400).map((r, i) => {
     const ag = r.agreement == null ? '' : Number(r.agreement);
     const cls = ag === '' ? '' : ag >= 90 ? 'good' : ag >= 60 ? 'warn' : 'bad';
-    return `<tr>
-      <td>${esc(r.pred_wt)}</td><td>${esc(r.succ_wt)}</td>
-      <td><span class="chip">${esc(r.scope)}</span></td>
-      <td>${esc(r.rel_type)}</td>
-      <td class="num">${r.lag_days == null ? '' : Number(r.lag_days).toFixed(2)}</td>
+    const manual = (r.origin || '') !== 'مشتقّة';
+    return `<tr data-i="${i}">
+      <td><select data-f="pred_wt">${opt(wtCodes, r.pred_wt)}</select></td>
+      <td><select data-f="succ_wt">${opt(wtCodes, r.succ_wt)}</select></td>
+      <td><select data-f="scope">${opt(SCOPES, r.scope)}</select></td>
+      <td><select data-f="rel_type">${opt(RELS, r.rel_type)}</select></td>
+      <td><input data-f="lag_days" type="number" step="0.5" value="${r.lag_days ?? 0}"></td>
       <td class="num">${r.observations ?? ''}</td>
       <td class="num">${ag === '' ? '' : `<span class="chip ${cls}">${ag.toFixed(0)}%</span>`}</td>
       <td class="num">${r.sources ?? ''}</td>
-      <td>${esc(r.origin || '')}</td></tr>`;
-  }).join('') || `<tr><td colspan="9" class="note">${esc(T('none'))}</td></tr>`;
+      <td><span class="chip">${esc(manual ? T('manual') : T('derived'))}</span></td>
+      <td><button class="btn sm danger" data-del="1">${esc(T('del'))}</button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="10" class="note">${esc(T('none'))}</td></tr>`;
+  if(!(S.rulesList || []).length) msg('warn', T('noRules'));
 }
+$('#tRules').addEventListener('input', e => {
+  const tr = e.target.closest('tr'); if(!tr || !tr.dataset.i) return;
+  const r = S.rulesList[Number(tr.dataset.i)]; if(!r) return;
+  const f = e.target.dataset.f;
+  r[f] = f === 'lag_days' ? Number(e.target.value) : e.target.value;
+  r.origin = 'يدوية';
+});
+$('#tRules').addEventListener('click', async e => {
+  if(!e.target.dataset.del) return;
+  const i = Number(e.target.closest('tr').dataset.i);
+  const r = S.rulesList[i]; if(!r) return;
+  try{
+    if(r.pred_wt && r.succ_wt)
+      await api('/api/gen/rules/delete', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify(r)});
+    S.rulesList.splice(i, 1); S.rules = S.rulesList.length;
+    renderRules(); updateStrip();
+  }catch(err){ msg('err', err.message); }
+});
+$('#addRule').onclick = () => {
+  const c = S.work_types.filter(w => w.code).map(w => w.code);
+  if(c.length < 2){ msg('warn', T('no_work_types')); return; }
+  S.rulesList = S.rulesList || [];
+  S.rulesList.unshift({pred_wt:c[0], succ_wt:c[1], scope:'same', rel_type:'FS',
+                       lag_days:0, origin:'يدوية', observations:null,
+                       agreement:null, sources:null});
+  S.rules = S.rulesList.length;
+  renderRules(); updateStrip();
+};
 
 /* ─────────────── الحفظ والتوليد ─────────────── */
 function collect(){
@@ -532,9 +594,18 @@ async function save(){
     await api(`/api/gen/${SID}/scope`, {method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({scope:S.scope})});
+    if(S.rulesList && S.rulesList.length)
+      await api('/api/gen/rules', {method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({rules:S.rulesList.filter(r => (r.origin || '') !== 'مشتقّة')})});
     renderPlaces(); renderMatrix();
     msg('ok', T('savedOk'));
-  }catch(e){ msg('err', e.message); }
+  }catch(e){
+    /* لا تمضِ إلى التوليد على بيانات لم تُحفظ: الخطأ الحقيقي هنا، وابتلاعه
+       كان يُظهر بعده شكوى «لا أماكن معرَّفة» والأماكن على الشاشة. */
+    msg('err', e.message);
+    throw e;
+  }
   finally{ busy(b, false); }
 }
 function showDiff(j){
@@ -559,10 +630,14 @@ function showDiff(j){
     msg('warn', T('orphan'));
   tab('diff');
 }
+/* زرّ «حفظ» لم يكن مربوطًا بشيء: الدالة مكتوبة والزرّ موجود ولا سطر
+   يصلهما، فكان الضغط عليه لا يفعل شيئًا البتّة. */
+$('#btnSave').onclick = () => { save().catch(() => {}); };
+
 $('#btnPreview').onclick = async () => {
   const b = $('#btnPreview'); busy(b, true, 'previewing'); msg('', '');
   try{
-    await save();
+    await save();          // يرمي إن فشل، فلا نمضي على بيانات لم تُحفظ
     showDiff(await api(`/api/gen/${SID}/preview`, {method:'POST'}));
   }catch(e){ msg('err', e.message); }
   finally{ busy(b, false); }
@@ -576,7 +651,7 @@ $('#btnApply').onclick = async () => {
     showDiff(j);
     S.generated = (j.diag || {}).activities || 0;
     updateStrip();
-    msg('ok', T('genOk'));
+    msg(S.generated ? 'ok' : 'warn', S.generated ? T('genOk') : T('genNone'));
   }catch(e){ msg('err', e.message); }
   finally{ busy(b, false); }
 };
@@ -614,7 +689,9 @@ async function load(){
     $('#prjCode').value = S.settings.project_code || '';
     $('#idPattern').value = S.settings.id_pattern || '';
     msg('', '');
-    renderPlaces(); renderWT(); renderMatrix(); updateStrip();
+    renderPlaces(); renderWT(); renderMatrix();
+    try{ await loadRules(true); S.rules = (S.rulesList || []).length; }catch(e){}
+    updateStrip();
     if(!S.places.length) msg('info', T('noPlaces'));
     else if(!S.work_types.length) msg('info', T('noWT'));
   }catch(e){ msg('err', e.message); }

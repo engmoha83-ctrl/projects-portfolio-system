@@ -119,6 +119,13 @@ def ensure_schema(cur):
                        active BOOLEAN DEFAULT TRUE,
                        updated_at TIMESTAMP DEFAULT NOW(),
                        UNIQUE (pred_wt, succ_wt, scope, project_type))""")
+    # القيد أعلاه لا يمنع التكرار حين ‎project_type‎ فارغة: بوستجرس لا يعدّ
+    # ‎NULL‎ مساويًا لـ‎NULL‎ في الفهارس الفريدة، فكان ‎ON CONFLICT‎ لا يجد
+    # هدفه وكلّ حفظ يُنشئ صفًّا جديدًا — تضاعفت المكتبة من تسع عشرة قاعدة
+    # إلى ثمان وثلاثين بحفظة واحدة. الفهرس الجزئيّ يسدّ ذلك.
+    cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS gen_logic_general
+                   ON gen_lib_logic (pred_wt, succ_wt, scope)
+                   WHERE project_type IS NULL""")
 
     # الشواهد: سجلّ يتراكم ولا يُمحى. إعادة الاشتقاق تقرؤه كلّه مجتمعًا،
     # فالملفّ الجديد يحسّن ولا يمحو، والاختلاف بين المشاريع يظهر ولا يضيع.
@@ -305,12 +312,13 @@ async def preview(sched_id: int, request: Request):
         conn = _get_conn()
         with conn, conn.cursor() as cur:
             tree, wts, rules, st = load_definition(cur, sched_id)
+            # رمزٌ تترجمه الصفحة، لا نصٌّ عربيّ يُحشر في واجهة إنجليزية.
             if not tree.nodes:
-                return JSONResponse({"success": False,
-                                     "error": "لا أماكن معرَّفة في هذا البرنامج"})
+                return JSONResponse({"success": False, "code": "no_places",
+                                     "error": "No places defined"})
             if not wts:
-                return JSONResponse({"success": False,
-                                     "error": "كتالوج أنواع الأعمال فارغ"})
+                return JSONResponse({"success": False, "code": "no_work_types",
+                                     "error": "Work-type catalogue is empty"})
             fresh, rels, diag = G.generate(
                 tree, wts, rules, project=st["project"],
                 pattern=st["pattern"], default_calendar=st["force_calendar"])
@@ -497,7 +505,8 @@ async def import_evidence(request: Request):
                                   origin, observations, agreement, sources,
                                   lag_min, lag_max, confidence, updated_at)
                                VALUES (%s,%s,%s,%s,%s,'مشتقّة',%s,%s,%s,%s,%s,%s,NOW())
-                               ON CONFLICT (pred_wt, succ_wt, scope, project_type)
+                               ON CONFLICT (pred_wt, succ_wt, scope)
+                                 WHERE project_type IS NULL
                                DO UPDATE SET rel_type=EXCLUDED.rel_type,
                                  lag_days=EXCLUDED.lag_days,
                                  observations=EXCLUDED.observations,
@@ -628,7 +637,12 @@ async def save_places(sched_id: int, request: Request):
     try:
         conn = _get_conn()
         with conn, conn.cursor() as cur:
-            keep = [int(n["id"]) for n in nodes if n.get("id")]
+            # الصفّ الجديد يأتي بمعرّف مؤقّت من الصفحة (‎new1‎)، وليس رقمًا.
+            # كان يُمرَّر إلى ‎int()‎ فيرفع الاستثناء قبل أن تُكتب سطرًا واحدًا،
+            # فلم يكن يُحفظ مكانٌ واحد أبدًا — وكلّ ما بعده كان يشكو من
+            # «لا أماكن معرَّفة» وهي على الشاشة أمام المستخدم.
+            keep = [int(n["id"]) for n in nodes
+                    if str(n.get("id") or "").isdigit()]
             if keep:
                 cur.execute("""DELETE FROM gen_places WHERE schedule_id=%s
                                AND NOT (id = ANY(%s))""", (sched_id, keep))
@@ -777,3 +791,69 @@ async def page_generator(sched_id: int, request: Request):
     return _templates.TemplateResponse(request, "generator.html", {
         "admin_user": admin_user, "active_page": "schedule",
         "sched_id": sched_id})
+
+
+@router.post("/api/gen/rules")
+async def save_rules(request: Request):
+    """
+    كتابة قواعد الربط باليد.
+
+    من غير قاعدة واحدة يخرج التوليد أنشطةً مفكوكة بلا علاقة بينها — عددٌ
+    صحيح وشبكةٌ لا وجود لها. والقاعدة المكتوبة هنا تُعلَّم **يدوية**، فلا
+    تمسّها إعادة الاشتقاق حين تُستورد ملفّات شواهد جديدة.
+    """
+    if not _admin(request):
+        return _deny()
+    body = await request.json()
+    rows = body.get("rules") or []
+    SCOPES = ("same", "next", "prev", "parent", "children")
+    TYPES = ("FS", "SS", "FF", "SF")
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            clean = []
+            for r in rows:
+                p = (r.get("pred_wt") or "").strip().upper()
+                s = (r.get("succ_wt") or "").strip().upper()
+                sc = (r.get("scope") or "same").strip().lower()
+                t = (r.get("rel_type") or "FS").strip().upper()
+                if not p or not s or sc not in SCOPES or t not in TYPES:
+                    continue
+                clean.append((p, s, t, float(r.get("lag_days") or 0), sc))
+            if body.get("replace"):
+                cur.execute("""DELETE FROM gen_lib_logic
+                               WHERE origin='يدوية' AND project_type IS NULL""")
+            _batch(cur, """INSERT INTO gen_lib_logic
+                             (pred_wt, succ_wt, rel_type, lag_days, scope,
+                              origin, active, updated_at)
+                           VALUES %s
+                           ON CONFLICT (pred_wt, succ_wt, scope)
+                             WHERE project_type IS NULL
+                           DO UPDATE SET rel_type=EXCLUDED.rel_type,
+                             lag_days=EXCLUDED.lag_days, active=TRUE,
+                             origin='يدوية', updated_at=NOW()""",
+                   [(p, s, t, lag, sc, "يدوية", True) for p, s, t, lag, sc in clean],
+                   template="(%s,%s,%s,%s,%s,%s,%s,NOW())")
+        return JSONResponse({"success": True, "saved": len(clean)})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.post("/api/gen/rules/delete")
+async def delete_rule(request: Request):
+    """حذف قاعدة بعينها."""
+    if not _admin(request):
+        return _deny()
+    b = await request.json()
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            cur.execute("""DELETE FROM gen_lib_logic
+                           WHERE pred_wt=%s AND succ_wt=%s AND scope=%s
+                             AND project_type IS NULL""",
+                        ((b.get("pred_wt") or "").upper(),
+                         (b.get("succ_wt") or "").upper(),
+                         (b.get("scope") or "same")))
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return _fail(e)
