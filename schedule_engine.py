@@ -420,18 +420,32 @@ class Schedule:
            رسالة «حلقة موجودة» وحدها لا تنفع مستخدمًا أمام ألفي نشاط،
            فنعيد مسار الحلقة نفسه ليعرف أي رابط يقطع.
         """
-        indeg = {a: len(self._pred[a]) for a in self.activities}
+        # الأنشطة الممتدّة (LOE والملخّصات) تُعزَل عن الشبكة المنطقية: لا
+        # تُرتَّب معها ولا تُحسب حلقاتها، لأنها تابعة لجيرانها لا متبوعة،
+        # وتأخذ مواعيدها في ‎_spanning‎ بعد أن ينتهي الجميع.
+        #
+        # وهذا ليس تبسيطًا بل تصحيح: ملفّ QPMO-410 يُجدوِله بريمافيرا بلا
+        # شكوى، وكان محرّكنا يرفضه بحلقةٍ مغلقة مسارها يمرّ كلّه بنشاط LOE
+        # واحد — حلقة في رسمنا للشبكة، لا في منطق المشروع.
+        span = {a for a, act in self.activities.items() if act.type in SPANNING}
+
+        def edges(aid):
+            return [r for r in self._succ[aid] if r.succ not in span]
+
+        indeg = {a: sum(1 for r in self._pred[a] if r.pred not in span)
+                 for a in self.activities if a not in span}
         queue = [a for a, n in indeg.items() if n == 0]
         order = []
         while queue:
             a = queue.pop()
             order.append(a)
-            for r in self._succ[a]:
+            for r in edges(a):
                 indeg[r.succ] -= 1
                 if indeg[r.succ] == 0:
                     queue.append(r.succ)
-        if len(order) < len(self.activities):
-            raise CycleError(self._find_cycles(set(self.activities) - set(order)))
+        if len(order) < len(indeg):
+            raise CycleError(self._find_cycles(set(indeg) - set(order)))
+        order += sorted(span)               # تُذيَّل ليمرّ عليها ‎_spanning‎
         return order
 
     def _find_cycles(self, stuck):
@@ -507,6 +521,8 @@ class Schedule:
                 p = self.activities[r.pred]
                 if p.es is None:
                     continue
+                if p.type in SPANNING:
+                    continue        # السابق الممتدّ تابعٌ لا متبوع، فلا يدفع
                 if self.out_of_sequence == "progress_override" and a.status == IN_PROGRESS:
                     continue            # تجاوز التقدّم: المنطق يسقط عن نشاط بدأ
                 if r.type == FS:
@@ -557,7 +573,9 @@ class Schedule:
                         a.es = a.ef
 
             a.ef = self._apply_finish_constraint(a, cal, a.ef)
-            if not a.is_milestone and a.status == NOT_STARTED and a.ef < a.es:
+            if a.is_milestone:
+                a.es = a.ef      # المعلم لحظة واحدة: القيد يحرّك طرفيه معًا
+            elif a.status == NOT_STARTED and a.ef < a.es:
                 a.es = a.ef
             # السابق «الدافع» هو من يقع موعده المحاذى على بداية اللاحق نفسها.
             # المقارنة تكون بعد المحاذاة لا قبلها، وإلّا لم يُعَدّ سابقٌ ينتهي
@@ -586,7 +604,10 @@ class Schedule:
         if c in (FNET,) and cd and cd > ef:
             ef = cal.snap_finish(cd)
         elif c in (MFO, MANDATORY_FIN) and cd:
-            ef = cal.snap_finish(cd)
+            # «يجب أن ينتهي في» قيدٌ قاطع: يُثبَّت على تاريخه **حرفيًّا** بلا
+            # محاذاة تقويمية. والمحاذاة كانت تردّ معلمًا مقيَّدًا في السابعة
+            # صباحًا إلى الخامسة من مساء اليوم السابق، فيقع خارج موعده الملزِم.
+            ef = cd
         c2, cd2 = a.constraint2, a.constraint2_date
         if c2 == FNET and cd2 and cd2 > ef:
             ef = cal.snap_finish(cd2)
@@ -599,25 +620,43 @@ class Schedule:
     # ---- المرور العكسي ----
 
     def _backward(self, order):
-        finish = self.must_finish or max(
-            (a.ef for a in self.activities.values() if a.ef), default=None)
+        computed = max((a.ef for a in self.activities.values() if a.ef),
+                       default=None)
+        # تاريخ الإلزام يقيّد المرور العكسي **إذا كان أبكر** من النهاية
+        # المحسوبة. وإن كان متأخّرًا عنها فلا أثر له، والنهاية المحسوبة هي
+        # المثبِّت. قيس هذا على أربعة ملفّات بريمافيرا حقيقية: في ثلاثة منها
+        # تاريخ الإلزام والنهاية المحسوبة سواء، وفي الرابع (MED-LAB) الإلزام
+        # أبكر بشهرين فثبّت بريمافيرا عليه وأعطى الشبكة فائضًا سالبًا؛ وفي
+        # الخامس (العليا) الإلزام متأخّر بثماني ساعات فتجاهله بريمافيرا.
+        finish = (min(self.must_finish, computed)
+                  if (self.must_finish and computed) else
+                  (self.must_finish or computed))
         if finish is None:
             raise ScheduleError("تعذّر تحديد نهاية المشروع")
         for aid in reversed(order):
             a = self.activities[aid]
             cal = self.cal(a)
 
-            if a.status == COMPLETE:
-                a.ls, a.lf = a.es, a.ef
-                continue
+            # النشاط المنتهي **يمرّ به** المرور العكسي كغيره. كان موعده
+            # المتأخّر يُثبَّت على الفعلي، وهذا خطأ: بريمافيرا يحسب للمنتهي
+            # موعدًا متأخّرًا من لواحقه — قد يتأخّر شهرين عن تاريخه الفعلي —
+            # ولا يعطيه فائضًا كلّيًّا أصلًا (وهو ما يفعله ‎_floats‎ بالفعل).
+            # لم يظهر هذا في ملفّين مطابقين ١٠٠٪ لأنّ كليهما بلا نشاط منتهٍ:
+            # الخطأ لا يُكشف إلّا بملفّ محدَّث فيه تقدّم فعلي.
 
             lf_cands, ls_cands = [], []
             for r in self._succ[aid]:
                 s = self.activities[r.succ]
                 if s.lf is None:
                     continue
-                if s.status == COMPLETE:
-                    continue        # لاحق منتهٍ لا يقيّد سابقًا لم ينته
+                if s.type in SPANNING:
+                    continue        # اللاحق الممتدّ تابعٌ لا متبوع، فلا يقيّد
+                # كان اللاحق المنتهي يُتخطّى هنا. وهذا خالف بريمافيرا في كلّ
+                # نشاط منتهٍ: في ملفّ MED-LAB جاء الموعد المتأخّر لكلّ واحد
+                # من اثنين وثلاثين نشاطًا منتهيًا مساويًا لبداية أحد لواحقه
+                # المنتهية — أي أنّ اللاحق المنتهي **يقيّد** سابقه. والقاعدة
+                # المحذوفة لم تكن مختبَرة أصلًا: الملفّات التي طابقت ١٠٠٪
+                # لا نشاط منتهيًا فيها، فلم تمرّ عليها قطّ.
                 if r.type == FS:
                     lf_cands.append(self._unshift(a, s, s.ls, r.lag))
                 elif r.type == SS:
@@ -634,16 +673,27 @@ class Schedule:
             lf = self._late_constraint(a, cal, lf)
             if a.is_milestone or dur <= 0:
                 # المعلم لحظة واحدة لا فترة، وموعده المتأخّر يأتي جاهزًا من
-                # لاحقه. ولو حاذيناه كنهايةِ فترة عمل لدُفع معلم البداية إلى
-                # مساء اليوم السابق فظهر له فائض سالب من العدم.
-                a.lf = lf if (cal.is_working(lf) or _close(cal.snap_finish(lf), lf)) \
-                    else cal.snap_finish(lf)
+                # لاحقه. ولو حاذينا **معلم البداية** كنهايةِ فترة عمل لدُفع
+                # إلى مساء اليوم السابق فظهر له فائض سالب من العدم.
+                #
+                # أمّا **معلم النهاية** فيُحاذى كنهاية فترة عمل دائمًا، لأنّه
+                # يؤرّخ انتهاء عمل لا ابتداءه: موعدٌ يقع على بداية يوم عمل
+                # موضعه الصحيح إغلاقُ فترة العمل السابقة. المرور الأمامي
+                # يفعل هذا أصلًا، والعكسي كان يخالفه فيفترقان عند كلّ عطلة.
+                if a.type == FIN_MS:
+                    a.lf = cal.snap_finish(lf)
+                else:
+                    a.lf = lf if (cal.is_working(lf) or _close(cal.snap_finish(lf), lf)) \
+                        else cal.snap_finish(lf)
                 a.ls = a.lf
             else:
                 a.lf = cal.snap_finish(lf)
                 a.ls = cal.sub(a.lf, dur)
-            if a.status == IN_PROGRESS and a.actual_start:
-                a.ls = min(a.ls, a.actual_start)
+            # لا تُسحَب البداية المتأخّرة للنشاط الجاري إلى بدايته الفعلية.
+            # الموعد المتأخّر جوابٌ عن «متى كان يجب أن يبدأ»، وقد يكون بعد
+            # ما بدأ فعلًا — أي أنّ النشاط بدأ مبكّرًا. في MED-LAB أعطى
+            # بريمافيرا نشاطًا بدأ في ٣ يوليو بدايةً متأخّرة في ١٠ سبتمبر،
+            # والسحب كان يمحو ذلك ويجرّ معه كلّ سابقٍ منتهٍ في سلسلته.
 
     def _late_constraint(self, a, cal, lf):
         c, cd = a.constraint, a.constraint_date
@@ -704,7 +754,13 @@ class Schedule:
             ends = [x.ef for x in ps + ss if x.ef] or [a.ef]
             if starts and ends:
                 a.es, a.ef = min(starts), max(ends)
-                a.ls, a.lf = a.es, a.ef
+            # والمتأخّرة تمتدّ مثلها على مواعيد الجيران المتأخّرة، لا تُنسَخ
+            # عن المبكّرة. كان ‎ls=es‎ و‎lf=ef‎، فأعطى ذلك بندًا إداريًّا فائضًا
+            # صفرًا كاذبًا، والأسوأ أنّه كان يقيّد سوابقه فيجرّها معه.
+            l_starts = [x.ls for x in ps + ss if x.ls]
+            l_ends = [x.lf for x in ps + ss if x.lf]
+            a.ls = min(l_starts) if l_starts else a.es
+            a.lf = max(l_ends) if l_ends else a.ef
             a.critical = False
             a.total_float = a.free_float = None
 

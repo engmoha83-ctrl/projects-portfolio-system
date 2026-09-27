@@ -223,7 +223,11 @@ def build(db, proj_id=None, use_remaining=True):
     s = Schedule(
         start=dt(pr.get("plan_start_date")),
         data_date=dt(pr.get("last_recalc_date")),
-        must_finish=dt(pr.get("scd_end_date")),
+        # ‎plan_end_date‎ هو «Must Finish By» — القيد الذي وضعه المخطِّط.
+        # و‎scd_end_date‎ هو النهاية التي حسبها بريمافيرا، وكان يُمرَّر هنا خطأً:
+        # فكنّا نثبّت مرورنا العكسي على **إجابته** لا على قيد المشروع، فلا
+        # يظهر خلافٌ في الاتجاه العكسي أبدًا، ويُقاس المحرّك على نفسه.
+        must_finish=dt(pr.get("plan_end_date")),
         name=pr.get("proj_short_name", ""),
     )
     for key, c in cals.items():
