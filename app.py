@@ -21,6 +21,7 @@ import bcrypt
 from dotenv import load_dotenv
 import pdf_report
 import schedule_api
+import generator_api
 
 load_dotenv()
 
@@ -121,6 +122,8 @@ def get_db_connection():
             cur.execute("CREATE INDEX IF NOT EXISTS project_managers_user ON project_managers (username)")
             # جداول البرنامج الزمني — تعريفها في وحدتها لا هنا، فهي ستكبر
             schedule_api.ensure_schema(cur)
+            # جداول المولّد — تعتمد على جداول البرنامج الزمني فتأتي بعدها
+            generator_api.ensure_schema(cur)
             conn.commit()
             _SCHEMA_READY = True
         except Exception:
@@ -5361,6 +5364,8 @@ async def powerbi_feed():
 # تُمرَّر له وسائل التطبيق بدل أن يستوردها منه، فلا تنشأ دائرة استيراد.
 schedule_api.setup(get_db_connection, templates)
 app.include_router(schedule_api.router)
+generator_api.setup(get_db_connection, templates)
+app.include_router(generator_api.router)
 
 
 if __name__ == "__main__":
