@@ -17,7 +17,7 @@
 import json
 import traceback
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 
 import generator as G
 
@@ -37,6 +37,32 @@ def _admin(request):
 
 def _deny():
     return JSONResponse({"success": False, "error": "غير مصرح"}, status_code=403)
+
+
+def _plain(v):
+    """قيمة صالحة للـJSON: ‎Decimal‎ إلى ‎float‎ والتواريخ إلى نصّ."""
+    from decimal import Decimal
+    from datetime import date, datetime
+    if isinstance(v, Decimal):
+        return float(v)
+    if isinstance(v, (date, datetime)):
+        return v.isoformat()
+    return v
+
+
+def _batch(cur, sql, rows, template=None, size=500):
+    """
+    كتابة دفعات لا استعلامًا لكل صفّ.
+
+    قاعدة البيانات على Supabase بعيدة، وألفا نشاط بألفي ذهاب وإياب تنتهي
+    بانقضاء مهلة الطلب قبل أن تنتهي الكتابة.
+    """
+    if not rows:
+        return
+    from psycopg2.extras import execute_values
+    for i in range(0, len(rows), size):
+        execute_values(cur, sql, rows[i:i + size], template=template,
+                       page_size=size)
 
 
 def _fail(e):
@@ -171,8 +197,11 @@ def ensure_schema(cur):
             ("driver", "TEXT")):
         cur.execute(f"ALTER TABLE sch_activities "
                     f"ADD COLUMN IF NOT EXISTS {col} {ddl}")
-    cur.execute("""CREATE INDEX IF NOT EXISTS sch_activities_genkey
-                   ON sch_activities (schedule_id, gen_key)""")
+    # مفتاح التوليد هو الهوية، ففريدٌ داخل البرنامج الواحد. والأنشطة
+    # المكتوبة باليد (بلا مفتاح) خارج هذا الشرط فلا يقيّدها.
+    cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS sch_activities_genkey
+                   ON sch_activities (schedule_id, gen_key)
+                   WHERE gen_key IS NOT NULL""")
     cur.execute("""ALTER TABLE sch_relations
                    ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT 'manual'""")
 
@@ -320,53 +349,79 @@ async def apply(sched_id: int, request: Request):
             existing = load_existing(cur, sched_id)
             diff = G.reconcile(existing, fresh)
 
-            keep = {json.dumps(list(a.gen_key)) for a in fresh}
-            if delete_missing and diff["removed"]:
-                cur.execute("""DELETE FROM sch_activities
-                               WHERE schedule_id=%s AND gen_key IS NOT NULL
-                                 AND NOT (gen_key = ANY(%s))""",
-                            (sched_id, list(keep)))
-
+            # الكتابة دفعات لا استعلامًا لكل صفّ: قاعدة البيانات بعيدة،
+            # وألفا نشاط بألفي استعلام تنتهي بانقضاء مهلة الطلب.
             cal = st["force_calendar"]
-            for a in fresh:
-                gk = json.dumps(list(a.gen_key))
-                # الإدراج يتصادم على (البرنامج، الكود) — وهو فهرس فريد قائم
-                cur.execute("""INSERT INTO sch_activities
-                                 (schedule_id, gen_key, code, name,
-                                  duration, calendar_id, wbs, atype, status)
-                               VALUES (%s,%s,%s,%s,%s,%s,%s,'task','not_started')
-                               ON CONFLICT (schedule_id, code) DO NOTHING""",
-                            (sched_id, gk, a.code, a.name, a.days * 8.0,
-                             cal, a.wbs))
-                # الحقول المعلَّمة يدويًّا تُستثنى من الكتابة، لا الصفّ كلّه:
-                # من عدّل الاسم يبقى اسمه وتتحدّث مدّته.
-                cur.execute("""UPDATE sch_activities SET
-                                 code = CASE WHEN overridden @> '["code"]'::jsonb
-                                             THEN code ELSE %s END,
-                                 name = CASE WHEN overridden @> '["name"]'::jsonb
-                                             THEN name ELSE %s END,
-                                 duration = CASE WHEN overridden @> '["days"]'::jsonb
-                                             THEN duration ELSE %s END,
-                                 wbs = CASE WHEN overridden @> '["wbs"]'::jsonb
-                                             THEN wbs ELSE %s END
-                               WHERE schedule_id=%s AND gen_key=%s""",
-                            (a.code, a.name, a.days * 8.0, a.wbs, sched_id, gk))
+            sid = str(int(sched_id))
+
+            # **الهوية مفتاح التوليد لا الكود.** الكود يتغيّر: رقمه المتسلسل
+            # يزيح كلّما أُضيف مكان قبله. وكان الإدراج يتصادم على الكود، فإذا
+            # تغيّر كودُ نشاطٍ أُدرج صفٌّ ثانٍ لمفتاح التوليد نفسه بدل أن
+            # يُحدَّث الأوّل — ظهر ذلك مفتاحًا مكرّرًا بعد إعادة توليد زادت
+            # أدوارًا. لذلك: تُحرَّر الأكواد أوّلًا، ثمّ يُحدَّث الموجود
+            # بمفتاحه، ثمّ يُدرَج ما لا مفتاح له.
+            cur.execute("""UPDATE sch_activities
+                           SET code = 'TMP#' || id
+                           WHERE schedule_id=%s AND gen_key IS NOT NULL""",
+                        (sched_id,))
+
+            # الحقول المعلَّمة يدويًّا تُستثنى من الكتابة، لا الصفّ كلّه:
+            # من عدّل الاسم يبقى اسمه وتتحدّث مدّته.
+            upd = [(json.dumps(list(a.gen_key)), a.code, a.name,
+                    a.days * 8.0, a.wbs) for a in fresh]
+            UPD_T = "(%s::text,%s::text,%s::text,%s::double precision,%s::text)"
+            _batch(cur, """UPDATE sch_activities t SET
+                             code = v.code,
+                             name = CASE WHEN t.overridden @> '["name"]'::jsonb
+                                         THEN t.name ELSE v.name END,
+                             duration = CASE WHEN t.overridden @> '["days"]'::jsonb
+                                         THEN t.duration ELSE v.dur END,
+                             wbs = CASE WHEN t.overridden @> '["wbs"]'::jsonb
+                                         THEN t.wbs ELSE v.wbs END
+                           FROM (VALUES %s) AS v(gk, code, name, dur, wbs)
+                           WHERE t.schedule_id=""" + sid +
+                   """ AND t.gen_key = v.gk""", upd, template=UPD_T)
+
+            rows = [(sched_id, json.dumps(list(a.gen_key)), a.code, a.name,
+                     a.days * 8.0, cal, a.wbs, "task", "not_started")
+                    for a in fresh]
+            _batch(cur, """INSERT INTO sch_activities
+                             (schedule_id, gen_key, code, name, duration,
+                              calendar_id, wbs, atype, status)
+                           VALUES %s
+                           ON CONFLICT (schedule_id, gen_key)
+                             WHERE gen_key IS NOT NULL DO NOTHING""",
+                   rows)
+
+            # أيّ صفّ بقي بكودٍ مؤقّت فمفتاحُه لم يَعُد في التوليد. لا يُترك
+            # بكودٍ مشوَّه: يُحذف إن سُمح بالحذف، وإلّا يُردّ كودُه المولَّد.
+            cur.execute("""DELETE FROM sch_activities
+                           WHERE schedule_id=%s AND code LIKE 'TMP#%%'
+                             AND gen_key IS NOT NULL AND %s""",
+                        (sched_id, delete_missing))
+            cur.execute("""UPDATE sch_activities
+                           SET code = 'ORPHAN-' || id
+                           WHERE schedule_id=%s AND code LIKE 'TMP#%%'""",
+                        (sched_id,))
 
             cur.execute("""DELETE FROM sch_relations
                            WHERE schedule_id=%s
                              AND COALESCE(origin,'manual') <> 'manual'""",
                         (sched_id,))
-            for r in rels:
-                cur.execute("""INSERT INTO sch_relations
-                                 (schedule_id, pred, succ, rtype, lag, origin)
-                               SELECT %s, p.code, s.code, %s, %s, 'generated'
-                               FROM sch_activities p, sch_activities s
-                               WHERE p.schedule_id=%s AND s.schedule_id=%s
-                                 AND p.gen_key=%s AND s.gen_key=%s""",
-                            (sched_id, r["type"], r["lag"] * 8.0,
-                             sched_id, sched_id,
-                             json.dumps(list(r["pred"])),
-                             json.dumps(list(r["succ"]))))
+            rel_rows = [(json.dumps(list(r["pred"])), json.dumps(list(r["succ"])),
+                         r["type"], r["lag"] * 8.0) for r in rels]
+            REL_T = "(%s::text,%s::text,%s::text,%s::double precision)"
+            _batch(cur, """INSERT INTO sch_relations
+                             (schedule_id, pred, succ, rtype, lag, origin)
+                           SELECT """ + str(int(sched_id)) + """, p.code, s.code,
+                                  v.rt, v.lag, 'generated'
+                           FROM (VALUES %s) AS v(pgk, sgk, rt, lag)
+                           JOIN sch_activities p
+                             ON p.schedule_id=""" + str(int(sched_id)) +
+                   """ AND p.gen_key = v.pgk
+                           JOIN sch_activities s
+                             ON s.schedule_id=""" + str(int(sched_id)) +
+                   """ AND s.gen_key = v.sgk""", rel_rows, template=REL_T)
 
             cur.execute("""INSERT INTO gen_settings (schedule_id, last_generated,
                                                      last_diff)
@@ -480,8 +535,245 @@ async def list_rules(request: Request):
             cols = ["pred_wt", "succ_wt", "rel_type", "lag_days", "scope",
                     "origin", "observations", "agreement", "sources",
                     "lag_min", "lag_max", "confidence", "active", "note"]
-            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            # أعمدة NUMERIC تعود من بوستجرس كـDecimal، وهو لا يُحوَّل إلى JSON
+            rows = [{k: _plain(v) for k, v in zip(cols, r)}
+                    for r in cur.fetchall()]
         return JSONResponse({"success": True, "rules": rows,
                              "count": len(rows)}, )
     except Exception as e:
         return _fail(e)
+
+
+# ═══════════════════════ تعريف المشروع: قراءة وكتابة ═══════════════════════
+
+@router.get("/api/gen/{sched_id}/definition")
+async def get_definition(sched_id: int, request: Request):
+    """كلّ ما تحتاجه الصفحة: الأماكن والكتالوج والانطباق والإعدادات."""
+    if not _admin(request):
+        return _deny()
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            cur.execute("""SELECT id, parent_id, level_key, code, name, seq,
+                                  repeat_count, repeat_pattern
+                           FROM gen_places WHERE schedule_id=%s
+                           ORDER BY seq, id""", (sched_id,))
+            places = [{"id": r[0], "parent": r[1], "level": r[2], "code": r[3],
+                       "name": r[4], "seq": r[5], "repeat": r[6] or 1,
+                       "pattern": r[7]} for r in cur.fetchall()]
+
+            cur.execute("""SELECT pred_place, succ_place, mode
+                           FROM gen_place_rels WHERE schedule_id=%s""",
+                        (sched_id,))
+            prels = [{"pred": r[0], "succ": r[1], "mode": r[2]}
+                     for r in cur.fetchall()]
+
+            cur.execute("""SELECT code, name, name_ar, discipline, unit,
+                                  default_days, applies_to, seq
+                           FROM gen_lib_work_types ORDER BY seq, id""")
+            wts = [{"code": r[0], "name": r[1], "name_ar": r[2],
+                    "discipline": r[3], "unit": r[4],
+                    "days": float(r[5] or 1), "applies_to": r[6] or [],
+                    "seq": r[7]} for r in cur.fetchall()]
+
+            cur.execute("""SELECT work_type, level_key, place_id, mode
+                           FROM gen_scope WHERE schedule_id=%s""", (sched_id,))
+            scope = [{"work_type": r[0], "level": r[1], "place": r[2],
+                      "mode": r[3]} for r in cur.fetchall()]
+
+            cur.execute("""SELECT project_code, id_pattern, separator,
+                                  project_type, force_calendar, last_generated,
+                                  last_diff
+                           FROM gen_settings WHERE schedule_id=%s""",
+                        (sched_id,))
+            s = cur.fetchone()
+            settings = {
+                "project_code": s[0] if s else "",
+                "id_pattern": s[1] if s else
+                "{PRJ}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}",
+                "separator": s[2] if s else "-",
+                "project_type": s[3] if s else None,
+                "force_calendar": s[4] if s else None,
+                "last_generated": str(s[5]) if s and s[5] else None,
+                "last_diff": s[6] if s else {}}
+
+            cur.execute("""SELECT COUNT(*) FROM sch_activities
+                           WHERE schedule_id=%s AND gen_key IS NOT NULL""",
+                        (sched_id,))
+            generated = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM gen_lib_logic WHERE active")
+            nrules = cur.fetchone()[0]
+        return JSONResponse({"success": True, "places": places,
+                             "place_rels": prels, "work_types": wts,
+                             "scope": scope, "settings": settings,
+                             "generated": generated, "rules": nrules})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.post("/api/gen/{sched_id}/places")
+async def save_places(sched_id: int, request: Request):
+    """
+    حفظ شجرة الأماكن **استبدالًا كاملًا** لا تعديلًا جزئيًّا.
+
+    الشجرة تُحرَّر كورقة: تُضاف عقد وتُحذف ويتغيّر ترتيبها في التحرير الواحد،
+    فمطابقة ما تغيّر عقدةً عقدةً تكلّف أكثر ممّا تنفع وتترك روابط معلَّقة عند
+    أوّل خطأ. والأنشطة لا تضيع بذلك: مفتاح التوليد يحمل معرّف المكان، والمعرّف
+    يُعاد كما هو لكلّ عقدة باقية.
+    """
+    if not _admin(request):
+        return _deny()
+    body = await request.json()
+    nodes = body.get("places") or []
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            keep = [int(n["id"]) for n in nodes if n.get("id")]
+            if keep:
+                cur.execute("""DELETE FROM gen_places WHERE schedule_id=%s
+                               AND NOT (id = ANY(%s))""", (sched_id, keep))
+            else:
+                cur.execute("DELETE FROM gen_places WHERE schedule_id=%s",
+                            (sched_id,))
+            idmap = {}
+            for n in nodes:               # الآباء قبل الأبناء
+                pid = n.get("id")
+                parent = n.get("parent")
+                parent = idmap.get(parent, parent)
+                args = (sched_id, parent, n.get("level") or "zone",
+                        (n.get("code") or "").strip(),
+                        (n.get("name") or "").strip() or n.get("code"),
+                        int(n.get("seq") or 0),
+                        max(1, int(n.get("repeat") or 1)),
+                        n.get("pattern") or "{code}{n:02d}")
+                if pid and not str(pid).startswith("new"):
+                    cur.execute("""UPDATE gen_places SET parent_id=%s,
+                                     level_key=%s, code=%s, name=%s, seq=%s,
+                                     repeat_count=%s, repeat_pattern=%s
+                                   WHERE id=%s AND schedule_id=%s""",
+                                args[1:] + (int(pid), sched_id))
+                    idmap[pid] = int(pid)
+                else:
+                    cur.execute("""INSERT INTO gen_places
+                                     (schedule_id,parent_id,level_key,code,
+                                      name,seq,repeat_count,repeat_pattern)
+                                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                                   RETURNING id""", args)
+                    idmap[pid] = cur.fetchone()[0]
+
+            cur.execute("DELETE FROM gen_place_rels WHERE schedule_id=%s",
+                        (sched_id,))
+            for r in body.get("place_rels") or []:
+                cur.execute("""INSERT INTO gen_place_rels
+                                 (schedule_id,pred_place,succ_place,mode)
+                               VALUES (%s,%s,%s,%s)""",
+                            (sched_id, idmap.get(r.get("pred"), r.get("pred")),
+                             idmap.get(r.get("succ"), r.get("succ")),
+                             r.get("mode") or "sequential"))
+        return JSONResponse({"success": True, "ids": {str(k): v
+                                                      for k, v in idmap.items()}})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.post("/api/gen/work-types")
+async def save_work_types(request: Request):
+    """كتالوج الشركة — مشترك بين المشاريع، فيُكتب مرّة ويُعاد استعماله."""
+    if not _admin(request):
+        return _deny()
+    body = await request.json()
+    rows = body.get("work_types") or []
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            codes = [(w.get("code") or "").strip().upper() for w in rows
+                     if (w.get("code") or "").strip()]
+            if body.get("replace") and codes:
+                cur.execute("""DELETE FROM gen_lib_work_types
+                               WHERE NOT (code = ANY(%s))""", (codes,))
+            data = [(c, (w.get("name") or c).strip(),
+                     (w.get("name_ar") or "").strip() or None,
+                     (w.get("discipline") or "").strip().upper(),
+                     (w.get("unit") or "").strip(),
+                     float(w.get("days") or 1),
+                     json.dumps(w.get("applies_to") or []),
+                     int(w.get("seq") or i))
+                    for i, (w, c) in enumerate(zip(rows, codes))]
+            _batch(cur, """INSERT INTO gen_lib_work_types
+                             (code,name,name_ar,discipline,unit,default_days,
+                              applies_to,seq)
+                           VALUES %s
+                           ON CONFLICT (code) DO UPDATE SET
+                             name=EXCLUDED.name, name_ar=EXCLUDED.name_ar,
+                             discipline=EXCLUDED.discipline,
+                             unit=EXCLUDED.unit,
+                             default_days=EXCLUDED.default_days,
+                             applies_to=EXCLUDED.applies_to,
+                             seq=EXCLUDED.seq""", data,
+                   template="(%s,%s,%s,%s,%s,%s,%s::jsonb,%s)")
+        return JSONResponse({"success": True, "saved": len(data)})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.post("/api/gen/{sched_id}/scope")
+async def save_scope(sched_id: int, request: Request):
+    """مصفوفة الانطباق — استثناءات على المستوى أو على عقدة بعينها."""
+    if not _admin(request):
+        return _deny()
+    body = await request.json()
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM gen_scope WHERE schedule_id=%s", (sched_id,))
+            rows = [(sched_id, r["work_type"], r.get("level"),
+                     r.get("place"), r.get("mode") or "include")
+                    for r in (body.get("scope") or []) if r.get("work_type")]
+            _batch(cur, """INSERT INTO gen_scope
+                             (schedule_id,work_type,level_key,place_id,mode)
+                           VALUES %s""", rows)
+        return JSONResponse({"success": True, "saved": len(rows)})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.post("/api/gen/{sched_id}/settings")
+async def save_settings(sched_id: int, request: Request):
+    """نمط الكود ورمز المشروع ونوعه والتقويم الموحَّد إن فُرض."""
+    if not _admin(request):
+        return _deny()
+    b = await request.json()
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            cur.execute("""INSERT INTO gen_settings
+                             (schedule_id, project_code, id_pattern, separator,
+                              project_type, force_calendar)
+                           VALUES (%s,%s,%s,%s,%s,%s)
+                           ON CONFLICT (schedule_id) DO UPDATE SET
+                             project_code=EXCLUDED.project_code,
+                             id_pattern=EXCLUDED.id_pattern,
+                             separator=EXCLUDED.separator,
+                             project_type=EXCLUDED.project_type,
+                             force_calendar=EXCLUDED.force_calendar""",
+                        (sched_id, (b.get("project_code") or "").strip().upper(),
+                         b.get("id_pattern") or
+                         "{PRJ}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}",
+                         b.get("separator") or "-",
+                         b.get("project_type") or None,
+                         b.get("force_calendar") or None))
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.get("/admin-generator/{sched_id}", response_class=HTMLResponse)
+async def page_generator(sched_id: int, request: Request):
+    admin_user = request.cookies.get("super_admin_auth")
+    if not admin_user:
+        return RedirectResponse(url="/admin", status_code=303)
+    if admin_user != "admin_mohamed":
+        return RedirectResponse(url="/admin-dashboard", status_code=303)
+    return _templates.TemplateResponse(request, "generator.html", {
+        "admin_user": admin_user, "active_page": "schedule",
+        "sched_id": sched_id})
