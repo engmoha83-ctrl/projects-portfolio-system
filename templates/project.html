@@ -340,6 +340,7 @@ const I18N = {
   soon:['Coming later','قريبًا'], none:['Not added yet','لم يُضف بعد'],
   empty0:['Created, no entries yet','أُنشئ، ولا توجد بنود بعد'],
   open:['Open','فتح'], add:['Add','إضافة'],
+  generator:['Generator','المولّد'],
   kActual:['Actual progress','الإنجاز الفعلي'], kPlanned:['Planned','المخطط'],
   kDev:['Deviation','الانحراف'], kIssues:['Open issues','مشاكل مفتوحة'],
   kRisks:['High risks','مخاطر عالية'], kLate:['Late materials','توريدات متأخرة'],
@@ -662,6 +663,7 @@ function drawScheds(){
       <span class="ic">📅</span>
       <span class="tx"><b>${esc(s.name)}</b>
         <span>${esc(SKIND[s.kind] || s.kind)} · ${s.activities} activities · ${esc(line)}</span></span>
+      <a class="btn sm" href="/admin-generator/${s.id}">${T('generator')}</a>
       <a class="btn sm" href="/admin-schedule/${s.id}">${T('open')}</a>
     </div>`; }).join('') : `<div class="empty">${esc(T('noScheds'))}</div>`;
 }
