@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule generator | Saudi Architects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EBEF; --tint:#F1F3F7; --tint2:#E6EAF0; --line:#E3E6EC; --ink:#172033; --muted:#5B6577;
+  --navy:#1F3A5F; --navy2:#274A78; --gold:#C8A165; --danger:#C8543E; --good:#2E7D5B; --warn:#8A5A1E;
+  --head-h:56px; --rh:32px;
+}
+*{box-sizing:border-box;}
+[hidden]{display:none !important;}
+html,body{height:100%; margin:0;}
+body{font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif; background:var(--bg); color:var(--ink);
+     -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; overflow:hidden;}
+button,input,select,textarea{font-family:inherit; border-radius:0; font-size:inherit;}
+
+.hdr{min-height:var(--head-h); flex:0 0 auto; background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07);
+     display:flex; align-items:center; gap:8px; padding:8px 14px; z-index:40; flex-wrap:wrap;}
+.hdr-back{width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+          background:var(--tint); color:var(--ink); text-decoration:none; flex:0 0 auto;}
+.hdr-back:hover{background:var(--tint2);}
+.hdr-title{display:flex; flex-direction:column; line-height:1.25; padding:0 8px; min-width:0;}
+.hdr-title small{font-size:11px; color:var(--muted); font-weight:500;}
+.hdr-title b{font-size:14.5px; font-weight:600;}
+.spacer{flex:1;}
+.btn{height:32px; border:none; background:var(--tint); padding:0 12px; font-size:12.5px; font-weight:500;
+     color:var(--ink); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
+     transition:background-color .15s ease; text-decoration:none; min-width:84px; justify-content:center;}
+.btn:hover{background:var(--tint2);}
+.btn[disabled]{opacity:.42; pointer-events:none;}
+.btn.primary{background:var(--navy); color:#fff; font-weight:600;}
+.btn.primary:hover{background:var(--navy2);}
+.btn.danger{color:var(--danger);}
+.btn.sm{height:26px; min-width:0; padding:0 9px; font-size:11.5px;}
+
+.strip{flex:0 0 auto; background:#fff; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  display:flex; overflow-x:auto;}
+.strip .s{padding:7px 16px; border-inline-end:1px solid var(--line); min-width:110px;}
+.strip .s i{display:block; font-style:normal; font-size:10.5px; color:var(--muted); text-transform:uppercase;
+  letter-spacing:.04em; white-space:nowrap;}
+.strip .s b{font-size:15px; font-weight:600; font-variant-numeric:tabular-nums;}
+.strip .s b.ok{color:var(--good);} .strip .s b.bad{color:var(--danger);}
+
+.tabs{flex:0 0 auto; background:#fff; border-bottom:1px solid var(--line); display:flex; gap:1px; padding:0 10px;}
+.tabs button{height:38px; border:none; background:transparent; padding:0 16px; font-size:12.5px;
+  font-weight:500; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent;}
+.tabs button.on{color:var(--navy); font-weight:600; border-bottom-color:var(--navy);}
+
+.body{flex:1; overflow:auto; padding:14px;}
+.panel{display:none;} .panel.on{display:block;}
+.card{background:#fff; margin-bottom:14px;}
+.card > h2{margin:0; padding:11px 16px; font-size:13px; font-weight:600; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.card > h2 .hint{font-size:11.5px; font-weight:500; color:var(--muted);}
+.note{font-size:12px; color:var(--muted); line-height:1.7; padding:10px 16px; max-width:82ch;}
+
+table{border-collapse:collapse; width:100%; font-size:12.5px;}
+th{background:var(--tint); text-align:start; font-weight:600; font-size:11px; color:var(--muted);
+   text-transform:uppercase; letter-spacing:.03em; padding:7px 10px; position:sticky; top:0; z-index:2;
+   box-shadow:inset 0 -1px 0 var(--line); white-space:nowrap;}
+td{padding:0 6px; height:var(--rh); box-shadow:inset 0 -1px 0 var(--line); vertical-align:middle;}
+td input,td select{width:100%; height:26px; border:1px solid transparent; background:transparent; padding:0 5px;
+  font-size:12.5px; color:inherit;}
+td input:focus,td select:focus{outline:none; border-color:var(--navy); background:#fff;}
+td input[type=number]{font-variant-numeric:tabular-nums;}
+td.num{text-align:end; font-variant-numeric:tabular-nums; padding-inline-end:12px;}
+tr:hover td{background:#FAFBFD;}
+.tcell{display:flex; align-items:center; gap:6px;}
+
+.matrix{overflow:auto; max-height:62vh;}
+.matrix th.rot{writing-mode:vertical-rl; transform:rotate(180deg); height:112px; padding:8px 4px;
+  text-align:start; white-space:nowrap;}
+.matrix td.cell{text-align:center; cursor:pointer; user-select:none; width:44px;}
+.matrix td.cell span{display:inline-block; width:15px; height:15px; line-height:15px; font-size:11px;}
+.matrix td.cell.on span{background:var(--navy); color:#fff;}
+.matrix td.cell.off span{background:var(--tint2); color:var(--muted);}
+.matrix td.cell.na span{background:transparent; color:#C9CFD9;}
+.matrix td.pl{white-space:nowrap; font-weight:500; position:sticky; inset-inline-start:0; background:#fff; z-index:1;}
+
+.alert{padding:9px 16px; font-size:12.5px; line-height:1.6; margin-bottom:12px;}
+.alert.err{background:#FBEDEA; color:#8E3524;}
+.alert.ok{background:#EAF3EE; color:#1F5C43;}
+.alert.info{background:#EDF2F9; color:var(--navy);}
+.alert.warn{background:#FDF6E9; color:var(--warn);}
+
+.chip{display:inline-block; font-size:10.5px; padding:2px 7px; background:var(--tint); color:var(--muted);
+  font-weight:600; white-space:nowrap;}
+.chip.good{background:#EAF3EE; color:var(--good);} .chip.bad{background:#FBEDEA; color:var(--danger);}
+.chip.warn{background:#FDF6E9; color:var(--warn);}
+
+.sk{background:linear-gradient(90deg,var(--tint) 25%,var(--tint2) 37%,var(--tint) 63%);
+  background-size:400% 100%; animation:sk 1.3s ease infinite; height:11px; margin:9px 16px;}
+@keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+
+.fld{height:28px; border:1px solid var(--line); background:#fff; padding:0 8px; font-size:12.5px; min-width:120px;}
+label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-inline-end:14px;}
+.lvl{font-size:10.5px; color:var(--muted); font-weight:600;}
+.diffgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:1px; background:var(--line);}
+.diffgrid > div{background:#fff; padding:12px 16px;}
+.diffgrid i{display:block; font-style:normal; font-size:10.5px; color:var(--muted); text-transform:uppercase;}
+.diffgrid b{font-size:20px; font-weight:600; font-variant-numeric:tabular-nums;}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <a class="hdr-back" href="/admin-schedule/{{ sched_id }}" data-i18n-title="back">←</a>
+  <div class="hdr-title"><small data-i18n="sub">Schedule generator</small><b data-i18n="title">Generator</b></div>
+  <label class="inl" style="margin-inline-start:14px;">
+    <span data-i18n="prjCode">Project code</span>
+    <input class="fld" id="prjCode" style="min-width:90px;" maxlength="8">
+  </label>
+  <label class="inl">
+    <span data-i18n="pattern">ID pattern</span>
+    <input class="fld" id="idPattern" style="min-width:330px;">
+  </label>
+  <span class="spacer"></span>
+  <button class="btn" id="btnSave" data-i18n="save">Save</button>
+  <button class="btn" id="btnPreview" data-i18n="preview">Preview</button>
+  <button class="btn primary" id="btnApply" data-i18n="generate">Generate</button>
+  <button class="btn" id="btnLang" hidden>Arabic</button>
+</header>
+
+<div class="strip" id="strip">
+  <div class="s"><i data-i18n="mPlaces">Places</i><b id="mPlaces">–</b></div>
+  <div class="s"><i data-i18n="mWT">Work types</i><b id="mWT">–</b></div>
+  <div class="s"><i data-i18n="mRules">Rules</i><b id="mRules">–</b></div>
+  <div class="s"><i data-i18n="mGen">Generated</i><b id="mGen">–</b></div>
+  <div class="s"><i data-i18n="mLast">Last run</i><b id="mLast" style="font-size:12px;">–</b></div>
+</div>
+
+<nav class="tabs">
+  <button data-tab="places" class="on" data-i18n="tPlaces">Places</button>
+  <button data-tab="work"   data-i18n="tWork">Work types</button>
+  <button data-tab="scope"  data-i18n="tScope">Applicability</button>
+  <button data-tab="rules"  data-i18n="tRules">Logic rules</button>
+  <button data-tab="diff"   data-i18n="tDiff">Result</button>
+</nav>
+
+<main class="body">
+  <div id="msg"></div>
+
+  <!-- ─── الأماكن ─── -->
+  <section class="panel on" id="p-places">
+    <div class="card">
+      <h2><span data-i18n="hPlaces">Place tree</span>
+        <span class="hint" data-i18n="hPlacesHint">The structure the schedule is generated from</span>
+        <span class="spacer"></span>
+        <button class="btn sm" id="addPlace" data-i18n="addRow">+ Row</button></h2>
+      <p class="note" data-i18n="nPlaces">Each node carries its own level, so the tree need not be regular. A repeated floor is declared once with a count; the system creates the separate nodes immediately, because floor 17 is eventually different and needs somewhere to differ.</p>
+      <div style="overflow:auto; max-height:58vh;">
+        <table id="tPlaces"><thead><tr>
+          <th style="width:34%" data-i18n="cName">Name</th>
+          <th style="width:12%" data-i18n="cLevel">Level</th>
+          <th style="width:12%" data-i18n="cCode">Code</th>
+          <th style="width:9%"  data-i18n="cSeq">Order</th>
+          <th style="width:9%"  data-i18n="cRepeat">Repeat</th>
+          <th style="width:16%" data-i18n="cParent">Under</th>
+          <th style="width:8%"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── أنواع الأعمال ─── -->
+  <section class="panel" id="p-work">
+    <div class="card">
+      <h2><span data-i18n="hWork">Work-type catalogue</span>
+        <span class="hint" data-i18n="hWorkHint">Shared across every project</span>
+        <span class="spacer"></span>
+        <button class="btn sm" id="addWT" data-i18n="addRow">+ Row</button></h2>
+      <p class="note" data-i18n="nWork">This catalogue is the company's, not this schedule's: it accumulates and is reused. "Applies to" names the levels a work type belongs on, so a floor trade never appears on a zone. Individual exceptions go on the applicability tab.</p>
+      <div style="overflow:auto; max-height:58vh;">
+        <table id="tWT"><thead><tr>
+          <th style="width:10%" data-i18n="cCode">Code</th>
+          <th style="width:26%" data-i18n="cNameEn">Name</th>
+          <th style="width:22%" data-i18n="cNameAr">Arabic name</th>
+          <th style="width:10%" data-i18n="cDisc">Discipline</th>
+          <th style="width:9%"  data-i18n="cDays">Days</th>
+          <th style="width:17%" data-i18n="cApplies">Applies to</th>
+          <th style="width:6%"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── الانطباق ─── -->
+  <section class="panel" id="p-scope">
+    <div class="card">
+      <h2><span data-i18n="hScope">Applicability</span>
+        <span class="hint" data-i18n="hScopeHint">Click a cell to exclude that place</span></h2>
+      <p class="note" data-i18n="nScope">A blank cell means the work type does not belong on that level at all. A filled cell generates an activity; click it to exclude this one place — a roof simply has no finishing trades.</p>
+      <div class="matrix" id="mtx"></div>
+    </div>
+  </section>
+
+  <!-- ─── القواعد ─── -->
+  <section class="panel" id="p-rules">
+    <div class="card">
+      <h2><span data-i18n="hRules">Logic rules</span>
+        <span class="hint" data-i18n="hRulesHint">Strongest evidence first</span></h2>
+      <p class="note" data-i18n="nRules">Derivation is automatic; endorsement is not. Agreement is the share of evidence backing the chosen relationship type, and a rule 45% of its evidence agrees on should not be read like one at 100%. A rule marked manual is never touched when new files are imported.</p>
+      <div style="overflow:auto; max-height:58vh;">
+        <table id="tRules"><thead><tr>
+          <th data-i18n="cPred">Predecessor</th>
+          <th data-i18n="cSucc">Successor</th>
+          <th data-i18n="cScope">Scope</th>
+          <th data-i18n="cRel">Type</th>
+          <th data-i18n="cLag">Lag</th>
+          <th data-i18n="cObs">Evidence</th>
+          <th data-i18n="cAgree">Agreement</th>
+          <th data-i18n="cSrc">Files</th>
+          <th data-i18n="cOrigin">Origin</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── النتيجة ─── -->
+  <section class="panel" id="p-diff">
+    <div class="card">
+      <h2><span data-i18n="hDiff">What will change</span>
+        <span class="hint" data-i18n="hDiffHint">Nothing is written until you press Generate</span></h2>
+      <div id="diffBox"><p class="note" data-i18n="nDiffEmpty">Press Preview to see what a run would add, remove and update.</p></div>
+    </div>
+    <div class="card" id="diffLists" hidden>
+      <h2><span data-i18n="hDiffRows">Affected activities</span></h2>
+      <div style="overflow:auto; max-height:46vh;">
+        <table id="tDiff"><thead><tr>
+          <th style="width:14%" data-i18n="cChange">Change</th>
+          <th style="width:30%" data-i18n="cCode">Code</th>
+          <th data-i18n="cNameEn">Name</th>
+          <th style="width:10%" data-i18n="cDays">Days</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const SID = {{ sched_id }};
+const UI_KEY = 'pmis_ui_lang';
+/* الواجهة إنجليزية فقط حتى يكتمل الموقع. النصوص العربية باقية في الكود
+   وزر التبديل مخفي لا محذوف، فإعادة تشغيل اللغة تعديل سطر واحد. */
+const UI_BILINGUAL = false;
+let UIL = 'en';
+if(UI_BILINGUAL){ try{ UIL = localStorage.getItem(UI_KEY) === 'ar' ? 'ar' : 'en'; }catch(e){} }
+const en = () => UIL !== 'ar';
+const T  = k => (I18N[k] || ['',''])[en() ? 0 : 1];
+const $  = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const LEVELS = ['zone','building','floor','corridor','unit','room'];
+const LEVEL_LABEL = {
+  zone:['Zone','منطقة'], building:['Building','مبنى'], floor:['Floor','دور'],
+  corridor:['Corridor','ممرّ'], unit:['Unit','وحدة'], room:['Room','غرفة']};
+
+const I18N = {
+  title:['Generator','المولّد'], sub:['Schedule generator','مولّد البرامج الزمنية'],
+  back:['Back to schedule','العودة إلى البرنامج'],
+  prjCode:['Project code','رمز المشروع'], pattern:['ID pattern','نمط الكود'],
+  save:['Save','حفظ'], preview:['Preview','معاينة'], generate:['Generate','توليد'],
+  saving:['Saving…','جارٍ الحفظ…'], previewing:['Reading…','جارٍ القراءة…'],
+  generating:['Generating…','جارٍ التوليد…'],
+  mPlaces:['Places','الأماكن'], mWT:['Work types','أنواع الأعمال'],
+  mRules:['Rules','القواعد'], mGen:['Generated','المولَّد'], mLast:['Last run','آخر توليد'],
+  tPlaces:['Places','الأماكن'], tWork:['Work types','أنواع الأعمال'],
+  tScope:['Applicability','الانطباق'], tRules:['Logic rules','قواعد الربط'],
+  tDiff:['Result','النتيجة'],
+  hPlaces:['Place tree','شجرة الأماكن'],
+  hPlacesHint:['The structure the schedule is generated from','الهيكل الذي يتولّد منه البرنامج'],
+  nPlaces:['Each node carries its own level, so the tree need not be regular. A repeated floor is declared once with a count; the system creates the separate nodes immediately, because floor 17 is eventually different and needs somewhere to differ.',
+           'كلّ عقدة تحمل مستواها بنفسها، فالشجرة لا تُلزَم بانتظام. والدور المتكرّر يُعرَّف مرّة بعدد، ويُنشئ النظام عقده المستقلّة في الحال، لأنّ الدور السابع عشر قد يختلف فيحتاج موضعًا يُعدَّل فيه.'],
+  hWork:['Work-type catalogue','كتالوج أنواع الأعمال'],
+  hWorkHint:['Shared across every project','مشترك بين كلّ المشاريع'],
+  nWork:['This catalogue is the company’s, not this schedule’s: it accumulates and is reused. "Applies to" names the levels a work type belongs on, so a floor trade never appears on a zone. Individual exceptions go on the applicability tab.',
+         'هذا الكتالوج للشركة لا لهذا البرنامج: يتراكم ويُعاد استعماله. و«ينطبق على» يحدّد المستويات التي ينتمي إليها نوع العمل، فلا يظهر عملُ دورٍ على منطقة. والاستثناءات المخصوصة في تبويب الانطباق.'],
+  hScope:['Applicability','الانطباق'],
+  hScopeHint:['Click a cell to exclude that place','اضغط الخانة لاستثناء ذلك المكان'],
+  nScope:['A blank cell means the work type does not belong on that level at all. A filled cell generates an activity; click it to exclude this one place — a roof simply has no finishing trades.',
+          'الخانة الفارغة تعني أنّ نوع العمل لا ينتمي إلى ذلك المستوى أصلًا. والخانة الممتلئة تولّد نشاطًا، واضغطها لاستثناء هذا المكان وحده — فالسطح ببساطة بلا أعمال تشطيب.'],
+  hRules:['Logic rules','قواعد الربط'], hRulesHint:['Strongest evidence first','الأقوى شهادةً أوّلًا'],
+  nRules:['Derivation is automatic; endorsement is not. Agreement is the share of evidence backing the chosen relationship type, and a rule 45% of its evidence agrees on should not be read like one at 100%. A rule marked manual is never touched when new files are imported.',
+          'الاشتقاق آليّ والتصديق ليس آليًّا. ونسبة الاتّفاق هي حصّة الشواهد التي تقول بنوع العلاقة المختار، فالقاعدة التي اتّفق عليها ٤٥٪ من شواهدها لا تُقرأ كالتي اتّفق عليها ١٠٠٪. والقاعدة المعلَّمة «يدوية» لا تُمسّ عند استيراد ملفّات جديدة.'],
+  hDiff:['What will change','ما الذي سيتغيّر'],
+  hDiffHint:['Nothing is written until you press Generate','لا يُكتب شيء حتى تضغط «توليد»'],
+  nDiffEmpty:['Press Preview to see what a run would add, remove and update.',
+              'اضغط «معاينة» لترى ما الذي سيُضاف ويُحذف ويُحدَّث.'],
+  hDiffRows:['Affected activities','الأنشطة المتأثّرة'],
+  cName:['Name','الاسم'], cNameEn:['Name','الاسم'], cNameAr:['Arabic name','الاسم العربي'],
+  cLevel:['Level','المستوى'], cCode:['Code','الكود'], cSeq:['Order','الترتيب'],
+  cRepeat:['Repeat','التكرار'], cParent:['Under','يتبع'], cDisc:['Discipline','التخصّص'],
+  cDays:['Days','الأيام'], cApplies:['Applies to','ينطبق على'],
+  cPred:['Predecessor','السابق'], cSucc:['Successor','اللاحق'], cScope:['Scope','النطاق'],
+  cRel:['Type','النوع'], cLag:['Lag','التخلُّف'], cObs:['Evidence','الشواهد'],
+  cAgree:['Agreement','الاتّفاق'], cSrc:['Files','الملفّات'], cOrigin:['Origin','المصدر'],
+  cChange:['Change','التغيير'],
+  added:['Added','يُضاف'], removed:['To remove','يُحذف'], updated:['Updated','يُحدَّث'],
+  kept:['Unchanged','بلا تغيير'], relations:['Relationships','العلاقات'],
+  addRow:['+ Row','+ صفّ'], del:['Delete','حذف'], none:['None','لا شيء'],
+  noPlaces:['Define at least one place before generating.','عرّف مكانًا واحدًا على الأقلّ قبل التوليد.'],
+  noWT:['The work-type catalogue is empty.','كتالوج أنواع الأعمال فارغ.'],
+  savedOk:['Saved.','تمّ الحفظ.'],
+  genOk:['Generated. Open the schedule to calculate dates.','تمّ التوليد. افتح البرنامج لحساب التواريخ.'],
+  orphan:['Some generated activities have no logic attached. They appear as open ends in the schedule.',
+          'بعض الأنشطة المتولّدة بلا منطق يربطها، وتظهر أطرافًا مفتوحة في البرنامج.'],
+  manual:['manual','يدوية'], derived:['derived','مشتقّة']
+};
+
+let S = {places:[], place_rels:[], work_types:[], scope:[], settings:{},
+         generated:0, rules:0, rulesList:null, diff:null};
+let newId = 0;
+
+/* ─────────────── أدوات ─────────────── */
+function msg(kind, text){
+  $('#msg').innerHTML = text ? `<div class="alert ${kind}">${esc(text)}</div>` : '';
+}
+function busy(btn, on, key){
+  btn.disabled = on;
+  btn.textContent = on ? T(key) : T(btn.id === 'btnSave' ? 'save'
+                    : btn.id === 'btnPreview' ? 'preview' : 'generate');
+}
+async function api(url, opts){
+  const r = await fetch(url, opts);
+  let j;
+  try{ j = await r.json(); }
+  catch(e){ throw new Error('HTTP ' + r.status); }
+  if(!j.success) throw new Error(j.error || 'HTTP ' + r.status);
+  return j;
+}
+const lvlLabel = l => (LEVEL_LABEL[l] || [l, l])[en() ? 0 : 1];
+
+/* ─────────────── الأماكن ─────────────── */
+function placeOptions(exceptId){
+  return '<option value=""></option>' + S.places
+    .filter(p => p.id !== exceptId)
+    .map(p => `<option value="${p.id}">${esc(p.name || p.code)}</option>`).join('');
+}
+function renderPlaces(){
+  const tb = $('#tPlaces tbody');
+  tb.innerHTML = S.places.map(p => {
+    const depth = placeDepth(p);
+    return `<tr data-id="${p.id}">
+      <td><div class="tcell" style="padding-inline-start:${depth * 16}px">
+          <span class="lvl">${esc(lvlLabel(p.level))}</span>
+          <input data-f="name" value="${esc(p.name || '')}"></div></td>
+      <td><select data-f="level">${LEVELS.map(l =>
+            `<option value="${l}"${l === p.level ? ' selected' : ''}>${esc(lvlLabel(l))}</option>`).join('')}</select></td>
+      <td><input data-f="code" value="${esc(p.code || '')}" maxlength="10"></td>
+      <td><input data-f="seq" type="number" value="${p.seq || 0}"></td>
+      <td><input data-f="repeat" type="number" min="1" value="${p.repeat || 1}"></td>
+      <td><select data-f="parent">${placeOptions(p.id)}</select></td>
+      <td><button class="btn sm danger" data-del="1">${esc(T('del'))}</button></td>
+    </tr>`;
+  }).join('');
+  S.places.forEach(p => {
+    const sel = tb.querySelector(`tr[data-id="${p.id}"] select[data-f="parent"]`);
+    if(sel) sel.value = p.parent == null ? '' : String(p.parent);
+  });
+}
+function placeDepth(p){
+  let d = 0, cur = p, seen = new Set();
+  while(cur && cur.parent != null && !seen.has(cur.id) && d < 12){
+    seen.add(cur.id);
+    cur = S.places.find(x => String(x.id) === String(cur.parent));
+    if(!cur) break;
+    d++;
+  }
+  return d;
+}
+$('#tPlaces').addEventListener('input', e => {
+  const tr = e.target.closest('tr'); if(!tr) return;
+  const p = S.places.find(x => String(x.id) === tr.dataset.id); if(!p) return;
+  const f = e.target.dataset.f;
+  p[f] = (f === 'seq' || f === 'repeat') ? Number(e.target.value)
+       : (f === 'parent') ? (e.target.value || null) : e.target.value;
+  if(f === 'level' || f === 'parent') renderPlaces();
+  if(f === 'level') renderMatrix();
+});
+$('#tPlaces').addEventListener('click', e => {
+  if(!e.target.dataset.del) return;
+  const id = e.target.closest('tr').dataset.id;
+  S.places = S.places.filter(p => String(p.id) !== id);
+  S.places.forEach(p => { if(String(p.parent) === id) p.parent = null; });
+  renderPlaces(); renderMatrix(); updateStrip();
+});
+$('#addPlace').onclick = () => {
+  const id = 'new' + (++newId);
+  const last = S.places[S.places.length - 1];
+  S.places.push({id, parent:last ? last.parent : null, level:last ? last.level : 'zone',
+                 code:'', name:'', seq:(S.places.length + 1) * 10, repeat:1});
+  renderPlaces(); renderMatrix(); updateStrip();
+};
+
+/* ─────────────── أنواع الأعمال ─────────────── */
+function renderWT(){
+  $('#tWT tbody').innerHTML = S.work_types.map((w, i) => `<tr data-i="${i}">
+    <td><input data-f="code" value="${esc(w.code || '')}" maxlength="10" style="text-transform:uppercase"></td>
+    <td><input data-f="name" value="${esc(w.name || '')}"></td>
+    <td><input data-f="name_ar" value="${esc(w.name_ar || '')}" dir="rtl"></td>
+    <td><input data-f="discipline" value="${esc(w.discipline || '')}" maxlength="6" style="text-transform:uppercase"></td>
+    <td><input data-f="days" type="number" min="0" step="0.5" value="${w.days ?? 1}"></td>
+    <td><div class="tcell" style="flex-wrap:wrap; gap:3px">${LEVELS.map(l =>
+        `<label class="inl" style="margin:0; gap:3px; font-size:10.5px">
+           <input type="checkbox" data-lvl="${l}" style="width:auto;height:auto"
+             ${(w.applies_to || []).includes(l) ? 'checked' : ''}>${esc(lvlLabel(l))}</label>`).join('')}</div></td>
+    <td><button class="btn sm danger" data-del="1">${esc(T('del'))}</button></td>
+  </tr>`).join('');
+}
+$('#tWT').addEventListener('input', e => {
+  const tr = e.target.closest('tr'); if(!tr) return;
+  const w = S.work_types[Number(tr.dataset.i)]; if(!w) return;
+  if(e.target.dataset.lvl){
+    const set = new Set(w.applies_to || []);
+    e.target.checked ? set.add(e.target.dataset.lvl) : set.delete(e.target.dataset.lvl);
+    w.applies_to = [...set];
+    renderMatrix();
+    return;
+  }
+  const f = e.target.dataset.f;
+  w[f] = f === 'days' ? Number(e.target.value)
+       : (f === 'code' || f === 'discipline') ? e.target.value.toUpperCase()
+       : e.target.value;
+  if(f === 'code' || f === 'name') renderMatrix();
+});
+$('#tWT').addEventListener('click', e => {
+  if(!e.target.dataset.del) return;
+  S.work_types.splice(Number(e.target.closest('tr').dataset.i), 1);
+  renderWT(); renderMatrix(); updateStrip();
+});
+$('#addWT').onclick = () => {
+  S.work_types.push({code:'', name:'', name_ar:'', discipline:'', days:1,
+                     applies_to:['floor'], seq:S.work_types.length});
+  renderWT(); updateStrip();
+};
+
+/* ─────────────── مصفوفة الانطباق ─────────────── */
+const excluded = (wt, placeId) => S.scope.some(s =>
+  s.work_type === wt && s.mode === 'exclude' && String(s.place) === String(placeId));
+
+function renderMatrix(){
+  const wts = S.work_types.filter(w => w.code);
+  if(!S.places.length || !wts.length){
+    $('#mtx').innerHTML = `<p class="note">${esc(T('none'))}</p>`;
+    return;
+  }
+  const head = `<tr><th class="pl" style="min-width:190px">${esc(T('cName'))}</th>` +
+    wts.map(w => `<th class="rot">${esc(w.code)} · ${esc(w.name || '')}</th>`).join('') + '</tr>';
+  const rows = S.places.map(p => {
+    const cells = wts.map(w => {
+      const fits = (w.applies_to || []).includes(p.level);
+      if(!fits) return `<td class="cell na"><span>·</span></td>`;
+      const off = excluded(w.code, p.id);
+      return `<td class="cell ${off ? 'off' : 'on'}" data-wt="${esc(w.code)}" data-p="${p.id}">
+                <span>${off ? '×' : '✓'}</span></td>`;
+    }).join('');
+    const rep = (p.repeat || 1) > 1 ? ` <span class="chip">×${p.repeat}</span>` : '';
+    return `<tr><td class="pl" style="padding-inline-start:${8 + placeDepth(p) * 14}px">
+              <span class="lvl">${esc(lvlLabel(p.level))}</span> ${esc(p.name || p.code)}${rep}</td>${cells}</tr>`;
+  }).join('');
+  $('#mtx').innerHTML = `<table><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+}
+$('#mtx').addEventListener('click', e => {
+  const td = e.target.closest('td.cell'); if(!td || td.classList.contains('na')) return;
+  const wt = td.dataset.wt, pid = td.dataset.p;
+  const i = S.scope.findIndex(s => s.work_type === wt && s.mode === 'exclude'
+                                && String(s.place) === String(pid));
+  if(i >= 0) S.scope.splice(i, 1);
+  else S.scope.push({work_type:wt, level:null, place:pid, mode:'exclude'});
+  renderMatrix();
+});
+
+/* ─────────────── القواعد ─────────────── */
+async function loadRules(){
+  if(S.rulesList) return;
+  const j = await api('/api/gen/rules');
+  S.rulesList = j.rules || [];
+  $('#tRules tbody').innerHTML = S.rulesList.slice(0, 400).map(r => {
+    const ag = r.agreement == null ? '' : Number(r.agreement);
+    const cls = ag === '' ? '' : ag >= 90 ? 'good' : ag >= 60 ? 'warn' : 'bad';
+    return `<tr>
+      <td>${esc(r.pred_wt)}</td><td>${esc(r.succ_wt)}</td>
+      <td><span class="chip">${esc(r.scope)}</span></td>
+      <td>${esc(r.rel_type)}</td>
+      <td class="num">${r.lag_days == null ? '' : Number(r.lag_days).toFixed(2)}</td>
+      <td class="num">${r.observations ?? ''}</td>
+      <td class="num">${ag === '' ? '' : `<span class="chip ${cls}">${ag.toFixed(0)}%</span>`}</td>
+      <td class="num">${r.sources ?? ''}</td>
+      <td>${esc(r.origin || '')}</td></tr>`;
+  }).join('') || `<tr><td colspan="9" class="note">${esc(T('none'))}</td></tr>`;
+}
+
+/* ─────────────── الحفظ والتوليد ─────────────── */
+function collect(){
+  const ordered = [];
+  const push = parent => S.places
+    .filter(p => String(p.parent ?? '') === String(parent ?? ''))
+    .sort((a, b) => (a.seq || 0) - (b.seq || 0))
+    .forEach(p => { ordered.push(p); push(p.id); });
+  push(null);
+  S.places.filter(p => !ordered.includes(p)).forEach(p => ordered.push(p));
+  return ordered;
+}
+async function save(){
+  const b = $('#btnSave'); busy(b, true, 'saving'); msg('', '');
+  try{
+    await api(`/api/gen/${SID}/settings`, {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({project_code:$('#prjCode').value,
+                           id_pattern:$('#idPattern').value})});
+    const j = await api(`/api/gen/${SID}/places`, {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({places:collect(), place_rels:S.place_rels})});
+    // المعرّفات الجديدة تُستبدل بالحقيقية حتى يشير الانطباق إليها
+    Object.entries(j.ids || {}).forEach(([tmp, real]) => {
+      S.places.forEach(p => {
+        if(String(p.id) === tmp) p.id = real;
+        if(String(p.parent) === tmp) p.parent = real;
+      });
+      S.scope.forEach(s => { if(String(s.place) === tmp) s.place = real; });
+    });
+    await api('/api/gen/work-types', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({work_types:S.work_types})});
+    await api(`/api/gen/${SID}/scope`, {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({scope:S.scope})});
+    renderPlaces(); renderMatrix();
+    msg('ok', T('savedOk'));
+  }catch(e){ msg('err', e.message); }
+  finally{ busy(b, false); }
+}
+function showDiff(j){
+  const s = j.summary || {}, d = j.diag || {};
+  $('#diffBox').innerHTML = `<div class="diffgrid">
+    <div><i>${esc(T('added'))}</i><b>${s.added ?? 0}</b></div>
+    <div><i>${esc(T('removed'))}</i><b>${s.removed ?? 0}</b></div>
+    <div><i>${esc(T('updated'))}</i><b>${s.updated ?? 0}</b></div>
+    <div><i>${esc(T('kept'))}</i><b>${s.kept ?? 0}</b></div>
+    <div><i>${esc(T('relations'))}</i><b>${j.relations ?? d.relations ?? 0}</b></div>
+  </div>`;
+  const rows = []
+    .concat((j.added || []).map(a => [T('added'), a.code, a.name, a.days]))
+    .concat((j.removed || []).map(a => [T('removed'), a.code, a.name, '']))
+    .concat((j.updated || []).map(u => [T('updated'), u.code,
+      Object.keys(u.changes || {}).join(', '), '']));
+  $('#tDiff tbody').innerHTML = rows.slice(0, 500).map(r =>
+    `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td>
+         <td class="num">${r[3] === '' ? '' : r[3]}</td></tr>`).join('');
+  $('#diffLists').hidden = rows.length === 0;
+  if(d.unresolved_rules && Object.keys(d.unresolved_rules).length)
+    msg('warn', T('orphan'));
+  tab('diff');
+}
+$('#btnPreview').onclick = async () => {
+  const b = $('#btnPreview'); busy(b, true, 'previewing'); msg('', '');
+  try{
+    await save();
+    showDiff(await api(`/api/gen/${SID}/preview`, {method:'POST'}));
+  }catch(e){ msg('err', e.message); }
+  finally{ busy(b, false); }
+};
+$('#btnApply').onclick = async () => {
+  const b = $('#btnApply'); busy(b, true, 'generating'); msg('', '');
+  try{
+    await save();
+    const j = await api(`/api/gen/${SID}/apply`, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
+    showDiff(j);
+    S.generated = (j.diag || {}).activities || 0;
+    updateStrip();
+    msg('ok', T('genOk'));
+  }catch(e){ msg('err', e.message); }
+  finally{ busy(b, false); }
+};
+
+/* ─────────────── التبويبات والشريط ─────────────── */
+function tab(name){
+  document.querySelectorAll('.tabs button').forEach(b =>
+    b.classList.toggle('on', b.dataset.tab === name));
+  document.querySelectorAll('.panel').forEach(p =>
+    p.classList.toggle('on', p.id === 'p-' + name));
+  if(name === 'rules') loadRules().catch(e => msg('err', e.message));
+  if(name === 'scope') renderMatrix();
+}
+document.querySelectorAll('.tabs button').forEach(b =>
+  b.onclick = () => tab(b.dataset.tab));
+
+function updateStrip(){
+  const expanded = S.places.reduce((n, p) => n + Math.max(1, p.repeat || 1), 0);
+  $('#mPlaces').textContent = expanded;
+  $('#mWT').textContent = S.work_types.filter(w => w.code).length;
+  $('#mRules').textContent = S.rules;
+  $('#mGen').textContent = S.generated;
+  $('#mLast').textContent = S.settings.last_generated
+    ? String(S.settings.last_generated).slice(0, 16).replace('T', ' ') : '–';
+}
+
+/* ─────────────── التحميل ─────────────── */
+async function load(){
+  $('#msg').innerHTML = '<div class="card"><div class="sk"></div><div class="sk" style="width:60%"></div></div>';
+  try{
+    const j = await api(`/api/gen/${SID}/definition`);
+    S.places = j.places || []; S.place_rels = j.place_rels || [];
+    S.work_types = j.work_types || []; S.scope = j.scope || [];
+    S.settings = j.settings || {}; S.generated = j.generated || 0; S.rules = j.rules || 0;
+    $('#prjCode').value = S.settings.project_code || '';
+    $('#idPattern').value = S.settings.id_pattern || '';
+    msg('', '');
+    renderPlaces(); renderWT(); renderMatrix(); updateStrip();
+    if(!S.places.length) msg('info', T('noPlaces'));
+    else if(!S.work_types.length) msg('info', T('noWT'));
+  }catch(e){ msg('err', e.message); }
+}
+load();
+</script>
+</body>
+</html>
