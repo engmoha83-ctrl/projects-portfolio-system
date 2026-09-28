@@ -107,6 +107,67 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
 .diffgrid > div{background:#fff; padding:12px 16px;}
 .diffgrid i{display:block; font-style:normal; font-size:10.5px; color:var(--muted); text-transform:uppercase;}
 .diffgrid b{font-size:20px; font-weight:600; font-variant-numeric:tabular-nums;}
+
+/* ─── لوحة المناطق ─── */
+.crumb{display:flex; align-items:center; gap:4px; font-size:12.5px; padding:8px 16px;
+  border-bottom:1px solid var(--line); flex-wrap:wrap;}
+.crumb a{color:var(--navy); cursor:pointer; text-decoration:none; padding:2px 6px;}
+.crumb a:hover{background:var(--tint);}
+.crumb span.sep{color:var(--muted);}
+.crumb b{padding:2px 6px; background:var(--tint);}
+#canvas{position:relative; height:60vh; min-height:380px; overflow:auto;
+  background:#fff;
+  background-image:radial-gradient(var(--line) 1px, transparent 1px);
+  background-size:22px 22px;}
+#cvIn{position:relative; width:2400px; height:1600px;}
+#wires{position:absolute; inset:0; width:100%; height:100%; pointer-events:none;}
+#wires path{pointer-events:stroke; cursor:pointer;}
+.node{position:absolute; width:176px; background:#fff; border:1px solid var(--line);
+  box-shadow:0 1px 3px rgba(23,32,51,.10); cursor:grab; user-select:none;}
+.node.sel{border-color:var(--navy); box-shadow:0 0 0 2px rgba(31,58,95,.16);}
+.node.drag{cursor:grabbing; opacity:.85;}
+.node header{padding:5px 9px; font-size:10.5px; color:var(--muted); font-weight:600;
+  text-transform:uppercase; letter-spacing:.03em; background:var(--tint);
+  display:flex; justify-content:space-between; gap:6px; align-items:center;}
+.node .nm{padding:6px 7px;}
+.node .nm input{width:100%; border:1px solid transparent; background:transparent;
+  font-size:13px; font-weight:600; padding:2px 3px; color:inherit;}
+.node .nm input:focus{outline:none; border-color:var(--navy); background:#fff;}
+.node header select{border:none; background:transparent; font-size:10px; font-weight:600;
+  color:var(--muted); text-transform:uppercase; padding:0; max-width:86px; cursor:pointer;}
+.node .ncode{width:62px; border:1px solid transparent; background:transparent;
+  font-size:10.5px; font-weight:600; text-align:end; text-transform:uppercase; padding:1px 2px;}
+.node .ncode:focus,.node .nrep:focus{outline:none; border-color:var(--navy); background:#fff;}
+.node .nrep{width:42px; border:1px solid transparent; background:transparent;
+  font-size:11px; padding:1px 2px; color:inherit;}
+.node .mt label{display:inline-flex; align-items:center; gap:2px; color:var(--muted);}
+.node .kids{display:flex; gap:5px;}
+.node .kids .rm{color:var(--danger); background:#FBEDEA;}
+.node .mt{padding:0 9px 7px; font-size:11px; color:var(--muted);
+  display:flex; gap:8px; flex-wrap:wrap;}
+.node .kids{padding:0 9px 7px;}
+.node .kids button{border:none; background:var(--tint); font-size:10.5px; padding:2px 7px;
+  cursor:pointer; color:var(--navy); font-weight:600;}
+.node .port{position:absolute; inset-inline-end:-7px; top:50%; transform:translateY(-50%);
+  width:14px; height:14px; background:var(--navy); cursor:crosshair; border:2px solid #fff;}
+.node .port:hover{background:var(--gold);}
+.linklbl{font-size:10px; font-weight:600; fill:var(--navy); paint-order:stroke;
+  stroke:#fff; stroke-width:3px; stroke-linejoin:round;}
+.hintbar{padding:8px 16px; font-size:11.5px; color:var(--muted); background:var(--tint);
+  border-bottom:1px solid var(--line);}
+.pop{position:absolute; z-index:60; background:#fff; border:1px solid var(--line);
+  box-shadow:0 6px 20px rgba(23,32,51,.16); padding:10px; min-width:230px;}
+.pop .row{display:flex; gap:6px; align-items:center; margin-bottom:8px;}
+.pop .row label{font-size:11px; color:var(--muted); min-width:52px;}
+.modal{position:fixed; inset:0; background:rgba(23,32,51,.34); z-index:80;
+  display:flex; align-items:center; justify-content:center;}
+.modal .box{background:#fff; width:min(560px,92vw); max-height:84vh; display:flex;
+  flex-direction:column;}
+.modal header{padding:11px 16px; font-size:13px; font-weight:600;
+  border-bottom:1px solid var(--line); display:flex; align-items:center;}
+.modal .bd{overflow:auto; padding:0;}
+.modal footer{padding:10px 16px; border-top:1px solid var(--line);
+  display:flex; gap:8px; justify-content:flex-end;}
 </style>
 </head>
 <body>
@@ -151,19 +212,31 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
   <!-- ─── الأماكن ─── -->
   <section class="panel on" id="p-places">
     <div class="card">
-      <h2><span data-i18n="hPlaces">Place tree</span>
-        <span class="hint" data-i18n="hPlacesHint">The structure the schedule is generated from</span>
+      <h2><span data-i18n="hPlaces">Project breakdown</span>
+        <span class="hint" data-i18n="hPlacesHint">Drag the boxes, draw the arrows</span>
         <span class="spacer"></span>
-        <button class="btn sm" id="addPlace" data-i18n="addRow">+ Row</button></h2>
-      <p class="note" data-i18n="nPlaces">Each node carries its own level, so the tree need not be regular. A repeated floor is declared once with a count; the system creates the separate nodes immediately, because floor 17 is eventually different and needs somewhere to differ.</p>
-      <div style="overflow:auto; max-height:58vh;">
+        <div class="seg" id="viewSeg">
+          <button data-v="map" class="on" data-i18n="vMap">Map</button>
+          <button data-v="tbl" data-i18n="vTable">Table</button>
+        </div>
+        <button class="btn sm" id="btnLevels" data-i18n="bLevels">Levels…</button>
+        <button class="btn sm" id="addPlace" data-i18n="addPlace">+ Place</button></h2>
+
+      <div class="crumb" id="crumb"></div>
+
+      <div id="vMap">
+        <div class="hintbar" data-i18n="mapHint">Drag a box to move it. Drag from the square on its edge onto another box to say that one follows the other. Click an arrow to set the relationship, a lag, or to make the two run in parallel. Double-click a box to open what is inside it.</div>
+        <div id="canvas"><div id="cvIn"><svg id="wires"></svg></div></div>
+      </div>
+
+      <div id="vTbl" hidden style="overflow:auto; max-height:58vh;">
         <table id="tPlaces"><thead><tr>
-          <th style="width:34%" data-i18n="cName">Name</th>
-          <th style="width:12%" data-i18n="cLevel">Level</th>
+          <th style="width:32%" data-i18n="cName">Name</th>
+          <th style="width:13%" data-i18n="cLevel">Level</th>
           <th style="width:12%" data-i18n="cCode">Code</th>
           <th style="width:9%"  data-i18n="cSeq">Order</th>
           <th style="width:9%"  data-i18n="cRepeat">Repeat</th>
-          <th style="width:16%" data-i18n="cParent">Under</th>
+          <th style="width:17%" data-i18n="cParent">Under</th>
           <th style="width:8%"></th>
         </tr></thead><tbody></tbody></table>
       </div>
@@ -184,6 +257,7 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
           <th style="width:26%" data-i18n="cNameEn">Name</th>
           <th style="width:22%" data-i18n="cNameAr">Arabic name</th>
           <th style="width:10%" data-i18n="cDisc">Discipline</th>
+          <th style="width:16%" data-i18n="cCSI">CSI division</th>
           <th style="width:9%"  data-i18n="cDays">Days</th>
           <th style="width:17%" data-i18n="cApplies">Applies to</th>
           <th style="width:6%"></th>
@@ -262,13 +336,13 @@ const $  = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const LEVELS = ['zone','building','floor','corridor','unit','room'];
+/* المستويات تأتي من قاعدة البيانات: قائمة يضيف إليها المستخدم ويحذف منها.
+   كانت ستّة أسماء مكتوبة هنا، فمشروعٌ فيه «جناح» أو «مرحلة» لا يُعبَّر عنه. */
+let LEVELS = [];
+let LEVEL_LABEL = {};
+let CSI = [];
 const SCOPES = ['same','next','prev','parent','children'];
 const RELS = ['FS','SS','FF','SF'];
-const LEVEL_LABEL = {
-  zone:['Zone','منطقة'], building:['Building','مبنى'], floor:['Floor','دور'],
-  corridor:['Corridor','ممرّ'], unit:['Unit','وحدة'], room:['Room','غرفة']};
-
 const I18N = {
   title:['Generator','المولّد'], sub:['Schedule generator','مولّد البرامج الزمنية'],
   back:['Back to schedule','العودة إلى البرنامج'],
@@ -319,6 +393,24 @@ const I18N = {
   orphan:['Some generated activities have no logic attached. They appear as open ends in the schedule.',
           'بعض الأنشطة المتولّدة بلا منطق يربطها، وتظهر أطرافًا مفتوحة في البرنامج.'],
   manual:['manual','يدوية'], derived:['derived','مشتقّة'],
+  vMap:['Map','الخريطة'], vTable:['Table','جدول'],
+  bLevels:['Levels…','المستويات…'], addPlace:['+ Place','+ مكان'],
+  hPlacesHint:['Drag the boxes, draw the arrows','اسحب المربّعات وارسم الأسهم'],
+  mapHint:['Drag a box to move it. Drag from the square on its edge onto another box to say that one follows the other. Click an arrow to set the relationship, a lag, or to make the two run in parallel. Double-click a box to open what is inside it.',
+           'اسحب المربّع لتحرّكه. واسحب من المربّع الصغير على حافّته إلى مربّع آخر لتقول إنّ الثاني يتبع الأوّل. واضغط السهم لتحدّد نوع العلاقة أو تخلُّفها أو لتجعل الاثنين يمشيان بالتوازي. وبالضغط المزدوج على المربّع تفتح ما بداخله.'],
+  hPlaces:['Project breakdown','تقسيم المشروع'],
+  root:['Project','المشروع'], inside:['Open','افتح'],
+  parallel:['In parallel','بالتوازي'], seqRel:['Follows','يتبع'],
+  lagD:['Lag (days)','التخلُّف (يوم)'], relT:['Type','النوع'],
+  delLink:['Remove arrow','احذف السهم'],
+  hLevels:['Breakdown levels','مستويات التقسيم'],
+  nLevels:['These are the levels a project can be broken into. Add what a project needs and remove what it does not — a level still used by a place is kept and named back to you rather than deleted underneath it.',
+           'هذه المستويات التي يُقسَّم إليها المشروع. أضف ما يحتاجه المشروع واحذف ما لا يحتاجه — والمستوى الذي ما زال مستعمَلًا في مكان قائم يبقى ويُذكر لك اسمه بدل أن يُحذف من تحته.'],
+  cLabel:['Label','الاسم'], cLabelAr:['Arabic','بالعربية'], cToken:['Code token','رمز الكود'],
+  cCSI:['CSI division','قسم CSI'],
+  close:['Close','إغلاق'], saveClose:['Save','حفظ'],
+  lvlInUse:['Still used by places, so kept:','ما زال مستعمَلًا في أماكن، فبقي:'],
+  noKids:['Nothing inside yet','لا شيء بداخله بعد'],
   no_places:['No places defined yet — add rows on the Places tab and press Save.',
              'لا أماكن معرَّفة بعد — أضف صفوفًا في تبويب الأماكن ثمّ اضغط «حفظ».'],
   no_work_types:['The work-type catalogue is empty — add rows on the Work types tab.',
@@ -332,6 +424,9 @@ const I18N = {
 let S = {places:[], place_rels:[], work_types:[], scope:[], settings:{},
          generated:0, rules:0, rulesList:null, diff:null};
 let newId = 0;
+let focusId = null;        // العقدة المفتوحة على اللوحة (null = الجذر)
+let view = 'map';
+let wiring = null;         // سحب سهم قيد الرسم
 
 /* ─────────────── أدوات ─────────────── */
 function msg(kind, text){
@@ -415,11 +510,294 @@ $('#tPlaces').addEventListener('click', e => {
 });
 $('#addPlace').onclick = () => {
   const id = 'new' + (++newId);
-  const last = S.places[S.places.length - 1];
-  S.places.push({id, parent:last ? last.parent : null, level:last ? last.level : 'zone',
-                 code:'', name:'', seq:(S.places.length + 1) * 10, repeat:1});
-  renderPlaces(); renderMatrix(); updateStrip();
+  const sibs = kidsOf(focusId);
+  const parent = byId(focusId);
+  /* المستوى التالي لمستوى الأب، فالمربّع الجديد يقع في موضعه من التقسيم */
+  const lvl = sibs.length ? sibs[0].level
+            : (parent ? (LEVELS[Math.min(LEVELS.indexOf(parent.level) + 1,
+                                         LEVELS.length - 1)] || LEVELS[0])
+                      : LEVELS[0]);
+  S.places.push({id, parent:focusId, level:lvl, code:'', name:'',
+                 seq:(sibs.length + 1) * 10, repeat:1,
+                 x:40 + (sibs.length % 4) * 300,
+                 y:40 + Math.floor(sibs.length / 4) * 190});
+  if(view === 'map') renderMap(); else renderPlaces();
+  renderMatrix(); updateStrip();
 };
+
+/* ─────────────── لوحة المناطق ─────────────── */
+/* المكان على اللوحة تنظيمٌ للعين، والسهم وحده هو الإعلان. لا يُستنتَج من
+   تجاور مربّعين شيء: مربّعان متلاصقان قد يكونا بالتوازي أو بالتتابع، ولا
+   يعرف ذلك إلا من رسمه. */
+
+const kidsOf = pid => S.places
+  .filter(p => String(p.parent ?? '') === String(pid ?? ''))
+  .sort((a, b) => (a.seq || 0) - (b.seq || 0));
+const byId = id => S.places.find(p => String(p.id) === String(id));
+
+function renderCrumb(){
+  const chain = [];
+  let cur = focusId;
+  while(cur != null){ const p = byId(cur); if(!p) break; chain.unshift(p); cur = p.parent; }
+  $('#crumb').innerHTML =
+    `<a data-go="">${esc(T('root'))}</a>` +
+    chain.map((p, i) => `<span class="sep">›</span>` +
+      (i === chain.length - 1 ? `<b>${esc(placeLabel(p))}</b>`
+                              : `<a data-go="${p.id}">${esc(placeLabel(p))}</a>`)).join('');
+}
+$('#crumb').addEventListener('click', e => {
+  const a = e.target.closest('[data-go]'); if(!a) return;
+  focusId = a.dataset.go || null;
+  renderMap();
+});
+
+function renderMap(){
+  renderCrumb();
+  const kids = kidsOf(focusId);
+  const box = $('#cvIn');
+  [...box.querySelectorAll('.node')].forEach(n => n.remove());
+  kids.forEach((p, i) => {
+    if(p.x == null || p.y == null){ p.x = 40 + (i % 4) * 300; p.y = 40 + Math.floor(i / 4) * 190; }
+    const n = document.createElement('div');
+    n.className = 'node'; n.dataset.id = p.id;
+    n.style.left = p.x + 'px'; n.style.top = p.y + 'px';
+    const nk = kidsOf(p.id).length;
+    /* يُحرَّر على المربّع نفسه: من يرسم خريطة لا يريد أن يقفز إلى جدول
+       ليكتب اسمًا. */
+    n.innerHTML =
+      `<header>
+         <select data-f="level" title="${esc(T('cLevel'))}">${LEVELS.map(l =>
+           `<option value="${l}"${l === p.level ? ' selected' : ''}>${esc(lvlLabel(l))}</option>`).join('')}</select>
+         <input data-f="code" value="${esc(p.code || '')}" maxlength="10"
+                placeholder="${esc(T('cCode'))}" class="ncode"></header>
+       <div class="nm"><input data-f="name" value="${esc(p.name || '')}"
+            placeholder="${esc(T('cName'))}"></div>
+       <div class="mt"><label>×<input data-f="repeat" type="number" min="1"
+            value="${p.repeat || 1}" class="nrep"></label>
+         ${nk ? `<span>${nk}</span>` : ''}</div>
+       <div class="kids"><button data-in="${p.id}">${nk ? esc(T('inside')) : '+'}</button>
+         <button data-rm="${p.id}" class="rm">${esc(T('del'))}</button></div>
+       <div class="port" data-from="${p.id}"></div>`;
+    box.appendChild(n);
+  });
+  drawWires();
+}
+
+function nodeRect(id){
+  const el = $(`#cvIn .node[data-id="${id}"]`);
+  if(!el) return null;
+  return {x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight};
+}
+
+function drawWires(){
+  const svg = $('#wires');
+  const ids = new Set(kidsOf(focusId).map(p => String(p.id)));
+  const rels = S.place_rels.filter(r => ids.has(String(r.pred)) && ids.has(String(r.succ)));
+  svg.innerHTML =
+    `<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+       markerHeight="7" orient="auto-start-reverse">
+       <path d="M0,0 L10,5 L0,10 z" fill="#1F3A5F"></path></marker></defs>` +
+    rels.map((r, i) => {
+      const a = nodeRect(r.pred), b = nodeRect(r.succ);
+      if(!a || !b) return '';
+      const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2;
+      const mx = (x1 + x2) / 2;
+      const par = r.mode === 'parallel';
+      const lbl = par ? T('parallel')
+        : (r.rel_type || 'FS') + (Number(r.lag_days) ? (Number(r.lag_days) > 0 ? '+' : '') + r.lag_days : '');
+      return `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}"
+                fill="none" stroke="${par ? '#C8A165' : '#1F3A5F'}" stroke-width="2"
+                stroke-dasharray="${par ? '6 4' : ''}"
+                ${par ? '' : 'marker-end="url(#ar)"'} data-rel="${i}"></path>
+              <text class="linklbl" x="${mx}" y="${(y1 + y2) / 2 - 6}"
+                text-anchor="middle" data-rel="${i}">${esc(lbl)}</text>`;
+    }).join('');
+  svg._rels = rels;
+}
+
+/* تحرير الحقول على المربّع */
+$('#cvIn').addEventListener('input', e => {
+  const n = e.target.closest('.node'); if(!n) return;
+  const p = byId(n.dataset.id); if(!p) return;
+  const f = e.target.dataset.f; if(!f) return;
+  p[f] = (f === 'repeat') ? Math.max(1, Number(e.target.value) || 1)
+       : (f === 'code') ? e.target.value.toUpperCase() : e.target.value;
+  if(f === 'level'){ renderMap(); renderMatrix(); }
+  if(f === 'repeat') updateStrip();
+});
+$('#cvIn').addEventListener('click', e => {
+  const b = e.target.closest('[data-rm]'); if(!b) return;
+  const id = b.dataset.rm;
+  S.places = S.places.filter(x => String(x.id) !== String(id));
+  S.places.forEach(x => { if(String(x.parent) === String(id)) x.parent = null; });
+  S.place_rels = S.place_rels.filter(r => String(r.pred) !== String(id)
+                                       && String(r.succ) !== String(id));
+  renderMap(); renderMatrix(); updateStrip();
+});
+
+/* سحب المربّع */
+let dragN = null;
+$('#cvIn').addEventListener('mousedown', e => {
+  const port = e.target.closest('.port');
+  if(port){
+    wiring = {from: port.dataset.from};
+    e.preventDefault();
+    return;
+  }
+  const n = e.target.closest('.node');
+  if(!n || e.target.closest('button, input, select')) return;
+  const p = byId(n.dataset.id); if(!p) return;
+  dragN = {el:n, p, dx: e.clientX - n.offsetLeft, dy: e.clientY - n.offsetTop};
+  n.classList.add('drag');
+});
+document.addEventListener('mousemove', e => {
+  if(!dragN) return;
+  const x = Math.max(0, e.clientX - dragN.dx), y = Math.max(0, e.clientY - dragN.dy);
+  dragN.el.style.left = x + 'px'; dragN.el.style.top = y + 'px';
+  dragN.p.x = x; dragN.p.y = y;
+  drawWires();
+});
+document.addEventListener('mouseup', e => {
+  if(dragN){ dragN.el.classList.remove('drag'); dragN = null; }
+  if(wiring){
+    const n = e.target.closest('.node');
+    if(n && String(n.dataset.id) !== String(wiring.from)){
+      const pred = wiring.from, succ = n.dataset.id;
+      const dup = S.place_rels.some(r => String(r.pred) === String(pred)
+                                      && String(r.succ) === String(succ));
+      if(!dup) S.place_rels.push({pred, succ, mode:'sequential', rel_type:'FS', lag_days:0});
+      drawWires();
+    }
+    wiring = null;
+  }
+});
+
+/* فتح ما بداخل المربّع */
+$('#cvIn').addEventListener('click', e => {
+  const b = e.target.closest('[data-in]'); if(!b) return;
+  focusId = b.dataset.in; renderMap();
+});
+$('#cvIn').addEventListener('dblclick', e => {
+  const n = e.target.closest('.node'); if(!n) return;
+  focusId = n.dataset.id; renderMap();
+});
+
+/* تحرير السهم */
+$('#wires').addEventListener('click', e => {
+  const t = e.target.closest('[data-rel]'); if(!t) return;
+  const rels = $('#wires')._rels || [];
+  const r = rels[Number(t.dataset.rel)]; if(!r) return;
+  openLinkPop(r, e.pageX, e.pageY);
+});
+function openLinkPop(r, px, py){
+  closePop();
+  const d = document.createElement('div');
+  d.className = 'pop'; d.id = 'linkPop';
+  d.style.left = (px - 110) + 'px'; d.style.top = (py + 8) + 'px';
+  d.innerHTML = `
+    <div class="row"><label>${esc(T('relT'))}</label>
+      <select class="fld" id="lpMode" style="flex:1">
+        <option value="sequential"${r.mode !== 'parallel' ? ' selected' : ''}>${esc(T('seqRel'))}</option>
+        <option value="parallel"${r.mode === 'parallel' ? ' selected' : ''}>${esc(T('parallel'))}</option>
+      </select></div>
+    <div class="row" id="lpSeq"><label></label>
+      <select class="fld" id="lpType" style="flex:1">${RELS.map(x =>
+        `<option${x === (r.rel_type || 'FS') ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
+    <div class="row" id="lpLagRow"><label>${esc(T('lagD'))}</label>
+      <input class="fld" id="lpLag" type="number" step="0.5" value="${r.lag_days || 0}" style="flex:1"></div>
+    <div class="row" style="justify-content:space-between; margin:0">
+      <button class="btn sm danger" id="lpDel">${esc(T('delLink'))}</button>
+      <button class="btn sm" id="lpOk">${esc(T('close'))}</button></div>`;
+  document.body.appendChild(d);
+  const sync = () => {
+    const par = $('#lpMode').value === 'parallel';
+    $('#lpSeq').hidden = par; $('#lpLagRow').hidden = par;
+  };
+  sync();
+  $('#lpMode').onchange = () => { r.mode = $('#lpMode').value; sync(); drawWires(); };
+  $('#lpType').onchange = () => { r.rel_type = $('#lpType').value; drawWires(); };
+  $('#lpLag').oninput  = () => { r.lag_days = Number($('#lpLag').value); drawWires(); };
+  $('#lpDel').onclick = () => {
+    S.place_rels = S.place_rels.filter(x => x !== r); closePop(); drawWires();
+  };
+  $('#lpOk').onclick = closePop;
+}
+function closePop(){ const e = $('#linkPop'); if(e) e.remove(); }
+
+/* تبديل العرض */
+$('#viewSeg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if(!b) return;
+  view = b.dataset.v;
+  document.querySelectorAll('#viewSeg button').forEach(x => x.classList.toggle('on', x === b));
+  $('#vMap').hidden = view !== 'map';
+  $('#vTbl').hidden = view !== 'tbl';
+  if(view === 'map') renderMap(); else renderPlaces();
+});
+
+/* ─────────────── محرّر المستويات ─────────────── */
+$('#btnLevels').onclick = () => {
+  const rows = LEVELS.map(k => ({key:k, ...LEVEL_META[k]}));
+  const m = document.createElement('div');
+  m.className = 'modal'; m.id = 'lvlModal';
+  m.innerHTML = `<div class="box">
+    <header>${esc(T('hLevels'))}<span class="spacer" style="flex:1"></span>
+      <button class="btn sm" id="lvAdd">${esc(T('addRow'))}</button></header>
+    <div class="bd">
+      <p class="note">${esc(T('nLevels'))}</p>
+      <table id="lvT"><thead><tr>
+        <th data-x>${esc(T('cLabel'))}</th><th>${esc(T('cLabelAr'))}</th>
+        <th style="width:26%">${esc(T('cToken'))}</th><th style="width:70px"></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <footer><button class="btn" id="lvX">${esc(T('close'))}</button>
+      <button class="btn primary" id="lvOk">${esc(T('saveClose'))}</button></footer></div>`;
+  document.body.appendChild(m);
+  const draw = () => {
+    m.querySelector('#lvT tbody').innerHTML = rows.map((r, i) => `<tr data-i="${i}">
+      <td><input data-f="label" value="${esc(r.label || '')}"></td>
+      <td><input data-f="label_ar" value="${esc(r.label_ar || '')}" dir="rtl"></td>
+      <td><input data-f="token" value="${esc(r.token || '')}" style="text-transform:uppercase"></td>
+      <td><button class="btn sm danger" data-del="1">${esc(T('del'))}</button></td></tr>`).join('');
+  };
+  draw();
+  m.querySelector('#lvT').addEventListener('input', e => {
+    const tr = e.target.closest('tr'); if(!tr) return;
+    rows[Number(tr.dataset.i)][e.target.dataset.f] = e.target.value;
+  });
+  m.querySelector('#lvT').addEventListener('click', e => {
+    if(!e.target.dataset.del) return;
+    rows.splice(Number(e.target.closest('tr').dataset.i), 1); draw();
+  });
+  m.querySelector('#lvAdd').onclick = () => {
+    rows.push({key:'', label:'', label_ar:'', token:''}); draw();
+  };
+  m.querySelector('#lvX').onclick = () => m.remove();
+  m.querySelector('#lvOk').onclick = async () => {
+    try{
+      const j = await api('/api/gen/levels', {method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({levels:rows.map((r, i) => ({...r, seq:(i + 1) * 10}))})});
+      m.remove();
+      await loadLevels();
+      renderPlaces(); renderWT(); renderMatrix(); renderMap();
+      if((j.in_use || []).length) msg('warn', T('lvlInUse') + ' ' + j.in_use.join('، '));
+      else msg('ok', T('savedOk'));
+    }catch(err){ msg('err', err.message); }
+  };
+};
+
+let LEVEL_META = {};
+async function loadLevels(){
+  const j = await api('/api/gen/levels');
+  LEVELS = (j.levels || []).map(l => l.key);
+  LEVEL_META = {};
+  LEVEL_LABEL = {};
+  (j.levels || []).forEach(l => {
+    LEVEL_META[l.key] = l;
+    LEVEL_LABEL[l.key] = [l.label, l.label_ar || l.label];
+  });
+  CSI = j.csi || [];
+}
 
 /* ─────────────── أنواع الأعمال ─────────────── */
 function renderWT(){
@@ -428,6 +806,8 @@ function renderWT(){
     <td><input data-f="name" value="${esc(w.name || '')}"></td>
     <td><input data-f="name_ar" value="${esc(w.name_ar || '')}" dir="rtl"></td>
     <td><input data-f="discipline" value="${esc(w.discipline || '')}" maxlength="6" style="text-transform:uppercase"></td>
+    <td><select data-f="csi_division"><option value=""></option>${CSI.map(c =>
+        `<option value="${esc(c.division)}"${c.division === w.csi_division ? ' selected' : ''}>${esc(c.division)} · ${esc(en() ? c.name : (c.name_ar || c.name))}</option>`).join('')}</select></td>
     <td><input data-f="days" type="number" min="0" step="0.5" value="${w.days ?? 1}"></td>
     <td><div class="tcell lvlpick">${LEVELS.map(l =>
         `<label class="inl" style="margin:0; gap:3px; font-size:10.5px">
@@ -447,6 +827,7 @@ $('#tWT').addEventListener('input', e => {
     return;
   }
   const f = e.target.dataset.f;
+  if(f === 'csi_division'){ w.csi_division = e.target.value; return; }
   w[f] = f === 'days' ? Number(e.target.value)
        : (f === 'code' || f === 'discipline') ? e.target.value.toUpperCase()
        : e.target.value;
@@ -579,7 +960,8 @@ async function save(){
                            id_pattern:$('#idPattern').value})});
     const j = await api(`/api/gen/${SID}/places`, {method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({places:collect(), place_rels:S.place_rels})});
+      body:JSON.stringify({places:collect().map(p => ({...p, x:p.x, y:p.y})),
+                           place_rels:S.place_rels})});
     // المعرّفات الجديدة تُستبدل بالحقيقية حتى يشير الانطباق إليها
     Object.entries(j.ids || {}).forEach(([tmp, real]) => {
       S.places.forEach(p => {
@@ -587,6 +969,11 @@ async function save(){
         if(String(p.parent) === tmp) p.parent = real;
       });
       S.scope.forEach(s => { if(String(s.place) === tmp) s.place = real; });
+      S.place_rels.forEach(r => {
+        if(String(r.pred) === tmp) r.pred = real;
+        if(String(r.succ) === tmp) r.succ = real;
+      });
+      if(String(focusId) === tmp) focusId = real;
     });
     await api('/api/gen/work-types', {method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -598,7 +985,7 @@ async function save(){
       await api('/api/gen/rules', {method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({rules:S.rulesList.filter(r => (r.origin || '') !== 'مشتقّة')})});
-    renderPlaces(); renderMatrix();
+    renderPlaces(); renderMatrix(); renderMap();
     msg('ok', T('savedOk'));
   }catch(e){
     /* لا تمضِ إلى التوليد على بيانات لم تُحفظ: الخطأ الحقيقي هنا، وابتلاعه
@@ -682,6 +1069,7 @@ function updateStrip(){
 async function load(){
   $('#msg').innerHTML = '<div class="card"><div class="sk"></div><div class="sk" style="width:60%"></div></div>';
   try{
+    await loadLevels();          // قبل أيّ رسم: القوائم كلّها تُبنى منها
     const j = await api(`/api/gen/${SID}/definition`);
     S.places = j.places || []; S.place_rels = j.place_rels || [];
     S.work_types = j.work_types || []; S.scope = j.scope || [];
@@ -689,7 +1077,7 @@ async function load(){
     $('#prjCode').value = S.settings.project_code || '';
     $('#idPattern').value = S.settings.id_pattern || '';
     msg('', '');
-    renderPlaces(); renderWT(); renderMatrix();
+    renderPlaces(); renderWT(); renderMatrix(); renderMap();
     try{ await loadRules(true); S.rules = (S.rulesList || []).length; }catch(e){}
     updateStrip();
     if(!S.places.length) msg('info', T('noPlaces'));

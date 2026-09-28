@@ -33,13 +33,16 @@ class Place:
     """عقدة في شجرة الأماكن. تحمل نوع مستواها بنفسها، فالشجرة لا تُلزَم بانتظام."""
 
     __slots__ = ("id", "parent", "level", "code", "name", "seq",
-                 "repeat", "repeat_pattern", "_children")
+                 "repeat", "repeat_pattern", "token", "x", "y", "_children")
 
     def __init__(self, id, level, code, name="", parent=None, seq=0,
-                 repeat=1, repeat_pattern="{code}{n:02d}"):
+                 repeat=1, repeat_pattern="{code}{n:02d}", token=None,
+                 x=None, y=None):
         self.id, self.parent, self.level = id, parent, level
         self.code, self.name, self.seq = code, name or code, seq
         self.repeat, self.repeat_pattern = repeat, repeat_pattern
+        self.token = (token or level or "").upper()
+        self.x, self.y = x, y
         self._children = []
 
     def __repr__(self):
@@ -124,8 +127,17 @@ class PlaceTree:
     def __init__(self, places=()):
         self.nodes = {}
         self.parallel = set()        # أزواج تمشي معًا فلا رابط بينها
+        # الروابط المرسومة صراحةً بين الأماكن: ‎{sid: [(succ, type, lag)]}‎.
+        # وهي **مصدر الحقيقة** للتسلسل حين تُوجد؛ وترتيب الأشقّاء بديلٌ
+        # يُلجأ إليه حين لا يُرسم شيء، لا العكس.
+        self.links = {}
+        self.back = {}
         for p in places:
             self.add(p)
+
+    def link_places(self, pred, succ, rel_type="FS", lag=0.0):
+        self.links.setdefault(pred, []).append((succ, rel_type, float(lag)))
+        self.back.setdefault(succ, []).append((pred, rel_type, float(lag)))
 
     def add(self, place):
         self.nodes[place.id] = place
@@ -155,7 +167,7 @@ class PlaceTree:
                         key=lambda x: (_depth(x, self.nodes), x.seq)):
             if p.repeat <= 1:
                 q = Place(p.id, p.level, p.code, p.name, p.parent,
-                          seq=p.seq * STEP)
+                          seq=p.seq * STEP, token=p.token, x=p.x, y=p.y)
                 out[p.id] = q
                 continue
             for n in range(1, p.repeat + 1):
@@ -163,10 +175,19 @@ class PlaceTree:
                 nid = f"{p.id}#{n}"
                 out[nid] = Place(nid, p.level, code,
                                  name=f"{p.name} {n}", parent=p.parent,
-                                 seq=p.seq * STEP + n)
+                                 seq=p.seq * STEP + n, token=p.token,
+                                 x=p.x, y=p.y)
         tree = PlaceTree()
         tree.nodes = out
         tree.parallel = set(self.parallel)
+        # الروابط تُنقل، ورابطُ عقدةٍ متكرّرة يسري على نسخها كلّها
+        for pred, lst in self.links.items():
+            preds = [k for k in out if k == pred or k.startswith(pred + "#")]
+            for succ, t, lag in lst:
+                succs = [k for k in out if k == succ or k.startswith(succ + "#")]
+                for a in preds:
+                    for b in succs:
+                        tree.link_places(a, b, t, lag)
         tree._index()
         return tree
 
@@ -189,20 +210,33 @@ class PlaceTree:
         sib = [i for i in ids if self.nodes[i].level == p.level]
         return sorted(sib, key=lambda i: self.nodes[i].seq)
 
-    def neighbour(self, pid, step):
-        """المكان التالي (‎+1‎) أو السابق (‎-1‎) في السلسلة، أو ‎None‎."""
+    def neighbours(self, pid, step):
+        """
+        الأماكن التالية (‎+1‎) أو السابقة (‎-1‎).
+
+        السهم المرسوم على اللوحة يسبق كلّ شيء: إن وُجد رابطٌ صريح من هذا
+        المكان فهو الجواب، ومنطقةٌ تغذّي منطقتين تعطي اثنتين لا واحدة.
+        وحين لا يُرسم شيء يُقرأ ترتيب الأشقّاء، فلا يبقى التعريف معطّلًا
+        إلى أن تُرسم كلّ الأسهم.
+        """
+        table = self.links if step > 0 else self.back
+        if pid in table:
+            return [t for t, _rt, _lag in table[pid]
+                    if (pid, t) not in self.parallel]
         sib = self.siblings(pid)
         try:
             i = sib.index(pid)
         except ValueError:
-            return None
+            return []
         j = i + step
         if not 0 <= j < len(sib):
-            return None
+            return []
         other = sib[j]
-        if (pid, other) in self.parallel:
-            return None
-        return other
+        return [] if (pid, other) in self.parallel else [other]
+
+    def neighbour(self, pid, step):
+        n = self.neighbours(pid, step)
+        return n[0] if n else None
 
     def children_of(self, pid):
         return list(self.nodes[pid]._children)
@@ -264,7 +298,8 @@ def make_code(pattern, place, work_type, tree, project="", seq=1, sep="-"):
     كميّاتها — على شاكلة ‎{PRJ}-{ZONE}-{DISC}-{WT}-{NNN}‎، وعدد رموزه يختلف:
     المباني بلا رمز منطقة. فالرمز الفارغ **يُحذف** ولا يترك فاصلين متتاليين.
     """
-    by_level = {a.level.upper(): a.code for a in tree.ancestry(place.id)}
+    by_level = {(a.token or a.level).upper(): a.code
+                for a in tree.ancestry(place.id)}
     vals = dict(by_level)
     vals["PRJ"] = project
     vals["DISC"] = work_type.discipline
@@ -375,11 +410,9 @@ def _targets(tree, pid, scope):
     if scope == SAME:
         return [pid]
     if scope == NEXT:
-        n = tree.neighbour(pid, +1)
-        return [n] if n else []
+        return tree.neighbours(pid, +1)
     if scope == PREV:
-        n = tree.neighbour(pid, -1)
-        return [n] if n else []
+        return tree.neighbours(pid, -1)
     if scope == PARENT:
         p = tree.nodes[pid].parent
         return [p] if p and p in tree.nodes else []

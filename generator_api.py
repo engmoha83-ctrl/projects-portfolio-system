@@ -70,6 +70,59 @@ def _fail(e):
                          "trace": traceback.format_exc()[-800:]}, status_code=500)
 
 
+# ─────────── مستويات التقسيم الافتراضية ───────────
+# بذرةٌ تُزرع مرّة، والقائمة بعدها ملكُ المستخدم يضيف ويحذف.
+# ‎token‎ هو رمزها في نمط كود النشاط.
+DEFAULT_LEVELS = [
+    ("zone", "Zone", "منطقة", "ZONE", 10),
+    ("building", "Building", "مبنى", "BUILDING", 20),
+    ("floor", "Floor", "دور", "FLOOR", 30),
+    ("corridor", "Corridor", "ممرّ", "CORRIDOR", 40),
+    ("unit", "Unit", "وحدة", "UNIT", 50),
+    ("room", "Room", "غرفة", "ROOM", 60),
+]
+
+# ─────────── أقسام MasterFormat ───────────
+# معياريّة وثابتة لكلّ المشاريع: تُقرأ ولا تُحرَّر، ومنها يُختار تخصّص
+# نوع العمل. وثباتها هو ما يجعل كتالوج الأعمال مقارَنًا بين المشاريع.
+CSI_DIVISIONS = [
+    ("00", "Procurement and Contracting Requirements", "متطلّبات التعاقد", 0),
+    ("01", "General Requirements", "المتطلّبات العامّة", 1),
+    ("02", "Existing Conditions", "الأوضاع القائمة", 2),
+    ("03", "Concrete", "الخرسانة", 3),
+    ("04", "Masonry", "أعمال المباني", 4),
+    ("05", "Metals", "المعادن", 5),
+    ("06", "Wood, Plastics, and Composites", "الأخشاب واللدائن", 6),
+    ("07", "Thermal and Moisture Protection", "العزل الحراري والمائي", 7),
+    ("08", "Openings", "الفتحات والأبواب والشبابيك", 8),
+    ("09", "Finishes", "التشطيبات", 9),
+    ("10", "Specialties", "التجهيزات الخاصّة", 10),
+    ("11", "Equipment", "المعدّات", 11),
+    ("12", "Furnishings", "المفروشات", 12),
+    ("13", "Special Construction", "الإنشاءات الخاصّة", 13),
+    ("14", "Conveying Equipment", "معدّات النقل والمصاعد", 14),
+    ("21", "Fire Suppression", "مكافحة الحريق", 21),
+    ("22", "Plumbing", "أعمال السباكة", 22),
+    ("23", "Heating, Ventilating, and Air Conditioning", "التكييف والتهوية", 23),
+    ("25", "Integrated Automation", "الأتمتة المتكاملة", 25),
+    ("26", "Electrical", "الأعمال الكهربائية", 26),
+    ("27", "Communications", "الاتّصالات", 27),
+    ("28", "Electronic Safety and Security", "الأمن والسلامة", 28),
+    ("31", "Earthwork", "الأعمال الترابية", 31),
+    ("32", "Exterior Improvements", "الأعمال الخارجية والتنسيق", 32),
+    ("33", "Utilities", "المرافق والبنية التحتية", 33),
+    ("34", "Transportation", "أعمال النقل", 34),
+    ("35", "Waterway and Marine Construction", "الأعمال البحرية", 35),
+    ("40", "Process Interconnections", "الوصلات الصناعية", 40),
+    ("41", "Material Processing and Handling Equipment", "معدّات المناولة", 41),
+    ("42", "Process Heating, Cooling, and Drying Equipment", "معدّات التسخين والتبريد", 42),
+    ("43", "Process Gas and Liquid Handling", "معالجة الغازات والسوائل", 43),
+    ("44", "Pollution and Waste Control Equipment", "معدّات معالجة المخلّفات", 44),
+    ("46", "Water and Wastewater Equipment", "معدّات المياه والصرف", 46),
+    ("48", "Electrical Power Generation", "توليد الطاقة الكهربائية", 48),
+]
+
+
 # ═══════════════════════════ الجداول ═══════════════════════════
 
 def ensure_schema(cur):
@@ -90,6 +143,7 @@ def ensure_schema(cur):
                        name TEXT NOT NULL,
                        name_ar TEXT,
                        discipline TEXT,
+                       csi_division TEXT,
                        unit TEXT,
                        default_days NUMERIC DEFAULT 1,
                        productivity NUMERIC,
@@ -145,6 +199,34 @@ def ensure_schema(cur):
     cur.execute("""CREATE INDEX IF NOT EXISTS gen_evidence_pair
                    ON gen_lib_logic_evidence (pred_wt, succ_wt, scope)""")
 
+    # مستويات التقسيم — قائمة تُضاف ويُحذف منها، لا ثوابت في الكود.
+    # مشروعٌ يقسَّم إلى أجنحة ومراحل، وآخر إلى فلل وقطع أراضٍ، وحصرُها في
+    # ستّة أسماء مكتوبة داخل الصفحة يجعل نصف المشاريع لا تُعبَّر عنها.
+    cur.execute("""CREATE TABLE IF NOT EXISTS gen_lib_levels (
+                       id SERIAL PRIMARY KEY,
+                       key TEXT UNIQUE NOT NULL,
+                       label TEXT NOT NULL,
+                       label_ar TEXT,
+                       token TEXT,
+                       seq INTEGER DEFAULT 0,
+                       active BOOLEAN DEFAULT TRUE)""")
+
+    # أقسام MasterFormat — معياريّة ثابتة لكلّ المشاريع، تُزرع مرّة.
+    cur.execute("""CREATE TABLE IF NOT EXISTS gen_lib_csi (
+                       division TEXT PRIMARY KEY,
+                       name TEXT NOT NULL,
+                       name_ar TEXT,
+                       seq INTEGER DEFAULT 0)""")
+
+    cur.execute("SELECT COUNT(*) FROM gen_lib_levels")
+    if not cur.fetchone()[0]:
+        _batch(cur, "INSERT INTO gen_lib_levels (key,label,label_ar,token,seq) "
+                    "VALUES %s ON CONFLICT (key) DO NOTHING", DEFAULT_LEVELS)
+    cur.execute("SELECT COUNT(*) FROM gen_lib_csi")
+    if not cur.fetchone()[0]:
+        _batch(cur, "INSERT INTO gen_lib_csi (division,name,name_ar,seq) "
+                    "VALUES %s ON CONFLICT (division) DO NOTHING", CSI_DIVISIONS)
+
     # ---- تعريف المشروع ----
     cur.execute("""CREATE TABLE IF NOT EXISTS gen_places (
                        id SERIAL PRIMARY KEY,
@@ -156,7 +238,10 @@ def ensure_schema(cur):
                        name TEXT,
                        seq INTEGER DEFAULT 0,
                        repeat_count INTEGER DEFAULT 1,
-                       repeat_pattern TEXT DEFAULT '{code}{n:02d}')""")
+                       repeat_pattern TEXT DEFAULT '{code}{n:02d}',
+                       pos_x NUMERIC, pos_y NUMERIC)""")
+    for col, ddl in (("pos_x", "NUMERIC"), ("pos_y", "NUMERIC")):
+        cur.execute(f"ALTER TABLE gen_places ADD COLUMN IF NOT EXISTS {col} {ddl}")
     cur.execute("""CREATE INDEX IF NOT EXISTS gen_places_sched
                    ON gen_places (schedule_id, parent_id, seq)""")
 
@@ -171,6 +256,8 @@ def ensure_schema(cur):
                        mode TEXT NOT NULL DEFAULT 'sequential',
                        rel_type TEXT DEFAULT 'FS',
                        lag_days NUMERIC DEFAULT 0)""")
+    cur.execute("""CREATE INDEX IF NOT EXISTS gen_place_rels_sched
+                   ON gen_place_rels (schedule_id)""")
 
     cur.execute("""CREATE TABLE IF NOT EXISTS gen_scope (
                        id SERIAL PRIMARY KEY,
@@ -195,6 +282,8 @@ def ensure_schema(cur):
 
     # أعمدة المولّد على جدول الأنشطة القائم. تُضاف بـALTER محميّ لأنّ الجدول
     # يُنشأ تلقائيًّا وقد امتلأ قبل وجود المولّد.
+    cur.execute("ALTER TABLE gen_lib_work_types "
+                "ADD COLUMN IF NOT EXISTS csi_division TEXT")
     for col, ddl in (
             ("gen_key", "TEXT"),
             ("overridden", "JSONB NOT NULL DEFAULT '[]'::jsonb"),
@@ -217,22 +306,33 @@ def ensure_schema(cur):
 
 def load_definition(cur, sched_id):
     """يقرأ تعريف المشروع ويبنيه شجرةً وكتالوجًا وقواعد."""
-    cur.execute("""SELECT id, parent_id, level_key, code, name, seq,
-                          repeat_count, repeat_pattern
-                   FROM gen_places WHERE schedule_id=%s ORDER BY seq, id""",
+    cur.execute("""SELECT p.id, p.parent_id, p.level_key, p.code, p.name, p.seq,
+                          p.repeat_count, p.repeat_pattern,
+                          COALESCE(l.token, UPPER(p.level_key))
+                   FROM gen_places p
+                   LEFT JOIN gen_lib_levels l ON l.key = p.level_key
+                   WHERE p.schedule_id=%s ORDER BY p.seq, p.id""",
                 (sched_id,))
     tree = G.PlaceTree()
     for r in cur.fetchall():
         tree.add(G.Place(str(r[0]), r[2], r[3], r[4] or r[3],
                          parent=str(r[1]) if r[1] else None, seq=r[5] or 0,
                          repeat=max(1, r[6] or 1),
-                         repeat_pattern=r[7] or "{code}{n:02d}"))
+                         repeat_pattern=r[7] or "{code}{n:02d}",
+                         token=r[8]))
 
-    cur.execute("""SELECT pred_place, succ_place, mode FROM gen_place_rels
-                   WHERE schedule_id=%s""", (sched_id,))
-    for pred, succ, mode in cur.fetchall():
-        if mode == "parallel" and pred and succ:
-            tree.mark_parallel(str(pred), str(succ))
+    # الأسهم المرسومة على اللوحة: «بالتوازي» تقطع الرابط، وغيرها تصنع
+    # سلسلة التسلسل التي يقرأ منها ‎next/prev‎.
+    cur.execute("""SELECT pred_place, succ_place, mode, rel_type, lag_days
+                   FROM gen_place_rels WHERE schedule_id=%s""", (sched_id,))
+    for pred, succ, mode, rt, lag in cur.fetchall():
+        if not pred or not succ:
+            continue
+        a, b = str(pred), str(succ)
+        if mode == "parallel":
+            tree.mark_parallel(a, b)
+        else:
+            tree.link_places(a, b, (rt or "FS").upper(), float(lag or 0))
 
     cur.execute("""SELECT work_type, level_key, place_id, mode
                    FROM gen_scope WHERE schedule_id=%s""", (sched_id,))
@@ -564,26 +664,28 @@ async def get_definition(sched_id: int, request: Request):
         conn = _get_conn()
         with conn, conn.cursor() as cur:
             cur.execute("""SELECT id, parent_id, level_key, code, name, seq,
-                                  repeat_count, repeat_pattern
+                                  repeat_count, repeat_pattern, pos_x, pos_y
                            FROM gen_places WHERE schedule_id=%s
                            ORDER BY seq, id""", (sched_id,))
             places = [{"id": r[0], "parent": r[1], "level": r[2], "code": r[3],
                        "name": r[4], "seq": r[5], "repeat": r[6] or 1,
-                       "pattern": r[7]} for r in cur.fetchall()]
+                       "pattern": r[7], "x": _plain(r[8]), "y": _plain(r[9])}
+                      for r in cur.fetchall()]
 
-            cur.execute("""SELECT pred_place, succ_place, mode
+            cur.execute("""SELECT pred_place, succ_place, mode, rel_type, lag_days
                            FROM gen_place_rels WHERE schedule_id=%s""",
                         (sched_id,))
-            prels = [{"pred": r[0], "succ": r[1], "mode": r[2]}
+            prels = [{"pred": r[0], "succ": r[1], "mode": r[2],
+                      "rel_type": r[3] or "FS", "lag_days": _plain(r[4]) or 0}
                      for r in cur.fetchall()]
 
             cur.execute("""SELECT code, name, name_ar, discipline, unit,
-                                  default_days, applies_to, seq
+                                  default_days, applies_to, seq, csi_division
                            FROM gen_lib_work_types ORDER BY seq, id""")
             wts = [{"code": r[0], "name": r[1], "name_ar": r[2],
                     "discipline": r[3], "unit": r[4],
                     "days": float(r[5] or 1), "applies_to": r[6] or [],
-                    "seq": r[7]} for r in cur.fetchall()]
+                    "seq": r[7], "csi_division": r[8]} for r in cur.fetchall()]
 
             cur.execute("""SELECT work_type, level_key, place_id, mode
                            FROM gen_scope WHERE schedule_id=%s""", (sched_id,))
@@ -659,31 +761,39 @@ async def save_places(sched_id: int, request: Request):
                         (n.get("name") or "").strip() or n.get("code"),
                         int(n.get("seq") or 0),
                         max(1, int(n.get("repeat") or 1)),
-                        n.get("pattern") or "{code}{n:02d}")
+                        n.get("pattern") or "{code}{n:02d}",
+                        n.get("x"), n.get("y"))
                 if pid and not str(pid).startswith("new"):
                     cur.execute("""UPDATE gen_places SET parent_id=%s,
                                      level_key=%s, code=%s, name=%s, seq=%s,
-                                     repeat_count=%s, repeat_pattern=%s
+                                     repeat_count=%s, repeat_pattern=%s,
+                                     pos_x=%s, pos_y=%s
                                    WHERE id=%s AND schedule_id=%s""",
                                 args[1:] + (int(pid), sched_id))
                     idmap[pid] = int(pid)
                 else:
                     cur.execute("""INSERT INTO gen_places
                                      (schedule_id,parent_id,level_key,code,
-                                      name,seq,repeat_count,repeat_pattern)
-                                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                                      name,seq,repeat_count,repeat_pattern,
+                                      pos_x,pos_y)
+                                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                                    RETURNING id""", args)
                     idmap[pid] = cur.fetchone()[0]
 
             cur.execute("DELETE FROM gen_place_rels WHERE schedule_id=%s",
                         (sched_id,))
             for r in body.get("place_rels") or []:
+                pr = idmap.get(r.get("pred"), r.get("pred"))
+                sc = idmap.get(r.get("succ"), r.get("succ"))
+                if not pr or not sc or str(pr) == str(sc):
+                    continue
                 cur.execute("""INSERT INTO gen_place_rels
-                                 (schedule_id,pred_place,succ_place,mode)
-                               VALUES (%s,%s,%s,%s)""",
-                            (sched_id, idmap.get(r.get("pred"), r.get("pred")),
-                             idmap.get(r.get("succ"), r.get("succ")),
-                             r.get("mode") or "sequential"))
+                                 (schedule_id,pred_place,succ_place,mode,
+                                  rel_type,lag_days)
+                               VALUES (%s,%s,%s,%s,%s,%s)""",
+                            (sched_id, pr, sc, r.get("mode") or "sequential",
+                             (r.get("rel_type") or "FS").upper(),
+                             float(r.get("lag_days") or 0)))
         return JSONResponse({"success": True, "ids": {str(k): v
                                                       for k, v in idmap.items()}})
     except Exception as e:
@@ -711,20 +821,22 @@ async def save_work_types(request: Request):
                      (w.get("unit") or "").strip(),
                      float(w.get("days") or 1),
                      json.dumps(w.get("applies_to") or []),
-                     int(w.get("seq") or i))
+                     int(w.get("seq") or i),
+                     (w.get("csi_division") or "").strip() or None)
                     for i, (w, c) in enumerate(zip(rows, codes))]
             _batch(cur, """INSERT INTO gen_lib_work_types
                              (code,name,name_ar,discipline,unit,default_days,
-                              applies_to,seq)
+                              applies_to,seq,csi_division)
                            VALUES %s
                            ON CONFLICT (code) DO UPDATE SET
+                             csi_division=EXCLUDED.csi_division,
                              name=EXCLUDED.name, name_ar=EXCLUDED.name_ar,
                              discipline=EXCLUDED.discipline,
                              unit=EXCLUDED.unit,
                              default_days=EXCLUDED.default_days,
                              applies_to=EXCLUDED.applies_to,
                              seq=EXCLUDED.seq""", data,
-                   template="(%s,%s,%s,%s,%s,%s,%s::jsonb,%s)")
+                   template="(%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s)")
         return JSONResponse({"success": True, "saved": len(data)})
     except Exception as e:
         return _fail(e)
@@ -855,5 +967,78 @@ async def delete_rule(request: Request):
                          (b.get("succ_wt") or "").upper(),
                          (b.get("scope") or "same")))
         return JSONResponse({"success": True})
+    except Exception as e:
+        return _fail(e)
+
+
+# ═══════════════════ المستويات وأقسام CSI ═══════════════════
+
+@router.get("/api/gen/levels")
+async def list_levels(request: Request):
+    """مستويات التقسيم وأقسام MasterFormat — الأولى تُحرَّر والثانية تُقرأ."""
+    if not _admin(request):
+        return _deny()
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            cur.execute("""SELECT key, label, label_ar, token, seq, active
+                           FROM gen_lib_levels ORDER BY seq, id""")
+            levels = [{"key": r[0], "label": r[1], "label_ar": r[2],
+                       "token": r[3] or r[0].upper(), "seq": r[4],
+                       "active": r[5]} for r in cur.fetchall()]
+            cur.execute("""SELECT division, name, name_ar FROM gen_lib_csi
+                           ORDER BY seq""")
+            csi = [{"division": r[0], "name": r[1], "name_ar": r[2]}
+                   for r in cur.fetchall()]
+        return JSONResponse({"success": True, "levels": levels, "csi": csi})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.post("/api/gen/levels")
+async def save_levels(request: Request):
+    """
+    حفظ مستويات التقسيم.
+
+    المستوى المستعمَل في أماكن قائمة لا يُحذف صامتًا: تُعاد أسماء الأماكن
+    التي تمنع حذفه، فيقرّر المستخدم. حذفٌ صامت هنا يُيتّم عقدًا في الشجرة.
+    """
+    if not _admin(request):
+        return _deny()
+    body = await request.json()
+    rows = body.get("levels") or []
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            keys = []
+            for i, l in enumerate(rows):
+                k = (l.get("key") or l.get("label") or "").strip().lower()
+                k = "".join(c if c.isalnum() else "_" for c in k).strip("_")
+                if not k:
+                    continue
+                keys.append(k)
+                cur.execute("""INSERT INTO gen_lib_levels
+                                 (key,label,label_ar,token,seq,active)
+                               VALUES (%s,%s,%s,%s,%s,TRUE)
+                               ON CONFLICT (key) DO UPDATE SET
+                                 label=EXCLUDED.label,
+                                 label_ar=EXCLUDED.label_ar,
+                                 token=EXCLUDED.token, seq=EXCLUDED.seq,
+                                 active=TRUE""",
+                            (k, (l.get("label") or k).strip(),
+                             (l.get("label_ar") or "").strip() or None,
+                             (l.get("token") or k).strip().upper(),
+                             int(l.get("seq") or (i + 1) * 10)))
+            blocked = []
+            if keys:
+                cur.execute("""SELECT DISTINCT level_key FROM gen_places
+                               WHERE NOT (level_key = ANY(%s))""", (keys,))
+                blocked = [r[0] for r in cur.fetchall()]
+                cur.execute("""DELETE FROM gen_lib_levels
+                               WHERE NOT (key = ANY(%s))
+                                 AND key NOT IN (SELECT DISTINCT level_key
+                                                 FROM gen_places)""", (keys,))
+        return JSONResponse({"success": True, "saved": len(keys),
+                             "in_use": blocked})
     except Exception as e:
         return _fail(e)
