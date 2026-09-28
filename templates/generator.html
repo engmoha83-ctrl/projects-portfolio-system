@@ -179,7 +179,61 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
   border-bottom:1px solid var(--line); display:flex; align-items:center;}
 .modal .bd{overflow:auto; padding:0;}
 .modal footer{padding:10px 16px; border-top:1px solid var(--line);
-  display:flex; gap:8px; justify-content:flex-end;}
+  display:flex; gap:8px; justify-content:flex-end; align-items:center;}
+
+/* مفتاح التبديل (الخريطة/الجدول ومرشّحات البنود) */
+.seg{display:inline-flex; background:var(--tint); flex:0 0 auto;}
+.seg button{border:none; background:transparent; height:28px; padding:0 11px; font-size:12px;
+  color:var(--muted); cursor:pointer; white-space:nowrap; font-weight:500;}
+.seg button.on{background:var(--navy); color:#fff; font-weight:600;}
+.seg button .n{font-size:10.5px; opacity:.75; margin-inline-start:4px; font-variant-numeric:tabular-nums;}
+
+/* جدول الكميّات */
+.bqbar{display:flex; gap:10px; align-items:center; padding:10px 16px; flex-wrap:wrap;
+  border-bottom:1px solid var(--line);}
+/* الشريط ثابتٌ في مكانه فلا يقفز الجدول، وأدواته رماديّة حتى يُختار بند */
+.bulk{display:flex; gap:8px; align-items:center; padding:8px 16px; background:var(--tint);
+  border-bottom:1px solid var(--line); min-height:44px;}
+.bulk.on{background:#EDF2F9;}
+.bulk:not(.on) button, .bulk:not(.on) select{opacity:.42; pointer-events:none;}
+.bulk b{font-size:12.5px; color:var(--navy); min-width:92px;}
+.bulk:not(.on) b{color:var(--muted); font-weight:500;}
+.scroll.bq{overflow:auto; max-height:calc(100vh - 360px); min-height:240px;}
+#tBoq tr.sel td{background:#EDF2F9;}
+#tBoq tr.off td{opacity:.45;}
+#tBoq .iname{max-width:520px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px;}
+#tBoq td.mis{color:var(--danger); font-weight:600;}
+#tBoq .tcell select{min-width:0; flex:1;}
+.plcell{cursor:pointer; flex-wrap:wrap; gap:4px !important; padding:3px 4px;}
+.plcell:hover{background:var(--tint);}
+.plc{font-size:12px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ro{color:var(--muted);}
+
+/* اختيار المكان */
+.pk{max-height:52vh; overflow:auto; border-top:1px solid var(--line);}
+.pkrow{display:flex; align-items:center; gap:7px; height:32px; font-size:12.5px; cursor:pointer;
+  border-bottom:1px solid var(--line); padding-inline-end:12px;}
+.pkrow:hover{background:#FAFBFD;}
+.pkrow input[type=checkbox]{width:auto; height:auto;}
+.pkrow b{font-weight:600;}
+.pkx{font-size:11px; color:var(--navy); font-weight:600; flex:1;}
+.pksh{width:70px; height:24px; border:1px solid var(--line); text-align:end; padding:0 5px;}
+.lvls{display:flex; flex-wrap:wrap; gap:4px;}
+.lvls label{display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:5px 10px;
+  background:var(--tint); cursor:pointer; user-select:none;}
+.lvls label.on{background:var(--navy); color:#fff;}
+.lvls input{display:none;}
+
+/* الأوزان */
+.split2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px;}
+@media (max-width:1000px){ .split2{grid-template-columns:1fr;} }
+.roll{padding:8px 0; max-height:48vh; overflow:auto;}
+.rr{display:grid; grid-template-columns:minmax(120px,1.2fr) 1fr 70px; gap:10px; align-items:center;
+  padding:4px 16px 4px 10px; font-size:12.5px;}
+.rr .rk{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.rr .rb{height:8px; background:var(--tint2); position:relative;}
+.rr .rb i{position:absolute; inset:0 auto 0 0; background:var(--navy);}
+.rr b{text-align:end; font-variant-numeric:tabular-nums; font-weight:600;}
 </style>
 </head>
 <body>
@@ -196,6 +250,7 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
     <input class="fld" id="idPattern" style="min-width:330px;">
   </label>
   <span class="spacer"></span>
+  <a class="btn" href="/admin-dictionaries" target="_blank" title="Work types, rules, rates and materials — shared by every project">Dictionaries ↗</a>
   <button class="btn" id="btnSave" data-i18n="save">Save</button>
   <button class="btn" id="btnPreview" data-i18n="preview">Preview</button>
   <button class="btn primary" id="btnApply" data-i18n="generate">Generate</button>
@@ -203,19 +258,18 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
 </header>
 
 <div class="strip" id="strip">
-  <div class="s"><i data-i18n="mPlaces">Places</i><b id="mPlaces">–</b></div>
-  <div class="s"><i data-i18n="mWT">Work types</i><b id="mWT">–</b></div>
-  <div class="s"><i data-i18n="mRules">Rules</i><b id="mRules">–</b></div>
-  <div class="s"><i data-i18n="mGen">Generated</i><b id="mGen">–</b></div>
-  <div class="s"><i data-i18n="mLast">Last run</i><b id="mLast" style="font-size:12px;">–</b></div>
+  <div class="s"><i>Places</i><b id="mPlaces">–</b></div>
+  <div class="s"><i>BOQ items</i><b id="mBoq">–</b></div>
+  <div class="s"><i>With work type</i><b id="mCls">–</b></div>
+  <div class="s"><i>Placed</i><b id="mPlc">–</b></div>
+  <div class="s"><i>Generated</i><b id="mGen">–</b></div>
+  <div class="s"><i>Last run</i><b id="mLast" style="font-size:12px;">–</b></div>
 </div>
 
 <nav class="tabs">
-  <button data-tab="places" class="on" data-i18n="tPlaces">Places</button>
-  <button data-tab="work"   data-i18n="tWork">Work types</button>
-  <button data-tab="scope"  data-i18n="tScope">Applicability</button>
-  <button data-tab="rules"  data-i18n="tRules">Logic rules</button>
-  <button data-tab="diff"   data-i18n="tDiff">Result</button>
+  <button data-tab="places" class="on">Breakdown</button>
+  <button data-tab="boq">BOQ</button>
+  <button data-tab="diff">Result</button>
 </nav>
 
 <main class="body">
@@ -254,58 +308,48 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
     </div>
   </section>
 
-  <!-- ─── أنواع الأعمال ─── -->
-  <section class="panel" id="p-work">
+  <!-- ─── جدول الكميّات ─── -->
+  <section class="panel" id="p-boq">
     <div class="card">
-      <h2><span data-i18n="hWork">Work-type catalogue</span>
-        <span class="hint" data-i18n="hWorkHint">Shared across every project</span>
+      <h2>BOQ breakdown
+        <span class="hint">Each item gets a work type, a place in the breakdown, and optionally its work type's steps</span>
         <span class="spacer"></span>
-        <button class="btn sm" id="addWT" data-i18n="addRow">+ Row</button></h2>
-      <p class="note" data-i18n="nWork">This catalogue is the company's, not this schedule's: it accumulates and is reused. "Applies to" names the levels a work type belongs on, so a floor trade never appears on a zone. Individual exceptions go on the applicability tab.</p>
-      <div style="overflow:auto; max-height:58vh;">
-        <table id="tWT"><thead><tr>
-          <th style="width:10%" data-i18n="cCode">Code</th>
-          <th style="width:34%" data-i18n="cNameEn">Name</th>
-          <th style="width:10%" data-i18n="cDisc">Discipline</th>
-          <th style="width:16%" data-i18n="cCSI">CSI division</th>
-          <th style="width:9%"  data-i18n="cDays">Days</th>
-          <th style="width:17%" data-i18n="cApplies">Applies to</th>
-          <th style="width:6%"></th>
-        </tr></thead><tbody></tbody></table>
+        <button class="btn sm" id="bqAuto" title="Suggest work types and places again for items you have not set by hand">Suggest again</button>
+        <button class="btn sm primary" id="bqImport" style="width:auto">Import BOQ…</button>
+        <input type="file" id="bqFile" accept=".xlsx,.xlsm" hidden></h2>
+      <div class="bqbar">
+        <div class="seg" id="bqFilter">
+          <button data-f="all" class="on">All <span class="n" id="fnAll">0</span></button>
+          <button data-f="nowt">Needs work type <span class="n" id="fnNowt">0</span></button>
+          <button data-f="noplace">Needs place <span class="n" id="fnNoplace">0</span></button>
+          <button data-f="weak">Check work type <span class="n" id="fnWeak">0</span></button>
+          <button data-f="unit">Unit differs <span class="n" id="fnUnit">0</span></button>
+          <button data-f="off">Excluded <span class="n" id="fnOff">0</span></button>
+        </div>
+        <input class="fld" id="bqSearch" placeholder="Search items" style="min-width:220px">
       </div>
-    </div>
-  </section>
-
-  <!-- ─── الانطباق ─── -->
-  <section class="panel" id="p-scope">
-    <div class="card">
-      <h2><span data-i18n="hScope">Applicability</span>
-        <span class="hint" data-i18n="hScopeHint">Click a cell to exclude that place</span></h2>
-      <p class="note" data-i18n="nScope">A blank cell means the work type does not belong on that level at all. A filled cell generates an activity; click it to exclude this one place — a roof simply has no finishing trades.</p>
-      <div class="matrix" id="mtx"></div>
-    </div>
-  </section>
-
-  <!-- ─── القواعد ─── -->
-  <section class="panel" id="p-rules">
-    <div class="card">
-      <h2><span data-i18n="hRules">Logic rules</span>
-        <span class="hint" data-i18n="hRulesHint">Written between work types, inherited by every activity</span>
+      <div class="bulk" id="bqBulk">
+        <b id="bqSelN">Tick items to change them together</b>
+        <select class="fld" id="bqSetWT" style="min-width:220px"></select>
+        <button class="btn sm" id="bqPlace">Place in…</button>
+        <button class="btn sm" id="bqSplitOn" title="Split into the work type's weighted steps">Split into steps</button>
+        <button class="btn sm" id="bqSplitOff">Keep as one</button>
+        <button class="btn sm" id="bqExcl">Exclude</button>
+        <button class="btn sm" id="bqIncl">Include</button>
         <span class="spacer"></span>
-        <button class="btn sm" id="addRule" data-i18n="addRow">+ Row</button></h2>
-      <p class="note" data-i18n="nRules">A relationship is written once between two work types and every activity of those types inherits it, so blockwork before plastering is stated once rather than wired across twenty-four floors by hand. Derivation is automatic; endorsement is not. Agreement is the share of evidence backing the chosen relationship type, and a rule 45% of its evidence agrees on should not be read like one at 100%. A rule marked manual is never touched when new files are imported.</p>
-      <div style="overflow:auto; max-height:58vh;">
-        <table id="tRules"><thead><tr>
-          <th data-i18n="cPred">Predecessor</th>
-          <th data-i18n="cSucc">Successor</th>
-          <th data-i18n="cScope">Scope</th>
-          <th data-i18n="cRel">Type</th>
-          <th data-i18n="cLag">Lag</th>
-          <th data-i18n="cObs">Evidence</th>
-          <th data-i18n="cAgree">Agreement</th>
-          <th data-i18n="cSrc">Files</th>
-          <th data-i18n="cOrigin">Origin</th>
-          <th style="width:70px"></th>
+        <button class="btn sm danger" id="bqDel">Delete</button>
+      </div>
+      <div class="scroll bq" id="bqWrap">
+        <table id="tBoq"><thead><tr>
+          <th style="width:30px"><input type="checkbox" id="bqAll" style="width:auto;height:auto"></th>
+          <th style="width:58px">No.</th>
+          <th>Item</th>
+          <th style="width:54px">Unit</th>
+          <th class="num" style="width:86px">Qty</th>
+          <th class="num" style="width:110px">Amount</th>
+          <th style="width:200px">Work type</th>
+          <th style="width:190px">Placed in</th>
+          <th style="width:66px">Steps</th>
         </tr></thead><tbody></tbody></table>
       </div>
     </div>
@@ -314,18 +358,23 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
   <!-- ─── النتيجة ─── -->
   <section class="panel" id="p-diff">
     <div class="card">
-      <h2><span data-i18n="hDiff">What will change</span>
-        <span class="hint" data-i18n="hDiffHint">Nothing is written until you press Generate</span></h2>
-      <div id="diffBox"><p class="note" data-i18n="nDiffEmpty">Press Preview to see what a run would add, remove and update.</p></div>
+      <h2>What will change <span class="hint">Nothing is written until you press Generate</span></h2>
+      <div id="diffBox"><p class="note">Press Preview to see the activities, relations and weights a run would produce.</p></div>
+      <div id="diffWarn"></div>
+    </div>
+    <div class="split2" id="rollBox" hidden>
+      <div class="card"><h2>Weight by place <span class="hint">Sum of the activities inside</span></h2><div id="rollPlace" class="roll"></div></div>
+      <div class="card"><h2>Weight by CSI division</h2><div id="rollCSI" class="roll"></div>
+        <h2 style="border-top:1px solid var(--line)">Weight by work type</h2><div id="rollWT" class="roll"></div></div>
     </div>
     <div class="card" id="diffLists" hidden>
-      <h2><span data-i18n="hDiffRows">Affected activities</span></h2>
-      <div style="overflow:auto; max-height:46vh;">
+      <h2>Activities <span class="hint" id="actHint"></span></h2>
+      <div style="overflow:auto; max-height:52vh;">
         <table id="tDiff"><thead><tr>
-          <th style="width:14%" data-i18n="cChange">Change</th>
-          <th style="width:30%" data-i18n="cCode">Code</th>
-          <th data-i18n="cNameEn">Name</th>
-          <th style="width:10%" data-i18n="cDays">Days</th>
+          <th style="width:230px">Code</th><th>Name</th>
+          <th class="num" style="width:90px">Qty</th><th style="width:54px">Unit</th>
+          <th class="num" style="width:62px">Days</th><th class="num" style="width:78px">Weight</th>
+          <th class="num" style="width:110px">Cost</th>
         </tr></thead><tbody></tbody></table>
       </div>
     </div>
@@ -454,6 +503,10 @@ let view = 'map';
 function msg(kind, text){
   $('#msg').innerHTML = text ? `<div class="alert ${kind}">${esc(text)}</div>` : '';
 }
+/* لرسالة فيها رابط: النصّ هنا من الصفحة نفسها، وأيّ بيانات داخله تُهرَّب قبلها */
+function msgHtml(kind, html){
+  $('#msg').innerHTML = `<div class="alert ${kind}">${html}</div>`;
+}
 function busy(btn, on, key){
   btn.disabled = on;
   btn.textContent = on ? T(key) : T(btn.id === 'btnSave' ? 'save'
@@ -514,7 +567,7 @@ $('#tPlaces').addEventListener('input', e => {
   const f = e.target.dataset.f;
   p[f] = (f === 'repeat') ? Number(e.target.value)
        : (f === 'code') ? e.target.value.toUpperCase() : e.target.value;
-  if(f === 'level'){ renderPlaces(); renderMatrix(); }
+  if(f === 'level') renderPlaces();
   updateStrip();
 });
 $('#tPlaces').addEventListener('click', e => {
@@ -522,7 +575,7 @@ $('#tPlaces').addEventListener('click', e => {
   const id = e.target.closest('tr').dataset.id;
   S.places = S.places.filter(p => String(p.id) !== id);
   S.places.forEach(p => { if(String(p.parent) === id) p.parent = null; });
-  renderPlaces(); renderMatrix(); updateStrip();
+  renderPlaces(); updateStrip();
 });
 /* ═══════════════ الشلّال: الشكل هو الهيكل ═══════════════
    في ملفّ الطلب رُسمت التقسيمة شلّالًا: كلّ ابن يُزاح يمينًا وينزل تحت أبيه،
@@ -675,7 +728,6 @@ $('#cvIn').addEventListener('input', e => {
   const f = e.target.dataset.f; if(!f) return;
   p[f] = (f === 'repeat') ? Math.max(1, Number(e.target.value) || 1)
        : (f === 'code') ? e.target.value.toUpperCase() : e.target.value;
-  if(f === 'level') renderMatrix();
   updateStrip();
 });
 $('#cvIn').addEventListener('click', e => {
@@ -700,7 +752,7 @@ $('#cvIn').addEventListener('click', e => {
     }
     S.places = S.places.filter(p => !gone.has(String(p.id)));
     if(gone.has(String(selId))) selId = null;
-    reseq(); syncRels(); renderMap(); renderMatrix(); updateStrip(); return;
+    reseq(); syncRels(); renderMap(); updateStrip(); return;
   }
   const ad = e.target.closest('[data-add]');
   if(ad){ addPlace(String(ad.dataset.add)); return; }
@@ -763,7 +815,7 @@ function addPlace(parentId, afterSib){
                  seq, repeat:1});
   if(parentId != null) collapsed.delete(String(parentId));
   selId = id;
-  reseq(); syncRels(); renderMap(); renderMatrix(); updateStrip();
+  reseq(); syncRels(); renderMap(); updateStrip();
   focusRow(id);
 }
 $('#addPlace').onclick = () => {
@@ -847,7 +899,7 @@ document.addEventListener('mouseup', e => {
   reseq(); syncRels();
   msg('ok', T('moved').replace('%a', placeLabel(p))
        .replace('%b', p.parent == null ? T('root') : placeLabel(byId(p.parent))));
-  renderMap(); renderMatrix(); updateStrip(); renderPlacesIfOpen();
+  renderMap(); updateStrip(); renderPlacesIfOpen();
 });
 
 /* ── الرابط مع السابق ── */
@@ -891,15 +943,6 @@ document.addEventListener('mousedown', e => {
   if($('#linkPop') && !e.target.closest('#linkPop') && !e.target.closest('[data-lnk]')) closePop();
 });
 
-/* تبديل العرض */
-$('#viewSeg').addEventListener('click', e => {
-  const b = e.target.closest('button[data-v]'); if(!b) return;
-  view = b.dataset.v;
-  document.querySelectorAll('#viewSeg button').forEach(x => x.classList.toggle('on', x === b));
-  $('#vMap').hidden = view !== 'map';
-  $('#vTbl').hidden = view !== 'tbl';
-  if(view === 'map') renderMap(); else renderPlaces();
-});
 
 /* تبديل العرض */
 $('#viewSeg').addEventListener('click', e => {
@@ -955,7 +998,7 @@ $('#btnLevels').onclick = () => {
         body:JSON.stringify({levels:rows.map((r, i) => ({...r, seq:(i + 1) * 10}))})});
       m.remove();
       await loadLevels();
-      renderPlaces(); renderWT(); renderMatrix(); renderMap();
+      renderPlaces(); renderMap();
       if((j.in_use || []).length) msg('warn', T('lvlInUse') + ' ' + j.in_use.join(', '));
       else msg('ok', T('savedOk'));
     }catch(err){ msg('err', err.message); }
@@ -976,163 +1019,335 @@ async function loadLevels(){
 }
 
 /* ─────────────── أنواع الأعمال ─────────────── */
-function renderWT(){
-  $('#tWT tbody').innerHTML = S.work_types.map((w, i) => `<tr data-i="${i}">
-    <td><input data-f="code" value="${esc(w.code || '')}" maxlength="10" style="text-transform:uppercase"></td>
-    <td><input data-f="name" value="${esc(w.name || '')}"></td>
-    <td><input data-f="discipline" value="${esc(w.discipline || '')}" maxlength="6" style="text-transform:uppercase"></td>
-    <td><select data-f="csi_division"><option value=""></option>${CSI.map(c =>
-        `<option value="${esc(c.division)}"${c.division === w.csi_division ? ' selected' : ''}>${esc(c.division)} · ${esc(c.name)}</option>`).join('')}</select></td>
-    <td><input data-f="days" type="number" min="0" step="0.5" value="${w.days ?? 1}"></td>
-    <td><div class="tcell lvlpick">${LEVELS.map(l =>
-        `<label class="inl" style="margin:0; gap:3px; font-size:10.5px">
-           <input type="checkbox" data-lvl="${l}" style="width:auto;height:auto"
-             ${(w.applies_to || []).includes(l) ? 'checked' : ''}>${esc(lvlLabel(l))}</label>`).join('')}</div></td>
-    <td><button class="btn sm danger" data-del="1">${esc(T('del'))}</button></td>
-  </tr>`).join('');
+/* ═════════════════ جدول الكميّات ═════════════════ */
+let DICT = {work_types: []};        // من القواميس: الأنواع بخطواتها ووحداتها
+let BQ = [];                        // البنود
+let bqSel = new Set();
+let bqFilter = 'all';
+const wtOf = c => DICT.work_types.find(w => w.code === c);
+
+async function loadDict(){
+  const j = await api('/api/dict');
+  DICT = j;
+  const o = ['<option value="">Set work type…</option>', '<option value="__none">(clear)</option>']
+    .concat(DICT.work_types.map(w => `<option value="${esc(w.code)}">${esc(w.code)} · ${esc(w.name)}</option>`));
+  $('#bqSetWT').innerHTML = o.join('');
 }
-$('#tWT').addEventListener('input', e => {
-  const tr = e.target.closest('tr'); if(!tr) return;
-  const w = S.work_types[Number(tr.dataset.i)]; if(!w) return;
-  if(e.target.dataset.lvl){
-    const set = new Set(w.applies_to || []);
-    e.target.checked ? set.add(e.target.dataset.lvl) : set.delete(e.target.dataset.lvl);
-    w.applies_to = [...set];
-    renderMatrix();
-    return;
-  }
-  const f = e.target.dataset.f;
-  if(f === 'csi_division'){ w.csi_division = e.target.value; return; }
-  w[f] = f === 'days' ? Number(e.target.value)
-       : (f === 'code' || f === 'discipline') ? e.target.value.toUpperCase()
-       : e.target.value;
-  if(f === 'code' || f === 'name') renderMatrix();
-});
-$('#tWT').addEventListener('click', e => {
-  if(!e.target.dataset.del) return;
-  S.work_types.splice(Number(e.target.closest('tr').dataset.i), 1);
-  renderWT(); renderMatrix(); updateStrip();
-});
-$('#addWT').onclick = () => {
-  S.work_types.push({code:'', name:'', name_ar:'', discipline:'', days:1,
-                     applies_to:['floor'], seq:S.work_types.length});
-  renderWT(); updateStrip();
+async function loadBoq(){
+  const j = await api(`/api/boq/${SID}`);
+  BQ = j.items || [];
+  const ids = new Set(BQ.map(i => i.id));
+  bqSel = new Set([...bqSel].filter(i => ids.has(i)));
+  renderBoq(); updateStrip();
+}
+
+/* وحدة موحَّدة للمقارنة — الصفحة تحتاجها لتعليم البند الذي تخالف وحدته نوعه */
+function unitKey(u){
+  let t = String(u || '').toLowerCase().replace('²', '2').replace('³', '3').replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+  const A = {'m2':'m2','sqm':'m2','sq m':'m2','m3':'m3','cum':'m3','cu m':'m3','m':'m','lm':'m','rm':'m','ml':'m',
+    'no':'no','nos':'no','nr':'no','each':'no','ea':'no','pcs':'no','t':'t','ton':'t','tons':'t','kg':'kg','ls':'ls','lump sum':'ls','set':'set'};
+  return A[t] || A[t.replace(/ /g, '')] || t.replace(/ /g, '');
+}
+const unitDiffers = it => {
+  const w = wtOf(it.work_type);
+  return !!(w && w.unit && it.unit && unitKey(w.unit) !== unitKey(it.unit));
 };
+const weak = it => it.work_type && it.wt_origin === 'auto' && Number(it.wt_score || 0) < 2;
 
-/* ─────────────── مصفوفة الانطباق ─────────────── */
-const excluded = (wt, placeId) => S.scope.some(s =>
-  s.work_type === wt && s.mode === 'exclude' && String(s.place) === String(placeId));
+function placePath(pid){
+  const out = []; let cur = byId(pid), n = 0;
+  while(cur && n++ < 30){ out.unshift(placeLabel(cur)); cur = byId(cur.parent); }
+  return out.join(' › ');
+}
+/* ما سيصير إليه التسكين عند التوليد: «المنطقة ١» لنوع ينطبق على الأدوار ← ٥ أدوار */
+function spreadCount(pid, applies){
+  if(!applies || !applies.length) return 1;
+  const down = x => {
+    const p = byId(x); const kids = kidsOf(x);
+    if(applies.includes(p.level) || !kids.length) return 1;
+    return kids.reduce((a, c) => a + down(c.id), 0);
+  };
+  const p = byId(pid); if(!p) return 0;
+  if(applies.includes(p.level) || !kidsOf(pid).length) return 1;
+  const has = x => kidsOf(x).some(c => applies.includes(c.level) || has(c.id));
+  return has(pid) ? down(pid) : 1;
+}
 
-function renderMatrix(){
-  const wts = S.work_types.filter(w => w.code);
-  if(!S.places.length || !wts.length){
-    $('#mtx').innerHTML = `<p class="note">${esc(T('none'))}</p>`;
+function bqMatches(it){
+  const q = $('#bqSearch').value.trim().toLowerCase();
+  if(q && !((it.item_name || '') + ' ' + (it.item_no || '')).toLowerCase().includes(q)) return false;
+  switch(bqFilter){
+    case 'nowt':    return it.include && !it.work_type;
+    case 'noplace': return it.include && !(it.alloc || []).length;
+    case 'weak':    return it.include && weak(it);
+    case 'unit':    return it.include && unitDiffers(it);
+    case 'off':     return !it.include;
+    default:        return true;
+  }
+}
+const money = v => v == null || v === '' ? '' : Number(v).toLocaleString('en-US', {maximumFractionDigits:0});
+const qtyf  = v => v == null || v === '' ? '' : Number(v).toLocaleString('en-US', {maximumFractionDigits:2});
+
+function renderBoq(){
+  const on = BQ.filter(i => i.include);
+  $('#fnAll').textContent = BQ.length;
+  $('#fnNowt').textContent = on.filter(i => !i.work_type).length;
+  $('#fnNoplace').textContent = on.filter(i => !(i.alloc || []).length).length;
+  $('#fnWeak').textContent = on.filter(weak).length;
+  $('#fnUnit').textContent = on.filter(unitDiffers).length;
+  $('#fnOff').textContent = BQ.length - on.length;
+  const rows = BQ.filter(bqMatches);
+  const wtSel = v => `<option value="">—</option>` + DICT.work_types.map(w =>
+    `<option value="${esc(w.code)}"${w.code === v ? ' selected' : ''}>${esc(w.code)} · ${esc(w.name)}</option>`).join('');
+  $('#tBoq tbody').innerHTML = rows.slice(0, 1500).map(it => {
+    const w = wtOf(it.work_type);
+    const origin = !it.work_type ? '' : it.wt_origin === 'manual' ? '<span class="chip">set</span>'
+      : weak(it) ? '<span class="chip warn" title="Only one weak keyword matched — check it">check</span>'
+      : '<span class="chip good" title="Suggested from the dictionary keywords">auto</span>';
+    const al = it.alloc || [];
+    let place = '<span class="chip bad">not placed</span>';
+    if(al.length){
+      const n = al.reduce((a, [pid]) => a + spreadCount(pid, w ? w.applies_to : []), 0);
+      const lvl = w && w.applies_to && w.applies_to.length ? w.applies_to.map(l => lvlLabel(l).toLowerCase()).join('/') : 'places';
+      const names = al.map(([pid, sh]) => placeLabel(byId(pid) || {name: '?'}) + (al.length > 1 ? ` ${Math.round(sh)}%` : '')).join(', ');
+      place = `<span class="plc" title="${esc(al.map(([p]) => placePath(p)).join('\n'))}">${esc(names)}</span>`
+        + (n > al.length ? `<span class="chip" title="Spread to the levels ${esc(w ? w.code : '')} applies to">→ ${n} ${esc(lvl)}</span>` : '')
+        + (it.alloc_origin === 'auto' ? ' <span class="chip good">auto</span>' : '');
+    }
+    const steps = w && (w.steps || []).length;
+    const mis = unitDiffers(it);
+    return `<tr data-id="${it.id}" class="${bqSel.has(it.id) ? 'sel' : ''}${it.include ? '' : ' off'}">
+      <td><input type="checkbox" class="pick" style="width:auto;height:auto"${bqSel.has(it.id) ? ' checked' : ''}></td>
+      <td class="ro">${esc(it.item_no || '')}</td>
+      <td><div class="iname" title="${esc(it.item_name)}">${esc(it.item_name)}</div></td>
+      <td class="${mis ? 'mis' : ''}" title="${mis ? esc('The work type is measured in ' + w.unit) : ''}">${esc(it.unit || '')}</td>
+      <td class="num">${qtyf(it.qty)}</td>
+      <td class="num">${money(it.amount)}</td>
+      <td><div class="tcell"><select data-f="wt">${wtSel(it.work_type)}</select>${origin}</div></td>
+      <td><div class="tcell plcell" data-place="${it.id}">${place}</div></td>
+      <td style="text-align:center">${steps ? `<input type="checkbox" data-f="split" style="width:auto;height:auto"${it.split ? ' checked' : ''} title="Split into ${esc(w.steps.map(s => s.name).join(', '))}">` : '<span class="ro">—</span>'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="9" class="empty">${BQ.length ? 'No items match.' : 'No BOQ yet. Import one to start.'}</td></tr>`;
+  const tot = BQ.filter(bqMatches).length;
+  $('#bqAll').checked = tot > 0 && BQ.filter(bqMatches).every(i => bqSel.has(i.id));
+  syncBulk();
+}
+function syncBulk(){
+  $('#bqSelN').textContent = bqSel.size ? `${bqSel.size} selected` : 'Tick items to change them together';
+  $('#bqBulk').classList.toggle('on', bqSel.size > 0);
+}
+
+async function bqEdit(ids, body){
+  await api(`/api/boq/${SID}/edit`, {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ids, ...body})});
+  await loadBoq();
+}
+$('#bqFilter').addEventListener('click', e => {
+  const b = e.target.closest('[data-f]'); if(!b) return;
+  bqFilter = b.dataset.f;
+  document.querySelectorAll('#bqFilter button').forEach(x => x.classList.toggle('on', x === b));
+  renderBoq();
+});
+$('#bqSearch').addEventListener('input', renderBoq);
+$('#bqAll').addEventListener('change', e => {
+  const rows = BQ.filter(bqMatches);
+  rows.forEach(i => e.target.checked ? bqSel.add(i.id) : bqSel.delete(i.id));
+  renderBoq();
+});
+$('#tBoq').addEventListener('change', async e => {
+  const tr = e.target.closest('tr[data-id]'); if(!tr) return;
+  const id = Number(tr.dataset.id);
+  if(e.target.classList.contains('pick')){
+    e.target.checked ? bqSel.add(id) : bqSel.delete(id);
+    tr.classList.toggle('sel', e.target.checked);
+    syncBulk();
     return;
   }
-  const head = `<tr><th class="pl" style="min-width:190px">${esc(T('cName'))}</th>` +
-    wts.map(w => `<th class="rot">${esc(w.code)} · ${esc(w.name || '')}</th>`).join('') + '</tr>';
-  const rows = S.places.map(p => {
-    const cells = wts.map(w => {
-      const fits = (w.applies_to || []).includes(p.level);
-      if(!fits) return `<td class="cell na"><span>·</span></td>`;
-      const off = excluded(w.code, p.id);
-      return `<td class="cell ${off ? 'off' : 'on'}" data-wt="${esc(w.code)}" data-p="${p.id}">
-                <span>${off ? '×' : '✓'}</span></td>`;
-    }).join('');
-    const rep = (p.repeat || 1) > 1 ? ` <span class="chip">×${p.repeat}</span>` : '';
-    return `<tr><td class="pl" style="padding-inline-start:${8 + placeDepth(p) * 14}px">
-              <span class="lvl">${esc(lvlLabel(p.level))}</span> ${esc(placeLabel(p))}${rep}</td>${cells}</tr>`;
-  }).join('');
-  $('#mtx').innerHTML = `<table><thead>${head}</thead><tbody>${rows}</tbody></table>`;
-}
-$('#mtx').addEventListener('click', e => {
-  const td = e.target.closest('td.cell'); if(!td || td.classList.contains('na')) return;
-  const wt = td.dataset.wt, pid = td.dataset.p;
-  const i = S.scope.findIndex(s => s.work_type === wt && s.mode === 'exclude'
-                                && String(s.place) === String(pid));
-  if(i >= 0) S.scope.splice(i, 1);
-  else S.scope.push({work_type:wt, level:null, place:pid, mode:'exclude'});
-  renderMatrix();
-});
-
-/* ─────────────── القواعد ─────────────── */
-async function loadRules(force){
-  if(S.rulesList && !force) return renderRules();
-  const j = await api('/api/gen/rules');
-  S.rulesList = j.rules || [];
-  renderRules();
-}
-function renderRules(){
-  /* القوائم تُملأ من كتالوج أنواع الأعمال في كلّ مرّة يُفتح فيها التبويب،
-     فنوع عمل أُنشئ قبل لحظة يظهر هنا بلا إعادة تحميل. */
-  const wts = S.work_types.filter(w => w.code);
-  const label = c => {
-    const w = wts.find(x => x.code === c);
-    return w ? `${c} · ${w.name || ''}`.trim().replace(/ ·\s*$/, '') : c;
-  };
-  /* قاعدةٌ تشير إلى نوع عمل لم يعد في الكتالوج تُعرض كما هي وتُعلَّم.
-     لولا ذلك لعادت القائمة إلى أوّل خيار، فتُبدَّل القاعدة بصمت عند أوّل
-     حفظ ولا يعرف أحد أنّ منطقًا تغيّر. */
-  const optWT = v => {
-    const codes = wts.map(w => w.code);
-    const miss = v && !codes.includes(v);
-    return (miss ? `<option value="${esc(v)}" selected>${esc(v)} — ${esc(T('notInCat'))}</option>` : '')
-      + codes.map(c =>
-        `<option value="${esc(c)}"${c === v ? ' selected' : ''}>${esc(label(c))}</option>`).join('');
-  };
-  const opt = (list, v) => list.map(x =>
-    `<option value="${esc(x)}"${x === v ? ' selected' : ''}>${esc(x)}</option>`).join('');
-  $('#tRules tbody').innerHTML = (S.rulesList || []).slice(0, 400).map((r, i) => {
-    const ag = r.agreement == null ? '' : Number(r.agreement);
-    const cls = ag === '' ? '' : ag >= 90 ? 'good' : ag >= 60 ? 'warn' : 'bad';
-    const manual = (r.origin || '') !== 'derived';
-    return `<tr data-i="${i}">
-      <td><select data-f="pred_wt">${optWT(r.pred_wt)}</select></td>
-      <td><select data-f="succ_wt">${optWT(r.succ_wt)}</select></td>
-      <td><select data-f="scope">${opt(SCOPES, r.scope)}</select></td>
-      <td><select data-f="rel_type">${opt(RELS, r.rel_type)}</select></td>
-      <td><input data-f="lag_days" type="number" step="0.5" value="${r.lag_days ?? 0}"></td>
-      <td class="num">${r.observations ?? ''}</td>
-      <td class="num">${ag === '' ? '' : `<span class="chip ${cls}">${ag.toFixed(0)}%</span>`}</td>
-      <td class="num">${r.sources ?? ''}</td>
-      <td><span class="chip">${esc(manual ? T('manual') : T('derived'))}</span></td>
-      <td><button class="btn sm danger" data-del="1">${esc(T('del'))}</button></td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="10" class="note">${esc(T('none'))}</td></tr>`;
-  if(!wts.length){ msg('warn', T('needWT')); return; }
-  if(!(S.rulesList || []).length) msg('warn', T('noRules'));
-}
-$('#tRules').addEventListener('input', e => {
-  const tr = e.target.closest('tr'); if(!tr || !tr.dataset.i) return;
-  const r = S.rulesList[Number(tr.dataset.i)]; if(!r) return;
-  const f = e.target.dataset.f;
-  r[f] = f === 'lag_days' ? Number(e.target.value) : e.target.value;
-  r.origin = 'يدوية';
-});
-$('#tRules').addEventListener('click', async e => {
-  if(!e.target.dataset.del) return;
-  const i = Number(e.target.closest('tr').dataset.i);
-  const r = S.rulesList[i]; if(!r) return;
   try{
-    if(r.pred_wt && r.succ_wt)
-      await api('/api/gen/rules/delete', {method:'POST',
-        headers:{'Content-Type':'application/json'}, body:JSON.stringify(r)});
-    S.rulesList.splice(i, 1); S.rules = S.rulesList.length;
-    renderRules(); updateStrip();
+    if(e.target.dataset.f === 'wt') await bqEdit([id], {set:{work_type: e.target.value}});
+    if(e.target.dataset.f === 'split') await bqEdit([id], {set:{split: e.target.checked}});
   }catch(err){ msg('err', err.message); }
 });
-$('#addRule').onclick = () => {
-  const c = S.work_types.filter(w => w.code).map(w => w.code);
-  if(c.length < 2){ msg('warn', T('no_work_types')); return; }
-  S.rulesList = S.rulesList || [];
-  S.rulesList.unshift({pred_wt:c[0], succ_wt:c[1], scope:'same', rel_type:'FS',
-                       lag_days:0, origin:'manual', observations:null,
-                       agreement:null, sources:null});
-  S.rules = S.rulesList.length;
-  renderRules(); updateStrip();
+$('#tBoq').addEventListener('click', e => {
+  const c = e.target.closest('[data-place]'); if(!c) return;
+  openPlacePicker([Number(c.dataset.place)]);
+});
+const selIds = () => [...bqSel];
+$('#bqSetWT').onchange = async e => {
+  const v = e.target.value; e.target.value = '';
+  if(!v || !bqSel.size) return;
+  try{ await bqEdit(selIds(), {set:{work_type: v === '__none' ? '' : v}}); }
+  catch(err){ msg('err', err.message); }
+};
+$('#bqPlace').onclick = () => bqSel.size && openPlacePicker(selIds());
+$('#bqSplitOn').onclick  = () => bqEdit(selIds(), {set:{split:true}}).catch(e => msg('err', e.message));
+$('#bqSplitOff').onclick = () => bqEdit(selIds(), {set:{split:false}}).catch(e => msg('err', e.message));
+$('#bqExcl').onclick = () => bqEdit(selIds(), {set:{include:false}}).catch(e => msg('err', e.message));
+$('#bqIncl').onclick = () => bqEdit(selIds(), {set:{include:true}}).catch(e => msg('err', e.message));
+$('#bqDel').onclick = async () => {
+  const b = $('#bqDel');
+  if(b.dataset.armed !== '1'){
+    b.dataset.armed = '1'; b.textContent = `Delete ${bqSel.size}? Click again`;
+    setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Delete'; }, 3500);
+    return;
+  }
+  b.dataset.armed = ''; b.textContent = 'Delete';
+  try{
+    await api(`/api/boq/${SID}/delete`, {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ids: selIds()})});
+    bqSel.clear(); await loadBoq();
+  }catch(e){ msg('err', e.message); }
+};
+$('#bqAuto').onclick = async () => {
+  const b = $('#bqAuto'); b.disabled = true; b.textContent = 'Suggesting…';
+  try{
+    const j = await api(`/api/boq/${SID}/auto`, {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ids: bqSel.size ? selIds() : null})});
+    await loadBoq();
+    msg('ok', `Work type suggested for ${j.classified}, place found for ${j.located}. Items you set by hand were left as they are.`);
+  }catch(e){ msg('err', e.message); }
+  finally{ b.disabled = false; b.textContent = 'Suggest again'; }
 };
 
-/* ─────────────── الحفظ والتوليد ─────────────── */
+/* ── اختيار المكان: الشجرة كاملة بمربّعات اختيار، وحصصٌ متساوية أو مكتوبة ── */
+function openPlacePicker(ids){
+  closeModal();
+  if(!S.places.length){ msg('warn', 'Build the breakdown on the Breakdown tab first — there is nowhere to place items yet.'); tab('places'); return; }
+  const items = BQ.filter(i => ids.includes(i.id));
+  const cur = items.length === 1 ? new Map((items[0].alloc || []).map(([p, s]) => [String(p), s])) : new Map();
+  const wts = [...new Set(items.map(i => i.work_type).filter(Boolean))].map(wtOf).filter(Boolean);
+  const rows = flatAll();
+  const m = document.createElement('div');
+  m.className = 'modal'; m.id = 'pkModal';
+  m.innerHTML = `<div class="box" style="width:min(640px,94vw)">
+    <header>Place ${items.length === 1 ? 'item' : items.length + ' items'}<span class="spacer" style="flex:1"></span></header>
+    <div class="bd">
+      <p class="note" style="margin:0">Tick where ${items.length === 1 ? 'this item goes' : 'these items go'}. A place above the work type's level is spread down to it when the schedule is generated — tick a building and a floor trade goes to each of its floors, including floors you add later.</p>
+      <div class="pk" id="pkTree">${rows.map(({p, depth}) => `
+        <label class="pkrow" style="padding-inline-start:${12 + depth * 22}px">
+          <input type="checkbox" value="${p.id}"${cur.has(String(p.id)) ? ' checked' : ''}>
+          <span class="lvl">${esc(lvlLabel(p.level))}</span> <b>${esc(placeLabel(p))}</b>
+          <span class="pkx" data-hint="${p.id}"></span>
+          <input type="number" class="pksh" data-share="${p.id}" min="0" step="1" value="${cur.has(String(p.id)) ? Math.round(cur.get(String(p.id)) * 100) / 100 : ''}" hidden>
+        </label>`).join('')}</div>
+    </div>
+    <footer>
+      <label class="inl" style="margin:0"><input type="checkbox" id="pkCustom" style="width:auto;height:auto"> Set shares myself</label>
+      <span id="pkSum" class="ro" style="font-size:12px"></span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn" id="pkClear">Unplace</button>
+      <button class="btn" id="pkCancel">Cancel</button>
+      <button class="btn primary" id="pkOk">Place</button></footer></div>`;
+  document.body.appendChild(m);
+  const custom = $('#pkCustom');
+  if(items.length === 1 && cur.size > 1){
+    const vals = [...cur.values()];
+    custom.checked = vals.some(v => Math.abs(v - vals[0]) > 0.01);
+  }
+  const sync = () => {
+    const chosen = [...m.querySelectorAll('#pkTree input[type=checkbox]:checked')].map(x => x.value);
+    m.querySelectorAll('.pksh').forEach(x => x.hidden = !custom.checked || !chosen.includes(x.dataset.share));
+    m.querySelectorAll('[data-hint]').forEach(x => {
+      const on = chosen.includes(x.dataset.hint);
+      const n = on && wts.length === 1 ? spreadCount(x.dataset.hint, wts[0].applies_to) : 0;
+      x.textContent = n > 1 ? `→ ${n} ${wts[0].applies_to.map(l => lvlLabel(l).toLowerCase()).join('/')}` : '';
+    });
+    if(custom.checked){
+      const s = chosen.reduce((a, id) => a + Number(m.querySelector(`[data-share="${id}"]`).value || 0), 0);
+      $('#pkSum').textContent = `Σ ${Math.round(s * 100) / 100}%`;
+      $('#pkSum').style.color = Math.abs(s - 100) > 0.01 ? 'var(--danger)' : 'var(--good)';
+    } else {
+      $('#pkSum').textContent = chosen.length > 1 ? `${chosen.length} places, equal shares` : '';
+      $('#pkSum').style.color = '';
+    }
+  };
+  m.addEventListener('change', sync); m.addEventListener('input', sync); sync();
+  $('#pkCancel').onclick = closeModal;
+  $('#pkClear').onclick = async () => {
+    try{ await bqEdit(ids, {alloc: []}); closeModal(); }catch(e){ msg('err', e.message); }
+  };
+  $('#pkOk').onclick = async () => {
+    const chosen = [...m.querySelectorAll('#pkTree input[type=checkbox]:checked')].map(x => x.value);
+    if(!chosen.length){ $('#pkSum').textContent = 'Tick at least one place'; $('#pkSum').style.color = 'var(--danger)'; return; }
+    let alloc;
+    if(custom.checked){
+      alloc = chosen.map(id => [Number(id), Number(m.querySelector(`[data-share="${id}"]`).value || 0)]);
+      const s = alloc.reduce((a, x) => a + x[1], 0);
+      if(Math.abs(s - 100) > 0.01){ $('#pkSum').textContent = `Shares add up to ${Math.round(s * 100) / 100}%, not 100%`; return; }
+    } else {
+      const base = Math.round(10000 / chosen.length) / 100;
+      alloc = chosen.map((id, i) => [Number(id), i === chosen.length - 1 ? Math.round((100 - base * (chosen.length - 1)) * 100) / 100 : base]);
+    }
+    /* الأماكن الجديدة لا بدّ أن تُحفظ قبل أن يشار إليها */
+    if(chosen.some(id => String(id).startsWith('new'))){ await save(); closeModal(); openPlacePicker(ids); return; }
+    try{ await bqEdit(ids, {alloc}); closeModal(); }catch(e){ msg('err', e.message); }
+  };
+}
+/* الشجرة كلّها بلا طيّ — للاختيار */
+function flatAll(){
+  const out = [];
+  (function walk(pid, depth){ for(const p of kidsOf(pid)){ out.push({p, depth}); walk(p.id, depth + 1); } })(null, 0);
+  return out;
+}
+function closeModal(){ const m = document.querySelector('.modal'); if(m) m.remove(); }
+
+/* ── الاستيراد: تحليلٌ يُراجَع، ثمّ حفظ ── */
+$('#bqImport').onclick = () => { $('#bqFile').value = ''; $('#bqFile').click(); };
+$('#bqFile').onchange = async () => {
+  const f = $('#bqFile').files[0]; if(!f) return;
+  closeModal();
+  const m = document.createElement('div');
+  m.className = 'modal';
+  m.innerHTML = `<div class="box"><header>Import ${esc(f.name)}</header>
+    <div class="bd" id="imBody"><div class="sk"></div><div class="sk" style="width:60%"></div><div class="sk" style="width:80%"></div></div>
+    <footer><span class="spacer" style="flex:1"></span><button class="btn" id="imCancel">Cancel</button>
+      <button class="btn primary" id="imGo" disabled>Import</button></footer></div>`;
+  document.body.appendChild(m);
+  $('#imCancel').onclick = closeModal;
+  const fd = new FormData(); fd.append('file', f);
+  let j;
+  try{
+    const r = await fetch(`/api/boq/${SID}/parse`, {method:'POST', body:fd});
+    j = await r.json();
+    if(!r.ok || !j.success) throw new Error(j.error || ('HTTP ' + r.status));
+  }catch(e){ $('#imBody').innerHTML = `<div class="alert err" style="margin:10px 16px">${esc(e.message)}</div>`; return; }
+  const srcs = j.sources || [];
+  const multi = srcs.length > 1;
+  const priced = x => j.items.filter(i => (i.price_source || '') === x && Number(i.amount || 0) > 0).length;
+  $('#imBody').innerHTML = `
+    <div class="diffgrid" style="margin:0 0 6px">
+      <div><i>Items read</i><b>${multi ? j.items.length / srcs.length : j.items.length}</b></div>
+      <div><i>Sheets</i><b>${j.sheets}</b></div>
+      <div><i>Rows not understood</i><b>${j.unparsed}</b></div>
+    </div>
+    ${multi ? `<p class="note" style="margin:0">This file prices every item more than once. Choose which prices to use:</p>
+      <div class="lvls" id="imSrc" style="padding:4px 16px 10px">${srcs.map((s, i) =>
+        `<label class="${i === 0 ? 'on' : ''}"><input type="radio" name="src" value="${esc(s.name)}"${i === 0 ? ' checked' : ''}>${esc(s.name || '(unnamed)')} · ${priced(s.name)} priced</label>`).join('')}</div>` : ''}
+    ${BQ.length ? `<p class="note" style="margin:0">This schedule already has ${BQ.length} BOQ items.</p>
+      <div class="lvls" id="imMode" style="padding:4px 16px 10px">
+        <label class="on"><input type="radio" name="mode" value="append" checked>Add to them</label>
+        <label><input type="radio" name="mode" value="replace">Replace them</label></div>` : ''}
+    <p class="note" style="margin:0">After import each item gets a suggested work type from the dictionary keywords, and a place when the item names a building or floor. Everything can be changed afterwards.</p>`;
+  m.addEventListener('change', e => {
+    const g = e.target.closest('.lvls'); if(!g) return;
+    g.querySelectorAll('label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+  });
+  const go = $('#imGo'); go.disabled = false;
+  go.onclick = async () => {
+    const src = multi ? m.querySelector('input[name=src]:checked').value : (srcs[0] || {}).name || '';
+    const mode = (m.querySelector('input[name=mode]:checked') || {}).value || 'append';
+    const items = j.items.filter(i => (i.price_source || '') === src);
+    go.disabled = true; go.textContent = 'Importing…';
+    try{
+      const r = await api(`/api/boq/${SID}/items`, {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({items, mode})});
+      closeModal(); await loadBoq(); tab('boq');
+      msg('ok', `Imported ${r.saved} items. Work type suggested for ${r.classified}; place found for ${r.located}. Use the filters to finish the rest.`);
+    }catch(e){ go.disabled = false; go.textContent = 'Import'; msg('err', e.message); }
+  };
+};
+
+/* ═════════════════ الحفظ والتوليد ═════════════════ */
 function collect(){
   const ordered = [];
   const push = parent => S.places
@@ -1143,6 +1358,8 @@ function collect(){
   S.places.filter(p => !ordered.includes(p)).forEach(p => ordered.push(p));
   return ordered;
 }
+/* الحفظ هنا للمشروع وحده: التقسيمة والإعدادات. أنواع الأعمال وقواعدها في
+   القواميس، ولو كتبتها هذه الصفحة لكتبت فوق ما عُدِّل هناك نسخةً قديمة. */
 async function save(){
   const b = $('#btnSave'); busy(b, true, 'saving'); msg('', '');
   try{
@@ -1153,13 +1370,11 @@ async function save(){
     const j = await api(`/api/gen/${SID}/places`, {method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({places:collect(), place_rels:S.place_rels})});
-    // المعرّفات الجديدة تُستبدل بالحقيقية حتى يشير الانطباق إليها
     Object.entries(j.ids || {}).forEach(([tmp, real]) => {
       S.places.forEach(p => {
         if(String(p.id) === tmp) p.id = real;
         if(String(p.parent) === tmp) p.parent = real;
       });
-      S.scope.forEach(s => { if(String(s.place) === tmp) s.place = real; });
       S.place_rels.forEach(r => {
         if(String(r.pred) === tmp) r.pred = real;
         if(String(r.succ) === tmp) r.succ = real;
@@ -1167,57 +1382,81 @@ async function save(){
       if(String(selId) === tmp) selId = real;
       if(collapsed.has(tmp)){ collapsed.delete(tmp); collapsed.add(real); }
     });
-    await api('/api/gen/work-types', {method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({work_types:S.work_types})});
-    await api(`/api/gen/${SID}/scope`, {method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({scope:S.scope})});
-    if(S.rulesList && S.rulesList.length)
-      await api('/api/gen/rules', {method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({rules:S.rulesList.filter(r => (r.origin || '') !== 'derived')})});
-    renderPlaces(); renderMatrix(); renderMap();
+    renderPlaces(); renderMap();
     msg('ok', T('savedOk'));
-  }catch(e){
-    /* لا تمضِ إلى التوليد على بيانات لم تُحفظ: الخطأ الحقيقي هنا، وابتلاعه
-       كان يُظهر بعده شكوى «لا أماكن معرَّفة» والأماكن على الشاشة. */
-    msg('err', e.message);
-    throw e;
-  }
+  }catch(e){ msg('err', e.message); throw e; }
   finally{ busy(b, false); }
 }
+
+function rollRows(obj, label){
+  const rows = Object.entries(obj || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(...rows.map(r => r[1]), 1);
+  return rows.map(([k, v]) => `<div class="rr"><span class="rk">${esc(label(k))}</span>
+    <span class="rb"><i style="width:${(v / max * 100).toFixed(1)}%"></i></span><b>${v.toFixed(2)}%</b></div>`).join('')
+    || '<p class="note">Nothing yet.</p>';
+}
 function showDiff(j){
-  const s = j.summary || {}, d = j.diag || {};
+  const s = j.summary || {}, d = j.diag || {}, k = j.kinds || {};
   $('#diffBox').innerHTML = `<div class="diffgrid">
-    <div><i>${esc(T('added'))}</i><b>${s.added ?? 0}</b></div>
-    <div><i>${esc(T('removed'))}</i><b>${s.removed ?? 0}</b></div>
-    <div><i>${esc(T('updated'))}</i><b>${s.updated ?? 0}</b></div>
-    <div><i>${esc(T('kept'))}</i><b>${s.kept ?? 0}</b></div>
-    <div><i>${esc(T('relations'))}</i><b>${j.relations ?? d.relations ?? 0}</b></div>
+    <div><i>Activities</i><b>${d.activities ?? 0}</b></div>
+    <div><i>Relations</i><b>${j.relations ?? d.relations ?? 0}</b></div>
+    <div><i>New</i><b>${s.added ?? 0}</b></div>
+    <div><i>Changed</i><b>${s.updated ?? 0}</b></div>
+    <div><i>Removed</i><b>${s.removed ?? 0}</b></div>
+    <div><i>Unchanged</i><b>${s.kept ?? 0}</b></div>
+    <div><i>From BOQ</i><b>${d.boq_activities ?? 0}</b></div>
+    <div><i>Engineering</i><b>${d.engineering ?? 0}</b></div>
+    <div><i>Procurement</i><b>${d.procurement ?? 0}</b></div>
+    <div><i>T&amp;C</i><b>${d.tc ?? 0}</b></div>
+    <div><i>Total cost (SAR)</i><b>${money(d.total_cost)}</b></div>
+    <div><i>Weights from</i><b style="font-size:14px">${d.weight_basis === 'dictionary' ? 'Dictionary cost' : 'BOQ amounts'}</b></div>
   </div>`;
-  const rows = []
-    .concat((j.added || []).map(a => [T('added'), a.code, a.name, a.days]))
-    .concat((j.removed || []).map(a => [T('removed'), a.code, a.name, '']))
-    .concat((j.updated || []).map(u => [T('updated'), u.code,
-      Object.keys(u.changes || {}).join(', '), '']));
-  $('#tDiff tbody').innerHTML = rows.slice(0, 500).map(r =>
-    `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td>
-         <td class="num">${r[3] === '' ? '' : r[3]}</td></tr>`).join('');
-  $('#diffLists').hidden = rows.length === 0;
-  if(d.unresolved_rules && Object.keys(d.unresolved_rules).length)
-    msg('warn', T('orphan'));
+  const w = [];
+  const n = x => (Array.isArray(x) ? x.length : x) || 0;
+  if(n(d.unclassified)) w.push(`<b>${n(d.unclassified)}</b> BOQ items have no work type and are left out. <a href="#" data-go="nowt">Show them</a>`);
+  if(n(d.unallocated))  w.push(`<b>${n(d.unallocated)}</b> BOQ items are not placed and are left out. <a href="#" data-go="noplace">Show them</a>`);
+  if(n(d.unit_mismatch)) w.push(`<b>${n(d.unit_mismatch)}</b> items are measured in a different unit from their work type — usually a wrong work type, and their durations will be off. <a href="#" data-go="unit">Show them</a>`);
+  if(d.no_price) w.push(`<b>${d.no_price}</b> item placements have no amount and add no cost or weight.`);
+  if(d.default_duration) w.push(`<b>${d.default_duration}</b> activities have no productivity rate and use their work type's default duration.`);
+  const ur = Object.keys(d.unresolved_rules || {});
+  if(ur.length) w.push(`${ur.length} logic rules found nothing to link in this project (for example ${esc(ur.slice(0, 3).join(', '))}).`);
+  $('#diffWarn').innerHTML = w.length ? `<div class="alert warn" style="margin:12px 16px">${w.join('<br>')}</div>` : '';
+  if(j.rollup){
+    $('#rollBox').hidden = false;
+    const csiName = c => { const x = (DICT.csi || []).find(z => z.division === c); return c ? `${c} · ${x ? x.name : ''}` : 'No division'; };
+    const wtName = c => { const x = wtOf(c); return c ? `${c} · ${x ? x.name : ''}` : 'Engineering & other'; };
+    /* المكان بمسافة بادئة كالشجرة، لا مرتّبًا بالحجم: وزنُ المبنى يُقرأ مع أدواره */
+    const rp = j.rollup.place || {};
+    $('#rollPlace').innerHTML = flatAll().filter(({p}) => rp[String(p.id)]).map(({p, depth}) =>
+      `<div class="rr" style="padding-inline-start:${10 + depth * 16}px"><span class="rk">${esc(placeLabel(p))}</span>
+        <span class="rb"><i style="width:${Math.min(100, rp[String(p.id)]).toFixed(1)}%"></i></span><b>${rp[String(p.id)].toFixed(2)}%</b></div>`).join('')
+      || '<p class="note">Nothing placed yet.</p>';
+    $('#rollCSI').innerHTML = rollRows(j.rollup.csi, csiName);
+    $('#rollWT').innerHTML = rollRows(j.rollup.work_type, wtName);
+  }
+  const acts = j.sample || [];
+  $('#tDiff tbody').innerHTML = acts.map(a => `<tr>
+    <td><b>${esc(a.code)}</b></td><td>${esc(a.name)}</td>
+    <td class="num">${a.qty == null ? '' : qtyf(a.qty)}</td><td>${esc(a.unit || '')}</td>
+    <td class="num">${a.days ?? ''}</td><td class="num">${a.weight ? a.weight.toFixed(3) + '%' : ''}</td>
+    <td class="num">${money(a.cost)}</td></tr>`).join('');
+  $('#actHint').textContent = acts.length ? `First ${acts.length} of ${d.activities}` : '';
+  $('#diffLists').hidden = !acts.length;
   tab('diff');
 }
-/* زرّ «حفظ» لم يكن مربوطًا بشيء: الدالة مكتوبة والزرّ موجود ولا سطر
-   يصلهما، فكان الضغط عليه لا يفعل شيئًا البتّة. */
+$('#diffWarn').addEventListener('click', e => {
+  const a = e.target.closest('[data-go]'); if(!a) return;
+  e.preventDefault();
+  bqFilter = a.dataset.go;
+  document.querySelectorAll('#bqFilter button').forEach(x => x.classList.toggle('on', x.dataset.f === bqFilter));
+  tab('boq'); renderBoq();
+});
 $('#btnSave').onclick = () => { save().catch(() => {}); };
-
 $('#btnPreview').onclick = async () => {
   const b = $('#btnPreview'); busy(b, true, 'previewing'); msg('', '');
   try{
-    await save();          // يرمي إن فشل، فلا نمضي على بيانات لم تُحفظ
-    showDiff(await api(`/api/gen/${SID}/preview`, {method:'POST'}));
+    await save();
+    showDiff(await api(`/api/boq/${SID}/preview`, {method:'POST'}));
   }catch(e){ msg('err', e.message); }
   finally{ busy(b, false); }
 };
@@ -1225,12 +1464,15 @@ $('#btnApply').onclick = async () => {
   const b = $('#btnApply'); busy(b, true, 'generating'); msg('', '');
   try{
     await save();
-    const j = await api(`/api/gen/${SID}/apply`, {method:'POST',
+    const j = await api(`/api/boq/${SID}/apply`, {method:'POST',
       headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
-    showDiff(j);
+    const pv = await api(`/api/boq/${SID}/preview`, {method:'POST'});
+    showDiff({...pv, summary: j.summary});
     S.generated = (j.diag || {}).activities || 0;
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    S.settings.last_generated = `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
     updateStrip();
-    msg(S.generated ? 'ok' : 'warn', S.generated ? T('genOk') : T('genNone'));
+    msgHtml('ok', `Generated ${S.generated} activities and ${j.relations} relations. <a href="/admin-schedule/${SID}">Open the schedule</a> to calculate dates.`);
   }catch(e){ msg('err', e.message); }
   finally{ busy(b, false); }
 };
@@ -1241,17 +1483,21 @@ function tab(name){
     b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.panel').forEach(p =>
     p.classList.toggle('on', p.id === 'p-' + name));
-  if(name === 'rules') loadRules().catch(e => msg('err', e.message));
-  if(name === 'scope') renderMatrix();
+  if(name === 'boq') renderBoq();
 }
 document.querySelectorAll('.tabs button').forEach(b =>
   b.onclick = () => tab(b.dataset.tab));
 
 function updateStrip(){
   const expanded = S.places.reduce((n, p) => n + Math.max(1, p.repeat || 1), 0);
+  const on = BQ.filter(i => i.include);
   $('#mPlaces').textContent = expanded;
-  $('#mWT').textContent = S.work_types.filter(w => w.code).length;
-  $('#mRules').textContent = S.rules;
+  $('#mBoq').textContent = BQ.length;
+  const c = on.filter(i => i.work_type).length, p = on.filter(i => (i.alloc || []).length).length;
+  $('#mCls').textContent = on.length ? `${Math.round(c / on.length * 100)}%` : '–';
+  $('#mPlc').textContent = on.length ? `${Math.round(p / on.length * 100)}%` : '–';
+  $('#mCls').className = on.length && c === on.length ? 'ok' : '';
+  $('#mPlc').className = on.length && p === on.length ? 'ok' : '';
   $('#mGen').textContent = S.generated;
   $('#mLast').textContent = S.settings.last_generated
     ? String(S.settings.last_generated).slice(0, 16).replace('T', ' ') : '–';
@@ -1261,22 +1507,18 @@ function updateStrip(){
 async function load(){
   $('#msg').innerHTML = '<div class="card"><div class="sk"></div><div class="sk" style="width:60%"></div></div>';
   try{
-    await loadLevels();          // قبل أيّ رسم: القوائم كلّها تُبنى منها
-    const j = await api(`/api/gen/${SID}/definition`);
+    await loadLevels();
+    const [j] = await Promise.all([api(`/api/gen/${SID}/definition`), loadDict()]);
     S.places = j.places || []; S.place_rels = j.place_rels || [];
-    S.work_types = j.work_types || []; S.scope = j.scope || [];
-    S.settings = j.settings || {}; S.generated = j.generated || 0; S.rules = j.rules || 0;
+    S.settings = j.settings || {}; S.generated = j.generated || 0;
     $('#prjCode').value = S.settings.project_code || '';
     $('#idPattern').value = S.settings.id_pattern || '';
     msg('', '');
-    /* الشكل هو المرجع: أيّ علاقة محفوظة لا تقع بين أخوين متجاورين لم يعد
-       لها موضعٌ يُرى فيه، فتُطرَح هنا بدل أن تبقى تؤثّر في الخفاء. */
     reseq(); syncRels();
-    renderPlaces(); renderWT(); renderMatrix(); renderMap();
-    try{ await loadRules(true); S.rules = (S.rulesList || []).length; }catch(e){}
-    updateStrip();
-    if(!S.places.length) msg('info', T('noPlaces'));
-    else if(!S.work_types.length) msg('info', T('noWT'));
+    renderPlaces(); renderMap();
+    await loadBoq();
+    if(!S.places.length) msg('info', 'Start by breaking the project down into its areas, zones, buildings and floors. Then import the BOQ.');
+    else if(!BQ.length) msg('info', 'The breakdown is ready. Import the BOQ on the BOQ tab to generate activities from it.');
   }catch(e){ msg('err', e.message); }
 }
 load();
