@@ -73,13 +73,17 @@ def _fail(e):
 # ─────────── مستويات التقسيم الافتراضية ───────────
 # بذرةٌ تُزرع مرّة، والقائمة بعدها ملكُ المستخدم يضيف ويحذف.
 # ‎token‎ هو رمزها في نمط كود النشاط.
+# ترتيبها ونطقها من الرسم الذي رفعه صاحب الطلب: منطقة ← زون ← مبنى ←
+# دور ← وحدة ← ممرّ ← غرف. وهي مبدئيّة لا أكثر؛ تُزاد وتُنقص من محرّر
+# المستويات، فالتقسيمة ليست واحدة في كلّ مشروع.
 DEFAULT_LEVELS = [
-    ("zone", "Zone", None, "ZONE", 10),
-    ("building", "Building", None, "BUILDING", 20),
-    ("floor", "Floor", None, "FLOOR", 30),
-    ("corridor", "Corridor", None, "CORRIDOR", 40),
+    ("area", "Area", None, "AREA", 10),
+    ("zone", "Zone", None, "ZONE", 20),
+    ("building", "Building", None, "BUILDING", 30),
+    ("floor", "Floor", None, "FLOOR", 40),
     ("unit", "Unit", None, "UNIT", 50),
-    ("room", "Room", None, "ROOM", 60),
+    ("corridor", "Corridor", None, "CORRIDOR", 60),
+    ("room", "Room", None, "ROOM", 70),
 ]
 
 # ─────────── أقسام MasterFormat ───────────
@@ -273,7 +277,7 @@ def ensure_schema(cur):
                            REFERENCES schedules(id) ON DELETE CASCADE,
                        project_code TEXT DEFAULT '',
                        id_pattern TEXT DEFAULT
-                           '{PRJ}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}',
+                           '{PRJ}-{AREA}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}',
                        separator TEXT DEFAULT '-',
                        project_type TEXT,
                        force_calendar INTEGER,
@@ -371,7 +375,7 @@ def load_definition(cur, sched_id):
 
     cur.execute("""SELECT project_code, id_pattern, separator, force_calendar
                    FROM gen_settings WHERE schedule_id=%s""", (sched_id,))
-    s = cur.fetchone() or ("", "{PRJ}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}",
+    s = cur.fetchone() or ("", "{PRJ}-{AREA}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}",
                            "-", None)
     return tree, wts, rules, {"project": s[0] or "", "pattern": s[1],
                               "sep": s[2] or "-", "force_calendar": s[3]}
@@ -701,7 +705,7 @@ async def get_definition(sched_id: int, request: Request):
             settings = {
                 "project_code": s[0] if s else "",
                 "id_pattern": s[1] if s else
-                "{PRJ}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}",
+                "{PRJ}-{AREA}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}",
                 "separator": s[2] if s else "-",
                 "project_type": s[3] if s else None,
                 "force_calendar": s[4] if s else None,
@@ -884,7 +888,7 @@ async def save_settings(sched_id: int, request: Request):
                              force_calendar=EXCLUDED.force_calendar""",
                         (sched_id, (b.get("project_code") or "").strip().upper(),
                          b.get("id_pattern") or
-                         "{PRJ}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}",
+                         "{PRJ}-{AREA}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}",
                          b.get("separator") or "-",
                          b.get("project_type") or None,
                          b.get("force_calendar") or None))

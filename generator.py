@@ -343,7 +343,7 @@ def generate(tree, work_types, rules, project="", pattern=None,
     أزواجَ مفاتيح، فلا شيء هنا معلَّق على كود قابل للتغيير.
     """
     tree = tree.expand()
-    pattern = pattern or "{PRJ}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}"
+    pattern = pattern or "{PRJ}-{AREA}-{ZONE}-{BUILDING}-{FLOOR}-{DISC}-{WT}-{NNN}"
     pairs = applicable(tree, work_types)
 
     acts, by_key, seq_of = [], {}, defaultdict(int)
