@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 import pdf_report
 import schedule_api
 import generator_api
+import dictionaries_api
 
 load_dotenv()
 
@@ -124,6 +125,8 @@ def get_db_connection():
             schedule_api.ensure_schema(cur)
             # جداول المولّد — تعتمد على جداول البرنامج الزمني فتأتي بعدها
             generator_api.ensure_schema(cur)
+            # القواميس — تعتمد على جداول مكتبة المولّد
+            dictionaries_api.ensure_schema(cur)
             conn.commit()
             _SCHEMA_READY = True
         except Exception:
@@ -5366,6 +5369,8 @@ schedule_api.setup(get_db_connection, templates)
 app.include_router(schedule_api.router)
 generator_api.setup(get_db_connection, templates)
 app.include_router(generator_api.router)
+dictionaries_api.setup(get_db_connection, templates)
+app.include_router(dictionaries_api.router)
 
 
 if __name__ == "__main__":

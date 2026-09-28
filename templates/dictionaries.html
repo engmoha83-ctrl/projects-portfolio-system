@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dictionaries | Saudi Architects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EBEF; --tint:#F1F3F7; --tint2:#E6EAF0; --line:#E3E6EC; --ink:#172033; --muted:#5B6577;
+  --navy:#1F3A5F; --navy2:#274A78; --gold:#C8A165; --danger:#C8543E; --good:#2E7D5B; --warn:#8A5A1E;
+  --head-h:56px; --rh:32px;
+}
+*{box-sizing:border-box;}
+[hidden]{display:none !important;}
+html,body{height:100%; margin:0;}
+body{font-family:'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif; background:var(--bg); color:var(--ink);
+     -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; overflow:hidden;}
+button,input,select,textarea{font-family:inherit; border-radius:0; font-size:inherit;}
+
+.hdr{min-height:var(--head-h); flex:0 0 auto; background:#fff; box-shadow:0 1px 3px rgba(23,32,51,.07);
+     display:flex; align-items:center; gap:8px; padding:8px 14px; z-index:40;}
+.hdr-back{width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+          background:var(--tint); color:var(--ink); text-decoration:none; flex:0 0 auto;}
+.hdr-back:hover{background:var(--tint2);}
+.hdr-title{display:flex; flex-direction:column; line-height:1.25; padding:0 8px; min-width:0;}
+.hdr-title small{font-size:11px; color:var(--muted); font-weight:500;}
+.hdr-title b{font-size:14.5px; font-weight:600;}
+.spacer{flex:1;}
+.btn{height:32px; border:none; background:var(--tint); padding:0 12px; font-size:12.5px; font-weight:500;
+     color:var(--ink); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
+     transition:background-color .15s ease; text-decoration:none; min-width:84px; justify-content:center;}
+.btn:hover{background:var(--tint2);}
+.btn[disabled]{opacity:.42; pointer-events:none;}
+.btn.primary{background:var(--navy); color:#fff; font-weight:600; width:112px;}
+.btn.primary:hover{background:var(--navy2);}
+.btn.danger{color:var(--danger);}
+.btn.sm{height:26px; min-width:0; padding:0 9px; font-size:11.5px;}
+.dirty{font-size:11.5px; color:var(--warn); font-weight:600; width:118px; text-align:end;}
+
+.strip{flex:0 0 auto; background:#fff; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  display:flex; overflow-x:auto;}
+.strip .s{padding:7px 16px; border-inline-end:1px solid var(--line); min-width:108px;}
+.strip .s i{display:block; font-style:normal; font-size:10.5px; color:var(--muted); text-transform:uppercase;
+  letter-spacing:.04em; white-space:nowrap;}
+.strip .s b{font-size:15px; font-weight:600; font-variant-numeric:tabular-nums;}
+
+.tabs{flex:0 0 auto; background:#fff; border-bottom:1px solid var(--line); display:flex; gap:1px;
+  padding:0 10px; overflow-x:auto;}
+.tabs button{height:38px; border:none; background:transparent; padding:0 15px; font-size:12.5px;
+  font-weight:500; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;}
+.tabs button.on{color:var(--navy); font-weight:600; border-bottom-color:var(--navy);}
+.tabs button .n{font-size:10.5px; color:var(--muted); font-weight:500; margin-inline-start:5px;}
+
+.body{flex:1; overflow:auto; padding:14px;}
+.panel{display:none;} .panel.on{display:block;}
+.card{background:#fff; margin-bottom:14px;}
+.card > h2{margin:0; padding:10px 16px; font-size:13px; font-weight:600; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-height:44px;}
+.card > h2 .hint{font-size:11.5px; font-weight:500; color:var(--muted);}
+.note{font-size:12px; color:var(--muted); line-height:1.7; padding:10px 16px; max-width:92ch; margin:0;}
+.scroll{overflow:auto; max-height:calc(100vh - 300px);}
+
+table{border-collapse:collapse; width:100%; font-size:12.5px;}
+th{background:var(--tint); text-align:start; font-weight:600; font-size:11px; color:var(--muted);
+   text-transform:uppercase; letter-spacing:.03em; padding:7px 8px; position:sticky; top:0; z-index:2;
+   box-shadow:inset 0 -1px 0 var(--line); white-space:nowrap;}
+th.num{text-align:end;}
+td{padding:0 5px; height:var(--rh); box-shadow:inset 0 -1px 0 var(--line); vertical-align:middle;}
+td input,td select{width:100%; height:26px; border:1px solid transparent; background:transparent; padding:0 5px;
+  font-size:12.5px; color:inherit;}
+td input:focus,td select:focus{outline:none; border-color:var(--navy); background:#fff;}
+td input[type=number]{font-variant-numeric:tabular-nums; text-align:end;}
+td.num{text-align:end; font-variant-numeric:tabular-nums; padding-inline-end:10px; white-space:nowrap;}
+td.ro{color:var(--muted);}
+td.act{width:34px; text-align:center;}
+.x{border:none; background:transparent; color:var(--muted); cursor:pointer; width:24px; height:24px; font-size:14px;}
+.x:hover{background:#FBEDEA; color:var(--danger);}
+tr:hover td{background:#FAFBFD;}
+tr.sel td{background:#EDF2F9 !important;}
+tr.pick{cursor:pointer;}
+td input.code{text-transform:uppercase; font-weight:600;}
+
+.split{display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:14px; align-items:start;}
+@media (max-width:1100px){ .split{grid-template-columns:1fr;} }
+.detail h3{margin:0; padding:12px 16px 4px; font-size:12px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.04em; color:var(--muted); display:flex; align-items:center; gap:8px;}
+.detail h3 .spacer{flex:1;}
+.detail .sub{padding:0 16px 12px;}
+.detail .sub table{border:1px solid var(--line);}
+.big{font-size:18px; font-weight:600; padding:14px 16px 2px;}
+.big small{font-size:12px; color:var(--muted); font-weight:500; margin-inline-start:8px;}
+.kv{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; background:var(--line);
+  margin:10px 16px 4px; border:1px solid var(--line);}
+.kv > div{background:#fff; padding:8px 12px;}
+.kv i{display:block; font-style:normal; font-size:10.5px; color:var(--muted); text-transform:uppercase;}
+.kv b{font-size:14px; font-weight:600; font-variant-numeric:tabular-nums;}
+.lvls{display:flex; flex-wrap:wrap; gap:4px; padding:0 16px 8px;}
+.lvls label{display:inline-flex; align-items:center; gap:4px; font-size:11.5px; padding:3px 8px;
+  background:var(--tint); cursor:pointer; user-select:none;}
+.lvls label.on{background:var(--navy); color:#fff;}
+.lvls input{display:none;}
+textarea.kw{width:calc(100% - 32px); margin:0 16px 8px; min-height:52px; border:1px solid var(--line);
+  padding:6px 8px; font-size:12.5px; resize:vertical;}
+.empty{padding:26px 16px; color:var(--muted); font-size:12.5px; text-align:center;}
+
+.alert{padding:9px 16px; font-size:12.5px; line-height:1.6; margin-bottom:12px;}
+.alert.err{background:#FBEDEA; color:#8E3524;}
+.alert.ok{background:#EAF3EE; color:#1F5C43;}
+.alert.info{background:#EDF2F9; color:var(--navy);}
+.alert.warn{background:#FDF6E9; color:var(--warn);}
+.chip{display:inline-block; font-size:10.5px; padding:2px 7px; background:var(--tint); color:var(--muted);
+  font-weight:600; white-space:nowrap;}
+.chip.good{background:#EAF3EE; color:var(--good);} .chip.bad{background:#FBEDEA; color:var(--danger);}
+.chip.warn{background:#FDF6E9; color:var(--warn);} .chip.seed{background:#F6EEE0; color:#8A6420;}
+.sk{background:linear-gradient(90deg,var(--tint) 25%,var(--tint2) 37%,var(--tint) 63%);
+  background-size:400% 100%; animation:sk 1.3s ease infinite; height:11px; margin:9px 16px;}
+@keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.bar{height:6px; background:var(--tint2); position:relative; min-width:60px;}
+.bar i{position:absolute; inset:0 auto 0 0; background:var(--navy);}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <a class="hdr-back" href="/admin-hub" title="Back">←</a>
+  <div class="hdr-title"><small>Company library — shared by every project</small><b>Dictionaries</b></div>
+  <span class="spacer"></span>
+  <span class="dirty" id="dirty"></span>
+  <button class="btn primary" id="btnSave">Save</button>
+</header>
+
+<div class="strip">
+  <div class="s"><i>Work types</i><b id="cWT">–</b></div>
+  <div class="s"><i>Steps</i><b id="cST">–</b></div>
+  <div class="s"><i>Rates</i><b id="cRT">–</b></div>
+  <div class="s"><i>Logic rules</i><b id="cLR">–</b></div>
+  <div class="s"><i>Resources</i><b id="cRS">–</b></div>
+  <div class="s"><i>Materials</i><b id="cMT">–</b></div>
+  <div class="s"><i>Engineering</i><b id="cEN">–</b></div>
+  <div class="s"><i>T&amp;C</i><b id="cTC">–</b></div>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="wt" class="on">Work types</button>
+  <button data-tab="rules">Logic rules</button>
+  <button data-tab="res">Resources</button>
+  <button data-tab="mat">Materials</button>
+  <button data-tab="eng">Engineering</button>
+  <button data-tab="tc">T&amp;C</button>
+  <button data-tab="disc">Disciplines</button>
+  <button data-tab="csi">CSI divisions</button>
+</nav>
+
+<main class="body">
+  <div id="msg"></div>
+
+  <!-- Work types -->
+  <section class="panel on" id="p-wt">
+    <div class="split">
+      <div class="card">
+        <h2>Work types <span class="hint">Pick one to edit its steps, rates and materials</span>
+          <span class="spacer"></span>
+          <button class="btn sm" id="addWT">+ Work type</button></h2>
+        <div class="scroll">
+          <table id="tWT"><thead><tr>
+            <th style="width:78px">Code</th><th>Name</th><th style="width:92px">Discipline</th>
+            <th style="width:70px">CSI</th><th style="width:62px">Unit</th>
+            <th class="num" style="width:66px">Steps</th><th class="num" style="width:56px">Rates</th>
+            <th class="num" style="width:92px">Cost / unit</th><th style="width:34px"></th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="card detail" id="wtDetail"></div>
+    </div>
+  </section>
+
+  <!-- Logic rules -->
+  <section class="panel" id="p-rules">
+    <div class="card">
+      <h2>Logic rules <span class="hint">How work types follow each other — applied to every activity of those types</span>
+        <span class="spacer"></span>
+        <select class="btn sm" id="ruleFilter" style="min-width:150px"></select>
+        <button class="btn sm" id="addRule">+ Rule</button></h2>
+      <p class="note">Scope says where the successor sits: <b>same</b> place, the <b>next</b> or <b>previous</b> place in the project's order, the <b>parent</b> place or its <b>children</b>. A rule you edit here becomes manual, and re-deriving rules from new Primavera files will not overwrite it.</p>
+      <div class="scroll">
+        <table id="tRules"><thead><tr>
+          <th>Predecessor</th><th>Successor</th><th style="width:110px">Scope</th>
+          <th style="width:80px">Type</th><th class="num" style="width:90px">Lag (days)</th>
+          <th class="num" style="width:70px">Seen</th><th class="num" style="width:84px">Agreement</th>
+          <th style="width:84px">Origin</th><th style="width:34px"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Resources -->
+  <section class="panel" id="p-res">
+    <div class="card">
+      <h2>Resources <span class="hint">Labour and equipment, with their cost per hour</span>
+        <span class="spacer"></span><button class="btn sm" id="addRes">+ Resource</button></h2>
+      <div class="scroll">
+        <table id="tRes"><thead><tr>
+          <th style="width:90px">Code</th><th>Name</th><th style="width:130px">Kind</th>
+          <th class="num" style="width:130px">Cost / hour (SAR)</th><th class="num" style="width:110px">Used in</th>
+          <th style="width:70px"></th><th style="width:34px"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Materials -->
+  <section class="panel" id="p-mat">
+    <div class="card">
+      <h2>Materials <span class="hint">Unit cost and lead time — a lead time adds a procurement activity before the work that uses it</span>
+        <span class="spacer"></span><button class="btn sm" id="addMat">+ Material</button></h2>
+      <div class="scroll">
+        <table id="tMat"><thead><tr>
+          <th style="width:90px">Code</th><th>Name</th><th style="width:70px">Unit</th>
+          <th class="num" style="width:120px">Unit cost (SAR)</th><th class="num" style="width:110px">Lead time (days)</th>
+          <th>Keywords</th><th class="num" style="width:80px">Used in</th><th style="width:34px"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Engineering -->
+  <section class="panel" id="p-eng">
+    <div class="card">
+      <h2>Engineering <span class="hint">Shop drawings, submittals and approvals that must finish before a work type starts on site</span>
+        <span class="spacer"></span><button class="btn sm" id="addEng">+ Engineering activity</button></h2>
+      <p class="note">These run once per project for each work type present in it, in the order listed, and the last one comes before the first activity of that work type.</p>
+      <div class="scroll">
+        <table id="tEng"><thead><tr>
+          <th style="width:170px">Work type</th><th style="width:90px">Code</th><th>Name</th>
+          <th class="num" style="width:110px">Duration (days)</th><th style="width:90px">After previous</th>
+          <th class="num" style="width:80px">Lag</th><th style="width:34px"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- T&C -->
+  <section class="panel" id="p-tc">
+    <div class="card">
+      <h2>Testing &amp; commissioning <span class="hint">Tests that follow a work type once it is finished</span>
+        <span class="spacer"></span><button class="btn sm" id="addTC">+ T&amp;C activity</button></h2>
+      <p class="note">"Repeats at" sets how often the test is generated: on every floor, on every building, or once for the whole project. It starts after that work type is finished inside the same place.</p>
+      <div class="scroll">
+        <table id="tTC"><thead><tr>
+          <th style="width:170px">Work type</th><th style="width:90px">Code</th><th>Name</th>
+          <th class="num" style="width:110px">Duration (days)</th><th style="width:170px">Repeats at</th>
+          <th style="width:34px"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Disciplines -->
+  <section class="panel" id="p-disc">
+    <div class="card">
+      <h2>Disciplines <span class="spacer"></span><button class="btn sm" id="addDisc">+ Discipline</button></h2>
+      <div class="scroll">
+        <table id="tDisc"><thead><tr>
+          <th style="width:100px">Code</th><th>Name</th><th style="width:320px">CSI division</th>
+          <th class="num" style="width:110px">Work types</th><th style="width:34px"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CSI -->
+  <section class="panel" id="p-csi">
+    <div class="card">
+      <h2>CSI divisions <span class="hint">MasterFormat — fixed for every project, read only</span></h2>
+      <div class="scroll">
+        <table id="tCSI"><thead><tr>
+          <th style="width:90px">Division</th><th>Name</th>
+          <th class="num" style="width:120px">Disciplines</th><th class="num" style="width:120px">Work types</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
+const fmt = (v, d = 2) => num(v).toLocaleString('en-US',
+  {minimumFractionDigits:0, maximumFractionDigits:d});
+const HPD = 8;                         // ساعات اليوم لحساب الإنتاج اليومي المعروض
+const SCOPES = ['same','next','prev','parent','children'];
+const RELS = ['FS','SS','FF','SF'];
+
+let D = null;          // القواميس كما في الصفحة
+let sel = null;        // نوع العمل المختار
+let dirty = false;
+
+function msg(kind, text){
+  $('#msg').innerHTML = text ? `<div class="alert ${kind}">${text}</div>` : '';
+}
+function touch(){ dirty = true; $('#dirty').textContent = 'Unsaved changes'; counts(); }
+async function api(url, opts){
+  const r = await fetch(url, opts);
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok || j.success === false) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+/* ───────── أدوات ───────── */
+const wtBy  = c => D.work_types.find(w => w.code === c);
+const resBy = c => D.resources.find(r => r.code === c);
+const matBy = c => D.materials.find(m => m.code === c);
+const opt = (list, v, blank) => (blank != null ? `<option value="">${esc(blank)}</option>` : '')
+  + list.map(([val, lab]) => `<option value="${esc(val)}"${String(val) === String(v ?? '') ? ' selected' : ''}>${esc(lab)}</option>`).join('');
+const wtOpts   = v => {
+  const miss = v && !wtBy(v);
+  return (miss ? `<option value="${esc(v)}" selected>${esc(v)} — not in dictionary</option>` : '')
+    + opt(D.work_types.map(w => [w.code, `${w.code} · ${w.name}`]), v, miss ? null : '—');
+};
+const discOpts = v => opt(D.disciplines.map(d => [d.code, `${d.code} · ${d.name}`]), v, '—');
+const csiOpts  = v => opt(D.csi.map(c => [c.division, `${c.division} · ${c.name}`]), v, '—');
+const resOpts  = v => {
+  const miss = v && !resBy(v);
+  return (miss ? `<option value="${esc(v)}" selected>${esc(v)} — not in dictionary</option>` : '')
+    + opt(D.resources.map(r => [r.code, `${r.code} · ${r.name}`]), v, miss ? null : '—');
+};
+const matOpts  = v => opt(D.materials.map(m => [m.code, `${m.code} · ${m.name}`]), v, '—');
+
+/* تكلفة وحدة نوع العمل من قاموسه: عمالة ومعدات بالساعات، ومواد بالاستهلاك.
+   تُقارَن بسعر البند في جدول الكميّات فيظهر المعدّل الشاذّ قبل أن يُولَّد
+   منه برنامج. الخطوات تحمل من التكلفة بقدر أوزانها. */
+function unitCost(w){
+  const wOf = code => {
+    if(!code) return 1;
+    const s = (w.steps || []).find(x => x.code === code);
+    return s ? 1 : 0;
+  };
+  let lab = 0, eq = 0, mat = 0;
+  for(const r of w.rates || []){
+    const res = resBy(r.resource); if(!res) continue;
+    const c = num(r.hours_per_unit) * num(res.unit_cost) * wOf(r.step);
+    if(res.kind === 'equipment') eq += c; else lab += c;
+  }
+  for(const m of w.materials || []){
+    const mt = matBy(m.material); if(!mt) continue;
+    mat += num(m.qty_per_unit) * num(mt.unit_cost);
+  }
+  return {lab, eq, mat, total: lab + eq + mat};
+}
+const stepSum = w => (w.steps || []).reduce((a, s) => a + num(s.weight), 0);
+
+function counts(){
+  if(!D) return;
+  const set = (id, v) => $(id).textContent = v;
+  set('#cWT', D.work_types.length);
+  set('#cST', D.work_types.reduce((a, w) => a + (w.steps || []).length, 0));
+  set('#cRT', D.work_types.reduce((a, w) => a + (w.rates || []).length, 0));
+  set('#cLR', D.rules.length);
+  set('#cRS', D.resources.length);
+  set('#cMT', D.materials.length);
+  set('#cEN', D.engineering.length);
+  set('#cTC', D.tc.length);
+}
+
+/* ───────── تبويبات ───────── */
+$('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tab]'); if(!b) return;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + b.dataset.tab));
+  render(b.dataset.tab);
+});
+function render(tab){
+  ({wt: renderWT, rules: renderRules, res: renderRes, mat: renderMat,
+    eng: renderEng, tc: renderTC, disc: renderDisc, csi: renderCSI})[tab]();
+}
+const curTab = () => document.querySelector('#tabs button.on').dataset.tab;
+
+/* ═════════ أنواع الأعمال ═════════ */
+function renderWT(){
+  $('#tWT tbody').innerHTML = D.work_types.map((w, i) => {
+    const ss = stepSum(w), ns = (w.steps || []).length;
+    const bad = ns && Math.abs(ss - 100) > 0.01;
+    const uc = unitCost(w);
+    return `<tr class="pick${w.code === sel ? ' sel' : ''}" data-i="${i}">
+      <td><input class="code" data-f="code" value="${esc(w.code)}" maxlength="8"></td>
+      <td><input data-f="name" value="${esc(w.name)}"></td>
+      <td><select data-f="discipline" title="${esc((D.disciplines.find(d => d.code === w.discipline) || {}).name || '')}">${opt(D.disciplines.map(d => [d.code, d.code]), w.discipline, '—')}</select></td>
+      <td><select data-f="csi_division" title="CSI division">${opt(D.csi.map(c => [c.division, c.division]), w.csi_division, '—')}</select></td>
+      <td><input data-f="unit" value="${esc(w.unit || '')}" maxlength="8"></td>
+      <td class="num">${ns ? `<span class="chip ${bad ? 'bad' : 'good'}">${ns} · ${fmt(ss, 1)}%</span>` : '<span class="chip">1</span>'}</td>
+      <td class="num">${(w.rates || []).length || '<span class="chip warn">0</span>'}</td>
+      <td class="num">${uc.total ? fmt(uc.total) : '–'}</td>
+      <td class="act"><button class="x" data-del="${i}" title="Remove">×</button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="9" class="empty">No work types yet.</td></tr>`;
+  renderWTDetail();
+}
+$('#tWT').addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if(del){
+    const w = D.work_types[+del.dataset.del];
+    D.work_types.splice(+del.dataset.del, 1);
+    if(sel === w.code) sel = null;
+    msg('warn', `Removed ${esc(w.code)} — not saved yet. Rules and engineering that name it are kept and marked.`);
+    touch(); renderWT(); return;
+  }
+  const tr = e.target.closest('tr[data-i]'); if(!tr) return;
+  const w = D.work_types[+tr.dataset.i];
+  if(sel !== w.code){ sel = w.code; renderWT(); }
+});
+$('#tWT').addEventListener('change', e => {
+  const tr = e.target.closest('tr[data-i]'); if(!tr) return;
+  const w = D.work_types[+tr.dataset.i], f = e.target.dataset.f;
+  let v = e.target.value;
+  if(f === 'code'){
+    v = v.trim().toUpperCase();
+    if(!v || D.work_types.some(x => x !== w && x.code === v)){
+      msg('err', `The code ${esc(v || '(empty)')} is ${v ? 'already used' : 'required'}.`);
+      e.target.value = w.code; return;
+    }
+    renameWT(w.code, v);
+  }
+  w[f] = v;
+  /* التخصّص يحمل قسم الـCSI الافتراضي، فيُملأ به حين يكون فارغًا */
+  if(f === 'discipline' && !w.csi_division){
+    const d = D.disciplines.find(x => x.code === v);
+    if(d && d.csi_division) w.csi_division = d.csi_division;
+  }
+  if(f === 'code') sel = v;
+  touch(); renderWT();
+});
+/* الكود مفتاحٌ تشير إليه القواعد والهندسة، فتغييره يُنقل إليها كلّها بدل أن
+   يتركها معلّقة على اسم لم يعد موجودًا. */
+function renameWT(from, to){
+  for(const r of D.rules){ if(r.pred_wt === from) r.pred_wt = to; if(r.succ_wt === from) r.succ_wt = to; }
+  for(const x of D.engineering.concat(D.tc)) if(x.work_type === from) x.work_type = to;
+}
+$('#addWT').onclick = () => {
+  let n = D.work_types.length + 1, c;
+  do { c = 'WT' + String(n++).padStart(2, '0'); } while(wtBy(c));
+  D.work_types.push({code:c, name:'', discipline:'', csi_division:'', unit:'', days:1,
+                     applies_to:[], keywords:[], steps:[], rates:[], materials:[]});
+  sel = c; touch(); renderWT();
+  const tr = $('#tWT tbody tr:last-child input[data-f="name"]'); if(tr) tr.focus();
+};
+
+function renderWTDetail(){
+  const box = $('#wtDetail');
+  const w = sel ? wtBy(sel) : null;
+  if(!w){
+    box.innerHTML = `<div class="empty">Select a work type to see its steps and weights, productivity rates and materials.</div>`;
+    return;
+  }
+  const ss = stepSum(w), ns = w.steps.length, bad = ns && Math.abs(ss - 100) > 0.01;
+  const uc = unitCost(w);
+  const stepOpts = v => opt([['', 'Whole work type']].concat(w.steps.map(s => [s.code, `${s.code} · ${s.name}`])), v);
+  box.innerHTML = `
+    <div class="big">${esc(w.code)} <small>${esc(w.name || 'Unnamed')}${w.unit ? ' · per ' + esc(w.unit) : ''}</small></div>
+    <div class="kv">
+      <div><i>Labour / ${esc(w.unit || 'unit')}</i><b>${fmt(uc.lab)}</b></div>
+      <div><i>Equipment / ${esc(w.unit || 'unit')}</i><b>${fmt(uc.eq)}</b></div>
+      <div><i>Materials / ${esc(w.unit || 'unit')}</i><b>${fmt(uc.mat)}</b></div>
+    </div>
+
+    <h3>Applies to</h3>
+    <div class="lvls" id="wtLv">${D.levels.map(l =>
+      `<label class="${(w.applies_to || []).includes(l.key) ? 'on' : ''}"><input type="checkbox" value="${esc(l.key)}"${(w.applies_to || []).includes(l.key) ? ' checked' : ''}>${esc(l.label)}</label>`).join('')}</div>
+
+    <h3>Keywords <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:500">— words in a BOQ description that point to this work type</span></h3>
+    <textarea class="kw" id="wtKw" placeholder="concrete, slab, column">${esc((w.keywords || []).join(', '))}</textarea>
+
+    <h3>Steps &amp; weights <span class="chip ${ns ? (bad ? 'bad' : 'good') : ''}">${ns ? 'Σ ' + fmt(ss, 2) + '%' : 'Not split'}</span>
+      <span class="spacer"></span>
+      ${bad ? '<button class="btn sm" id="stBal">Balance to 100%</button>' : ''}
+      <button class="btn sm" id="stAdd">+ Step</button></h3>
+    <p class="note" style="padding-top:0">When you break a BOQ item down you can split it into these steps: each gets the item's full quantity and its weight's share of the cost and hours. Each step's link is to the step before it.</p>
+    <div class="sub"><table id="tSt"><thead><tr>
+      <th style="width:70px">Code</th><th>Name</th><th class="num" style="width:78px">Weight %</th>
+      <th style="width:66px">Link</th><th class="num" style="width:62px">Lag</th><th style="width:34px"></th>
+    </tr></thead><tbody>${w.steps.map((s, i) => `<tr data-i="${i}">
+      <td><input class="code" data-f="code" value="${esc(s.code)}" maxlength="6"></td>
+      <td><input data-f="name" value="${esc(s.name)}"></td>
+      <td><input data-f="weight" type="number" step="0.5" value="${num(s.weight)}"></td>
+      <td>${i ? `<select data-f="rel_type">${opt(RELS.map(r => [r, r]), s.rel_type)}</select>` : '<span class="chip">start</span>'}</td>
+      <td>${i ? `<input data-f="lag_days" type="number" step="0.5" value="${num(s.lag_days)}">` : ''}</td>
+      <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`).join('')
+      || '<tr><td colspan="6" class="empty">Not split — every BOQ item of this type stays one activity.</td></tr>'}</tbody></table></div>
+
+    <h3>Productivity <span class="spacer"></span><button class="btn sm" id="rtAdd">+ Resource</button></h3>
+    <p class="note" style="padding-top:0">Hours per unit of work, and how many of that resource work together. The slowest resource sets the duration unless one is marked driving.</p>
+    <div class="sub"><table id="tRt"><thead><tr>
+      <th>Resource</th><th style="width:130px">Step</th><th class="num" style="width:84px">Hours / ${esc(w.unit || 'unit')}</th>
+      <th class="num" style="width:62px">Crew</th><th class="num" style="width:92px">Output / day</th>
+      <th style="width:56px">Driving</th><th style="width:34px"></th>
+    </tr></thead><tbody>${w.rates.map((r, i) => {
+      const out = num(r.hours_per_unit) > 0 ? num(r.crew_count) * HPD / num(r.hours_per_unit) : 0;
+      return `<tr data-i="${i}">
+      <td><select data-f="resource">${resOpts(r.resource)}</select></td>
+      <td><select data-f="step">${stepOpts(r.step)}</select></td>
+      <td><input data-f="hours_per_unit" type="number" step="0.01" value="${num(r.hours_per_unit)}"></td>
+      <td><input data-f="crew_count" type="number" step="1" min="1" value="${num(r.crew_count) || 1}"></td>
+      <td class="num ro">${out ? fmt(out, 1) + ' ' + esc(w.unit || '') : '–'}</td>
+      <td style="text-align:center"><input data-f="driving" type="checkbox" style="width:auto;height:auto"${r.driving ? ' checked' : ''}></td>
+      <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`;}).join('')
+      || '<tr><td colspan="7" class="empty">No rates — activities of this type keep a default duration of ' + fmt(w.days) + ' days.</td></tr>'}</tbody></table></div>
+
+    <h3>Materials <span class="spacer"></span><button class="btn sm" id="mtAdd">+ Material</button></h3>
+    <div class="sub"><table id="tWm"><thead><tr>
+      <th>Material</th><th class="num" style="width:120px">Qty per ${esc(w.unit || 'unit')}</th>
+      <th class="num" style="width:110px">Cost per ${esc(w.unit || 'unit')}</th><th style="width:34px"></th>
+    </tr></thead><tbody>${w.materials.map((m, i) => {
+      const mt = matBy(m.material);
+      return `<tr data-i="${i}">
+      <td><select data-f="material">${matOpts(m.material)}</select></td>
+      <td><input data-f="qty_per_unit" type="number" step="0.01" value="${num(m.qty_per_unit)}"></td>
+      <td class="num ro">${mt ? fmt(num(m.qty_per_unit) * num(mt.unit_cost)) : '–'}</td>
+      <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`;}).join('')
+      || '<tr><td colspan="4" class="empty">No materials.</td></tr>'}</tbody></table></div>
+    <div style="height:10px"></div>`;
+}
+/* تحرير التفاصيل — مستمع واحد على البطاقة */
+$('#wtDetail').addEventListener('change', e => {
+  const w = wtBy(sel); if(!w) return;
+  if(e.target.closest('#wtLv')){
+    w.applies_to = [...document.querySelectorAll('#wtLv input:checked')].map(x => x.value);
+    touch(); renderWTDetail(); return;
+  }
+  if(e.target.id === 'wtKw'){
+    w.keywords = e.target.value.split(/[,\n]/).map(x => x.trim()).filter(Boolean);
+    touch(); return;
+  }
+  const tr = e.target.closest('tr[data-i]'); if(!tr) return;
+  const tbl = tr.closest('table').id, i = +tr.dataset.i, f = e.target.dataset.f;
+  const list = tbl === 'tSt' ? w.steps : tbl === 'tRt' ? w.rates : w.materials;
+  const row = list[i];
+  let v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+  if(e.target.type === 'number') v = num(v);
+  if(tbl === 'tSt' && f === 'code'){
+    v = String(v).trim().toUpperCase();
+    if(!v || w.steps.some((x, j) => j !== i && x.code === v)){
+      msg('err', `Step code ${esc(v || '(empty)')} is ${v ? 'already used in ' + esc(w.code) : 'required'}.`);
+      renderWTDetail(); return;
+    }
+    for(const r of w.rates) if(r.step === row.code) r.step = v;
+  }
+  row[f] = v;
+  touch(); renderWT();
+});
+$('#wtDetail').addEventListener('click', e => {
+  const w = wtBy(sel); if(!w) return;
+  const id = e.target.id;
+  if(id === 'stAdd'){
+    let n = w.steps.length + 1, c;
+    do { c = 'S' + n++; } while(w.steps.some(s => s.code === c));
+    const left = Math.max(0, 100 - stepSum(w));
+    w.steps.push({code:c, name:'', weight:left, rel_type:'FS', lag_days:0});
+    touch(); renderWT(); return;
+  }
+  if(id === 'stBal'){
+    /* يوزَّع الفرق على الخطوات بنسبة أوزانها، فتبقى نِسَبها بعضها لبعض كما هي */
+    const s = stepSum(w);
+    if(s > 0) w.steps.forEach(x => x.weight = Math.round(num(x.weight) / s * 10000) / 100);
+    else w.steps.forEach(x => x.weight = Math.round(10000 / w.steps.length) / 100);
+    const drift = 100 - stepSum(w);
+    if(w.steps.length) w.steps[w.steps.length - 1].weight = Math.round((num(w.steps[w.steps.length - 1].weight) + drift) * 100) / 100;
+    touch(); renderWT(); return;
+  }
+  if(id === 'rtAdd'){ w.rates.push({resource:'', step:'', hours_per_unit:0, crew_count:1, driving:false}); touch(); renderWT(); return; }
+  if(id === 'mtAdd'){ w.materials.push({material:'', qty_per_unit:0}); touch(); renderWT(); return; }
+  const del = e.target.closest('[data-del]');
+  if(del){
+    const tbl = del.closest('table').id, i = +del.dataset.del;
+    if(tbl === 'tSt'){
+      const code = w.steps[i].code;
+      w.steps.splice(i, 1);
+      w.rates.forEach(r => { if(r.step === code) r.step = ''; });
+    } else if(tbl === 'tRt') w.rates.splice(i, 1);
+    else w.materials.splice(i, 1);
+    touch(); renderWT();
+  }
+});
+
+/* ═════════ قواعد الربط ═════════ */
+function renderRules(){
+  const f = $('#ruleFilter');
+  const fv = f.value;
+  f.innerHTML = opt(D.work_types.map(w => [w.code, `${w.code} · ${w.name}`]), fv, 'All work types');
+  const rows = D.rules.map((r, i) => [r, i]).filter(([r]) => !fv || r.pred_wt === fv || r.succ_wt === fv);
+  $('#tRules tbody').innerHTML = rows.slice(0, 1500).map(([r, i]) => {
+    const ag = r.agreement == null ? null : num(r.agreement);
+    const cls = ag == null ? '' : ag >= 90 ? 'good' : ag >= 60 ? 'warn' : 'bad';
+    return `<tr data-i="${i}">
+      <td><select data-f="pred_wt">${wtOpts(r.pred_wt)}</select></td>
+      <td><select data-f="succ_wt">${wtOpts(r.succ_wt)}</select></td>
+      <td><select data-f="scope">${opt(SCOPES.map(s => [s, s]), r.scope)}</select></td>
+      <td><select data-f="rel_type">${opt(RELS.map(s => [s, s]), r.rel_type)}</select></td>
+      <td><input data-f="lag_days" type="number" step="0.5" value="${num(r.lag_days)}"></td>
+      <td class="num ro">${r.observations || ''}</td>
+      <td class="num">${ag == null ? '' : `<span class="chip ${cls}">${fmt(ag, 0)}%</span>`}</td>
+      <td><span class="chip">${r.origin === 'derived' ? 'derived' : 'manual'}</span></td>
+      <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`;
+  }).join('') || `<tr><td colspan="9" class="empty">No rules${fv ? ' for ' + esc(fv) : ''}.</td></tr>`;
+}
+$('#ruleFilter').onchange = renderRules;
+$('#tRules').addEventListener('change', e => {
+  const tr = e.target.closest('tr[data-i]'); if(!tr) return;
+  const r = D.rules[+tr.dataset.i];
+  r[e.target.dataset.f] = e.target.type === 'number' ? num(e.target.value) : e.target.value;
+  r.origin = 'manual';               // عُدِّلت، فلا تكتب فوقها إعادة الاشتقاق
+  touch(); renderRules();
+});
+$('#tRules').addEventListener('click', e => {
+  const d = e.target.closest('[data-del]'); if(!d) return;
+  D.rules.splice(+d.dataset.del, 1); touch(); renderRules();
+});
+$('#addRule').onclick = () => {
+  const fv = $('#ruleFilter').value;
+  D.rules.unshift({pred_wt: fv || '', succ_wt:'', scope:'same', rel_type:'FS', lag_days:0, origin:'manual'});
+  touch(); renderRules();
+};
+
+/* ═════════ جداول بسيطة: موارد، مواد، تخصّصات، هندسة، T&C ═════════ */
+function usedRes(code){ return D.work_types.filter(w => (w.rates || []).some(r => r.resource === code)).length; }
+function usedMat(code){ return D.work_types.filter(w => (w.materials || []).some(m => m.material === code)).length; }
+
+function renderRes(){
+  $('#tRes tbody').innerHTML = D.resources.map((r, i) => `<tr data-i="${i}">
+    <td><input class="code" data-f="code" value="${esc(r.code)}" maxlength="8"></td>
+    <td><input data-f="name" value="${esc(r.name)}"></td>
+    <td><select data-f="kind">${opt([['labor','Labour'],['equipment','Equipment']], r.kind)}</select></td>
+    <td><input data-f="unit_cost" type="number" step="0.5" value="${num(r.unit_cost)}"></td>
+    <td class="num ro">${usedRes(r.code) ? usedRes(r.code) + ' work types' : '–'}</td>
+    <td>${r.origin === 'seed' ? '<span class="chip seed" title="Starter value — replace with your company rate">Starter</span>' : ''}</td>
+    <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`).join('')
+    || `<tr><td colspan="7" class="empty">No resources yet.</td></tr>`;
+}
+function renderMat(){
+  $('#tMat tbody').innerHTML = D.materials.map((m, i) => `<tr data-i="${i}">
+    <td><input class="code" data-f="code" value="${esc(m.code)}" maxlength="8"></td>
+    <td><input data-f="name" value="${esc(m.name)}"></td>
+    <td><input data-f="unit" value="${esc(m.unit || '')}" maxlength="8"></td>
+    <td><input data-f="unit_cost" type="number" step="0.5" value="${num(m.unit_cost)}"></td>
+    <td><input data-f="lead_time_days" type="number" step="1" value="${num(m.lead_time_days)}"></td>
+    <td><input data-f="keywords" value="${esc((m.keywords || []).join(', '))}"></td>
+    <td class="num ro">${usedMat(m.code) || '–'}</td>
+    <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`).join('')
+    || `<tr><td colspan="8" class="empty">No materials yet.</td></tr>`;
+}
+function renderDisc(){
+  $('#tDisc tbody').innerHTML = D.disciplines.map((d, i) => `<tr data-i="${i}">
+    <td><input class="code" data-f="code" value="${esc(d.code)}" maxlength="6"></td>
+    <td><input data-f="name" value="${esc(d.name)}"></td>
+    <td><select data-f="csi_division">${csiOpts(d.csi_division)}</select></td>
+    <td class="num ro">${D.work_types.filter(w => w.discipline === d.code).length || '–'}</td>
+    <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`).join('')
+    || `<tr><td colspan="5" class="empty">No disciplines yet.</td></tr>`;
+}
+function renderCSI(){
+  $('#tCSI tbody').innerHTML = D.csi.map(c => `<tr>
+    <td><b>${esc(c.division)}</b></td><td>${esc(c.name)}</td>
+    <td class="num ro">${D.disciplines.filter(d => d.csi_division === c.division).length || '–'}</td>
+    <td class="num ro">${D.work_types.filter(w => w.csi_division === c.division).length || '–'}</td></tr>`).join('');
+}
+function renderEng(){
+  $('#tEng tbody').innerHTML = D.engineering.map((x, i) => {
+    const first = i === 0 || D.engineering[i - 1].work_type !== x.work_type;
+    return `<tr data-i="${i}">
+    <td><select data-f="work_type">${wtOpts(x.work_type)}</select></td>
+    <td><input class="code" data-f="code" value="${esc(x.code)}" maxlength="8"></td>
+    <td><input data-f="name" value="${esc(x.name)}"></td>
+    <td><input data-f="duration_days" type="number" step="1" value="${num(x.duration_days)}"></td>
+    <td>${first ? '<span class="chip">first</span>' : `<select data-f="rel_type">${opt(RELS.map(r => [r, r]), x.rel_type)}</select>`}</td>
+    <td>${first ? '' : `<input data-f="lag_days" type="number" step="0.5" value="${num(x.lag_days)}">`}</td>
+    <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`;}).join('')
+    || `<tr><td colspan="7" class="empty">No engineering activities yet.</td></tr>`;
+}
+function renderTC(){
+  const lv = [['', 'Once per project']].concat(D.levels.map(l => [l.key, 'Every ' + l.label.toLowerCase()]));
+  $('#tTC tbody').innerHTML = D.tc.map((x, i) => `<tr data-i="${i}">
+    <td><select data-f="work_type">${wtOpts(x.work_type)}</select></td>
+    <td><input class="code" data-f="code" value="${esc(x.code)}" maxlength="8"></td>
+    <td><input data-f="name" value="${esc(x.name)}"></td>
+    <td><input data-f="duration_days" type="number" step="1" value="${num(x.duration_days)}"></td>
+    <td><select data-f="level_key">${opt(lv, x.level_key || '')}</select></td>
+    <td class="act"><button class="x" data-del="${i}">×</button></td></tr>`).join('')
+    || `<tr><td colspan="6" class="empty">No T&amp;C activities yet.</td></tr>`;
+}
+
+/* مستمع واحد لكلّ جدول بسيط: القائمة التي يحرّرها، ومن يُرسم بعد التعديل */
+const SIMPLE = {
+  tRes:  {list: () => D.resources,   draw: renderRes,  key:'code'},
+  tMat:  {list: () => D.materials,   draw: renderMat,  key:'code'},
+  tDisc: {list: () => D.disciplines, draw: renderDisc, key:'code'},
+  tEng:  {list: () => D.engineering, draw: renderEng},
+  tTC:   {list: () => D.tc,          draw: renderTC},
+};
+for(const [id, cfg] of Object.entries(SIMPLE)){
+  const t = document.getElementById(id);
+  t.addEventListener('change', e => {
+    const tr = e.target.closest('tr[data-i]'); if(!tr) return;
+    const list = cfg.list(), row = list[+tr.dataset.i], f = e.target.dataset.f;
+    let v = e.target.type === 'number' ? num(e.target.value) : e.target.value;
+    if(f === 'code'){
+      v = String(v).trim().toUpperCase();
+      const clash = cfg.key ? list.some(x => x !== row && x.code === v)
+        : list.some(x => x !== row && x.code === v && x.work_type === row.work_type);
+      if(!v || clash){ msg('err', `The code ${esc(v || '(empty)')} is ${v ? 'already used' : 'required'}.`); cfg.draw(); return; }
+      /* المورد والمادّة تشير إليهما المعدّلات والاستهلاك */
+      if(id === 'tRes') D.work_types.forEach(w => (w.rates || []).forEach(r => { if(r.resource === row.code) r.resource = v; }));
+      if(id === 'tMat') D.work_types.forEach(w => (w.materials || []).forEach(m => { if(m.material === row.code) m.material = v; }));
+      if(id === 'tDisc') D.work_types.forEach(w => { if(w.discipline === row.code) w.discipline = v; });
+    }
+    if(f === 'keywords') v = String(v).split(',').map(x => x.trim()).filter(Boolean);
+    row[f] = v;
+    if(id === 'tEng' && f === 'work_type') sortExtras(D.engineering);
+    touch(); cfg.draw();
+  });
+  t.addEventListener('click', e => {
+    const d = e.target.closest('[data-del]'); if(!d) return;
+    cfg.list().splice(+d.dataset.del, 1); touch(); cfg.draw();
+  });
+}
+function sortExtras(list){
+  const order = new Map(D.work_types.map((w, i) => [w.code, i]));
+  list.sort((a, b) => (order.get(a.work_type) ?? 1e9) - (order.get(b.work_type) ?? 1e9)
+                      || num(a.seq) - num(b.seq));
+  list.forEach((x, i) => x.seq = i * 10);
+}
+function nextCode(list, prefix){
+  let n = list.length + 1, c;
+  do { c = prefix + String(n++).padStart(2, '0'); } while(list.some(x => x.code === c));
+  return c;
+}
+$('#addRes').onclick  = () => { D.resources.push({code: nextCode(D.resources, 'R'), name:'', kind:'labor', unit_cost:0}); touch(); renderRes(); };
+$('#addMat').onclick  = () => { D.materials.push({code: nextCode(D.materials, 'M'), name:'', unit:'', unit_cost:0, lead_time_days:0, keywords:[]}); touch(); renderMat(); };
+$('#addDisc').onclick = () => { D.disciplines.push({code: nextCode(D.disciplines, 'D'), name:'', csi_division:''}); touch(); renderDisc(); };
+$('#addEng').onclick  = () => { D.engineering.push({work_type: sel || '', code: nextCode(D.engineering, 'E'), name:'', duration_days:7, rel_type:'FS', lag_days:0, seq: 1e6}); sortExtras(D.engineering); touch(); renderEng(); };
+$('#addTC').onclick   = () => { D.tc.push({work_type: sel || '', code: nextCode(D.tc, 'T'), name:'', duration_days:2, level_key:'', seq: 1e6}); touch(); renderTC(); };
+
+/* ═════════ تحميل وحفظ ═════════ */
+async function load(){
+  msg('', '');
+  $('#tWT tbody').innerHTML = '<tr><td colspan="9"><div class="sk"></div><div class="sk" style="width:70%"></div><div class="sk" style="width:55%"></div></td></tr>';
+  try{
+    const j = await api('/api/dict');
+    D = j;
+    D.engineering = (j.extras || []).filter(x => x.kind === 'eng');
+    D.tc = (j.extras || []).filter(x => x.kind === 'tc');
+    sortExtras(D.engineering); sortExtras(D.tc);      // بترتيب الكتالوج لا الأبجديّ
+    sel = sel && wtBy(sel) ? sel : (D.work_types[0] || {}).code || null;
+    dirty = false; $('#dirty').textContent = '';
+    counts(); render(curTab());
+    if([...D.resources, ...D.materials].some(x => x.origin === 'seed'))
+      msg('info', 'Rates, costs and resources marked <span class="chip seed">Starter</span> are examples to show how the dictionary is filled. Replace them with your company\'s figures.');
+  }catch(e){ msg('err', 'Could not load the dictionaries: ' + esc(e.message)); }
+}
+$('#btnSave').onclick = async () => {
+  const b = $('#btnSave');
+  b.disabled = true; b.textContent = 'Saving…';
+  try{
+    const j = await api('/api/dict', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({disciplines:D.disciplines, resources:D.resources,
+        materials:D.materials, work_types:D.work_types, rules:D.rules,
+        engineering:D.engineering, tc:D.tc})});
+    await load();
+    const p = j.problems || [];
+    const steps = p.filter(x => x.issue === 'step_weights');
+    if(steps.length)
+      msg('warn', 'Saved. Step weights do not add up to 100% for: ' + steps.map(x => `<b>${esc(x.work_type)}</b> (${fmt(x.total, 2)}%)`).join(', ')
+        + '. Items split by these steps will not carry their full cost.');
+    else msg('ok', 'Saved.');
+  }catch(e){ msg('err', 'Not saved: ' + esc(e.message)); }
+  finally{ b.disabled = false; b.textContent = 'Save'; }
+};
+window.addEventListener('beforeunload', e => { if(dirty){ e.preventDefault(); e.returnValue = ''; } });
+load();
+</script>
+</body>
+</html>
