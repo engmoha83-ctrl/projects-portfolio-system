@@ -254,8 +254,7 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
       <div style="overflow:auto; max-height:58vh;">
         <table id="tWT"><thead><tr>
           <th style="width:10%" data-i18n="cCode">Code</th>
-          <th style="width:26%" data-i18n="cNameEn">Name</th>
-          <th style="width:22%" data-i18n="cNameAr">Arabic name</th>
+          <th style="width:34%" data-i18n="cNameEn">Name</th>
           <th style="width:10%" data-i18n="cDisc">Discipline</th>
           <th style="width:16%" data-i18n="cCSI">CSI division</th>
           <th style="width:9%"  data-i18n="cDays">Days</th>
@@ -745,8 +744,8 @@ $('#btnLevels').onclick = () => {
     <div class="bd">
       <p class="note">${esc(T('nLevels'))}</p>
       <table id="lvT"><thead><tr>
-        <th data-x>${esc(T('cLabel'))}</th><th>${esc(T('cLabelAr'))}</th>
-        <th style="width:26%">${esc(T('cToken'))}</th><th style="width:70px"></th>
+        <th>${esc(T('cLabel'))}</th>
+        <th style="width:34%">${esc(T('cToken'))}</th><th style="width:70px"></th>
       </tr></thead><tbody></tbody></table>
     </div>
     <footer><button class="btn" id="lvX">${esc(T('close'))}</button>
@@ -755,7 +754,6 @@ $('#btnLevels').onclick = () => {
   const draw = () => {
     m.querySelector('#lvT tbody').innerHTML = rows.map((r, i) => `<tr data-i="${i}">
       <td><input data-f="label" value="${esc(r.label || '')}"></td>
-      <td><input data-f="label_ar" value="${esc(r.label_ar || '')}" dir="rtl"></td>
       <td><input data-f="token" value="${esc(r.token || '')}" style="text-transform:uppercase"></td>
       <td><button class="btn sm danger" data-del="1">${esc(T('del'))}</button></td></tr>`).join('');
   };
@@ -780,7 +778,7 @@ $('#btnLevels').onclick = () => {
       m.remove();
       await loadLevels();
       renderPlaces(); renderWT(); renderMatrix(); renderMap();
-      if((j.in_use || []).length) msg('warn', T('lvlInUse') + ' ' + j.in_use.join('، '));
+      if((j.in_use || []).length) msg('warn', T('lvlInUse') + ' ' + j.in_use.join(', '));
       else msg('ok', T('savedOk'));
     }catch(err){ msg('err', err.message); }
   };
@@ -804,10 +802,9 @@ function renderWT(){
   $('#tWT tbody').innerHTML = S.work_types.map((w, i) => `<tr data-i="${i}">
     <td><input data-f="code" value="${esc(w.code || '')}" maxlength="10" style="text-transform:uppercase"></td>
     <td><input data-f="name" value="${esc(w.name || '')}"></td>
-    <td><input data-f="name_ar" value="${esc(w.name_ar || '')}" dir="rtl"></td>
     <td><input data-f="discipline" value="${esc(w.discipline || '')}" maxlength="6" style="text-transform:uppercase"></td>
     <td><select data-f="csi_division"><option value=""></option>${CSI.map(c =>
-        `<option value="${esc(c.division)}"${c.division === w.csi_division ? ' selected' : ''}>${esc(c.division)} · ${esc(en() ? c.name : (c.name_ar || c.name))}</option>`).join('')}</select></td>
+        `<option value="${esc(c.division)}"${c.division === w.csi_division ? ' selected' : ''}>${esc(c.division)} · ${esc(c.name)}</option>`).join('')}</select></td>
     <td><input data-f="days" type="number" min="0" step="0.5" value="${w.days ?? 1}"></td>
     <td><div class="tcell lvlpick">${LEVELS.map(l =>
         `<label class="inl" style="margin:0; gap:3px; font-size:10.5px">
@@ -894,7 +891,7 @@ function renderRules(){
   $('#tRules tbody').innerHTML = (S.rulesList || []).slice(0, 400).map((r, i) => {
     const ag = r.agreement == null ? '' : Number(r.agreement);
     const cls = ag === '' ? '' : ag >= 90 ? 'good' : ag >= 60 ? 'warn' : 'bad';
-    const manual = (r.origin || '') !== 'مشتقّة';
+    const manual = (r.origin || '') !== 'derived';
     return `<tr data-i="${i}">
       <td><select data-f="pred_wt">${opt(wtCodes, r.pred_wt)}</select></td>
       <td><select data-f="succ_wt">${opt(wtCodes, r.succ_wt)}</select></td>
@@ -934,7 +931,7 @@ $('#addRule').onclick = () => {
   if(c.length < 2){ msg('warn', T('no_work_types')); return; }
   S.rulesList = S.rulesList || [];
   S.rulesList.unshift({pred_wt:c[0], succ_wt:c[1], scope:'same', rel_type:'FS',
-                       lag_days:0, origin:'يدوية', observations:null,
+                       lag_days:0, origin:'manual', observations:null,
                        agreement:null, sources:null});
   S.rules = S.rulesList.length;
   renderRules(); updateStrip();
@@ -984,7 +981,7 @@ async function save(){
     if(S.rulesList && S.rulesList.length)
       await api('/api/gen/rules', {method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({rules:S.rulesList.filter(r => (r.origin || '') !== 'مشتقّة')})});
+        body:JSON.stringify({rules:S.rulesList.filter(r => (r.origin || '') !== 'derived')})});
     renderPlaces(); renderMatrix(); renderMap();
     msg('ok', T('savedOk'));
   }catch(e){

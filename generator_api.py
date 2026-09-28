@@ -74,52 +74,52 @@ def _fail(e):
 # بذرةٌ تُزرع مرّة، والقائمة بعدها ملكُ المستخدم يضيف ويحذف.
 # ‎token‎ هو رمزها في نمط كود النشاط.
 DEFAULT_LEVELS = [
-    ("zone", "Zone", "منطقة", "ZONE", 10),
-    ("building", "Building", "مبنى", "BUILDING", 20),
-    ("floor", "Floor", "دور", "FLOOR", 30),
-    ("corridor", "Corridor", "ممرّ", "CORRIDOR", 40),
-    ("unit", "Unit", "وحدة", "UNIT", 50),
-    ("room", "Room", "غرفة", "ROOM", 60),
+    ("zone", "Zone", None, "ZONE", 10),
+    ("building", "Building", None, "BUILDING", 20),
+    ("floor", "Floor", None, "FLOOR", 30),
+    ("corridor", "Corridor", None, "CORRIDOR", 40),
+    ("unit", "Unit", None, "UNIT", 50),
+    ("room", "Room", None, "ROOM", 60),
 ]
 
 # ─────────── أقسام MasterFormat ───────────
 # معياريّة وثابتة لكلّ المشاريع: تُقرأ ولا تُحرَّر، ومنها يُختار تخصّص
 # نوع العمل. وثباتها هو ما يجعل كتالوج الأعمال مقارَنًا بين المشاريع.
 CSI_DIVISIONS = [
-    ("00", "Procurement and Contracting Requirements", "متطلّبات التعاقد", 0),
-    ("01", "General Requirements", "المتطلّبات العامّة", 1),
-    ("02", "Existing Conditions", "الأوضاع القائمة", 2),
-    ("03", "Concrete", "الخرسانة", 3),
-    ("04", "Masonry", "أعمال المباني", 4),
-    ("05", "Metals", "المعادن", 5),
-    ("06", "Wood, Plastics, and Composites", "الأخشاب واللدائن", 6),
-    ("07", "Thermal and Moisture Protection", "العزل الحراري والمائي", 7),
-    ("08", "Openings", "الفتحات والأبواب والشبابيك", 8),
-    ("09", "Finishes", "التشطيبات", 9),
-    ("10", "Specialties", "التجهيزات الخاصّة", 10),
-    ("11", "Equipment", "المعدّات", 11),
-    ("12", "Furnishings", "المفروشات", 12),
-    ("13", "Special Construction", "الإنشاءات الخاصّة", 13),
-    ("14", "Conveying Equipment", "معدّات النقل والمصاعد", 14),
-    ("21", "Fire Suppression", "مكافحة الحريق", 21),
-    ("22", "Plumbing", "أعمال السباكة", 22),
-    ("23", "Heating, Ventilating, and Air Conditioning", "التكييف والتهوية", 23),
-    ("25", "Integrated Automation", "الأتمتة المتكاملة", 25),
-    ("26", "Electrical", "الأعمال الكهربائية", 26),
-    ("27", "Communications", "الاتّصالات", 27),
-    ("28", "Electronic Safety and Security", "الأمن والسلامة", 28),
-    ("31", "Earthwork", "الأعمال الترابية", 31),
-    ("32", "Exterior Improvements", "الأعمال الخارجية والتنسيق", 32),
-    ("33", "Utilities", "المرافق والبنية التحتية", 33),
-    ("34", "Transportation", "أعمال النقل", 34),
-    ("35", "Waterway and Marine Construction", "الأعمال البحرية", 35),
-    ("40", "Process Interconnections", "الوصلات الصناعية", 40),
-    ("41", "Material Processing and Handling Equipment", "معدّات المناولة", 41),
-    ("42", "Process Heating, Cooling, and Drying Equipment", "معدّات التسخين والتبريد", 42),
-    ("43", "Process Gas and Liquid Handling", "معالجة الغازات والسوائل", 43),
-    ("44", "Pollution and Waste Control Equipment", "معدّات معالجة المخلّفات", 44),
-    ("46", "Water and Wastewater Equipment", "معدّات المياه والصرف", 46),
-    ("48", "Electrical Power Generation", "توليد الطاقة الكهربائية", 48),
+    ("00", "Procurement and Contracting Requirements", None, 0),
+    ("01", "General Requirements", None, 1),
+    ("02", "Existing Conditions", None, 2),
+    ("03", "Concrete", None, 3),
+    ("04", "Masonry", None, 4),
+    ("05", "Metals", None, 5),
+    ("06", "Wood, Plastics, and Composites", None, 6),
+    ("07", "Thermal and Moisture Protection", None, 7),
+    ("08", "Openings", None, 8),
+    ("09", "Finishes", None, 9),
+    ("10", "Specialties", None, 10),
+    ("11", "Equipment", None, 11),
+    ("12", "Furnishings", None, 12),
+    ("13", "Special Construction", None, 13),
+    ("14", "Conveying Equipment", None, 14),
+    ("21", "Fire Suppression", None, 21),
+    ("22", "Plumbing", None, 22),
+    ("23", "Heating, Ventilating, and Air Conditioning", None, 23),
+    ("25", "Integrated Automation", None, 25),
+    ("26", "Electrical", None, 26),
+    ("27", "Communications", None, 27),
+    ("28", "Electronic Safety and Security", None, 28),
+    ("31", "Earthwork", None, 31),
+    ("32", "Exterior Improvements", None, 32),
+    ("33", "Utilities", None, 33),
+    ("34", "Transportation", None, 34),
+    ("35", "Waterway and Marine Construction", None, 35),
+    ("40", "Process Interconnections", None, 40),
+    ("41", "Material Processing and Handling Equipment", None, 41),
+    ("42", "Process Heating, Cooling, and Drying Equipment", None, 42),
+    ("43", "Process Gas and Liquid Handling", None, 43),
+    ("44", "Pollution and Waste Control Equipment", None, 44),
+    ("46", "Water and Wastewater Equipment", None, 46),
+    ("48", "Electrical Power Generation", None, 48),
 ]
 
 
@@ -150,7 +150,7 @@ def ensure_schema(cur):
                        calendar_hint TEXT,
                        applies_to JSONB NOT NULL DEFAULT '[]'::jsonb,
                        seq INTEGER DEFAULT 0,
-                       origin TEXT DEFAULT 'يدوية',
+                       origin TEXT DEFAULT 'manual',
                        created_at TIMESTAMP DEFAULT NOW(),
                        UNIQUE (code))""")
 
@@ -163,7 +163,7 @@ def ensure_schema(cur):
                        lag_days NUMERIC DEFAULT 0,
                        scope TEXT NOT NULL DEFAULT 'same',
                        project_type TEXT,
-                       origin TEXT DEFAULT 'مشتقّة',
+                       origin TEXT DEFAULT 'derived',
                        observations INTEGER DEFAULT 0,
                        agreement NUMERIC,
                        sources INTEGER DEFAULT 0,
@@ -350,7 +350,7 @@ def load_definition(cur, sched_id):
     for r in cur.fetchall():
         code = r[0]
         applies = set(r[8] or []) | inc.get(code, set())
-        wts.append(G.WorkType(code, code, r[2] or r[1], r[3] or "", r[4] or "",
+        wts.append(G.WorkType(code, code, r[1] or code, r[3] or "", r[4] or "",
                               float(r[5] or 1), r[6],
                               r[7], tuple(applies), tuple(exc.get(code, ()))))
 
@@ -365,7 +365,7 @@ def load_definition(cur, sched_id):
     for r in cur.fetchall():
         try:
             rules.append(G.Rule(r[0], r[1], r[2], float(r[3] or 0), r[4],
-                                r[5] or "مشتقّة", r[6]))
+                                r[5] or "derived", r[6]))
         except ValueError:
             continue        # قاعدة بنوع أو نطاق غير معروف تُتخطّى ولا تُسقط الكلّ
 
@@ -592,7 +592,7 @@ async def import_evidence(request: Request):
                             (r["pred_work_type"], r["succ_work_type"],
                              r["scope"]))
                 cur_row = cur.fetchone()
-                if cur_row and cur_row[0] == "يدوية":
+                if cur_row and cur_row[0] == "manual":
                     if cur_row[1] != r["rel_type"]:
                         conflicts.append({
                             "pair": f"{r['pred_work_type']} → {r['succ_work_type']}",
@@ -604,7 +604,7 @@ async def import_evidence(request: Request):
                                  (pred_wt, succ_wt, rel_type, lag_days, scope,
                                   origin, observations, agreement, sources,
                                   lag_min, lag_max, confidence, updated_at)
-                               VALUES (%s,%s,%s,%s,%s,'مشتقّة',%s,%s,%s,%s,%s,%s,NOW())
+                               VALUES (%s,%s,%s,%s,%s,'derived',%s,%s,%s,%s,%s,%s,NOW())
                                ON CONFLICT (pred_wt, succ_wt, scope)
                                  WHERE project_type IS NULL
                                DO UPDATE SET rel_type=EXCLUDED.rel_type,
@@ -934,7 +934,7 @@ async def save_rules(request: Request):
                 clean.append((p, s, t, float(r.get("lag_days") or 0), sc))
             if body.get("replace"):
                 cur.execute("""DELETE FROM gen_lib_logic
-                               WHERE origin='يدوية' AND project_type IS NULL""")
+                               WHERE origin='manual' AND project_type IS NULL""")
             _batch(cur, """INSERT INTO gen_lib_logic
                              (pred_wt, succ_wt, rel_type, lag_days, scope,
                               origin, active, updated_at)
@@ -943,8 +943,8 @@ async def save_rules(request: Request):
                              WHERE project_type IS NULL
                            DO UPDATE SET rel_type=EXCLUDED.rel_type,
                              lag_days=EXCLUDED.lag_days, active=TRUE,
-                             origin='يدوية', updated_at=NOW()""",
-                   [(p, s, t, lag, sc, "يدوية", True) for p, s, t, lag, sc in clean],
+                             origin='manual', updated_at=NOW()""",
+                   [(p, s, t, lag, sc, "manual", True) for p, s, t, lag, sc in clean],
                    template="(%s,%s,%s,%s,%s,%s,%s,NOW())")
         return JSONResponse({"success": True, "saved": len(clean)})
     except Exception as e:

@@ -81,7 +81,7 @@ class Rule:
     __slots__ = ("pred", "succ", "type", "lag", "scope", "origin", "note")
 
     def __init__(self, pred, succ, type="FS", lag=0.0, scope=SAME,
-                 origin="مشتقّة", note=""):
+                 origin="derived", note=""):
         if type not in REL_TYPES:
             raise ValueError(f"نوع علاقة غير معروف: {type}")
         if scope not in SCOPES:

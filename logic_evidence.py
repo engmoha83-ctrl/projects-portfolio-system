@@ -312,7 +312,7 @@ def derive_rules(evidence, min_count=2, min_sources=1):
             "sources": len(srcs), "source_list": ", ".join(sorted(srcs)),
             "rival_types": ", ".join(f"{k}:{v}" for k, v in
                                      by_type.most_common() if k != rt),
-            "origin": "مشتقّة",
+            "origin": "derived",
             "confidence": round(sum(r["confidence"] * r["count"]
                                     for r in rows) / total, 2),
         })
