@@ -123,8 +123,15 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
 #wires{position:absolute; inset:0; width:100%; height:100%; pointer-events:none;}
 #wires path{pointer-events:stroke; cursor:pointer;}
 .node{position:absolute; width:176px; background:#fff; border:1px solid var(--line);
-  box-shadow:0 1px 3px rgba(23,32,51,.10); cursor:grab; user-select:none;}
-.node.sel{border-color:var(--navy); box-shadow:0 0 0 2px rgba(31,58,95,.16);}
+  box-shadow:0 1px 3px rgba(23,32,51,.10); cursor:default; user-select:none;}
+/* المربّع كلّه حقول إدخال، فلم يكن فيه موضع يُمسَك منه. هذا الشريط هو المقبض. */
+.node .grip{height:14px; cursor:grab; background:var(--navy); opacity:.20;
+  background-image:radial-gradient(#fff 1px, transparent 1px); background-size:6px 6px;}
+.node .grip:hover{opacity:.42;}
+.node.drag .grip{cursor:grabbing;}
+.node.sel{border-color:var(--navy); box-shadow:0 0 0 2px rgba(31,58,95,.20);}
+.node.drop{border-color:var(--gold); box-shadow:0 0 0 3px rgba(200,161,101,.35);}
+.node .opn{background:#E8EEF6; color:var(--navy);}
 .node.drag{cursor:grabbing; opacity:.85;}
 .node header{padding:5px 9px; font-size:10.5px; color:var(--muted); font-weight:600;
   text-transform:uppercase; letter-spacing:.03em; background:var(--tint);
@@ -225,7 +232,7 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
       <div class="crumb" id="crumb"></div>
 
       <div id="vMap">
-        <div class="hintbar" data-i18n="mapHint">Drag a box to move it. Drag from the square on its edge onto another box to say that one follows the other. Click an arrow to set the relationship, a lag, or to make the two run in parallel. Double-click a box to open what is inside it.</div>
+        <div class="hintbar" data-i18n="mapHint">To put a building inside a zone, drag the building by its striped top bar and drop it on the zone — or click the zone first, then Add. Drag from the small square on a box edge onto another box to say one follows the other; click that arrow to set its type, a lag, or mark the two as parallel. Open, or a double-click, goes inside a box.</div>
         <div id="canvas"><div id="cvIn"><svg id="wires"></svg></div></div>
       </div>
 
@@ -279,10 +286,10 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
   <section class="panel" id="p-rules">
     <div class="card">
       <h2><span data-i18n="hRules">Logic rules</span>
-        <span class="hint" data-i18n="hRulesHint">Strongest evidence first</span>
+        <span class="hint" data-i18n="hRulesHint">Written between work types, inherited by every activity</span>
         <span class="spacer"></span>
         <button class="btn sm" id="addRule" data-i18n="addRow">+ Row</button></h2>
-      <p class="note" data-i18n="nRules">Derivation is automatic; endorsement is not. Agreement is the share of evidence backing the chosen relationship type, and a rule 45% of its evidence agrees on should not be read like one at 100%. A rule marked manual is never touched when new files are imported.</p>
+      <p class="note" data-i18n="nRules">A relationship is written once between two work types and every activity of those types inherits it, so blockwork before plastering is stated once rather than wired across twenty-four floors by hand. Derivation is automatic; endorsement is not. Agreement is the share of evidence backing the chosen relationship type, and a rule 45% of its evidence agrees on should not be read like one at 100%. A rule marked manual is never touched when new files are imported.</p>
       <div style="overflow:auto; max-height:58vh;">
         <table id="tRules"><thead><tr>
           <th data-i18n="cPred">Predecessor</th>
@@ -367,8 +374,8 @@ const I18N = {
   nScope:['A blank cell means the work type does not belong on that level at all. A filled cell generates an activity; click it to exclude this one place — a roof simply has no finishing trades.',
           'الخانة الفارغة تعني أنّ نوع العمل لا ينتمي إلى ذلك المستوى أصلًا. والخانة الممتلئة تولّد نشاطًا، واضغطها لاستثناء هذا المكان وحده — فالسطح ببساطة بلا أعمال تشطيب.'],
   hRules:['Logic rules','قواعد الربط'], hRulesHint:['Strongest evidence first','الأقوى شهادةً أوّلًا'],
-  nRules:['Derivation is automatic; endorsement is not. Agreement is the share of evidence backing the chosen relationship type, and a rule 45% of its evidence agrees on should not be read like one at 100%. A rule marked manual is never touched when new files are imported.',
-          'الاشتقاق آليّ والتصديق ليس آليًّا. ونسبة الاتّفاق هي حصّة الشواهد التي تقول بنوع العلاقة المختار، فالقاعدة التي اتّفق عليها ٤٥٪ من شواهدها لا تُقرأ كالتي اتّفق عليها ١٠٠٪. والقاعدة المعلَّمة «يدوية» لا تُمسّ عند استيراد ملفّات جديدة.'],
+  nRules:['A relationship is written once between two work types and every activity of those types inherits it, so blockwork before plastering is stated once rather than wired across twenty-four floors by hand. Derivation is automatic; endorsement is not. Agreement is the share of evidence backing the chosen relationship type, and a rule 45% of its evidence agrees on should not be read like one at 100%. A rule marked manual is never touched when new files are imported.',
+          'العلاقة تُكتب مرّة واحدة بين نوعَي عمل فترثها كلّ أنشطتهما، فيُقال «المباني قبل البياض» مرّة بدل ربطها بأربعة وعشرين دورًا باليد. والاشتقاق آليّ والتصديق ليس آليًّا. ونسبة الاتّفاق هي حصّة الشواهد التي تقول بنوع العلاقة المختار، فالقاعدة التي اتّفق عليها ٤٥٪ من شواهدها لا تُقرأ كالتي اتّفق عليها ١٠٠٪. والقاعدة المعلَّمة «يدوية» لا تُمسّ عند استيراد ملفّات جديدة.'],
   hDiff:['What will change','ما الذي سيتغيّر'],
   hDiffHint:['Nothing is written until you press Generate','لا يُكتب شيء حتى تضغط «توليد»'],
   nDiffEmpty:['Press Preview to see what a run would add, remove and update.',
@@ -394,9 +401,15 @@ const I18N = {
   manual:['manual','يدوية'], derived:['derived','مشتقّة'],
   vMap:['Map','الخريطة'], vTable:['Table','جدول'],
   bLevels:['Levels…','المستويات…'], addPlace:['+ Place','+ مكان'],
+  openIn:['Open','افتح'], within:['inside','بالداخل'],
+  addInside:['+ Inside %s','+ داخل %s'],
+  addInsideHint:['Adds a place inside the selected box','يضيف مكانًا داخل المربّع المختار'],
+  nested:['%a is now inside %b','%a صار داخل %b'],
+  gripHint:['Drag this bar to move the box — drop it on another box to put it inside',
+            'اسحب هذا الشريط لتحريك المربّع — أفلته فوق مربّع آخر ليصير بداخله'],
   hPlacesHint:['Drag the boxes, draw the arrows','اسحب المربّعات وارسم الأسهم'],
-  mapHint:['Drag a box to move it. Drag from the square on its edge onto another box to say that one follows the other. Click an arrow to set the relationship, a lag, or to make the two run in parallel. Double-click a box to open what is inside it.',
-           'اسحب المربّع لتحرّكه. واسحب من المربّع الصغير على حافّته إلى مربّع آخر لتقول إنّ الثاني يتبع الأوّل. واضغط السهم لتحدّد نوع العلاقة أو تخلُّفها أو لتجعل الاثنين يمشيان بالتوازي. وبالضغط المزدوج على المربّع تفتح ما بداخله.'],
+  mapHint:['To put a building inside a zone, drag the building by its striped top bar and drop it on the zone — or click the zone first, then Add. Drag from the small square on a box edge onto another box to say one follows the other; click that arrow to set its type, a lag, or mark the two as parallel. Open, or a double-click, goes inside a box.',
+           'لوضع مبنى داخل منطقة اسحب المبنى وأفلته فوق المنطقة، أو اضغط المنطقة أوّلًا ثمّ «أضف». واسحب من المربّع الصغير على حافّة المربّع إلى مربّع آخر لتقول إنّ الثاني يتبع الأوّل، ثمّ اضغط السهم لتحدّد نوعه أو تخلُّفه أو لتجعلهما بالتوازي. و«افتح» أو الضغط المزدوج يدخل إلى ما بالداخل.'],
   hPlaces:['Project breakdown','تقسيم المشروع'],
   root:['Project','المشروع'], inside:['Open','افتح'],
   parallel:['In parallel','بالتوازي'], seqRel:['Follows','يتبع'],
@@ -426,6 +439,7 @@ let newId = 0;
 let focusId = null;        // العقدة المفتوحة على اللوحة (null = الجذر)
 let view = 'map';
 let wiring = null;         // سحب سهم قيد الرسم
+let selId = null;          // المربّع المختار — إليه يضيف زرّ الإضافة
 
 /* ─────────────── أدوات ─────────────── */
 function msg(kind, text){
@@ -509,6 +523,9 @@ $('#tPlaces').addEventListener('click', e => {
 });
 $('#addPlace').onclick = () => {
   const id = 'new' + (++newId);
+  /* المختار أولى: من ضغط على منطقة ثمّ «أضف» يريد المبنى داخلها، لا بجوارها */
+  const target = (selId && byId(selId)) ? selId : focusId;
+  if(selId && byId(selId)) focusId = selId;
   const sibs = kidsOf(focusId);
   const parent = byId(focusId);
   /* المستوى التالي لمستوى الأب، فالمربّع الجديد يقع في موضعه من التقسيم */
@@ -550,8 +567,17 @@ $('#crumb').addEventListener('click', e => {
   renderMap();
 });
 
+function syncAddBtn(){
+  const b = $('#addPlace'); if(!b) return;
+  const sel = selId ? byId(selId) : null;
+  b.textContent = sel ? T('addInside').replace('%s', placeLabel(sel)) : T('addPlace');
+  b.title = sel ? T('addInsideHint') : '';
+  b.classList.toggle('primary', !!sel);
+}
+
 function renderMap(){
   renderCrumb();
+  if(selId && !byId(selId)) selId = null;
   const kids = kidsOf(focusId);
   const box = $('#cvIn');
   [...box.querySelectorAll('.node')].forEach(n => n.remove());
@@ -564,7 +590,8 @@ function renderMap(){
     /* يُحرَّر على المربّع نفسه: من يرسم خريطة لا يريد أن يقفز إلى جدول
        ليكتب اسمًا. */
     n.innerHTML =
-      `<header>
+      `<div class="grip" title="${esc(T('gripHint'))}"></div>
+       <header>
          <select data-f="level" title="${esc(T('cLevel'))}">${LEVELS.map(l =>
            `<option value="${l}"${l === p.level ? ' selected' : ''}>${esc(lvlLabel(l))}</option>`).join('')}</select>
          <input data-f="code" value="${esc(p.code || '')}" maxlength="10"
@@ -573,13 +600,15 @@ function renderMap(){
             placeholder="${esc(T('cName'))}"></div>
        <div class="mt"><label>×<input data-f="repeat" type="number" min="1"
             value="${p.repeat || 1}" class="nrep"></label>
-         ${nk ? `<span>${nk}</span>` : ''}</div>
-       <div class="kids"><button data-in="${p.id}">${nk ? esc(T('inside')) : '+'}</button>
+         ${nk ? `<span class="chip">${nk} ${esc(T('within'))}</span>` : ''}</div>
+       <div class="kids"><button data-in="${p.id}" class="opn">${esc(T('openIn'))}${nk ? ` (${nk})` : ''}</button>
          <button data-rm="${p.id}" class="rm">${esc(T('del'))}</button></div>
        <div class="port" data-from="${p.id}"></div>`;
+    if(String(p.id) === String(selId)) n.classList.add('sel');
     box.appendChild(n);
   });
   drawWires();
+  syncAddBtn();
 }
 
 function nodeRect(id){
@@ -644,20 +673,73 @@ $('#cvIn').addEventListener('mousedown', e => {
     return;
   }
   const n = e.target.closest('.node');
-  if(!n || e.target.closest('button, input, select')) return;
+  if(!n) return;
   const p = byId(n.dataset.id); if(!p) return;
-  dragN = {el:n, p, dx: e.clientX - n.offsetLeft, dy: e.clientY - n.offsetTop};
-  n.classList.add('drag');
+  /* السحب من المقبض أو من أيّ فراغ في المربّع؛ أمّا الحقول فتُترك للكتابة. */
+  if(e.target.closest('.grip') || !e.target.closest('button, input, select')){
+    dragN = {el:n, p, dx: e.clientX - n.offsetLeft, dy: e.clientY - n.offsetTop, moved:false};
+    n.classList.add('drag');
+  }
+  selId = String(p.id);
+  [...document.querySelectorAll('#cvIn .node')].forEach(x =>
+    x.classList.toggle('sel', x === n));
+  syncAddBtn();
 });
 document.addEventListener('mousemove', e => {
   if(!dragN) return;
   const x = Math.max(0, e.clientX - dragN.dx), y = Math.max(0, e.clientY - dragN.dy);
   dragN.el.style.left = x + 'px'; dragN.el.style.top = y + 'px';
   dragN.p.x = x; dragN.p.y = y;
+  dragN.moved = true;
+  /* المربّع المحلَّق فوقه يُضاء: الإفلات عليه يجعله أبًا، لا مجرّد جار */
+  const over = dropTarget(e, dragN.el);
+  [...document.querySelectorAll('.node.drop')].forEach(n => n.classList.remove('drop'));
+  if(over) over.classList.add('drop');
   drawWires();
 });
+
+function isAncestor(id, maybeDescendant){
+  let cur = byId(maybeDescendant), n = 0;
+  while(cur && n++ < 40){
+    if(String(cur.id) === String(id)) return true;
+    cur = byId(cur.parent);
+  }
+  return false;
+}
+
+function dropTarget(e, self){
+  for(const n of document.querySelectorAll('#cvIn .node')){
+    if(n === self) continue;
+    const r = n.getBoundingClientRect();
+    if(e.clientX >= r.left && e.clientX <= r.right &&
+       e.clientY >= r.top && e.clientY <= r.bottom) return n;
+  }
+  return null;
+}
 document.addEventListener('mouseup', e => {
-  if(dragN){ dragN.el.classList.remove('drag'); dragN = null; }
+  if(dragN){
+    const over = dropTarget(e, dragN.el);
+    dragN.el.classList.remove('drag');
+    [...document.querySelectorAll('.node.drop')].forEach(n => n.classList.remove('drop'));
+    if(over && dragN.moved){
+      /* أُفلت فوق مربّع: صار ابنه. هذه هي الطريقة التي يوضع بها مبنى تحت
+         منطقة ودورٌ تحت مبنى — وكانت مخبّأة خلف زرّ لا يقول ما يفعل. */
+      const parent = over.dataset.id, child = dragN.p;
+      if(!isAncestor(child.id, parent)){
+        child.parent = parent;
+        const sibs = kidsOf(parent);   /* يشمل الوافد نفسه بعد تغيير أبيه */
+        child.seq = sibs.length * 10;
+        child.x = 40 + ((sibs.length - 1) % 4) * 300;
+        child.y = 40 + Math.floor((sibs.length - 1) / 4) * 190;
+        S.place_rels = S.place_rels.filter(r =>
+          String(r.pred) !== String(child.id) && String(r.succ) !== String(child.id));
+        msg('ok', T('nested').replace('%a', placeLabel(child))
+                            .replace('%b', placeLabel(byId(parent))));
+        renderMap(); renderMatrix(); updateStrip();
+      }
+    }
+    dragN = null;
+  }
   if(wiring){
     const n = e.target.closest('.node');
     if(n && String(n.dataset.id) !== String(wiring.from)){
@@ -669,6 +751,14 @@ document.addEventListener('mouseup', e => {
     }
     wiring = null;
   }
+});
+
+/* الضغط على فراغ اللوحة يلغي الاختيار */
+$('#canvas').addEventListener('mousedown', e => {
+  if(e.target.closest('.node')) return;
+  selId = null;
+  [...document.querySelectorAll('#cvIn .node.sel')].forEach(n => n.classList.remove('sel'));
+  syncAddBtn();
 });
 
 /* فتح ما بداخل المربّع */
@@ -885,7 +975,23 @@ async function loadRules(force){
   renderRules();
 }
 function renderRules(){
-  const wtCodes = S.work_types.filter(w => w.code).map(w => w.code);
+  /* القوائم تُملأ من كتالوج أنواع الأعمال في كلّ مرّة يُفتح فيها التبويب،
+     فنوع عمل أُنشئ قبل لحظة يظهر هنا بلا إعادة تحميل. */
+  const wts = S.work_types.filter(w => w.code);
+  const label = c => {
+    const w = wts.find(x => x.code === c);
+    return w ? `${c} · ${w.name || ''}`.trim().replace(/ ·\s*$/, '') : c;
+  };
+  /* قاعدةٌ تشير إلى نوع عمل لم يعد في الكتالوج تُعرض كما هي وتُعلَّم.
+     لولا ذلك لعادت القائمة إلى أوّل خيار، فتُبدَّل القاعدة بصمت عند أوّل
+     حفظ ولا يعرف أحد أنّ منطقًا تغيّر. */
+  const optWT = v => {
+    const codes = wts.map(w => w.code);
+    const miss = v && !codes.includes(v);
+    return (miss ? `<option value="${esc(v)}" selected>${esc(v)} — ${esc(T('notInCat'))}</option>` : '')
+      + codes.map(c =>
+        `<option value="${esc(c)}"${c === v ? ' selected' : ''}>${esc(label(c))}</option>`).join('');
+  };
   const opt = (list, v) => list.map(x =>
     `<option value="${esc(x)}"${x === v ? ' selected' : ''}>${esc(x)}</option>`).join('');
   $('#tRules tbody').innerHTML = (S.rulesList || []).slice(0, 400).map((r, i) => {
@@ -893,8 +999,8 @@ function renderRules(){
     const cls = ag === '' ? '' : ag >= 90 ? 'good' : ag >= 60 ? 'warn' : 'bad';
     const manual = (r.origin || '') !== 'derived';
     return `<tr data-i="${i}">
-      <td><select data-f="pred_wt">${opt(wtCodes, r.pred_wt)}</select></td>
-      <td><select data-f="succ_wt">${opt(wtCodes, r.succ_wt)}</select></td>
+      <td><select data-f="pred_wt">${optWT(r.pred_wt)}</select></td>
+      <td><select data-f="succ_wt">${optWT(r.succ_wt)}</select></td>
       <td><select data-f="scope">${opt(SCOPES, r.scope)}</select></td>
       <td><select data-f="rel_type">${opt(RELS, r.rel_type)}</select></td>
       <td><input data-f="lag_days" type="number" step="0.5" value="${r.lag_days ?? 0}"></td>
@@ -905,6 +1011,7 @@ function renderRules(){
       <td><button class="btn sm danger" data-del="1">${esc(T('del'))}</button></td>
     </tr>`;
   }).join('') || `<tr><td colspan="10" class="note">${esc(T('none'))}</td></tr>`;
+  if(!wts.length){ msg('warn', T('needWT')); return; }
   if(!(S.rulesList || []).length) msg('warn', T('noRules'));
 }
 $('#tRules').addEventListener('input', e => {
