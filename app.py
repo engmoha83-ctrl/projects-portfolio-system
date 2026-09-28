@@ -23,6 +23,7 @@ import pdf_report
 import schedule_api
 import generator_api
 import dictionaries_api
+import boq_api
 
 load_dotenv()
 
@@ -127,6 +128,8 @@ def get_db_connection():
             generator_api.ensure_schema(cur)
             # القواميس — تعتمد على جداول مكتبة المولّد
             dictionaries_api.ensure_schema(cur)
+            # جدول الكميّات داخل البرنامج — يعتمد على الأماكن والأنشطة
+            boq_api.ensure_schema(cur)
             conn.commit()
             _SCHEMA_READY = True
         except Exception:
@@ -5371,6 +5374,8 @@ generator_api.setup(get_db_connection, templates)
 app.include_router(generator_api.router)
 dictionaries_api.setup(get_db_connection, templates)
 app.include_router(dictionaries_api.router)
+boq_api.setup(get_db_connection)
+app.include_router(boq_api.router)
 
 
 if __name__ == "__main__":

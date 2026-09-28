@@ -162,7 +162,7 @@ SEED_WT = {
             [("CONC", 1.02), ("RBR", 0.12)],
             [("SD", "Shop drawings", 14, 10), ("SUB", "Submittal", 7, 20),
              ("APP", "Approval", 14, 30)], []),
-    "BLK": ("m2", "block,blockwork,masonry",
+    "BLK": ("m2", "block,blockwork,masonry,concrete block,hollow block,solid block",
             [], [("", "MSN", 0.8, 6, True), ("", "LAB", 0.6, 4, False)],
             [("BLK", 12.5)], [], []),
     "MEP": ("no", "pipe,piping,conduit,duct,cable,sleeve,first fix",
@@ -306,6 +306,9 @@ def ensure_schema(cur):
                 "ADD COLUMN IF NOT EXISTS keywords JSONB NOT NULL DEFAULT '[]'::jsonb")
     cur.execute("ALTER TABLE gen_lib_disciplines "
                 "ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT 'manual'")
+    # نشاطٌ لكلّ بند، أو نشاطٌ واحد لكلّ نوع عمل في كلّ مكان تُجمع فيه بنوده.
+    cur.execute("ALTER TABLE gen_lib_work_types "
+                "ADD COLUMN IF NOT EXISTS per_item BOOLEAN NOT NULL DEFAULT FALSE")
 
     # خطوات نوع العمل وأوزانها. البند يُقسَّم بها حين يختار المستخدم ذلك،
     # والعلاقة المخزّنة على الخطوة هي علاقتها بالخطوة التي قبلها.
@@ -396,7 +399,7 @@ def load_all(cur):
                      WHERE active ORDER BY seq, id""")
     work_types = rows("""SELECT code, name, discipline, csi_division, unit,
                                 default_days AS days, applies_to, keywords,
-                                calendar_hint, seq, origin
+                                calendar_hint, per_item, seq, origin
                          FROM gen_lib_work_types ORDER BY seq, code""")
     steps = rows("""SELECT work_type, code, name, weight, rel_type, lag_days, seq
                     FROM gen_lib_wt_steps ORDER BY work_type, seq, id""")
@@ -527,22 +530,24 @@ def save_all(cur, d):
         cur.execute("DELETE FROM gen_lib_work_types WHERE NOT (code = ANY(%s))", (codes,))
         _batch(cur, """INSERT INTO gen_lib_work_types
                          (code,name,discipline,csi_division,unit,default_days,
-                          applies_to,keywords,calendar_hint,seq)
+                          applies_to,keywords,calendar_hint,per_item,seq)
                        VALUES %s ON CONFLICT (code) DO UPDATE SET
                          name=EXCLUDED.name, discipline=EXCLUDED.discipline,
                          csi_division=EXCLUDED.csi_division, unit=EXCLUDED.unit,
                          default_days=EXCLUDED.default_days,
                          applies_to=EXCLUDED.applies_to,
                          keywords=EXCLUDED.keywords,
-                         calendar_hint=EXCLUDED.calendar_hint, seq=EXCLUDED.seq""",
+                         calendar_hint=EXCLUDED.calendar_hint,
+                         per_item=EXCLUDED.per_item, seq=EXCLUDED.seq""",
                [(c, (x.get("name") or c).strip(), _code(x.get("discipline")),
                  (x.get("csi_division") or "").strip() or None,
                  (x.get("unit") or "").strip(), _num(x.get("days"), 1.0),
                  json.dumps(x.get("applies_to") or []),
                  json.dumps(_words(x.get("keywords"))),
-                 (x.get("calendar_hint") or "").strip() or None, i * 10)
+                 (x.get("calendar_hint") or "").strip() or None,
+                 bool(x.get("per_item")), i * 10)
                 for c, x, i in wts],
-               template="(%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s)")
+               template="(%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s)")
 
         # الكتالوج يُرسَل بكامله، فخطواته ومعدّلاته وموادّه تُستبدل كلّها.
         for t in ("gen_lib_wt_steps", "gen_lib_rates", "gen_lib_wt_materials"):

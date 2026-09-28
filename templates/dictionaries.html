@@ -460,7 +460,7 @@ function renameWT(from, to){
 $('#addWT').onclick = () => {
   let n = D.work_types.length + 1, c;
   do { c = 'WT' + String(n++).padStart(2, '0'); } while(wtBy(c));
-  D.work_types.push({code:c, name:'', discipline:'', csi_division:'', unit:'', days:1,
+  D.work_types.push({code:c, name:'', discipline:'', csi_division:'', unit:'', days:1, per_item:false,
                      applies_to:[], keywords:[], steps:[], rates:[], materials:[]});
   sel = c; touch(); renderWT();
   const tr = $('#tWT tbody tr:last-child input[data-f="name"]'); if(tr) tr.focus();
@@ -487,6 +487,13 @@ function renderWTDetail(){
     <h3>Applies to</h3>
     <div class="lvls" id="wtLv">${D.levels.map(l =>
       `<label class="${(w.applies_to || []).includes(l.key) ? 'on' : ''}"><input type="checkbox" value="${esc(l.key)}"${(w.applies_to || []).includes(l.key) ? ' checked' : ''}>${esc(l.label)}</label>`).join('')}</div>
+
+    <h3>Activities</h3>
+    <div class="lvls" id="wtGran">
+      <label class="${w.per_item ? '' : 'on'}"><input type="radio" name="gran" value="0"${w.per_item ? '' : ' checked'}>One per place — BOQ items grouped</label>
+      <label class="${w.per_item ? 'on' : ''}"><input type="radio" name="gran" value="1"${w.per_item ? ' checked' : ''}>One per BOQ item</label>
+    </div>
+    <p class="note" style="padding-top:0">Grouped: "${esc(w.name || w.code)} – Floor 1" carries every item of this type on that floor, and the Mapping sheet shows which items feed it. Per item keeps each BOQ item as its own activity.</p>
 
     <h3>Keywords <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:500">— words in a BOQ description that point to this work type</span></h3>
     <textarea class="kw" id="wtKw" placeholder="concrete, slab, column">${esc((w.keywords || []).join(', '))}</textarea>
@@ -545,6 +552,10 @@ $('#wtDetail').addEventListener('change', e => {
   const w = wtBy(sel); if(!w) return;
   if(e.target.closest('#wtLv')){
     w.applies_to = [...document.querySelectorAll('#wtLv input:checked')].map(x => x.value);
+    touch(); renderWTDetail(); return;
+  }
+  if(e.target.closest('#wtGran')){
+    w.per_item = e.target.value === '1';
     touch(); renderWTDetail(); return;
   }
   if(e.target.id === 'wtKw'){

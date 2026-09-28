@@ -28,7 +28,8 @@ SHEETS = {
         ("csi_division", "CSI division", False, 12, "csi"),
         ("unit", "Unit", False, 8, None), ("days", "Default days", False, 12, None),
         ("applies_to", "Applies to", False, 22, None),
-        ("keywords", "Keywords", False, 50, None)],
+        ("keywords", "Keywords", False, 50, None),
+        ("per_item", "Activities", False, 14, "gran")],
     "Steps": [
         ("work_type", "Work type", True, 12, "wt"), ("code", "Step code", True, 11, None),
         ("name", "Step name", False, 26, None), ("weight", "Weight %", False, 10, None),
@@ -81,6 +82,8 @@ README = [
     ("", ""),
     ("Steps", "Weights are percentages of the work type and should add up to 100. "
               "'Link to previous' is the relation from the step above it."),
+    ("Work types", "Activities: Grouped makes one activity per work type in each place, carrying all "
+                   "its BOQ items; Per item makes one activity for every BOQ item."),
     ("Productivity", "Hours of that resource per unit of work, and how many of it work together (crew). "
                      "Leave Step empty for a rate that covers the whole work type. "
                      "Driving = Yes makes that resource set the duration."),
@@ -123,6 +126,7 @@ def build_workbook(d, blank=False):
         "mat": [m["code"] for m in d["materials"]],
         "rel": list(REL), "scope": list(SCOPES),
         "kind": ["Labour", "Equipment"], "yn": ["Yes", "No"],
+        "gran": ["Grouped", "Per item"],
         "lvl": ["Project"] + [l["label"] for l in d["levels"]],
     }
     lw = wb.create_sheet("Lists")
@@ -180,7 +184,8 @@ def _rows_for_export(d):
     for w in d["work_types"]:
         out["Work types"].append({
             **w, "applies_to": ", ".join(lvl_label.get(a, a) for a in (w.get("applies_to") or [])),
-            "keywords": ", ".join(w.get("keywords") or [])})
+            "keywords": ", ".join(w.get("keywords") or []),
+            "per_item": "Per item" if w.get("per_item") else "Grouped"})
         for s in w.get("steps") or []:
             out["Steps"].append({**s, "work_type": w["code"]})
         for r in w.get("rates") or []:
@@ -394,7 +399,9 @@ def merge(current, sheets, errors, mode="merge"):
             return {"code": _code(r["code"]), "name": _txt(r.get("name")),
                     "discipline": _code(r.get("discipline")), "csi_division": csi,
                     "unit": _txt(r.get("unit")), "days": days, "applies_to": ap,
-                    "keywords": _words(r.get("keywords"))}
+                    "keywords": _words(r.get("keywords")),
+                    "per_item": _txt(r.get("per_item")).lower().replace(" ", "")
+                                in ("peritem", "item", "yes", "true")}
         cur_wt = [dict(w) for w in current["work_types"]]
         if "Work types" in sheets:
             wts = keyed("work_types", "Work types", cur_wt, "code", b_wt)
