@@ -24,8 +24,10 @@
 
 import json
 import traceback
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Request, UploadFile, File, Form
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, Response
+
+import dict_excel
 
 router = APIRouter()
 _get_conn = None
@@ -672,6 +674,61 @@ async def post_dicts(request: Request):
         with conn, conn.cursor() as cur:
             problems = save_all(cur, body)
         return JSONResponse({"success": True, "problems": problems})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.get("/api/dict/template.xlsx")
+async def dict_template(request: Request, blank: int = 0):
+    """القالب: القواميس الحاليّة، أو أوراقٌ فارغة بعناوينها وقوائمها."""
+    if not _admin(request):
+        return _deny()
+    try:
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            d = load_all(cur)
+        data = dict_excel.build_workbook(d, blank=bool(blank))
+        name = "dictionaries-template.xlsx" if blank else "dictionaries.xlsx"
+        return Response(data, media_type="application/vnd.openxmlformats-"
+                        "officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    except Exception as e:
+        return _fail(e)
+
+
+@router.post("/api/dict/import")
+async def dict_import(request: Request, file: UploadFile = File(...),
+                      mode: str = Form("merge"), dry: int = Form(1)):
+    """
+    يرفع ملفّ القواميس. ‎dry=1‎ يعرض الفرق والأخطاء ولا يكتب شيئًا، و‎dry=0‎
+    يكتب — ولا يكتب أبدًا ما دام في الملفّ خطأ، فلا يدخل المكتبة نصف ملفّ.
+    """
+    if not _admin(request):
+        return _deny()
+    mode = "replace" if mode == "replace" else "merge"
+    try:
+        data = await file.read()
+        try:
+            sheets, errors = dict_excel.read_workbook(data)
+        except Exception as e:
+            return JSONResponse({"success": False,
+                                 "error": f"This is not a readable Excel file ({type(e).__name__})"})
+        if not sheets and not errors:
+            return JSONResponse({"success": False,
+                                 "error": "No dictionary sheets found. Download the template "
+                                          "to see the sheet names it expects."})
+        conn = _get_conn()
+        with conn, conn.cursor() as cur:
+            current = load_all(cur)
+            body, diff, warnings = dict_excel.merge(current, sheets, errors, mode)
+            wrote = False
+            if not dry and not errors:
+                problems = save_all(cur, body)
+                wrote = True
+        return JSONResponse({"success": True, "written": wrote, "mode": mode,
+                             "sheets": sorted(sheets), "diff": diff,
+                             "errors": errors[:200], "error_count": len(errors),
+                             "warnings": warnings[:200], "warning_count": len(warnings)})
     except Exception as e:
         return _fail(e)
 

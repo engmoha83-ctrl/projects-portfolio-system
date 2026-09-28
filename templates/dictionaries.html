@@ -118,6 +118,19 @@ textarea.kw{width:calc(100% - 32px); margin:0 16px 8px; min-height:52px; border:
 .sk{background:linear-gradient(90deg,var(--tint) 25%,var(--tint2) 37%,var(--tint) 63%);
   background-size:400% 100%; animation:sk 1.3s ease infinite; height:11px; margin:9px 16px;}
 @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.modal{position:fixed; inset:0; background:rgba(23,32,51,.34); z-index:80;
+  display:flex; align-items:center; justify-content:center;}
+.modal .box{background:#fff; width:min(760px,94vw); max-height:86vh; display:flex; flex-direction:column;}
+.modal header{padding:12px 16px; font-size:13.5px; font-weight:600; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:10px;}
+.modal .bd{overflow:auto; padding:6px 0;}
+.modal footer{padding:10px 16px; border-top:1px solid var(--line); display:flex; gap:8px;
+  align-items:center; justify-content:flex-end;}
+.modal .seg{display:inline-flex; background:var(--tint);}
+.modal .seg button{border:none; background:transparent; height:28px; padding:0 12px; font-size:12px; cursor:pointer;}
+.modal .seg button.on{background:var(--navy); color:#fff; font-weight:600;}
+.issues{margin:6px 16px 10px; font-size:12px; line-height:1.7;}
+.issues li{margin-bottom:2px;}
 .bar{height:6px; background:var(--tint2); position:relative; min-width:60px;}
 .bar i{position:absolute; inset:0 auto 0 0; background:var(--navy);}
 </style>
@@ -128,6 +141,10 @@ textarea.kw{width:calc(100% - 32px); margin:0 16px 8px; min-height:52px; border:
   <a class="hdr-back" href="/admin-hub" title="Back">←</a>
   <div class="hdr-title"><small>Company library — shared by every project</small><b>Dictionaries</b></div>
   <span class="spacer"></span>
+  <a class="btn" id="btnDl" href="/api/dict/template.xlsx" title="The current dictionaries as an Excel file — edit and upload it back">Download Excel</a>
+  <a class="btn" id="btnBlank" href="/api/dict/template.xlsx?blank=1" title="Empty sheets with the right columns and drop-downs">Blank template</a>
+  <button class="btn" id="btnUp" title="Upload a filled template — you will see the changes before they are saved">Upload Excel</button>
+  <input type="file" id="fileUp" accept=".xlsx,.xlsm" hidden>
   <span class="dirty" id="dirty"></span>
   <button class="btn primary" id="btnSave">Save</button>
 </header>
@@ -777,6 +794,90 @@ $('#btnSave').onclick = async () => {
   }catch(e){ msg('err', 'Not saved: ' + esc(e.message)); }
   finally{ b.disabled = false; b.textContent = 'Save'; }
 };
+/* ═════════ إكسل ═════════ */
+/* التنزيل يسبق الحفظ؟ تحذيرٌ لا منع: الملفّ يُبنى من المحفوظ لا من الشاشة. */
+for(const id of ['#btnDl', '#btnBlank']){
+  $(id).addEventListener('click', e => {
+    if(dirty && id === '#btnDl')
+      msg('warn', 'The file is built from what is saved. Your unsaved changes on this page are not in it — save first if you want them included.');
+  });
+}
+let upFile = null, upMode = 'merge';
+$('#btnUp').onclick = () => {
+  if(dirty){ msg('warn', 'Save or discard the changes on this page before uploading — the upload would be reviewed against the saved dictionaries.'); return; }
+  $('#fileUp').value = ''; $('#fileUp').click();
+};
+$('#fileUp').onchange = () => {
+  upFile = $('#fileUp').files[0]; if(!upFile) return;
+  upMode = 'merge'; review();
+};
+async function sendUpload(dry){
+  const fd = new FormData();
+  fd.append('file', upFile); fd.append('mode', upMode); fd.append('dry', dry ? '1' : '0');
+  const r = await fetch('/api/dict/import', {method:'POST', body:fd});
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok || j.success === false) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+const DIFF_LABEL = {disciplines:'Disciplines', resources:'Resources', materials:'Materials',
+  work_types:'Work types', steps:'Steps', productivity:'Productivity',
+  'work-type materials':'Work-type materials', 'logic rules':'Logic rules',
+  engineering:'Engineering', tc:'T&C'};
+async function review(){
+  closeModal();
+  const m = document.createElement('div');
+  m.className = 'modal'; m.id = 'upModal';
+  m.innerHTML = `<div class="box"><header>Review upload<span class="spacer"></span>
+      <span class="hint" style="font-weight:500;font-size:12px;color:var(--muted)">${esc(upFile.name)}</span></header>
+    <div class="bd" id="upBody"><div class="sk"></div><div class="sk" style="width:60%"></div><div class="sk" style="width:75%"></div></div>
+    <footer>
+      <div class="seg" id="upSeg" title="Merge keeps anything not in the file. Replace makes each sheet in the file the whole dictionary.">
+        <button data-m="merge" class="${upMode === 'merge' ? 'on' : ''}">Merge</button>
+        <button data-m="replace" class="${upMode === 'replace' ? 'on' : ''}">Replace</button></div>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn" id="upCancel">Cancel</button>
+      <button class="btn primary" id="upGo" disabled>Apply</button></footer></div>`;
+  document.body.appendChild(m);
+  $('#upCancel').onclick = closeModal;
+  $('#upSeg').onclick = e => { const b = e.target.closest('[data-m]'); if(b && b.dataset.m !== upMode){ upMode = b.dataset.m; review(); } };
+  let j;
+  try{ j = await sendUpload(true); }
+  catch(e){ $('#upBody').innerHTML = `<div class="alert err" style="margin:10px 16px">${esc(e.message)}</div>`; return; }
+  const rows = Object.entries(j.diff || {}).map(([k, v]) => {
+    const child = v.work_types != null;
+    const what = child
+      ? (v.changed_for ? `Changed for <b>${v.changed_for}</b> work ${v.changed_for === 1 ? 'type' : 'types'}` : '<span style="color:var(--muted)">No change</span>')
+      : [v.added ? `<b>${v.added}</b> new` : '', v.updated ? `<b>${v.updated}</b> changed` : '',
+         v.removed ? `<b style="color:var(--danger)">${v.removed} removed</b>` : '']
+        .filter(Boolean).join(' · ') || '<span style="color:var(--muted)">No change</span>';
+    return `<tr><td style="font-weight:600">${esc(DIFF_LABEL[k] || k)}</td><td class="num ro">${v.rows}</td><td>${what}</td></tr>`;
+  }).join('');
+  const errs = j.errors || [], warns = j.warnings || [];
+  const line = x => `<li>${x.sheet ? '<b>' + esc(x.sheet) + (x.row ? ' row ' + x.row : '') + '</b> — ' : ''}${esc(x.error || x.warning)}</li>`;
+  $('#upBody').innerHTML = `
+    ${upMode === 'replace' ? '<div class="alert warn" style="margin:8px 16px">Replace: each sheet in the file becomes the whole dictionary. Rows that are not in the file are removed.</div>' : ''}
+    <table><thead><tr><th>Dictionary</th><th class="num" style="width:90px">Rows in file</th><th>What changes</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="3" class="empty">No dictionary sheets in this file.</td></tr>'}</tbody></table>
+    ${errs.length ? `<div class="alert err" style="margin:12px 16px 0">${j.error_count} ${j.error_count === 1 ? 'row needs' : 'rows need'} fixing before this file can be applied. Fix them in Excel and upload again.</div>
+       <ul class="issues">${errs.map(line).join('')}</ul>` : ''}
+    ${warns.length ? `<div class="alert warn" style="margin:12px 16px 0">${j.warning_count} ${j.warning_count === 1 ? 'thing' : 'things'} to check — these do not stop the upload.</div>
+       <ul class="issues">${warns.map(line).join('')}</ul>` : ''}`;
+  const go = $('#upGo');
+  go.disabled = !!errs.length || !rows;
+  go.onclick = async () => {
+    go.disabled = true; go.textContent = 'Applying…';
+    try{
+      await sendUpload(false);
+      closeModal(); await load();
+      msg('ok', `Uploaded ${esc(upFile.name)} (${upMode}).`);
+    }catch(e){
+      go.disabled = false; go.textContent = 'Apply';
+      $('#upBody').insertAdjacentHTML('afterbegin', `<div class="alert err" style="margin:8px 16px">Not saved: ${esc(e.message)}</div>`);
+    }
+  };
+}
+function closeModal(){ const m = $('#upModal'); if(m) m.remove(); }
+
 window.addEventListener('beforeunload', e => { if(dirty){ e.preventDefault(); e.returnValue = ''; } });
 load();
 </script>
