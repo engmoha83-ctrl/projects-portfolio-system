@@ -139,7 +139,7 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
 .wrow.drag .grip{cursor:grabbing;}
 .wbox .lv{border:none; background:transparent; font-size:9.5px; font-weight:700;
   color:var(--muted); text-transform:uppercase; letter-spacing:.04em; cursor:pointer;
-  padding:0 2px 0 5px; max-width:74px;}
+  padding:0 2px 0 5px; max-width:92px;}
 .wbox .nm{border:none; background:transparent; font-size:12.5px; font-weight:600;
   padding:0 5px; width:150px; color:inherit; min-width:60px;}
 .wbox .cd{border:none; background:transparent; font-size:10.5px; font-weight:700;
@@ -165,6 +165,51 @@ label.inl{display:inline-flex; align-items:center; gap:6px; font-size:12px; colo
 #dropline::before{content:''; position:absolute; inset-inline-start:-4px; top:-3px;
   width:9px; height:9px; border-radius:50%; background:var(--gold);}
 .wempty{padding:40px 20px; text-align:center; color:var(--muted); font-size:12.5px;}
+
+/* الحجم واللون بحسب درجة المستوى: المنطقة أكبر وأغمق، والغرفة أصغر وأفتح */
+.wbox.r0{height:46px; background:#1F3A5F; border-color:#1F3A5F; color:#fff; border-radius:23px;}
+.wbox.r1{height:42px; background:#2F5687; border-color:#2F5687; color:#fff; border-radius:21px;}
+.wbox.r2{height:38px; background:#5B84B8; border-color:#5B84B8; color:#fff; border-radius:19px;}
+.wbox.r3{height:34px; background:#B7CCE6; border-color:#A9C1E0; color:var(--ink); border-radius:17px;}
+.wbox.r4{height:32px; background:#D6E3F3; border-color:#C7D8EE; color:var(--ink); border-radius:16px;}
+.wbox.r5{height:30px; background:#E7EEF8; border-color:#DAE4F2; color:var(--ink); border-radius:15px;}
+.wbox.r6{height:30px; background:#F4F7FC; border-color:#E3E9F3; color:var(--ink); border-radius:15px;}
+.wbox.r0 .nm{font-size:15px; width:230px;} .wbox.r1 .nm{font-size:14px; width:210px;}
+.wbox.r2 .nm{font-size:13.5px; width:190px;} .wbox.r3 .nm{font-size:13px; width:170px;}
+.wbox.r4 .nm, .wbox.r5 .nm, .wbox.r6 .nm{font-size:12.5px; width:150px;}
+.wbox.r0 .grip{border-radius:23px 0 0 23px;} .wbox.r1 .grip{border-radius:21px 0 0 21px;}
+.wbox.r2 .grip{border-radius:19px 0 0 19px;} .wbox.r3 .grip{border-radius:17px 0 0 17px;}
+.wbox.r0 .grip, .wbox.r1 .grip, .wbox.r2 .grip{background-color:rgba(255,255,255,.14);
+  background-image:radial-gradient(rgba(255,255,255,.7) 1px, transparent 1px);}
+.wbox.r0 .lv, .wbox.r1 .lv, .wbox.r2 .lv, .wbox.r0 .rp, .wbox.r1 .rp, .wbox.r2 .rp,
+.wbox.r0 .tw, .wbox.r1 .tw, .wbox.r2 .tw, .wbox.r0 .adds, .wbox.r1 .adds, .wbox.r2 .adds,
+.wbox.r0 .rmv, .wbox.r1 .rmv, .wbox.r2 .rmv{color:rgba(255,255,255,.78);}
+.wbox.r0 .cd, .wbox.r1 .cd, .wbox.r2 .cd{color:#fff; border-left-color:rgba(255,255,255,.25);}
+.wbox.r0 input::placeholder, .wbox.r1 input::placeholder, .wbox.r2 input::placeholder{color:rgba(255,255,255,.55);}
+.wbox.r0 input:focus, .wbox.r1 input:focus, .wbox.r2 input:focus,
+.wbox.r0 select:focus, .wbox.r1 select:focus, .wbox.r2 select:focus{background:rgba(255,255,255,.14);}
+.wbox select option{color:var(--ink); background:#fff;}
+.wbox .wgt{font-size:11px; font-weight:700; padding:0 8px; height:20px; line-height:20px;
+  border-radius:10px; background:rgba(255,255,255,.9); color:var(--navy); margin-inline-start:4px;
+  font-variant-numeric:tabular-nums; white-space:nowrap;}
+.wbox.r3 .wgt, .wbox.r4 .wgt, .wbox.r5 .wgt, .wbox.r6 .wgt{background:#fff;}
+.wbox .spn{font-size:10.5px; padding:0 6px; white-space:nowrap; opacity:.85;}
+.wbox .port{width:12px; height:12px; border-radius:50%; background:#fff; border:2px solid #B0872F;
+  margin:0 6px 0 4px; cursor:crosshair; flex:none;}
+.wbox .port:hover{background:#B0872F;}
+.wrow.lktarget .wbox{box-shadow:0 0 0 3px rgba(176,135,47,.55);}
+body.linking, body.linking *{cursor:crosshair !important;}
+#links{position:absolute; left:0; top:0; pointer-events:none; overflow:visible; z-index:3;}
+#links .lk{pointer-events:auto; cursor:pointer;}
+#links .lkp{fill:none; stroke:#B0872F; stroke-width:1.8;}
+#links .lkhit{fill:none; stroke:transparent; stroke-width:12;}
+#links .lk:hover .lkp{stroke:#8A6420; stroke-width:2.4;}
+#links .lkb{fill:#fff; stroke:#B0872F; stroke-width:1.2;}
+#links .lkt{font-size:10px; font-weight:700; fill:#8A6420; font-family:inherit;}
+.pop .opt{padding:8px 10px; margin-bottom:6px; background:var(--tint); cursor:pointer; font-size:12px; line-height:1.5;}
+.pop .opt b{display:block; font-size:12.5px;}
+.pop .opt span{color:var(--muted);}
+.pop .opt.on{background:#E8EEF6; box-shadow:inset 3px 0 0 var(--navy);}
 .hintbar{padding:8px 16px; font-size:11.5px; color:var(--muted); background:var(--tint);
   border-bottom:1px solid var(--line);}
 .pop{position:absolute; z-index:60; background:#fff; border:1px solid var(--line);
@@ -461,9 +506,9 @@ const I18N = {
             'اسحب: يمينًا ليدخل تحت الذي فوقه، يسارًا ليخرج، وأعلى أو أسفل لتغيير الترتيب'],
   mapEmpty:['Nothing here yet. Add the first area, then drag boxes right to nest them inside it.',
             'لا شيء بعد. أضف أوّل منطقة، ثمّ اسحب المربّعات يمينًا لتدخل تحتها.'],
-  runsAfter:['Follows it','يتبعه'], runsWith:['Alongside','بالتوازي'],
+  runsAfter:['Then','ثمّ'], runsWith:['Alongside','بالتوازي'],
   linkOf:['%a and %b','%a و%b'],
-  linkHint:['Its relationship with the box above it — click to change',
+  linkHint:['Its order with the box above it: then, or alongside — click to change',
             'علاقته بالمربّع الذي فوقه — اضغط لتغييرها'],
   hPlacesHint:['The shape is the structure','الشكل هو الهيكل'],
   cOrder:['#','#'],
@@ -642,22 +687,39 @@ function prevSib(p){
 }
 function linkOf(p){
   const pv = prevSib(p); if(!pv) return null;
-  return S.place_rels.find(r => String(r.pred) === String(pv.id)
+  return S.place_rels.find(r => r.mode !== 'constraint' && String(r.pred) === String(pv.id)
                              && String(r.succ) === String(p.id)) || null;
 }
-/* العلاقات تُشتقّ من الشكل بعد كلّ تغيير: ما لم يعد بين أخوين متجاورين
-   يُطرح، فلا تبقى في الملفّ علاقةٌ لا يراها أحد على الشاشة. */
+/* ترتيب الأشقّاء يُشتقّ من الشكل بعد كلّ تغيير: ما لم يعد بين أخوين متجاورين
+   يُطرح. أمّا الروابط المرسومة بين المربّعات (كالـGantt) فتبقى ما دام طرفاها
+   موجودين وليس أحدهما داخل الآخر. وتُقرأ الشجرة كاملةً لا المعروض منها: فرعٌ
+   مطويّ كانت علاقاته تُمحى عند أوّل تعديل. */
 function syncRels(){
   const keep = [];
-  for(const {p} of flat()){
+  for(const {p} of flatAll()){
     const pv = prevSib(p); if(!pv) continue;
-    const old = S.place_rels.find(r => String(r.pred) === String(pv.id)
+    const old = S.place_rels.find(r => r.mode !== 'constraint' && String(r.pred) === String(pv.id)
                                     && String(r.succ) === String(p.id));
-    keep.push(old || {pred: pv.id, succ: p.id,
-                      mode:'sequential', rel_type:'FS', lag_days:0});
+    keep.push(old || {pred: pv.id, succ: p.id, mode:'sequential', rel_type:'FS', lag_days:0});
   }
-  S.place_rels = keep;
+  const cons = S.place_rels.filter(r => r.mode === 'constraint' && byId(r.pred) && byId(r.succ)
+    && String(r.pred) !== String(r.succ)
+    && !isAncestor(r.pred, r.succ) && !isAncestor(r.succ, r.pred));
+  S.place_rels = keep.concat(cons);
 }
+
+/* درجة المستوى: ترتيبه في قائمة المستويات (المنطقة أولًا). منها الحجم واللون. */
+const BOXH = [46, 42, 38, 34, 32, 30, 30];       // يطابق ارتفاعات ‎.wbox.rN‎ في الأنماط
+const rankOf = p => { const i = LEVELS.indexOf(p.level); return Math.max(0, Math.min(6, i < 0 ? depthOf(p) : i)); };
+/* الكود الذي سيُستعمل عند التوليد لمكانٍ بلا كود: حرف مستواه وترتيبه بين
+   إخوته من المستوى نفسه — كما يفعل ‎breakdown.auto_codes‎ تمامًا. */
+function autoCode(p){
+  const tok = ((LEVEL_META[p.level] || {}).token || p.level || 'P').slice(0, 1).toUpperCase();
+  const sibs = kidsOf(p.parent).filter(x => x.level === p.level);
+  return tok + (sibs.findIndex(x => String(x.id) === String(p.id)) + 1);
+}
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const mon = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${MON[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`; };
 
 function renderMap(){
   const box = $('#cvIn');
@@ -667,18 +729,20 @@ function renderMap(){
     box.innerHTML = `<div class="wempty">${esc(T('mapEmpty'))}</div>`;
     syncAddBtn(); return;
   }
-  box.innerHTML = rows.map(({p, depth, kids}) => {
+  const W = S.rollup || {}, SP = S.spans || {};
+  box.innerHTML = `<svg id="links"><defs>
+      <marker id="lkArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#B0872F"></path></marker></defs></svg>` + rows.map(({p, depth, kids}) => {
     const lk = linkOf(p);
     const wth = lk && lk.mode === 'parallel';
-    const lbl = !lk ? '' : wth ? T('runsWith')
-      : (lk.rel_type || 'FS') + (Number(lk.lag_days)
-          ? (Number(lk.lag_days) > 0 ? '+' : '') + lk.lag_days : '');
+    const rk = rankOf(p);
+    const w = W[String(p.id)], sp = SP[String(p.id)];
     return `<div class="wrow${String(p.id) === String(selId) ? ' sel' : ''}"
                  data-id="${p.id}" data-depth="${depth}"
                  style="padding-inline-start:${18 + depth * IND}px">
       ${depth ? `<div class="tick" style="inset-inline-start:${18 + (depth - 1) * IND + 12}px;
-                      width:${IND - 12}px"></div>` : ''}
-      <div class="wbox">
+                      width:${IND - 12}px; top:${BOXH[rk] / 2}px"></div>` : ''}
+      <div class="wbox r${rk}">
         <div class="grip" title="${esc(T('gripHint'))}"></div>
         ${kids ? `<button class="tw" data-tw="${p.id}">${collapsed.has(String(p.id)) ? '▸' : '▾'}</button>`
                : '<span class="tw"></span>'}
@@ -687,16 +751,20 @@ function renderMap(){
         <input class="nm" data-f="name" value="${esc(p.name || '')}"
                placeholder="${esc(T('cName'))}">
         <input class="cd" data-f="code" value="${esc(p.code || '')}" maxlength="10"
-               placeholder="${esc(T('cCode'))}" title="${esc(T('cCode'))}">
+               placeholder="${esc(autoCode(p))}" title="Code in activity IDs${p.code ? '' : ' — ' + autoCode(p) + ' is used until you type one'}">
         <input class="rp" data-f="repeat" type="number" min="1" value="${p.repeat || 1}"
                title="${esc(T('cRepeat'))}">
+        ${w != null ? `<span class="wgt" title="Weight — the sum of the activities inside, from the last generation">${Number(w).toFixed(Number(w) < 10 ? 2 : 1)}%</span>` : ''}
+        ${sp ? `<span class="spn" title="${esc(sp[0].slice(0, 10) + ' → ' + sp[1].slice(0, 10))}">${mon(sp[0])} → ${mon(sp[1])}</span>` : ''}
         ${lk ? `<button class="lnk ${wth ? 'with' : 'after'}" data-lnk="${p.id}"
-                  title="${esc(T('linkHint'))}">${esc(lbl)}</button>` : ''}
+                  title="${esc(T('linkHint'))}">${esc(wth ? T('runsWith') : T('runsAfter'))}</button>` : ''}
         <button class="adds" data-add="${p.id}" title="${esc(T('addInsideHint'))}">+</button>
         <button class="rmv" data-rm="${p.id}" title="${esc(T('del'))}">×</button>
+        <span class="port" data-port="${p.id}" title="Drag to another box to link them, as in a Gantt chart"></span>
       </div></div>`;
   }).join('');
   drawStems(rows);
+  drawLinks();
   syncAddBtn();
 }
 
@@ -712,7 +780,8 @@ function drawStems(rows){
     if(last.get(key) !== i) return;          // خطٌّ واحد لكلّ مجموعة إخوة
     const first = rows.findIndex(x => x.depth === r.depth
                                    && String(x.p.parent) === String(r.p.parent));
-    const top = els[first].offsetTop, bot = els[i].offsetTop + 15;
+    const mid = el => el.offsetTop + el.querySelector('.wbox').offsetHeight / 2;
+    const top = els[first].offsetTop, bot = mid(els[i]);
     const d = document.createElement('div');
     d.className = 'stem';
     d.style.insetInlineStart = (18 + (r.depth - 1) * IND + 12) + 'px';
@@ -720,6 +789,163 @@ function drawStems(rows){
     box.appendChild(d);
   });
 }
+
+/* ── روابط كالـGantt بين المربّعات ──
+   تُرسم في ممرٍّ على يمين الشجرة: تخرج من طرف المربّع السابق وتدخل طرف
+   اللاحق بسهم، ولكلّ رابطٍ ممرّه فلا تتراكب الخطوط. والرابط إلى مربّعٍ في فرعٍ
+   مطويّ يُرسم إلى أقرب سلفٍ ظاهر له. */
+function visibleRow(id){
+  let cur = byId(id), n = 0;
+  while(cur && n++ < 40){
+    const el = document.querySelector(`#cvIn .wrow[data-id="${cur.id}"]`);
+    if(el) return el;
+    cur = byId(cur.parent);
+  }
+  return null;
+}
+const REL_WORDS = {
+  FS: (a, b) => `${b} starts after ${a} finishes`,
+  SS: (a, b) => `${b} starts after ${a} starts`,
+  FF: (a, b) => `${b} finishes after ${a} finishes`,
+  SF: (a, b) => `${b} finishes after ${a} starts`};
+function relText(r){
+  const a = placeLabel(byId(r.pred)), b = placeLabel(byId(r.succ));
+  const lag = Number(r.lag_days || 0);
+  return REL_WORDS[r.rel_type || 'FS'](a, b) + (lag ? (lag > 0 ? `, ${lag} days later` : `, ${-lag} days earlier`) : '');
+}
+function drawLinks(){
+  const svg = $('#links'); if(!svg) return;
+  const box = $('#cvIn'), br = box.getBoundingClientRect();
+  const cons = S.place_rels.filter(r => r.mode === 'constraint');
+  let right = 0;
+  box.querySelectorAll('.wbox').forEach(w => {
+    const r = w.getBoundingClientRect(); right = Math.max(right, r.right - br.left);
+  });
+  const geo = [];
+  for(const r of cons){
+    const A = visibleRow(r.pred), B = visibleRow(r.succ);
+    if(!A || !B || A === B) continue;
+    const a = A.querySelector('.wbox').getBoundingClientRect();
+    const b = B.querySelector('.wbox').getBoundingClientRect();
+    geo.push({r, ax: a.right - br.left, ay: a.top - br.top + a.height / 2,
+                 bx: b.right - br.left, by: b.top - br.top + b.height / 2});
+  }
+  /* ممرّاتٌ بالجشع: رابطٌ لا يتداخل مداه الرأسيّ مع رابطٍ في ممرّ يشاركه */
+  const lanes = [];
+  geo.sort((x, y) => Math.min(x.ay, x.by) - Math.min(y.ay, y.by));
+  for(const g of geo){
+    const lo = Math.min(g.ay, g.by) - 6, hi = Math.max(g.ay, g.by) + 6;
+    let i = lanes.findIndex(L => L.every(([l, h]) => hi < l || lo > h));
+    if(i < 0){ lanes.push([]); i = lanes.length - 1; }
+    lanes[i].push([lo, hi]); g.lane = i;
+  }
+  const base = right + 30, STEP = 26;
+  svg.setAttribute('width', base + lanes.length * STEP + 140);
+  svg.setAttribute('height', box.scrollHeight);
+  box.style.minWidth = (base + lanes.length * STEP + 150) + 'px';
+  const idx = r => S.place_rels.indexOf(r);
+  svg.innerHTML = svg.querySelector('defs').outerHTML + geo.map(g => {
+    const x = base + g.lane * STEP;
+    const t = (g.r.rel_type || 'FS') + (Number(g.r.lag_days) ? (Number(g.r.lag_days) > 0 ? '+' : '') + g.r.lag_days : '');
+    const my = (g.ay + g.by) / 2;
+    return `<g class="lk" data-cl="${idx(g.r)}"><title>${esc(relText(g.r))}</title>
+      <path d="M${g.ax + 4},${g.ay} H${x} V${g.by} H${g.bx + 6}" class="lkp" marker-end="url(#lkArrow)"></path>
+      <path d="M${g.ax + 4},${g.ay} H${x} V${g.by} H${g.bx + 6}" class="lkhit"></path>
+      <rect x="${x - 17}" y="${my - 9}" width="34" height="18" rx="9" class="lkb"></rect>
+      <text x="${x}" y="${my + 4}" text-anchor="middle" class="lkt">${esc(t)}</text></g>`;
+  }).join('') + `<path id="lkTemp" class="lkp" style="display:none" stroke-dasharray="5 4"></path>`;
+}
+$('#cvIn').addEventListener('click', e => {
+  const g = e.target.closest('[data-cl]'); if(!g) return;
+  const r = S.place_rels[Number(g.dataset.cl)]; if(!r) return;
+  openConsPop(r, e.clientX, e.clientY);
+});
+function openConsPop(r, cx, cy){
+  closePop();
+  const d = document.createElement('div');
+  d.className = 'pop'; d.id = 'linkPop';
+  d.style.left = Math.max(8, cx + window.scrollX - 150) + 'px';
+  d.style.top  = (cy + window.scrollY + 12) + 'px';
+  d.style.width = '320px';
+  d.innerHTML = `
+    <div class="row"><label style="min-width:0"><b>${esc(placeLabel(byId(r.pred)))}</b> → <b>${esc(placeLabel(byId(r.succ)))}</b></label></div>
+    <div class="row"><label>Type</label>
+      <select class="fld" id="cpType" style="flex:1">${RELS.map(x =>
+        `<option value="${x}"${x === (r.rel_type || 'FS') ? ' selected' : ''}>${x}</option>`).join('')}</select>
+      <label style="min-width:0">Lag</label>
+      <input class="fld" id="cpLag" type="number" step="1" value="${Number(r.lag_days || 0)}" style="width:70px; min-width:0"></div>
+    <p class="note" id="cpText" style="padding:0 2px 8px; margin:0; color:var(--ink)">${esc(relText(r))}.</p>
+    <p class="note" style="padding:0 2px 8px; margin:0">Applied between the activities inside: the last ones of the first box and the first ones of the second.</p>
+    <div class="row" style="justify-content:space-between; margin:0">
+      <button class="btn sm danger" id="cpDel">Remove link</button>
+      <button class="btn sm" id="cpOk">Done</button></div>`;
+  document.body.appendChild(d);
+  const upd = () => { $('#cpText').textContent = relText(r) + '.'; drawLinks(); };
+  $('#cpType').onchange = () => { r.rel_type = $('#cpType').value; upd(); };
+  $('#cpLag').oninput = () => { r.lag_days = Number($('#cpLag').value || 0); upd(); };
+  $('#cpDel').onclick = () => { S.place_rels = S.place_rels.filter(x => x !== r); closePop(); drawLinks(); };
+  $('#cpOk').onclick = closePop;
+}
+/* التمرير عند الحافّة أثناء السحب: شجرةٌ طويلة لا يُرى آخرها، ومن يسحب مربّعًا
+   أو رابطًا إلى ما تحت الحافّة يُمرَّر له ما دام المؤشّر عندها. */
+let edgeY = null, edgeRaf = null;
+function edgeScroll(y){
+  edgeY = y;
+  if(edgeRaf) return;
+  const tick = () => {
+    const c = $('#canvas'), r = c.getBoundingClientRect(), E = 56;
+    let d = 0;
+    if(edgeY != null && edgeY > r.bottom - E) d = Math.ceil((edgeY - (r.bottom - E)) / 3);
+    else if(edgeY != null && edgeY < r.top + E) d = -Math.ceil(((r.top + E) - edgeY) / 3);
+    if(d && (linking || (drag && drag.on))){ c.scrollTop += d; edgeRaf = requestAnimationFrame(tick); }
+    else edgeRaf = null;
+  };
+  edgeRaf = requestAnimationFrame(tick);
+}
+function edgeStop(){ edgeY = null; }
+
+/* سحب الرابط من دائرة الطرف إلى مربّعٍ آخر */
+let linking = null;
+$('#cvIn').addEventListener('mousedown', e => {
+  const pt = e.target.closest('[data-port]'); if(!pt) return;
+  e.preventDefault(); e.stopPropagation();
+  const br = $('#cvIn').getBoundingClientRect(), r = pt.getBoundingClientRect();
+  linking = {from: pt.dataset.port, x: r.left + r.width / 2 - br.left, y: r.top + r.height / 2 - br.top};
+  document.body.classList.add('linking');
+}, true);
+document.addEventListener('mousemove', e => {
+  if(!linking) return;
+  edgeScroll(e.clientY);
+  const br = $('#cvIn').getBoundingClientRect();
+  const t = $('#lkTemp'); if(!t) return;
+  t.style.display = '';
+  t.setAttribute('d', `M${linking.x},${linking.y} L${e.clientX - br.left},${e.clientY - br.top}`);
+  document.querySelectorAll('#cvIn .wrow.lktarget').forEach(x => x.classList.remove('lktarget'));
+  const row = document.elementFromPoint(e.clientX, e.clientY)?.closest('.wrow');
+  if(row && row.dataset.id !== String(linking.from)) row.classList.add('lktarget');
+});
+document.addEventListener('mouseup', e => {
+  if(!linking) return;
+  edgeStop();
+  const from = linking.from; linking = null;
+  document.body.classList.remove('linking');
+  document.querySelectorAll('#cvIn .wrow.lktarget').forEach(x => x.classList.remove('lktarget'));
+  const t = $('#lkTemp'); if(t) t.style.display = 'none';
+  const row = document.elementFromPoint(e.clientX, e.clientY)?.closest('.wrow');
+  if(!row) return;
+  const to = row.dataset.id;
+  if(String(to) === String(from)) return;
+  if(isAncestor(from, to) || isAncestor(to, from)){
+    msg('warn', 'A place cannot be linked to one inside it — the one inside is already part of it.'); return;
+  }
+  if(S.place_rels.some(r => r.mode === 'constraint' && String(r.pred) === String(from) && String(r.succ) === String(to))){
+    msg('warn', 'These two are already linked. Click the link to change it.'); return;
+  }
+  const r = {pred: from, succ: to, mode: 'constraint', rel_type: 'FS', lag_days: 0};
+  S.place_rels.push(r);
+  drawLinks();
+  msg('ok', relText(r) + '. Click the link to change its type or lag.');
+});
 
 /* ── التحرير على المربّع ── */
 $('#cvIn').addEventListener('input', e => {
@@ -846,6 +1072,7 @@ document.addEventListener('mousemove', e => {
   if(!drag) return;
   if(!drag.on && Math.abs(e.clientY - drag.y0) < 3) return;
   drag.on = true;
+  edgeScroll(e.clientY);
   drag.row.classList.add('ghost');
   const t = dropSpot(e);
   drag.t = t;
@@ -875,6 +1102,7 @@ function dropSpot(e){
 }
 document.addEventListener('mouseup', e => {
   if(!drag) return;
+  edgeStop();
   const row = drag.row, p = drag.p, t = drag.t;
   row.classList.remove('drag', 'ghost');
   $('#dropline').style.display = 'none';
@@ -902,7 +1130,9 @@ document.addEventListener('mouseup', e => {
   renderMap(); updateStrip(); renderPlacesIfOpen();
 });
 
-/* ── الرابط مع السابق ── */
+/* ── الترتيب مع السابق: «ثمّ» أو «معه» ──
+   هذا ترتيبٌ فقط: يقول أيّ مكانٍ يليه في جريان كلّ نوع عمل (قاعدة ‎next‎).
+   أمّا «لا يبدأ هذا قبل أن ينتهي ذاك» فرابطٌ يُرسم من طرف المربّع. */
 function openLinkPop(p, anchor){
   closePop();
   const r = linkOf(p); if(!r) return;
@@ -910,37 +1140,25 @@ function openLinkPop(p, anchor){
   const b = anchor.getBoundingClientRect();
   const d = document.createElement('div');
   d.className = 'pop'; d.id = 'linkPop';
-  d.style.left = Math.max(8, b.left + window.scrollX - 90) + 'px';
+  d.style.left = Math.max(8, b.left + window.scrollX - 120) + 'px';
   d.style.top  = (b.bottom + window.scrollY + 6) + 'px';
   d.innerHTML = `
-    <div class="row"><label style="min-width:0">${esc(T('linkOf')
-       .replace('%a', placeLabel(p)).replace('%b', placeLabel(pv)))}</label></div>
-    <div class="row"><label>${esc(T('relT'))}</label>
-      <select class="fld" id="lpMode" style="flex:1">
-        <option value="sequential"${r.mode !== 'parallel' ? ' selected' : ''}>${esc(T('runsAfter'))}</option>
-        <option value="parallel"${r.mode === 'parallel' ? ' selected' : ''}>${esc(T('runsWith'))}</option>
-      </select></div>
-    <div class="row" id="lpSeq"><label></label>
-      <select class="fld" id="lpType" style="flex:1">${RELS.map(x =>
-        `<option${x === (r.rel_type || 'FS') ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
-    <div class="row" id="lpLagRow"><label>${esc(T('lagD'))}</label>
-      <input class="fld" id="lpLag" type="number" step="0.5" value="${r.lag_days || 0}" style="flex:1"></div>
-    <div class="row" style="justify-content:flex-end; margin:0">
-      <button class="btn sm" id="lpOk">${esc(T('close'))}</button></div>`;
+    <div class="row"><label style="min-width:0"><b>${esc(placeLabel(p))}</b> and <b>${esc(placeLabel(pv))}</b> above it</label></div>
+    <div class="opt${r.mode !== 'parallel' ? ' on' : ''}" data-m="sequential"><b>Then</b>
+      <span>Each trade reaches ${esc(placeLabel(p))} after ${esc(placeLabel(pv))} — crews move on in this order.</span></div>
+    <div class="opt${r.mode === 'parallel' ? ' on' : ''}" data-m="parallel"><b>Alongside</b>
+      <span>Both run at the same time with their own crews.</span></div>
+    <p class="note" style="padding:6px 2px 0; margin:0">To say one must finish before another starts, drag from the small circle on a box to the other box.</p>`;
   document.body.appendChild(d);
-  const sync = () => {
-    const par = $('#lpMode').value === 'parallel';
-    $('#lpSeq').hidden = par; $('#lpLagRow').hidden = par;
-  };
-  sync();
-  $('#lpMode').onchange = () => { r.mode = $('#lpMode').value; sync(); renderMap(); };
-  $('#lpType').onchange = () => { r.rel_type = $('#lpType').value; renderMap(); };
-  $('#lpLag').oninput  = () => { r.lag_days = Number($('#lpLag').value); renderMap(); };
-  $('#lpOk').onclick = closePop;
+  d.addEventListener('click', e => {
+    const o = e.target.closest('[data-m]'); if(!o) return;
+    r.mode = o.dataset.m; closePop(); renderMap();
+  });
 }
 function closePop(){ const e = $('#linkPop'); if(e) e.remove(); }
 document.addEventListener('mousedown', e => {
-  if($('#linkPop') && !e.target.closest('#linkPop') && !e.target.closest('[data-lnk]')) closePop();
+  if($('#linkPop') && !e.target.closest('#linkPop') && !e.target.closest('[data-lnk]')
+     && !e.target.closest('[data-cl]')) closePop();
 });
 
 
@@ -1468,6 +1686,7 @@ $('#btnApply').onclick = async () => {
       headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
     const pv = await api(`/api/boq/${SID}/preview`, {method:'POST'});
     showDiff({...pv, summary: j.summary});
+    S.rollup = (j.rollup || {}).place || {}; renderMap();
     S.generated = (j.diag || {}).activities || 0;
     const d = new Date(), z = n => String(n).padStart(2, '0');
     S.settings.last_generated = `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
@@ -1511,6 +1730,7 @@ async function load(){
     const [j] = await Promise.all([api(`/api/gen/${SID}/definition`), loadDict()]);
     S.places = j.places || []; S.place_rels = j.place_rels || [];
     S.settings = j.settings || {}; S.generated = j.generated || 0;
+    S.rollup = j.rollup || {}; S.spans = j.spans || {};
     $('#prjCode').value = S.settings.project_code || '';
     $('#idPattern').value = S.settings.id_pattern || '';
     msg('', '');

@@ -335,6 +335,10 @@ def load_definition(cur, sched_id):
         a, b = str(pred), str(succ)
         if mode == "parallel":
             tree.mark_parallel(a, b)
+        elif mode == "constraint":
+            # قيدٌ بين منطقتين يُطبَّق على بدايات أنشطتها ونهاياتها عند التوليد؛
+            # ولو دخل سلسلة الترتيب لجرى كلّ نوع عمل إليه أيضًا فوق جاره.
+            continue
         else:
             tree.link_places(a, b, (rt or "FS").upper(), float(lag or 0))
 
@@ -718,10 +722,40 @@ async def get_definition(sched_id: int, request: Request):
             generated = cur.fetchone()[0]
             cur.execute("SELECT COUNT(*) FROM gen_lib_logic WHERE active")
             nrules = cur.fetchone()[0]
+
+            # أوزان آخر توليد، ومدى كلّ مكان من تواريخ أنشطته المحسوبة —
+            # فتُرى على الخريطة المنطقةُ التي تبدأ بعد أختها.
+            rollup = {}
+            try:
+                cur.execute("SELECT last_rollup FROM gen_settings WHERE schedule_id=%s",
+                            (sched_id,))
+                r = cur.fetchone()
+                rollup = (r[0] or {}) if r else {}
+            except Exception:
+                conn.rollback()
+            spans = {}
+            try:
+                cur.execute("""SELECT place_key, MIN(es), MAX(ef) FROM sch_activities
+                               WHERE schedule_id=%s AND place_key IS NOT NULL
+                                 AND es IS NOT NULL
+                               GROUP BY place_key""", (sched_id,))
+                parent = {str(pl["id"]): (str(pl["parent"]) if pl["parent"] else None)
+                          for pl in places}
+                for key, es, ef in cur.fetchall():
+                    cur_id, n = str(key).split("#")[0], 0
+                    while cur_id and n < 40:
+                        a, b = spans.get(cur_id, (es, ef))
+                        spans[cur_id] = (min(a, es), max(b, ef))
+                        cur_id, n = parent.get(cur_id), n + 1
+                spans = {k: [v[0].isoformat(), v[1].isoformat()] for k, v in spans.items()}
+            except Exception:
+                conn.rollback()
         return JSONResponse({"success": True, "places": places,
                              "place_rels": prels, "work_types": wts,
                              "scope": scope, "settings": settings,
-                             "generated": generated, "rules": nrules})
+                             "generated": generated, "rules": nrules,
+                             "rollup": rollup.get("place", {}) if isinstance(rollup, dict) else {},
+                             "spans": spans})
     except Exception as e:
         return _fail(e)
 
@@ -786,18 +820,21 @@ async def save_places(sched_id: int, request: Request):
 
             cur.execute("DELETE FROM gen_place_rels WHERE schedule_id=%s",
                         (sched_id,))
+            rel_rows = []
             for r in body.get("place_rels") or []:
                 pr = idmap.get(r.get("pred"), r.get("pred"))
                 sc = idmap.get(r.get("succ"), r.get("succ"))
                 if not pr or not sc or str(pr) == str(sc):
                     continue
-                cur.execute("""INSERT INTO gen_place_rels
-                                 (schedule_id,pred_place,succ_place,mode,
-                                  rel_type,lag_days)
-                               VALUES (%s,%s,%s,%s,%s,%s)""",
-                            (sched_id, pr, sc, r.get("mode") or "sequential",
-                             (r.get("rel_type") or "FS").upper(),
-                             float(r.get("lag_days") or 0)))
+                mode = r.get("mode") if r.get("mode") in (
+                    "sequential", "parallel", "constraint") else "sequential"
+                rt = (r.get("rel_type") or "FS").upper()
+                rel_rows.append((sched_id, int(pr), int(sc), mode,
+                                 rt if rt in ("FS", "SS", "FF", "SF") else "FS",
+                                 float(r.get("lag_days") or 0)))
+            _batch(cur, """INSERT INTO gen_place_rels
+                             (schedule_id,pred_place,succ_place,mode,rel_type,lag_days)
+                           VALUES %s""", rel_rows)
         return JSONResponse({"success": True, "ids": {str(k): v
                                                       for k, v in idmap.items()}})
     except Exception as e:
